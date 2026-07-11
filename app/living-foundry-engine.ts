@@ -398,11 +398,8 @@ export function createLivingFoundryState(
       callsign: crew.defaultCallsign,
       xp: 0,
       level: 1,
-      assignedRoomId:
-        crew.id === "mara-venn" && worldsSaved >= crew.unlockWorlds
-          ? "axiom-chamber"
-          : null,
-      unlocked: worldsSaved >= crew.unlockWorlds,
+      assignedRoomId: null,
+      unlocked: false,
     })),
     activeExpedition: null,
     expeditionHistory: {},
@@ -431,8 +428,6 @@ export function syncLivingFoundryState(
   });
   next.crew = CREW_DEFINITIONS.map((definition) => {
     const existing = next.crew.find((crew) => crew.id === definition.id);
-    const unlocked = worldsSaved >= definition.unlockWorlds;
-    const assignedRoomId = unlocked ? existing?.assignedRoomId ?? null : null;
     return {
       id: definition.id,
       callsign: textValue(
@@ -442,12 +437,8 @@ export function syncLivingFoundryState(
       ),
       xp: finite(existing?.xp, 0, 1e9),
       level: crewLevelForXp(finite(existing?.xp, 0, 1e9)),
-      assignedRoomId:
-        assignedRoomId &&
-        next.rooms.some((room) => room.id === assignedRoomId && room.unlocked)
-          ? assignedRoomId
-          : null,
-      unlocked,
+      assignedRoomId: null,
+      unlocked: false,
     };
   });
   enforceCrewAssignments(next);
@@ -497,10 +488,6 @@ export function sanitizeLivingFoundryState(
         (candidate) => isRecord(candidate) && candidate.id === definition.id,
       );
       const xp = finite(raw?.xp, 0, 1e9);
-      const rawRoomId =
-        typeof raw?.assignedRoomId === "string"
-          ? (raw.assignedRoomId as RoomId)
-          : null;
       return {
         id: definition.id,
         callsign: textValue(
@@ -510,12 +497,8 @@ export function sanitizeLivingFoundryState(
         ),
         xp,
         level: crewLevelForXp(xp),
-        assignedRoomId: ROOM_DEFINITIONS.some(
-          (room) => room.id === rawRoomId && worldsSaved >= room.unlockWorlds,
-        )
-          ? rawRoomId
-          : null,
-        unlocked: worldsSaved >= definition.unlockWorlds,
+        assignedRoomId: null,
+        unlocked: false,
       };
     }),
     activeExpedition: null,

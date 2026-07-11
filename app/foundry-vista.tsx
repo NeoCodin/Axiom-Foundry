@@ -24,7 +24,7 @@ type WorldVisual = {
 
 export const WORLD_VISUALS: readonly WorldVisual[] = [
   {
-    slug: "helion",
+    slug: "cold-wake",
     accent: "#55d6e8",
     accentRgb: "85 214 232",
     accentSoft: "rgb(85 214 232 / 0.13)",
@@ -44,7 +44,17 @@ export const WORLD_VISUALS: readonly WorldVisual[] = [
     planet: "#0a4160",
   },
   {
-    slug: "cinderwake",
+    slug: "viridia",
+    accent: "#7ee7a8",
+    accentRgb: "126 231 168",
+    accentSoft: "rgb(126 231 168 / 0.13)",
+    secondary: "#43bfb0",
+    sky: "#03100b",
+    ground: "#0a2518",
+    planet: "#1f6947",
+  },
+  {
+    slug: "cinder",
     accent: "#ff8a3d",
     accentRgb: "255 138 61",
     accentSoft: "rgb(255 138 61 / 0.13)",
@@ -54,7 +64,7 @@ export const WORLD_VISUALS: readonly WorldVisual[] = [
     planet: "#6c281b",
   },
   {
-    slug: "ilyra",
+    slug: "nox",
     accent: "#c697ff",
     accentRgb: "198 151 255",
     accentSoft: "rgb(198 151 255 / 0.13)",
@@ -62,16 +72,6 @@ export const WORLD_VISUALS: readonly WorldVisual[] = [
     sky: "#0d0718",
     ground: "#1b0d2b",
     planet: "#45206e",
-  },
-  {
-    slug: "orison",
-    accent: "#84e0a0",
-    accentRgb: "132 224 160",
-    accentSoft: "rgb(132 224 160 / 0.13)",
-    secondary: "#e6c45a",
-    sky: "#07120d",
-    ground: "#10271a",
-    planet: "#276847",
   },
   {
     slug: "vesper",
@@ -98,10 +98,7 @@ function clampWorldIndex(index: number) {
 }
 
 function getVisualWorldIndex(game: GameState) {
-  const missionIndex = game.missions.awaitingAcknowledgement
-    ? game.missions.currentIndex - 1
-    : game.missions.currentIndex;
-  return clampWorldIndex(missionIndex);
+  return clampWorldIndex(game.missions.currentIndex);
 }
 
 function getFacilityStage(bought: number) {

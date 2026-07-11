@@ -10,7 +10,6 @@ import {
   advanceLivingFoundry,
   assignCrew,
   chooseDoctrine,
-  claimExpedition,
   createLivingFoundryState,
   getAvailableExpeditions,
   getCrewDefinition,
@@ -58,7 +57,7 @@ test("a new Living Foundry has canonical rooms, crew, and neutral-positive state
   );
   assert.deepEqual(
     state.crew.filter((crew) => crew.unlocked).map((crew) => crew.id),
-    ["mara-venn"],
+    [],
   );
   for (const crew of state.crew) {
     const definition = getCrewDefinition(crew.id);
@@ -111,22 +110,20 @@ test("sanitization repairs malformed resources, levels, identities, and lore", (
   assert.deepEqual(state.discoveredLore, ["alpha", "beta"]);
 });
 
-test("sync wakes rooms and canonical crew as more worlds are saved", () => {
+test("sync wakes rooms while the obsolete scripted crew registry stays sealed", () => {
   let state = createLivingFoundryState(0);
   state = renameFoundry(state, "Wayfarer Foundry");
-  state = renameCrew(state, "mara-venn", "Hammer");
 
   const afterHelion = syncLivingFoundryState(state, 1);
   assert.equal(afterHelion.foundryName, "Wayfarer Foundry");
-  assert.equal(crewById(afterHelion, "mara-venn").callsign, "Hammer");
-  assert.equal(crewById(afterHelion, "sena-marr").unlocked, true);
+  assert.ok(afterHelion.crew.every((crew) => !crew.unlocked));
   assert.equal(roomById(afterHelion, "resonance-gallery").unlocked, true);
   assert.equal(roomById(afterHelion, "memory-archive").level, 1);
   assert.equal(roomById(afterHelion, "expedition-bay").unlocked, false);
 
   const complete = syncLivingFoundryState(afterHelion, 6);
   assert.ok(complete.rooms.every((room) => room.unlocked && room.level >= 1));
-  assert.ok(complete.crew.every((crew) => crew.unlocked));
+  assert.ok(complete.crew.every((crew) => !crew.unlocked));
 });
 
 test("room upgrades have exact escalating costs, a hard cap, and growing slots", () => {
@@ -163,28 +160,12 @@ test("room upgrades have exact escalating costs, a hard cap, and growing slots",
   assert.equal(upgradeRoom(locked, "recalibration-vault"), locked);
 });
 
-test("crew assignment respects unlocks, slots, reassignment, and expedition duty", () => {
-  let state = createLivingFoundryState(3);
-  state = assignCrew(state, "mara-venn", "axiom-chamber");
-  assert.equal(crewById(state, "mara-venn").assignedRoomId, "axiom-chamber");
-
-  const fullRoom = assignCrew(state, "ivo-senn", "axiom-chamber");
-  assert.equal(fullRoom, state);
-  assert.equal(crewById(fullRoom, "ivo-senn").assignedRoomId, null);
-  assert.equal(assignCrew(state, "cass-vey", "fabrication-floor"), state);
-  assert.equal(assignCrew(state, "mara-venn", "recalibration-vault"), state);
-
-  state = grantLivingFoundryRewards(state, { salvage: 1_000 });
-  state = upgradeRoom(state, "axiom-chamber");
-  state = upgradeRoom(state, "axiom-chamber");
-  state = assignCrew(state, "ivo-senn", "axiom-chamber");
-  assert.equal(crewById(state, "ivo-senn").assignedRoomId, "axiom-chamber");
-
-  state = assignCrew(state, "mara-venn", null);
-  assert.equal(crewById(state, "mara-venn").assignedRoomId, null);
-  const launched = launchExpedition(state, "kestrel", ["mara-venn"], 3, 1_000);
-  assert.notEqual(launched, state);
-  assert.equal(assignCrew(launched, "mara-venn", "axiom-chamber"), launched);
+test("the legacy scripted roster cannot create humans during Cold Wake", () => {
+  const state = createLivingFoundryState(6);
+  assert.ok(state.crew.every((crew) => !crew.unlocked));
+  assert.equal(assignCrew(state, "mara-venn", "axiom-chamber"), state);
+  assert.equal(assignCrew(state, "ivo-senn", "fabrication-floor"), state);
+  assert.ok(state.crew.every((crew) => crew.assignedRoomId === null));
 });
 
 test("all Living Foundry bonuses remain neutral-or-positive and inside hard caps", () => {
@@ -248,23 +229,14 @@ test("Cohesion is positive-only across assignments, time, and malformed saves", 
   assert.ok(repaired.cohesion >= 50 && repaired.cohesion <= 100);
 });
 
-test("assigned crew earn levels during active and capped offline advancement", () => {
-  let state = createLivingFoundryState(0);
-  state = assignCrew(state, "mara-venn", "axiom-chamber");
-  const original = state;
-
-  const active = advanceLivingFoundry(state, 60);
-  assert.equal(crewById(original, "mara-venn").xp, 0);
-  assert.equal(crewById(active, "mara-venn").xp, 1);
-  assert.equal(crewById(active, "ivo-senn").xp, 0);
-
-  const offline = advanceLivingFoundry(active, 7 * 24 * 60 * 60);
-  assert.equal(crewById(offline, "mara-venn").xp, 1_441);
-  assert.equal(crewById(offline, "mara-venn").level, 5);
-  assert.ok(crewById(offline, "mara-venn").level <= MAX_CREW_LEVEL);
+test("offline room advancement cannot invent or level sealed legacy crew", () => {
+  const state = createLivingFoundryState(6);
+  const offline = advanceLivingFoundry(state, 7 * 24 * 60 * 60);
+  assert.ok(offline.crew.every((crew) => crew.xp === 0 && crew.level === 1));
+  assert.ok(offline.crew.every((crew) => !crew.unlocked));
 });
 
-test("expeditions unlock at world thresholds and enforce one reward-only flight", () => {
+test("legacy expedition routes remain defined but cannot invent a crew manifest", () => {
   const beforeHangar = createLivingFoundryState(2);
   assert.deepEqual(getAvailableExpeditions(2), []);
   assert.equal(
@@ -272,7 +244,7 @@ test("expeditions unlock at world thresholds and enforce one reward-only flight"
     beforeHangar,
   );
 
-  let state = syncLivingFoundryState(beforeHangar, 3);
+  const state = syncLivingFoundryState(beforeHangar, 3);
   assert.deepEqual(
     getAvailableExpeditions(3).map((expedition) => expedition.id),
     ["kestrel"],
@@ -283,27 +255,21 @@ test("expeditions unlock at world thresholds and enforce one reward-only flight"
     state,
   );
 
-  state = launchExpedition(
-    state,
-    "kestrel",
-    ["mara-venn", "ivo-senn", "cael-rook"],
-    3,
-    1_000,
-  );
-  assert.ok(state.activeExpedition);
-  assert.equal(state.activeExpedition.crewIds.length, 3);
-  assert.ok(state.activeExpedition.rewardSalvage > 0);
-  assert.ok(state.activeExpedition.rewardXp > 0);
-  assert.equal(state.activeExpedition.discoveryId, "expedition.dead-relay");
-  assert.equal(getExpeditionStatus(state, 1_000).status, "active");
   assert.equal(
-    launchExpedition(state, "kestrel", ["mara-venn"], 3, 1_001),
+    launchExpedition(
+      state,
+      "kestrel",
+      ["mara-venn", "ivo-senn", "cael-rook"],
+      3,
+      1_000,
+    ),
     state,
   );
+  assert.equal(getExpeditionStatus(state, 1_000).status, "idle");
 });
 
-test("all three expedition durations guarantee Salvage, crew XP, and canonical lore", () => {
-  let state = createLivingFoundryState(6);
+test("all three archived expedition definitions retain their canonical durations", () => {
+  const state = createLivingFoundryState(6);
   const expected = [
     ["kestrel", 10 * 60, "expedition.dead-relay"],
     ["lantern", 60 * 60, "expedition.null-bloom"],
@@ -316,41 +282,19 @@ test("all three expedition durations guarantee Salvage, crew XP, and canonical l
         ?.durationSeconds,
       baseDuration,
     );
-    const launchedAt = 10_000;
-    const beforeSalvage = state.salvage;
-    const beforeXp = crewById(state, "mara-venn").xp;
     const launched = launchExpedition(
       state,
       expeditionId,
       ["mara-venn"],
       6,
-      launchedAt,
+      10_000,
     );
-    assert.ok(launched.activeExpedition);
-    assert.equal(claimExpedition(launched, launchedAt), launched);
-    assert.equal(
-      getExpeditionStatus(launched, launched.activeExpedition.endsAt).status,
-      "ready",
-    );
-
-    const claimed = claimExpedition(
-      launched,
-      launched.activeExpedition.endsAt,
-    );
-    assert.equal(claimed.activeExpedition, null);
-    assert.ok(claimed.salvage > beforeSalvage);
-    assert.ok(crewById(claimed, "mara-venn").xp > beforeXp);
-    assert.ok(claimed.discoveredLore.includes(discoveryId));
-    assert.equal(claimed.expeditionHistory[expeditionId], 1);
-
-    const claimedTwice = claimExpedition(claimed, Number.MAX_SAFE_INTEGER);
-    assert.equal(claimedTwice, claimed);
-    assert.equal(claimedTwice.salvage, claimed.salvage);
-    state = claimed;
+    assert.equal(launched, state);
+    assert.equal(state.discoveredLore.includes(discoveryId), false);
   }
 });
 
-test("foundry and callsign renames preserve canonical crew identity", () => {
+test("the Ark can be renamed while legacy crew identities stay sealed", () => {
   const initial = createLivingFoundryState(0);
   const foundry = renameFoundry(initial, "   The   Quiet   Engine   ");
   assert.equal(foundry.foundryName, "The Quiet Engine");
@@ -358,10 +302,8 @@ test("foundry and callsign renames preserve canonical crew identity", () => {
   assert.equal(renameFoundry(foundry, "   "), foundry);
 
   const renamed = renameCrew(foundry, "mara-venn", "  Star   Hammer  ");
-  assert.equal(crewById(renamed, "mara-venn").callsign, "Star Hammer");
+  assert.equal(renamed, foundry);
   assert.equal(getCrewDefinition("mara-venn")?.canonicalName, "Mara Venn");
-  assert.equal(renameCrew(renamed, "sena-marr", "Sunrise"), renamed);
-  assert.equal(renameCrew(renamed, "mara-venn", "   "), renamed);
 });
 
 test("external rewards are immutable, deduplicated, capped, and reach unlocked crew", () => {

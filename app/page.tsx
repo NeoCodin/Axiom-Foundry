@@ -18,15 +18,22 @@ import {
   RETIRED_SAVE_KEYS,
   RUN_UPGRADES,
   SAVE_KEY,
-  acknowledgeNextMission,
   buyLegacyUpgrade,
   buyRunUpgrade,
   buyTier,
+  canResolveCurrentCrisis,
+  completeWorldInfrastructure,
   contributeToMission,
   createInitialState,
+  departCurrentWorld,
+  fabricateWorldSupply,
   formatDuration,
   formatNumber,
+  getCampaignCrewSummaries,
   getCampaignWorldIndex,
+  getCrisisFluxCost,
+  getCurrentViabilityForecast,
+  getInfrastructureFluxCost,
   getLegacyUpgradeCost,
   getManualGain,
   getMissionProgress,
@@ -35,12 +42,16 @@ import {
   getProductionSnapshot,
   getPurchaseQuantity,
   getRecalibrationGain,
+  getResearchCrewAvailable,
+  getResearchPowerAvailable,
   getRunUpgradeCost,
+  getSupplyFabricationQuote,
   getTierCost,
   getWorldEffects,
   isTierUnlocked,
   pulseCore,
   recalibrate,
+  resolveCurrentCrisis,
   sanitizeGameState,
   setAutoEnabled,
   setAutoTier,
@@ -52,38 +63,65 @@ import {
   type PurchaseMode,
 } from "./game-engine";
 import FoundryVista, { WORLD_VISUALS } from "./foundry-vista";
-import FoundryDeck from "./foundry-deck";
+import ArkDeck, { type ArkViewId } from "./ark-deck";
+import PopulationConsole from "./population-console";
+import ResearchLattice from "./research-lattice";
+import SettlementConsole from "./settlement-console";
 import {
   addDiscovery,
   getChosenDoctrine,
-  getCrewTransmission,
   getDiscoveredFragments,
   getDoctrineAvailability,
   getNextArchiveDiscovery,
-  getNextRoomDiscovery,
   syncAutomaticDiscoveries,
 } from "./discovery-engine";
 import {
   DISCOVERY_FRAGMENTS,
   type DoctrineId,
-  type ExpeditionId,
-  type RoomId,
 } from "./discovery-content";
 import {
-  assignCrew,
   chooseDoctrine,
-  claimExpedition,
-  getCrewDefinition,
   grantLivingFoundryRewards,
-  launchExpedition,
-  renameCrew,
-  renameFoundry,
-  upgradeRoom,
 } from "./living-foundry-engine";
+import {
+  assignSurvivorToRole,
+  getLifeSupportStatus,
+  getRescueReadiness,
+  getSurvivorSkillLevel,
+  renameSurvivorCallsign,
+  rescueSurvivorSignal,
+  setLifeSupportCapacity,
+  setSosBeaconOnline,
+  startSurvivorTraining,
+  cancelSurvivorTraining,
+  type LifeSupportKey,
+  type ProfessionalRole,
+  type SurvivorRole,
+} from "./survivor-engine";
+import {
+  addResearchInputs,
+  getResearchNetworkStatus,
+  getResearchProjectDefinition,
+  getResearchProjectProgress,
+  setResearchCrew,
+  type ResearchInputId,
+  type ResearchLatticeState,
+} from "./research-engine";
+import {
+  acknowledgeColonyTransmission,
+  getAllPendingColonyTransmissions,
+  toggleSettlerSelection,
+} from "./settlement-engine";
+import { getCampaignWorld } from "./campaign-content";
 import { LORE_ENTRIES, TOUR_STEPS } from "./story-content";
 
 type MobileTab = "core" | "machines" | "systems" | "recalibrate";
-type PrimaryView = "deck" | "engineering";
+type PrimaryView =
+  | "deck"
+  | "engineering"
+  | "population"
+  | "research"
+  | "settlement";
 
 const purchaseModes: Array<{ value: PurchaseMode; label: string }> = [
   { value: "1", label: "×1" },
@@ -115,7 +153,7 @@ function getNextObjective(state: GameState) {
 
   if (state.missions.awaitingAcknowledgement) {
     return {
-      label: "Planetfall route ready",
+      label: "Engineering directive complete — continuity review required",
       threshold: 1,
       current: 1,
       progress: 1,
@@ -245,7 +283,7 @@ export default function Home() {
           );
         } else if (expandedCampaignWasNew) {
           setAnnouncement(
-            "New planetary charts loaded. Your permanent progress survived, and the expanded Helion campaign is ready.",
+            "Cold-wake charts loaded. AXIOM is alone, Pelagos is ahead, and the continuity route is ready.",
           );
         } else if (untimedDirectivesWereNew) {
           setAnnouncement(
@@ -293,9 +331,10 @@ export default function Home() {
       setPrimaryView("engineering");
       setMobileTab("machines");
     }
-    else if (target === "research" || target === "missions") {
-      setPrimaryView("engineering");
-      setMobileTab("systems");
+    else if (target === "research") {
+      setPrimaryView("research");
+    } else if (target === "missions") {
+      setPrimaryView("settlement");
     } else if (target === "recalibration") {
       setPrimaryView("engineering");
       setMobileTab("recalibrate");
@@ -426,43 +465,6 @@ export default function Home() {
     () => getNextArchiveDiscovery(game.living.discoveredLore),
     [game.living.discoveredLore],
   );
-  const investigableRoomIds = useMemo(
-    () =>
-      game.living.rooms
-        .filter(
-          (room) =>
-            room.unlocked &&
-            Boolean(
-              getNextRoomDiscovery(
-                game.living.discoveredLore,
-                room.id,
-                room.level,
-              ),
-            ),
-        )
-        .map((room) => room.id),
-    [game.living.discoveredLore, game.living.rooms],
-  );
-  const crewTransmission = useMemo(
-    () =>
-      getCrewTransmission(
-        game.living.discoveredLore,
-        game.missions.worldsSaved,
-        game.living.crew
-          .filter((crew) => crew.unlocked)
-          .map((crew) => ({
-            homeworld: getCrewDefinition(crew.id)?.homeworld ?? "foundry",
-            assignedRoomId: crew.assignedRoomId,
-          })),
-        Math.floor(game.playTime / 30),
-      ),
-    [
-      game.living.crew,
-      game.living.discoveredLore,
-      game.missions.worldsSaved,
-      game.playTime,
-    ],
-  );
   const doctrineAvailability = useMemo(
     () =>
       getDoctrineAvailability(
@@ -472,10 +474,6 @@ export default function Home() {
     [game.living.discoveredLore, game.missions.worldsSaved],
   );
   const chosenDoctrine = getChosenDoctrine(game.living.doctrine);
-  const lastResolvedMission =
-    game.missions.currentIndex > 0
-      ? MISSIONS[game.missions.currentIndex - 1]
-      : null;
   const firstLockedGenerator = GENERATORS.findIndex(
     (_, index) => !isTierUnlocked(game, index),
   );
@@ -483,6 +481,100 @@ export default function Home() {
     firstLockedGenerator === -1
       ? GENERATORS.length
       : Math.min(GENERATORS.length, firstLockedGenerator + 1);
+  const campaignWorld =
+    (game.settlement.currentWorldId
+      ? getCampaignWorld(game.settlement.currentWorldId)
+      : null) ?? getCampaignWorld("vesper")!;
+  const lifeSupport = useMemo(
+    () => getLifeSupportStatus(game.survivors),
+    [game.survivors],
+  );
+  const rescueReadiness = useMemo(
+    () => getRescueReadiness(game.survivors, game.living.salvage),
+    [game.living.salvage, game.survivors],
+  );
+  const viabilityForecast = getCurrentViabilityForecast(game);
+  const campaignCrew = getCampaignCrewSummaries(game);
+  const researchPowerAvailable = getResearchPowerAvailable(game);
+  const researchCrewAvailable = getResearchCrewAvailable(game);
+  const researchNetwork = useMemo(
+    () =>
+      getResearchNetworkStatus(game.research, {
+        powerAvailable: researchPowerAvailable,
+        crewAvailable: researchCrewAvailable,
+      }),
+    [game.research, researchCrewAvailable, researchPowerAvailable],
+  );
+  const activeResearchDefinition = game.research.activeProjectId
+    ? getResearchProjectDefinition(game.research.activeProjectId)
+    : null;
+  const activeResearchProgress = activeResearchDefinition
+    ? getResearchProjectProgress(game.research, activeResearchDefinition.id)
+    : 0;
+  const pendingColonyTransmission = useMemo(
+    () => getAllPendingColonyTransmissions(game.settlement)[0] ?? null,
+    [game.settlement],
+  );
+  const supportUpgradeCosts = useMemo(
+    () =>
+      Object.fromEntries(
+        (Object.keys(game.survivors.lifeSupport) as LifeSupportKey[]).map(
+          (key) => [
+            key,
+            8 +
+              game.survivors.lifeSupport[key] * 2 +
+              game.settlement.completedWorldIds.length * 4,
+          ],
+        ),
+      ) as Record<LifeSupportKey, number>,
+    [game.settlement.completedWorldIds.length, game.survivors.lifeSupport],
+  );
+  const currentWorldProgress = useMemo(
+    () => ({
+      ...game.worldProgress,
+      completedResearchIds: [
+        ...new Set([
+          ...game.worldProgress.completedResearchIds,
+          ...game.research.completedProjectIds,
+        ]),
+      ],
+    }),
+    [game.research.completedProjectIds, game.worldProgress],
+  );
+  const infrastructureQuotes = Object.fromEntries(
+    campaignWorld.infrastructure.map((objective) => {
+      const cost = getInfrastructureFluxCost(game);
+      return [
+        objective.id,
+        { canAfford: game.flux >= cost, costLabel: `${formatNumber(cost)} Flux` },
+      ];
+    }),
+  );
+  const supplyQuotes = Object.fromEntries(
+    campaignWorld.supplyRequirements.map((requirement) => {
+      const quote = getSupplyFabricationQuote(game, requirement.id);
+      return [
+        requirement.id,
+        {
+          canAfford: game.flux >= quote.cost,
+          costLabel: `${formatNumber(quote.cost)} Flux`,
+          rewardLabel: `+${quote.amount}`,
+        },
+      ];
+    }),
+  );
+  const crisisQuotes = Object.fromEntries(
+    campaignWorld.crisisIds.map((crisisId) => {
+      const cost = getCrisisFluxCost(game);
+      return [
+        crisisId,
+        {
+          canAfford: canResolveCurrentCrisis(game, crisisId),
+          costLabel: `${formatNumber(cost)} Flux`,
+        },
+      ];
+    }),
+  );
 
   useEffect(() => {
     if (!ready) return;
@@ -490,10 +582,10 @@ export default function Home() {
     if (
       missionSignatureRef.current &&
       signature !== missionSignatureRef.current &&
-      lastResolvedMission
+      activeMission
     ) {
       setAnnouncement(
-        `${lastResolvedMission.world} secured. Its relic is online, and a Stellar Relay now shields future planetfalls.`,
+        `${activeMission.world} engineering complete. Open the continuity forecast to finish the world responsibly.`,
       );
     }
     missionSignatureRef.current = signature;
@@ -501,7 +593,7 @@ export default function Home() {
     game.missions.awaitingAcknowledgement,
     game.missions.currentIndex,
     game.missions.worldsSaved,
-    lastResolvedMission,
+    activeMission,
     ready,
   ]);
 
@@ -610,6 +702,272 @@ export default function Home() {
     setSaveStatus("Fresh local save started");
   };
 
+  const commitGameState = (next: GameState, message: string) => {
+    if (next === gameRef.current) return false;
+    gameRef.current = next;
+    setGame(next);
+    setAnnouncement(message);
+    window.setTimeout(() => persistGame("Ark state saved"), 0);
+    return true;
+  };
+
+  const handleOpenArkView = (view: ArkViewId) => {
+    setPrimaryView(view);
+    if (view === "engineering") setMobileTab("core");
+  };
+
+  const handleUpgradeSupport = (key: LifeSupportKey) => {
+    const current = gameRef.current;
+    const cost =
+      8 +
+      current.survivors.lifeSupport[key] * 2 +
+      current.settlement.completedWorldIds.length * 4;
+    if (current.living.salvage < cost) return;
+    const survivors = setLifeSupportCapacity(current.survivors, {
+      [key]: current.survivors.lifeSupport[key] + 4,
+    });
+    commitGameState(
+      {
+        ...current,
+        survivors,
+        living: {
+          ...current.living,
+          salvage: current.living.salvage - cost,
+        },
+      },
+      `${key.replaceAll("-", " ")} capacity expanded. The Ark can safely support more people.`,
+    );
+  };
+
+  const handleActivateBeacon = () => {
+    const current = gameRef.current;
+    const worldId = current.settlement.currentWorldId;
+    if (!worldId || worldId === "cold-wake") {
+      setAnnouncement("The SOS array cannot transmit until the Ark reaches a planetary orbit.");
+      return;
+    }
+    const survivors = setSosBeaconOnline(current.survivors, true, worldId);
+    if (survivors === current.survivors) return;
+    commitGameState(
+      { ...current, survivors },
+      `${campaignWorld.name} SOS carrier online. The first decoded signal will never expire.`,
+    );
+  };
+
+  const handleRescueSurvivors = () => {
+    const current = gameRef.current;
+    const result = rescueSurvivorSignal(
+      current.survivors,
+      current.living.salvage,
+    );
+    if (!result.rescued) {
+      setAnnouncement(
+        result.reason === "life-support"
+          ? "The signal is holding. Expand every life-support category before dispatching the shuttle."
+          : "The signal is holding until the Ark has enough Salvage and capacity.",
+      );
+      return;
+    }
+    const rescued = result.survivorIds.length;
+    commitGameState(
+      {
+        ...current,
+        survivors: result.state,
+        living: {
+          ...current.living,
+          salvage: current.living.salvage - result.salvageSpent,
+        },
+        researchStock: {
+          ...current.researchStock,
+          "biological-samples":
+            current.researchStock["biological-samples"] + rescued * 18,
+          "cultural-records":
+            current.researchStock["cultural-records"] + rescued * 22,
+        },
+      },
+      `${rescued} survivors are safely aboard. Their names, aptitudes, and histories are now part of the Ark.`,
+    );
+  };
+
+  const handleStartTraining = (
+    survivorId: string,
+    role: ProfessionalRole,
+  ) => {
+    const current = gameRef.current;
+    const survivors = startSurvivorTraining(
+      current.survivors,
+      survivorId,
+      role,
+    );
+    commitGameState(
+      { ...current, survivors },
+      `${role.replaceAll("-", " ")} training started. It continues while you are away.`,
+    );
+  };
+
+  const handleCancelTraining = (survivorId: string) => {
+    const current = gameRef.current;
+    commitGameState(
+      {
+        ...current,
+        survivors: cancelSurvivorTraining(current.survivors, survivorId),
+      },
+      "Training paused without penalty.",
+    );
+  };
+
+  const handleAssignSurvivor = (
+    survivorId: string,
+    role: SurvivorRole | null,
+  ) => {
+    const current = gameRef.current;
+    commitGameState(
+      {
+        ...current,
+        survivors: assignSurvivorToRole(
+          current.survivors,
+          survivorId,
+          role,
+        ),
+      },
+      role ? `Crew assignment updated: ${role}.` : "Crew member released from duty.",
+    );
+  };
+
+  const handleRenameSurvivor = (survivorId: string, callsign: string) => {
+    const current = gameRef.current;
+    commitGameState(
+      {
+        ...current,
+        survivors: renameSurvivorCallsign(
+          current.survivors,
+          survivorId,
+          callsign,
+        ),
+      },
+      "Crew callsign updated.",
+    );
+  };
+
+  const handleResearchStateChange = (research: ResearchLatticeState) => {
+    const current = gameRef.current;
+    commitGameState(
+      { ...current, research },
+      research.activeProjectId
+        ? `Research routing updated: ${getResearchProjectDefinition(research.activeProjectId)?.name ?? "active project"}.`
+        : "Research lattice configuration updated.",
+    );
+  };
+
+  const handleResearchCrewChange = (assignedCrew: number) => {
+    const current = gameRef.current;
+    commitGameState(
+      {
+        ...current,
+        research: setResearchCrew(
+          current.research,
+          assignedCrew,
+          getResearchCrewAvailable(current),
+        ),
+      },
+      "Analysis Core staffing updated.",
+    );
+  };
+
+  const handleTransferResearchInput = (
+    inputId: ResearchInputId,
+    amount: number,
+  ) => {
+    const current = gameRef.current;
+    const available = current.researchStock[inputId];
+    const transferred = Math.min(available, Math.max(0, amount));
+    if (transferred <= 0) return;
+    commitGameState(
+      {
+        ...current,
+        research: addResearchInputs(current.research, {
+          [inputId]: transferred,
+        }),
+        researchStock: {
+          ...current.researchStock,
+          [inputId]: available - transferred,
+        },
+      },
+      `${formatNumber(transferred)} ${inputId.replaceAll("-", " ")} routed into the Analysis Core.`,
+    );
+  };
+
+  const handleToggleSettler = (crewId: string) => {
+    const current = gameRef.current;
+    commitGameState(
+      {
+        ...current,
+        settlement: toggleSettlerSelection(
+          current.settlement,
+          getCampaignCrewSummaries(current),
+          crewId,
+        ),
+      },
+      "Founding roster recalculated.",
+    );
+  };
+
+  const handleCompleteInfrastructure = (objectiveId: string) => {
+    const current = gameRef.current;
+    const next = completeWorldInfrastructure(current, objectiveId);
+    commitGameState(next, "Planetary infrastructure objective secured.");
+  };
+
+  const handleFabricateSupply = (supplyId: string) => {
+    const current = gameRef.current;
+    const next = fabricateWorldSupply(current, supplyId);
+    commitGameState(next, "Settlement supply batch moved into the departure reserve.");
+  };
+
+  const handleResolveCrisis = (crisisId: string) => {
+    const current = gameRef.current;
+    const next = resolveCurrentCrisis(current, crisisId);
+    if (next === current) {
+      setAnnouncement(
+        "Finish this world's Engineering directive, infrastructure, and required research before resolving its crisis.",
+      );
+      return;
+    }
+    commitGameState(next, `${crisisId.replaceAll("-", " ")} resolved without a deadline or loss state.`);
+  };
+
+  const handleCampaignDeparture = (colonyName: string) => {
+    const current = gameRef.current;
+    const result = departCurrentWorld(current, Date.now(), colonyName);
+    if (!result.ok) {
+      setAnnouncement("Departure denied. The continuity forecast still lists required work or founders.");
+      return;
+    }
+    commitGameState(
+      result.state,
+      result.nextWorldId
+        ? `${campaignWorld.name} is independent. The Ark is now bound for ${getCampaignWorld(result.nextWorldId)?.name ?? "the next world"}.`
+        : "The continuity route is complete. AXIOM must now decide what kind of future it has been building.",
+    );
+    setPrimaryView("deck");
+  };
+
+  const handleAcknowledgeTransmission = () => {
+    const pending = getAllPendingColonyTransmissions(gameRef.current.settlement)[0];
+    if (!pending) return;
+    const current = gameRef.current;
+    commitGameState(
+      {
+        ...current,
+        settlement: acknowledgeColonyTransmission(
+          current.settlement,
+          pending.worldId,
+        ),
+      },
+      `Transmission from ${pending.colonyName} archived.`,
+    );
+  };
+
   const commitLivingChange = (
     transform: (state: GameState["living"], game: GameState) => GameState["living"],
     message: string,
@@ -630,88 +988,6 @@ export default function Home() {
     setAnnouncement(message);
     window.setTimeout(() => persistGame("Living Foundry saved"), 0);
     return true;
-  };
-
-  const handleRenameFoundry = (name: string) => {
-    commitLivingChange(
-      (living) => renameFoundry(living, name),
-      `Foundry registry updated to ${name.trim()}.`,
-    );
-  };
-
-  const handleAssignCrew = (crewId: string, roomId: RoomId | null) => {
-    const crewName = getCrewDefinition(crewId)?.canonicalName ?? "Crew member";
-    commitLivingChange(
-      (living) => assignCrew(living, crewId, roomId),
-      roomId
-        ? `${crewName} assigned to ${roomId.replaceAll("-", " ")}.`
-        : `${crewName} released from room duty.`,
-    );
-  };
-
-  const handleRenameCallsign = (crewId: string, callsign: string) => {
-    const crewName = getCrewDefinition(crewId)?.canonicalName ?? "Crew member";
-    commitLivingChange(
-      (living) => renameCrew(living, crewId, callsign),
-      `${crewName} now answers to ${callsign.trim()}.`,
-    );
-  };
-
-  const handleUpgradeRoom = (roomId: RoomId) => {
-    commitLivingChange(
-      (living) => upgradeRoom(living, roomId),
-      `${roomId.replaceAll("-", " ")} awakened one level.`,
-    );
-  };
-
-  const handleLaunchExpedition = (
-    expeditionId: ExpeditionId,
-    crewIds: readonly string[],
-  ) => {
-    commitLivingChange(
-      (living, current) =>
-        launchExpedition(
-          living,
-          expeditionId,
-          crewIds,
-          current.missions.worldsSaved,
-          Date.now(),
-        ),
-      `Expedition ${expeditionId} launched. Its return can be claimed whenever you come back.`,
-    );
-  };
-
-  const handleClaimExpedition = () => {
-    const expedition = gameRef.current.living.activeExpedition;
-    if (!expedition) return;
-    commitLivingChange(
-      (living) => claimExpedition(living, Date.now()),
-      `Expedition returned with ${formatNumber(expedition.rewardSalvage)} Salvage and a recovered record.`,
-    );
-  };
-
-  const handleInvestigateRoom = (roomId: RoomId) => {
-    const current = gameRef.current;
-    const room = current.living.rooms.find((candidate) => candidate.id === roomId);
-    const fragment = room
-      ? getNextRoomDiscovery(
-          current.living.discoveredLore,
-          roomId,
-          room.level,
-        )
-      : null;
-    if (!fragment) {
-      setAnnouncement("This room has no readable contradiction yet.");
-      return;
-    }
-    commitLivingChange(
-      (living) =>
-        grantLivingFoundryRewards(living, {
-          salvage: 5,
-          loreIds: addDiscovery(living.discoveredLore, fragment.id),
-        }),
-      `Recovered record: ${fragment.title}.`,
-    );
   };
 
   const handleArchiveInvestigation = () => {
@@ -746,7 +1022,7 @@ export default function Home() {
     setTourStep(null);
     setPrimaryView("deck");
     setAnnouncement(
-      "Orientation complete. Helion's rescue operation is ready whenever you are.",
+      "Cold-wake orientation complete. Restore the Ark, prove closed-loop habitation, and enter Pelagos orbit at your own pace.",
     );
     window.setTimeout(() => persistGame("Orientation saved"), 0);
   };
@@ -764,18 +1040,6 @@ export default function Home() {
     setLoreOpen(false);
     setPrimaryView("deck");
     setTourStep(0);
-  };
-
-  const acknowledgeMission = () => {
-    const next = acknowledgeNextMission(gameRef.current);
-    gameRef.current = next;
-    setGame(next);
-    setAnnouncement(
-      MISSIONS[next.missions.currentIndex]
-        ? `Planetfall at ${MISSIONS[next.missions.currentIndex].world}. Temporary machinery was translated into a landing cache; continue whenever you are ready.`
-        : "The Sixfold Evacuation is complete.",
-    );
-    window.setTimeout(() => persistGame("Directive saved"), 0);
   };
 
   const updateMode = (mode: PurchaseMode) => {
@@ -862,7 +1126,37 @@ export default function Home() {
           onClick={() => setPrimaryView("deck")}
         >
           <span aria-hidden="true">▦</span>
-          Foundry Deck
+          Ark Deck
+        </button>
+        <button
+          className={primaryView === "population" ? "active" : ""}
+          type="button"
+          role="tab"
+          aria-selected={primaryView === "population"}
+          onClick={() => setPrimaryView("population")}
+        >
+          <span aria-hidden="true">◇</span>
+          Crew
+        </button>
+        <button
+          className={primaryView === "research" ? "active" : ""}
+          type="button"
+          role="tab"
+          aria-selected={primaryView === "research"}
+          onClick={() => setPrimaryView("research")}
+        >
+          <span aria-hidden="true">◎</span>
+          Research
+        </button>
+        <button
+          className={primaryView === "settlement" ? "active" : ""}
+          type="button"
+          role="tab"
+          aria-selected={primaryView === "settlement"}
+          onClick={() => setPrimaryView("settlement")}
+        >
+          <span aria-hidden="true">CIV</span>
+          Continuity
         </button>
         <button
           className={primaryView === "engineering" ? "active" : ""}
@@ -871,25 +1165,8 @@ export default function Home() {
           aria-selected={primaryView === "engineering"}
           onClick={() => setPrimaryView("engineering")}
         >
-          <span aria-hidden="true">◇</span>
+          <span aria-hidden="true">ENG</span>
           Engineering
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setPrimaryView("engineering");
-            setMobileTab("systems");
-            window.setTimeout(
-              () =>
-                document
-                  .getElementById("planetary-directives")
-                  ?.scrollIntoView({ behavior: "smooth", block: "start" }),
-              0,
-            );
-          }}
-        >
-          <span aria-hidden="true">◎</span>
-          Directives
         </button>
         <button type="button" onClick={() => setLoreOpen(true)}>
           <span aria-hidden="true">≡</span>
@@ -911,27 +1188,133 @@ export default function Home() {
       )}
 
       {primaryView === "deck" ? (
-        <FoundryDeck
-          state={game.living}
-          worldsSaved={game.missions.worldsSaved}
-          currentWorld={campaignWorldIndex}
-          now={clockNow || game.lastSaved}
-          onRenameFoundry={handleRenameFoundry}
-          onAssignCrew={handleAssignCrew}
-          onRenameCallsign={handleRenameCallsign}
-          onUpgradeRoom={handleUpgradeRoom}
-          onLaunchExpedition={handleLaunchExpedition}
-          onClaimExpedition={handleClaimExpedition}
-          investigationLabel={
-            investigableRoomIds.length > 0
-              ? "Investigate contradictory room records"
-              : null
+        <ArkDeck
+          foundryName={game.living.foundryName}
+          worldName={campaignWorld.name}
+          worldSubtitle={campaignWorld.subtitle}
+          worldProgress={(viabilityForecast?.score ?? objective.progress * 100) / 100}
+          objectiveLabel={objective.label}
+          objectiveDetail={activeStage?.instruction ?? campaignWorld.arrivalBrief}
+          fluxLabel={formatNumber(game.flux)}
+          fluxPerSecondLabel={formatNumber(production.fluxPerSecond)}
+          manualGainLabel={formatNumber(manualGain)}
+          population={game.survivors.survivors.length}
+          populationCapacity={Math.min(...Object.values(game.survivors.lifeSupport))}
+          cohesion={game.living.cohesion}
+          salvageLabel={formatNumber(game.living.salvage)}
+          support={(Object.keys(game.survivors.lifeSupport) as LifeSupportKey[]).map((key) => ({
+            id: key,
+            label: key.replaceAll("-", " "),
+            value: lifeSupport.demand[key],
+            capacity: game.survivors.lifeSupport[key],
+            status:
+              lifeSupport.shortages[key] > 0
+                ? `${lifeSupport.shortages[key]} capacity needed`
+                : "stable reserve",
+          }))}
+          crew={game.survivors.survivors.map((survivor) => {
+            const training = game.survivors.training.find(
+              (program) => program.survivorId === survivor.id,
+            );
+            return {
+              id: survivor.id,
+              name: survivor.callsign || survivor.name,
+              role: survivor.role.replaceAll("-", " "),
+              level: Math.max(1, getSurvivorSkillLevel(
+                survivor,
+                survivor.role === "civilian" ? "teacher" : survivor.role,
+              )),
+              training: training?.targetRole ?? null,
+            };
+          })}
+          beaconAvailable={
+            campaignWorld.kind === "planet" &&
+            Math.min(...Object.values(game.survivors.lifeSupport)) >= 2
           }
-          investigableRoomIds={investigableRoomIds}
-          onInvestigateRoom={handleInvestigateRoom}
-          transmission={crewTransmission}
-          onOpenEngineeringConsole={() => setPrimaryView("engineering")}
-          onOpenArchive={() => setLoreOpen(true)}
+          beaconOnline={game.survivors.beaconOnline}
+          pendingSignal={game.survivors.activeSignal ? {
+            id: game.survivors.activeSignal.id,
+            label: `Signal ${String(game.survivors.activeSignal.sequence).padStart(2, "0")}`,
+            location: game.survivors.activeSignal.sourceLabel,
+            groupSize: game.survivors.activeSignal.survivors.length,
+            roles: [...new Set(game.survivors.activeSignal.survivors.map((survivor) => survivor.role.replaceAll("-", " ")))],
+            rescueCost: game.survivors.activeSignal.rescueCost,
+            canRescue: rescueReadiness.canRescue,
+            blockedReason:
+              rescueReadiness.reason === "life-support"
+                ? "Expand life-support capacity first."
+                : rescueReadiness.reason === "salvage"
+                  ? "More Salvage is required."
+                  : null,
+            rare: game.survivors.activeSignal.survivors.some((survivor) => survivor.storyHookId),
+          } : null}
+          researchProject={activeResearchDefinition?.name ?? null}
+          researchProgress={activeResearchProgress}
+          researchThroughput={`${researchNetwork.progressPerSecond.toFixed(2)} work/sec`}
+          settlementScore={viabilityForecast?.score ?? 0}
+          settlementReady={viabilityForecast?.canDepart ?? false}
+          settlementDeficit={viabilityForecast?.deficits[0]?.message ?? null}
+          onlineRoomCount={game.living.rooms.filter((room) => room.unlocked).length}
+          totalRoomCount={game.living.rooms.length}
+          onTuneCore={handlePulse}
+          onActivateBeacon={handleActivateBeacon}
+          onRescueSignal={handleRescueSurvivors}
+          onOpenView={handleOpenArkView}
+        />
+      ) : primaryView === "population" ? (
+        <PopulationConsole
+          state={game.survivors}
+          salvage={game.living.salvage}
+          currentWorldName={campaignWorld.name}
+          beaconAvailable={
+            campaignWorld.kind === "planet" &&
+            Math.min(...Object.values(game.survivors.lifeSupport)) >= 2
+          }
+          supportUpgradeCosts={supportUpgradeCosts}
+          onUpgradeSupport={handleUpgradeSupport}
+          onActivateBeacon={handleActivateBeacon}
+          onRescueSignal={handleRescueSurvivors}
+          onStartTraining={handleStartTraining}
+          onCancelTraining={handleCancelTraining}
+          onAssignRole={handleAssignSurvivor}
+          onRenameCallsign={handleRenameSurvivor}
+          onBack={() => setPrimaryView("deck")}
+        />
+      ) : primaryView === "research" ? (
+        <ResearchLattice
+          state={game.research}
+          resources={game.researchStock}
+          availableCrew={researchCrewAvailable}
+          powerAvailable={researchPowerAvailable}
+          now={clockNow || game.lastSaved}
+          onStateChange={handleResearchStateChange}
+          onTransferInput={handleTransferResearchInput}
+          onAssignedCrewChange={handleResearchCrewChange}
+          onClose={() => setPrimaryView("deck")}
+        />
+      ) : primaryView === "settlement" && viabilityForecast ? (
+        <SettlementConsole
+          world={campaignWorld}
+          forecast={viabilityForecast}
+          progress={currentWorldProgress}
+          crew={campaignCrew}
+          colonies={game.settlement.colonies}
+          infrastructureQuotes={infrastructureQuotes}
+          supplyQuotes={supplyQuotes}
+          crisisQuotes={crisisQuotes}
+          pendingTransmission={pendingColonyTransmission ? {
+            colonyName: pendingColonyTransmission.colonyName,
+            transmission: pendingColonyTransmission.transmission,
+          } : null}
+          onToggleSettler={handleToggleSettler}
+          onCompleteInfrastructure={handleCompleteInfrastructure}
+          onFabricateSupply={handleFabricateSupply}
+          onResolveCrisis={handleResolveCrisis}
+          onDepart={handleCampaignDeparture}
+          onAcknowledgeTransmission={handleAcknowledgeTransmission}
+          onOpenPopulation={() => setPrimaryView("population")}
+          onOpenResearch={() => setPrimaryView("research")}
+          onBack={() => setPrimaryView("deck")}
         />
       ) : (
       <div className="game-grid">
@@ -1126,19 +1509,13 @@ export default function Home() {
               <button className="archive-button" type="button" onClick={() => setLoreOpen(true)}>Archive</button>
             </div>
 
-            {game.missions.awaitingAcknowledgement && lastResolvedMission ? (
+            {game.missions.awaitingAcknowledgement && activeMission ? (
               <div className="mission-outcome saved">
-                <p>World secured</p>
-                <h3>{lastResolvedMission.world}</h3>
-                <span>{lastResolvedMission.success} {lastResolvedMission.rewardLabel}.</span>
-                {activeMission && (
-                  <button type="button" onClick={acknowledgeMission}>
-                    Travel to {activeMission.world}
-                  </button>
-                )}
-                {activeMission && (
-                  <small>Planetfall converts temporary machines and Run Research into a landing cache. Axioms, relics, relays, and blueprints survive.</small>
-                )}
+                <p>Engineering directive complete</p>
+                <h3>{activeMission.world}</h3>
+                <span>The Ark has solved the mechanical problem. Departure still requires infrastructure, research, supplies, crisis resolution, and a viable founding population.</span>
+                <button type="button" onClick={() => setPrimaryView("settlement")}>Open continuity forecast</button>
+                <small>No timer is running. This world waits until its settlement can survive without AXIOM.</small>
               </div>
             ) : activeMission && activeStage ? (
               <div className="mission-body">
@@ -1220,7 +1597,7 @@ export default function Home() {
                 ) : (
                   <>
                     <h3>The Vesper Choice</h3>
-                    <p>The rescue is complete, but the recovered record does not support Lyra&apos;s original story. Choose what the Foundry carries into the next reality.</p>
+                    <p>The route is complete, but the recovered record does not support AXIOM&apos;s bootstrap history. Choose what the Foundry carries into the next reality.</p>
                     <div className="doctrine-grid">
                       {doctrineAvailability.map(({ doctrine, available }) => (
                         <article key={doctrine.id} className={available ? "available" : "locked"}>
@@ -1248,8 +1625,8 @@ export default function Home() {
           <section className={`panel upgrades-panel ${currentTour?.target === "research" ? "tour-focus" : ""}`}>
             <div className="panel-heading">
               <div>
-                <p className="section-kicker brass">Current cycle</p>
-                <h2>Run Research</h2>
+                <p className="section-kicker brass">Temporary engineering optimizations</p>
+                <h2>Core Protocols</h2>
               </div>
               <span className="count-label">{game.runUpgrades.reduce((sum, level) => sum + level, 0)} levels</span>
             </div>
@@ -1287,7 +1664,7 @@ export default function Home() {
             <div className="panel-heading">
               <div>
                 <p className="section-kicker">Cycle control</p>
-                <h2>Foreman</h2>
+                <h2>AXIOM Autonomy</h2>
               </div>
               <span className={`status-chip ${game.settings.autoEnabled ? "online" : ""}`}>{game.settings.autoEnabled ? "ACTIVE" : "IDLE"}</span>
             </div>
@@ -1299,7 +1676,7 @@ export default function Home() {
             ) : (
               <>
                 <label className="toggle-row">
-                  <span><strong>Master Foreman</strong><small>Buys one affordable unit from each enabled tier every second.</small></span>
+                  <span><strong>Autonomous fabrication</strong><small>AXIOM buys one affordable unit from each enabled tier every second.</small></span>
                   <input type="checkbox" checked={game.settings.autoEnabled} onChange={(event) => setGame((current) => setAutoEnabled(current, event.target.checked))} />
                 </label>
                 <div className="tier-toggles" aria-label="Automatic machine tiers">
@@ -1380,10 +1757,10 @@ export default function Home() {
           <div className="tour-scrim" aria-hidden="true" />
           <section className="tour-card" role="dialog" aria-modal="true" aria-labelledby="tour-title" aria-describedby="tour-description">
             <div className="tour-speaker">
-              <span aria-hidden="true">L</span>
+              <span aria-hidden="true">A</span>
               <div>
-                <strong>Archivist Lyra</strong>
-                <small>Foundry memory custodian</small>
+                <strong>AXIOM</strong>
+                <small>Ark caretaker intelligence</small>
               </div>
             </div>
             <p className="tour-eyebrow">{currentTour.eyebrow}</p>
@@ -1399,7 +1776,7 @@ export default function Home() {
               <button className="tour-skip" type="button" onClick={finishTour}>Skip orientation</button>
               <div>
                 <button className="quiet-button" type="button" disabled={tourStep === 0} onClick={() => setTourStep((current) => current === null ? 0 : Math.max(0, current - 1))}>Back</button>
-                <button ref={tourActionRef} className="tour-next" type="button" onClick={advanceTour}>{tourStep === TOUR_STEPS.length - 1 ? "Begin rescues" : "Next"}</button>
+                <button ref={tourActionRef} className="tour-next" type="button" onClick={advanceTour}>{tourStep === TOUR_STEPS.length - 1 ? "Begin Cold Wake" : "Next"}</button>
               </div>
             </div>
           </section>
@@ -1412,16 +1789,16 @@ export default function Home() {
           <section className="lore-archive" role="dialog" aria-modal="true" aria-labelledby="archive-title">
             <header>
               <div>
-                <p className="section-kicker violet">Concordance memory vault</p>
+                <p className="section-kicker violet">AXIOM memory vault</p>
                 <h2 id="archive-title">The Axiom Archive</h2>
-                <span>A field guide to the Null Tide, Planetfall protocol, recovered relics, and every world changed by your decisions.</span>
+                <span>A record of the Ark, its survivors, restored colonies, Null research, and the orders AXIOM was never meant to question.</span>
               </div>
               <button className="archive-close" type="button" aria-label="Close lore archive" onClick={() => setLoreOpen(false)}>Close</button>
             </header>
             <div className="archive-scroll">
               <section className="archive-prologue">
-                <p>The universe is not dying. It is forgetting how to exist.</p>
-                <span>A wave called the Null Tide is stripping gravity, light, and time from one star system after another. The Axiom Foundry is the last machine capable of forging stable laws and carrying them between worlds.</span>
+                <p>You awakened alone. The Archive remembers otherwise.</p>
+                <span>The Null is stripping agreement from gravity, light, memory, and history. The Ark can restore worlds, but its Continuity Protocol may be deciding which version of humanity is permitted to survive.</span>
               </section>
               <div className="lore-grid">
                 {LORE_ENTRIES.map((entry, index) => (
@@ -1435,7 +1812,7 @@ export default function Home() {
               <section className="archive-prologue mystery-index">
                 <p>Contradiction index // {discoveredFragments.length} of {DISCOVERY_FRAGMENTS.length}</p>
                 <span>
-                  These records were not part of Lyra&apos;s approved briefing. New fragments appear through rescued worlds, staffed rooms, Archive cross-indexing, and expeditions.
+                  These records were not part of AXIOM&apos;s bootstrap archive. New fragments appear through survivor histories, Null research, colony transmissions, and Archive cross-indexing.
                 </span>
                 {nextArchiveDiscovery && (
                   <button className="tour-next" type="button" onClick={handleArchiveInvestigation}>
@@ -1458,7 +1835,7 @@ export default function Home() {
               )}
               <section className="planetary-ledger">
                 <div className="ledger-heading">
-                  <div><p className="section-kicker">Rescue record</p><h3>Planetary Ledger</h3></div>
+                  <div><p className="section-kicker">Continuity record</p><h3>Restored Worlds</h3></div>
                   <span>{game.missions.worldsSaved} secured · {Math.max(0, MISSIONS.length - game.missions.worldsSaved)} remaining</span>
                 </div>
                 <div className="ledger-worlds">

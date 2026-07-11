@@ -32,13 +32,15 @@ test("server-renders the Axiom Foundry game surface", async () => {
 
   const html = await response.text();
   assert.match(html, /<title>Axiom Foundry/);
-  assert.match(html, /Helion appears as a black disc/);
-  assert.match(html, /Foundry Deck/);
-  assert.match(html, /The inhabited machine/);
-  assert.match(html, /Crew roster/);
-  assert.match(html, /Expedition hangar/);
+  assert.match(html, /The Ark drifts through black space/);
+  assert.match(html, /Ark Deck/);
+  assert.match(html, /CARETAKER INTELLIGENCE/);
+  assert.match(html, /Biological command authority/);
+  assert.match(html, /Life Support/);
+  assert.match(html, /Analysis Lattice/);
+  assert.match(html, /PELAGOS SOS ARRAY/);
   assert.match(html, /Salvage/);
-  assert.match(html, /Find a stable frequency/);
+  assert.match(html, /Wake the caretaker core/);
   assert.match(html, /role="progressbar"/);
   assert.match(html, /property="og:image"/);
   assert.doesNotMatch(html, /Cohesion window|If the clock expires/);
@@ -46,27 +48,34 @@ test("server-renders the Axiom Foundry game surface", async () => {
 });
 
 test("removes all temporary starter-preview wiring", async () => {
-  const [page, layout, packageJson, css, story] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../package.json", import.meta.url), "utf8"),
-    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
-    readFile(new URL("../app/story-content.ts", import.meta.url), "utf8"),
-  ]);
+  const [page, layout, packageJson, css, arkCss, continuityCss, story] =
+    await Promise.all([
+      readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../package.json", import.meta.url), "utf8"),
+      readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+      readFile(new URL("../app/ark-deck.css", import.meta.url), "utf8"),
+      readFile(new URL("../app/continuity-console.css", import.meta.url), "utf8"),
+      readFile(new URL("../app/story-content.ts", import.meta.url), "utf8"),
+    ]);
 
   assert.match(page, /from "\.\/game-engine"/);
   assert.match(page, /Tune the Core/);
   assert.match(page, /Fabrication Chain/);
   assert.match(page, /No deadline/);
-  assert.match(layout, /Axiom Foundry — Living Cosmic Idle Game/);
+  assert.match(layout, /Axiom Foundry — Restore Worlds\. Question Your Orders\./);
   assert.doesNotMatch(page, /SkeletonPreview|codex-preview/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.match(css, /\.machine-panel\s*\{[^}]*overflow:\s*clip/s);
   assert.match(css, /\.foundry-vista\s*\{/);
   assert.match(css, /\.mission-stages\s*\{/);
+  assert.match(arkCss, /\.ark-visual-stage\s*\{/);
+  assert.match(continuityCss, /\.settler-selection-list\s*\{/);
   assert.match(story, /Axioms are not fuel for space travel/);
-  assert.match(story, /Why the Foundry rebuilds/);
+  assert.match(story, /When the Ark may leave/);
   await access(new URL("../public/og.png", import.meta.url));
   await assert.rejects(access(new URL("../dist/server/og.png", import.meta.url)));
-  await assert.rejects(access(new URL("app/_sites-preview/SkeletonPreview.tsx", projectRoot)));
+  await assert.rejects(
+    access(new URL("app/_sites-preview/SkeletonPreview.tsx", projectRoot)),
+  );
 });

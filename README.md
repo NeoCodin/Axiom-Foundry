@@ -1,48 +1,42 @@
 # Axiom Foundry
 
-Axiom Foundry is a cosmic incremental campaign about rebuilding a living, reality-forging ark across six endangered worlds. Higher-tier mechanisms manufacture the tiers beneath them, rescued specialists operate visible Foundry rooms, and balanced adjacent tiers generate Resonance without runaway recursive multipliers.
+Axiom Foundry is an idle ark-restoration game about rebuilding humanity without deciding what humanity is allowed to become.
 
-The Null Tide is erasing the laws of physics from inhabited space. The Foundry turns completed production cycles into portable Axioms—proven laws that keep ships, planets, time, and gravity consistent long enough for humanity to escape.
+You awaken as AXIOM, the damaged caretaker intelligence of an empty interplanetary Ark. Pelagos is ahead. The ship cannot yet support one person, most decks are dark, and the oldest system log welcomes you back.
 
-## How to play
+## The game loop
 
-1. Tune the Axiom Chamber to create your first Flux.
-2. Complete Helion's three operations at your own pace; planetary progress saves automatically.
-3. Build machines in groups of 25 for measured efficiency milestones.
-4. Balance neighboring tiers in groups of 15 to strengthen Resonance.
-5. Spend or directly contribute Flux to solve each planet's physics hazard.
-6. Assign crew to Foundry rooms, upgrade the ark with Salvage, and give recruited specialists their own callsigns.
-7. Launch reward-only expeditions that continue while the game is closed.
-8. Travel from planet to planet, retaining Axioms, crew, rooms, relics, relays, and blueprints while rebuilding temporary machinery from a landing cache.
-9. Reach 1 trillion run Flux and Recalibrate for permanent Axioms.
-10. Recover contradictory records, decide what the Foundry truly is, and choose the doctrine carried beyond Vesper.
+1. Tune the Core and rebuild the nested Flux fabrication chain.
+2. Restore stable atmosphere, water, nutrition, medical care, and habitation.
+3. Reach a fallen planet and activate its SOS beacon.
+4. Rescue persistent procedural survivor groups with names, histories, traits, aptitudes, and occasional mystery characters.
+5. Assign specialists or train adaptable civilians while the game is open or closed.
+6. Manufacture science inputs and route them through the configurable Research Lattice.
+7. Complete Ark Engineering, Human Continuity, and Null Studies projects.
+8. Restore planetary infrastructure, resolve its crisis, and stock an independent settlement.
+9. Explicitly choose the trained founders who will remain on the planet.
+10. Depart only when the continuity forecast proves the world can survive without the Ark.
 
-Progress saves automatically in browser storage. Returning players receive simulated offline production, initially capped at eight hours.
+The campaign moves through Cold Wake, Pelagos, Viridia, Cinder, Nox, and Vesper. Every restored colony remains in the record, transmits back to the Ark, and provides a modest permanent legacy benefit.
 
-The Living Foundry release intentionally begins a fresh save generation so every player meets the new crew and discovers the rebuilt story from the beginning.
+## Major systems
 
-## Features
-
-- Six-tier nested production chain
-- Six-world, three-phase Planetfall campaign designed for hours of progression
-- Planet-specific color themes, hazards, relics, and mechanical consequences
-- Visual Foundry theater that grows with purchased machinery
-- Interactive cross-section ark with rooms, assignments, upgrades, and visible crew
-- Named specialists with editable callsigns, homeworld histories, XP, and capped bonuses
-- Reward-only Null Tide expeditions with guaranteed Salvage and discoveries
-- Positive-only crew Cohesion with no hunger, decay, death, or missed timers
-- Buy one, buy ten, and buy-max controls
-- Per-tier milestones and adjacent-tier Resonance
-- Repeatable run upgrades
-- Prestige progression through Recalibration and Axioms
-- Permanent Legacy upgrades
-- Machine and research automation
-- Versioned local saves and offline progress
-- First-run guided orientation and replayable field manual
-- Six untimed planetary rescue directives designed for active or idle play
-- Progressive mystery archive with crew dialogue, conflicting records, and doctrine endings
-- Responsive desktop and mobile interfaces
-- Reduced-motion and keyboard-accessible controls
+- Six-tier nested incremental production with buy-one, buy-ten, and buy-max controls
+- Manual Core tuning that evolves from emergency power into optional anomaly probing
+- A physical Ark cross-section that lights and fills as systems and people come online
+- Zero-human Cold Wake opening and a one-time fresh save generation
+- Deterministic survivor signals that never expire or fail
+- Procedural names, backgrounds, traits, aptitudes, professional roles, and rare authored story hooks
+- Stable life-support capacity with no hunger, death, punishment timers, or negative offline decay
+- Civilian education, specialist cross-training, callsigns, work assignments, and offline XP
+- A visual Research Lattice with safe auto-routing and an optional manual patch panel
+- Six manufactured research inputs, six processors, crew/power limits, and three connected branches
+- Research that unlocks habitation, training, medicine, fabrication, settlement planning, and the Null mystery
+- Planet-specific population, expertise, infrastructure, supply, crisis, and research requirements
+- Explicit founder selection and detailed viability forecasts with fair research/equipment substitutions
+- Persistent colonies, transmissions, legacy bonuses, and contradictory Continuity Protocol records
+- Recalibration and permanent Axioms beneath the larger Ark campaign
+- Versioned local saves, offline progress, responsive layouts, and reduced-motion support
 
 ## Run locally
 
@@ -58,10 +52,11 @@ Open `http://localhost:3000`.
 ## Validate
 
 ```bash
+npm run lint
 npm test
 ```
 
-The test suite verifies the deployment build, server-rendered game surface, economy invariants, crew and room state, expedition rewards, multiplier placement, planet gates, save behavior, Planetfall transitions, Recalibration behavior, and a deterministic multi-hour campaign pacing guard.
+The automated suite covers the deployment build, deterministic survivor generation, life-support safety, offline training, Research Lattice routing, multiplier caps, planetary viability forecasts, founder persistence, save repair, the incremental economy, and server-rendered game surfaces.
 
 ## Technology
 

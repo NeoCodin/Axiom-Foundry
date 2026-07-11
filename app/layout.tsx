@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import "./globals.css";
+import "./ark-deck.css";
+import "./continuity-console.css";
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
@@ -12,9 +14,9 @@ export async function generateMetadata(): Promise<Metadata> {
     requestHeaders.get("x-forwarded-proto") ??
     (host.startsWith("localhost") ? "http" : "https");
   const origin = `${protocol}://${host}`;
-  const title = "Axiom Foundry — Living Cosmic Idle Game";
+  const title = "Axiom Foundry — Restore Worlds. Question Your Orders.";
   const description =
-    "Build a living reality-forging ark, assign rescued crew, launch Null Tide expeditions, and uncover the truth hidden between worlds.";
+    "Awaken as the AI caretaker of a dying Ark. Restore its rooms, rescue and train survivors, route research, and establish civilizations across fallen worlds.";
 
   return {
     metadataBase: new URL(origin),
@@ -29,7 +31,7 @@ export async function generateMetadata(): Promise<Metadata> {
           url: "/og.png",
           width: 1672,
           height: 941,
-          alt: "Axiom Foundry — Build the ark. Question the truth.",
+          alt: "Axiom Foundry — awaken the Ark and restore humanity.",
         },
       ],
     },

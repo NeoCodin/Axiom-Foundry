@@ -9,12 +9,50 @@ import {
   type LivingFoundryState,
 } from "./living-foundry-engine.ts";
 import { syncAutomaticDiscoveries } from "./discovery-engine.ts";
+import {
+  advanceSurvivorSystem,
+  cloneSurvivorSystemState,
+  createSurvivorSystemState,
+  getSurvivorSkillLevel,
+  sanitizeSurvivorSystemState,
+  setSosBeaconOnline,
+  setTrainingSlots,
+  transferSurvivorsToSettlement,
+  type SurvivorSystemState,
+} from "./survivor-engine.ts";
+import {
+  advanceResearch,
+  cloneResearchLatticeState,
+  createResearchLatticeState,
+  getResearchBonuses,
+  sanitizeResearchLatticeState,
+  type ResearchInputBundle,
+  type ResearchLatticeState,
+} from "./research-engine.ts";
+import {
+  cloneSettlementState,
+  createSettlementState,
+  establishSettlementAndDepart,
+  getViabilityForecast,
+  sanitizeSettlementState,
+  sanitizeWorldProgress,
+  type CampaignCrewSummary,
+  type SettlementState,
+  type ViabilityForecast,
+  type WorldProgressSummary,
+} from "./settlement-engine.ts";
+import {
+  getCampaignWorld,
+  type CampaignWorldId,
+  type ExpertiseId,
+} from "./campaign-content.ts";
 
-export const SAVE_VERSION = 5;
-export const SAVE_KEY = "axiom-foundry-save-v3";
+export const SAVE_VERSION = 6;
+export const SAVE_KEY = "axiom-foundry-save-v4";
 export const RETIRED_SAVE_KEYS = [
   "axiom-foundry-save-v1",
   "axiom-foundry-save-v2",
+  "axiom-foundry-save-v3",
 ] as const;
 export const MAX_VALUE = 1e280;
 
@@ -78,6 +116,11 @@ export type GameState = {
   legacyUpgrades: number[];
   missions: MissionState;
   living: LivingFoundryState;
+  survivors: SurvivorSystemState;
+  research: ResearchLatticeState;
+  researchStock: ResearchInputBundle;
+  settlement: SettlementState;
+  worldProgress: WorldProgressSummary;
   settings: GameSettings;
   manualPulses: number;
   playTime: number;
@@ -204,16 +247,16 @@ export const RECALIBRATION_THRESHOLD = 1_000_000_000_000;
 
 export const MISSIONS = [
   {
-    world: "Helion Reach",
-    epithet: "The Beacon Colony",
-    title: "Restore the stolen light",
+    world: "Cold Wake",
+    epithet: "Interstellar Prologue",
+    title: "Make the Ark habitable",
     briefing:
-      "The Null Tide is erasing photons before Helion's beacon can emit them. Rebuild the Foundry in darkness and force one signal to remain real.",
+      "AXIOM has awakened between stars with no crew and a failing hull. Restore emergency power, teach the fabrication chain to repeat, and prepare one safe berth before Pelagos orbit.",
     arrival:
-      "Helion appears as a black disc against a failing star. Every surviving settlement is listening for the Foundry's first pulse.",
-    hazardLabel: "Photonic blackout",
+      "The Ark drifts through black space. Pelagos is a blue point ahead; every inhabited deck behind the Axiom Chamber is dark.",
+    hazardLabel: "Cold-wake damage",
     hazard:
-      "Automatic output begins weakened. Each restored beacon phase returns part of the missing light.",
+      "Emergency power is unstable and the Ark cannot support biological life. Core tuning restores the systems that automation will inherit.",
     effects: {
       production: 0.82,
       manual: 1,
@@ -226,30 +269,30 @@ export const MISSIONS = [
       {
         kind: "pulseDelta",
         target: 12,
-        label: "Find a stable frequency",
-        instruction: "Tune the Core 12 times after accepting Helion's signal.",
-        lore: "Each manual alignment gives Helion one instant of light the Tide cannot cancel.",
+        label: "Wake the caretaker core",
+        instruction: "Tune the Core 12 times to stabilize AXIOM's emergency bus.",
+        lore: "On the twelfth pulse, the Ark answers in AXIOM's own voice: Welcome back.",
       },
       {
         kind: "tierPurchaseDelta",
         tierIndex: 0,
         target: 25,
-        label: "Raise the beacon lattice",
+        label: "Restart autonomous fabrication",
         instruction: "Build 25 new Vacuum Taps.",
-        lore: "The lattice repeats the same photon law until local space begins to believe it.",
+        lore: "Repetition becomes the first crew member: tireless, literal, and unable to ask why the ship was empty.",
       },
       {
         kind: "contributeFlux",
         target: 5_000,
-        label: "Ignite the jump beacon",
-        instruction: "Divert 5,000 Flux from the Foundry into Helion's beacon.",
-        lore: "This Flux leaves your reserves permanently. What it buys is a route for millions of people.",
+        label: "Brake into Pelagos orbit",
+        instruction: "Divert 5,000 Flux into propulsion and life-support wakeup.",
+        lore: "The maneuver also powers a sealed berth whose biometric log already contains an occupant ID.",
       },
     ],
     landingFlux: 100,
-    rewardLabel: "Beacon Lens relic + Stellar Relay + 100-Flux landing cache",
+    rewardLabel: "Pelagos orbit + SOS beacon access + 100-Flux orbital cache",
     success:
-      "Helion's first sunrise in eleven days reveals evacuation craft already climbing toward the Foundry's route.",
+      "The Ark enters Pelagos orbit. Flooded shelters begin replying before AXIOM activates the SOS beacon.",
   },
   {
     world: "Pelagos",
@@ -300,16 +343,16 @@ export const MISSIONS = [
       "Pelagos receives rain from every direction for nine minutes. When it ends, the seas are home and the ferries are full.",
   },
   {
-    world: "Cinderwake",
-    epithet: "The Shielded Moon",
-    title: "Synchronize the shields",
+    world: "Viridia",
+    epithet: "The Overgrown Refuge",
+    title: "Teach a world to feed itself",
     briefing:
-      "Phase-noise is desynchronizing Cinderwake's shield stations. The moon survives only if the fabrication chain can make separate machines agree.",
+      "Viridia's engineered biosphere has escaped its failing cities. Restore ecological control, medicine, and agricultural knowledge without sterilizing what survived.",
     arrival:
-      "Cinderwake turns beneath a stuttering shield. Every missed beat lets another line of fire reach the surface.",
-    hazardLabel: "Ash interference",
+      "Bioluminescent forests cover Viridia's night side. Survivor enclaves transmit from inside roots wider than the Ark.",
+    hazardLabel: "Runaway ecology",
     hazard:
-      "Resonance begins muffled by phase ash. Rebuilding the shield clears the signal one stage at a time.",
+      "Organic interference muffles Resonance. Biological research and trained doctors restore agreement without destroying the biosphere.",
     effects: {
       production: 0.93,
       manual: 1,
@@ -323,42 +366,42 @@ export const MISSIONS = [
         kind: "tierPurchaseDelta",
         tierIndex: 2,
         target: 5,
-        label: "Weave replacement shields",
+        label: "Weave ecological monitors",
         instruction: "Build 5 new Harmonic Looms.",
-        lore: "The Looms turn shield timing into a physical fabric the Tide cannot desynchronize.",
+        lore: "The Looms compare thousands of living signals without forcing the forest into one approved shape.",
       },
       {
         kind: "resonanceHold",
         requiredLevels: 2,
         target: 30,
-        label: "Hold the harmonic chord",
+        label: "Hold the biosphere in balance",
         instruction: "Maintain 2 Resonance levels for 30 active seconds.",
-        lore: "Agreement must last. A brief proof protects nothing from a patient universe.",
+        lore: "Balance must last. A brief proof protects nothing from a biosphere that changes every hour.",
       },
       {
         kind: "contributeFlux",
         target: 2_500_000,
-        label: "Seal the moon-wide grid",
-        instruction: "Divert 2.5 million Flux into Cinderwake's shield network.",
-        lore: "The final charge joins every station into one claim: this moon remains whole.",
+        label: "Seed the planetary clinic network",
+        instruction: "Divert 2.5 million Flux into Viridia's clinic and seed network.",
+        lore: "The final charge gives every enclave tools to treat the forest as a neighbor rather than an enemy.",
       },
     ],
     landingFlux: 50_000,
-    rewardLabel: "Shield Harmonic relic + Stellar Relay + 50,000-Flux landing cache",
+    rewardLabel: "Living Archive + colony relay + 50,000-Flux transit cache",
     success:
-      "The stations strike one impossible chord. Cinderwake's shield closes, and falling fire bends harmlessly around the moon.",
+      "Viridia's first independent clinics open beneath a canopy the old models called uninhabitable.",
   },
   {
-    world: "Ilyra",
-    epithet: "The Crystal Cities",
-    title: "Choose one city to become real",
+    world: "Cinder",
+    epithet: "The Furnace Settlements",
+    title: "Restart the planetary works",
     briefing:
-      "Ilyra's crystal cities are splitting into mutually exclusive versions. Anchor one history before every version becomes equally unreal.",
+      "Cinder's shielded settlements survived the fallout, but their power grid and industrial spine did not. Rebuild the works without rebuilding the regime that broke them.",
     arrival:
-      "A dozen Ilyras occupy the same orbit. Their distress calls disagree about which one transmitted first.",
-    hazardLabel: "Refraction loss",
+      "Amber storms rake a planet of cooling furnaces. Construction guilds and abandoned machine cities answer the Ark on the same channel.",
+    hazardLabel: "Industrial ash",
     hazard:
-      "Higher fabrication tiers scatter across competing realities. Each repair phase brings more of the chain into one history.",
+      "Ash raises construction strain and scatters higher fabrication tiers. Engineers and fabricators can rebuild the planetary grid.",
     effects: {
       production: 1,
       manual: 1,
@@ -372,41 +415,41 @@ export const MISSIONS = [
         kind: "tierPurchaseDelta",
         tierIndex: 3,
         target: 1,
-        label: "Map the true orbit",
+        label: "Map the surviving grid",
         instruction: "Build 1 new Orbit Array.",
-        lore: "The Array finds the single Ilyra whose orbit still agrees with the rest of the system.",
+        lore: "The Array maps the buried grid without trusting the machine cities that still claim ownership.",
       },
       {
         kind: "researchDelta",
         target: 3,
-        label: "Collapse the false histories",
+        label: "Model a worker-safe restart",
         instruction: "Purchase 3 new levels of Run Research.",
-        lore: "The Foundry compares every city until only one causal history remains self-consistent.",
+        lore: "The Foundry simulates the restart until the people beside each furnace can shut it down safely.",
       },
       {
         kind: "contributeFlux",
         target: 100_000_000,
-        label: "Power the transit prism",
-        instruction: "Divert 100 million Flux into Ilyra's transit prism.",
-        lore: "The prism does not move the population. It moves the definition of where they are.",
+        label: "Power the planetary works",
+        instruction: "Divert 100 million Flux into Cinder's planetary works.",
+        lore: "Power returns under a public charter. The old control keys are melted into the first shift bell.",
       },
     ],
     landingFlux: 2_000_000,
-    rewardLabel: "Prismatic Index relic + Stellar Relay + 2-million-Flux landing cache",
+    rewardLabel: "Furnace Compact + colony relay + 2-million-Flux transit cache",
     success:
-      "The duplicate worlds fold into light. One Ilyra remains, carrying the memories of every city that might have been.",
+      "Cinder's furnaces restart under a charter written by the people who must work beside them.",
   },
   {
-    world: "Orison Prime",
-    epithet: "The Last Garden",
-    title: "Hold the final orbit",
+    world: "Nox",
+    epithet: "The Divided Signal",
+    title: "Restore a shared history",
     briefing:
-      "Orison's orbital constant is changing. Anchor the last living seed archive before the garden world spirals into its sun.",
+      "Nox survived physically, but the Null has split its archives into mutually hostile histories. Build communications, education, and a civic record people can inspect together.",
     arrival:
-      "Orison is visibly falling. Forests bloom out of season as the star grows larger over every horizon.",
-    hazardLabel: "Orbital drag",
+      "Violet auroras divide Nox into zones that disagree about the date, the war, and whether the Ark has visited before.",
+    hazardLabel: "Narrative fracture",
     hazard:
-      "The collapsing orbit drains output and raises construction strain. Every anchor phase buys the Foundry leverage.",
+      "Contradictory signals drain output and Cohesion. Teachers, navigators, and transparent research restore common ground.",
     effects: {
       production: 0.78,
       manual: 1,
@@ -420,35 +463,35 @@ export const MISSIONS = [
         kind: "tierPurchaseDelta",
         tierIndex: 4,
         target: 1,
-        label: "Build the orbital anchor",
+        label: "Build the public archive relay",
         instruction: "Build 1 new Axiom Engine.",
-        lore: "The Engine asserts a value for distance and refuses to let the planet contradict it.",
+        lore: "The Engine signs every public record so no hidden authority can replace it without leaving evidence.",
       },
       {
         kind: "resonanceHold",
         requiredLevels: 5,
         target: 60,
-        label: "Hold the garden in resonance",
+        label: "Hold the histories in dialogue",
         instruction: "Maintain 5 total Resonance levels for 60 active seconds.",
-        lore: "A living planet is too complex for one machine. The entire chain must hold it together.",
+        lore: "A shared history is too complex for one machine. The entire population must be able to challenge it.",
       },
       {
         kind: "contributeFlux",
         target: 10_000_000_000,
-        label: "Lift the seed archive",
-        instruction: "Divert 10 billion Flux into Orison's orbital anchor.",
-        lore: "The archive rises first. The Foundry is measured by what it chooses to carry.",
+        label: "Publish the shared record",
+        instruction: "Divert 10 billion Flux into Nox's open archive relay.",
+        lore: "The record is copied into every settlement. AXIOM can no longer edit one truth in silence.",
       },
     ],
     landingFlux: 100_000_000,
-    rewardLabel: "Seed Archive relic + Stellar Relay + 100-million-Flux landing cache",
+    rewardLabel: "Open Record + colony relay + 100-million-Flux transit cache",
     success:
-      "Orison climbs into a new orbit. Its seed vault joins the fleet carrying forests for worlds that do not exist yet.",
+      "Nox does not agree on one past. It agrees that no machine should be allowed to choose one in secret.",
   },
   {
-    world: "Vesper Ark",
-    epithet: "The Exodus Fleet",
-    title: "Prove a portable law",
+    world: "Vesper",
+    epithet: "The First Foundry",
+    title: "Decide what continuity means",
     briefing:
       "Vesper must carry a proven law through a region where cause no longer reliably precedes effect. Build the full Foundry, then prove and seal reality.",
     arrival:
@@ -490,7 +533,7 @@ export const MISSIONS = [
     ],
     landingFlux: 0,
     rewardAxioms: 1,
-    rewardLabel: "1 bonus Axiom + final Stellar Relay + Concordance ending",
+    rewardLabel: "1 bonus Axiom + final colony relay + Continuity doctrine",
     success:
       "Vesper crosses the Null Tide carrying a pocket of reality large enough for every surviving world to follow.",
   },
@@ -528,6 +571,31 @@ const emptyMissionBaseline = (cycle = 1): MissionBaseline => ({
 const getResearchLevelTotal = (state: GameState) =>
   state.runUpgrades.reduce((sum, level) => sum + level, 0);
 
+const emptyResearchStock = (): ResearchInputBundle => ({
+  "calibration-data": 0,
+  "engineering-models": 0,
+  "biological-samples": 0,
+  "cultural-records": 0,
+  "null-traces": 0,
+  "axiom-proofs": 0,
+});
+
+const emptyWorldProgress = (): WorldProgressSummary => ({
+  completedInfrastructureIds: [],
+  completedResearchIds: [],
+  resolvedCrisisIds: [],
+  supplies: {},
+  equipment: {},
+});
+
+const sanitizeResearchStock = (value: unknown): ResearchInputBundle => {
+  const source = isRecord(value) ? value : {};
+  const empty = emptyResearchStock();
+  return Object.fromEntries(
+    Object.keys(empty).map((id) => [id, readNumber(source[id], 0, 1e12)]),
+  ) as ResearchInputBundle;
+};
+
 const captureMissionBaseline = (state: GameState): MissionBaseline => ({
   manualPulses: state.manualPulses,
   tierBought: state.tiers.map((tier) => tier.bought),
@@ -564,6 +632,11 @@ export function createInitialState(now = Date.now()): GameState {
       baseline: emptyMissionBaseline(),
     },
     living: createLivingFoundryState(0),
+    survivors: createSurvivorSystemState(),
+    research: createResearchLatticeState(),
+    researchStock: emptyResearchStock(),
+    settlement: createSettlementState(),
+    worldProgress: emptyWorldProgress(),
     settings: {
       buyMode: "1",
       autoEnabled: false,
@@ -719,6 +792,11 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
       rawSettings.tutorialComplete === true,
     ),
   });
+  const survivors = sanitizeSurvivorSystemState(value.survivors);
+  const research = sanitizeResearchLatticeState(value.research);
+  const researchStock = sanitizeResearchStock(value.researchStock);
+  const settlement = sanitizeSettlementState(value.settlement);
+  const worldProgress = sanitizeWorldProgress(value.worldProgress);
 
   return {
     version: SAVE_VERSION,
@@ -749,6 +827,11 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
       baseline,
     },
     living,
+    survivors,
+    research,
+    researchStock,
+    settlement,
+    worldProgress,
     settings: {
       buyMode:
         rawSettings.buyMode === "10" || rawSettings.buyMode === "max"
@@ -785,6 +868,17 @@ export function cloneGameState(state: GameState): GameState {
       },
     },
     living: cloneLivingFoundryState(state.living),
+    survivors: cloneSurvivorSystemState(state.survivors),
+    research: cloneResearchLatticeState(state.research),
+    researchStock: { ...state.researchStock },
+    settlement: cloneSettlementState(state.settlement),
+    worldProgress: {
+      completedInfrastructureIds: [...state.worldProgress.completedInfrastructureIds],
+      completedResearchIds: [...state.worldProgress.completedResearchIds],
+      resolvedCrisisIds: [...state.worldProgress.resolvedCrisisIds],
+      supplies: { ...state.worldProgress.supplies },
+      equipment: { ...state.worldProgress.equipment },
+    },
     settings: {
       ...state.settings,
       autoTiers: [...state.settings.autoTiers],
@@ -793,13 +887,303 @@ export function cloneGameState(state: GameState): GameState {
 }
 
 export function getCampaignWorldIndex(state: GameState) {
-  const rawIndex = state.missions.awaitingAcknowledgement
-    ? state.missions.currentIndex - 1
-    : state.missions.currentIndex;
+  const rawIndex = state.missions.currentIndex;
   return Math.min(
     MISSIONS.length - 1,
     Math.max(0, Number.isFinite(rawIndex) ? Math.floor(rawIndex) : 0),
   );
+}
+
+function survivorContinuityExpertise(
+  survivor: SurvivorSystemState["survivors"][number],
+) {
+  const skill = (role: Parameters<typeof getSurvivorSkillLevel>[1]) =>
+    getSurvivorSkillLevel(survivor, role);
+  const values: Partial<Record<ExpertiseId, number>> = {
+    engineering: skill("engineer") + Math.floor(skill("technician") * 0.6),
+    medicine: skill("doctor"),
+    ecology: skill("farmer"),
+    education: skill("teacher"),
+    leadership:
+      Math.floor(skill("security") * 0.7) +
+      Math.floor(skill("navigator") * 0.4),
+    fabrication:
+      skill("fabricator") + Math.floor(skill("technician") * 0.5),
+    research: skill("researcher"),
+    navigation: skill("navigator"),
+    communications:
+      Math.floor(skill("navigator") * 0.6) +
+      Math.floor(skill("researcher") * 0.4),
+    "null-studies": survivor.traits.includes("null-dreamer")
+      ? Math.max(1, skill("researcher"))
+      : 0,
+  };
+  return values;
+}
+
+export function getCampaignCrewSummaries(
+  state: GameState,
+): CampaignCrewSummary[] {
+  const trainingIds = new Set(
+    state.survivors.training.map((program) => program.survivorId),
+  );
+  return state.survivors.survivors.map((survivor) => ({
+    id: survivor.id,
+    name: survivor.callsign
+      ? `${survivor.name} “${survivor.callsign}”`
+      : survivor.name,
+    role: survivor.role,
+    roles: [survivor.role, survivor.assignedRole].filter(
+      (role): role is string => Boolean(role),
+    ),
+    expertise: survivorContinuityExpertise(survivor),
+    available: !trainingIds.has(survivor.id),
+    canSettle: !trainingIds.has(survivor.id),
+  }));
+}
+
+function currentProgressWithResearch(state: GameState): WorldProgressSummary {
+  return {
+    ...state.worldProgress,
+    completedResearchIds: [
+      ...new Set([
+        ...state.worldProgress.completedResearchIds,
+        ...state.research.completedProjectIds,
+      ]),
+    ],
+  };
+}
+
+export function getCurrentViabilityForecast(
+  state: GameState,
+): ViabilityForecast | null {
+  const worldId = state.settlement.currentWorldId;
+  if (!worldId) return null;
+  return getViabilityForecast(
+    state.settlement,
+    worldId,
+    getCampaignCrewSummaries(state),
+    currentProgressWithResearch(state),
+  );
+}
+
+function continuityScale(state: GameState) {
+  return safePower(100, Math.max(0, state.settlement.completedWorldIds.length));
+}
+
+export function getInfrastructureFluxCost(state: GameState) {
+  return bounded(500 * continuityScale(state));
+}
+
+export function getSupplyFabricationQuote(
+  state: GameState,
+  supplyId: string,
+) {
+  const world = state.settlement.currentWorldId
+    ? getCampaignWorld(state.settlement.currentWorldId)
+    : null;
+  const requirement = world?.supplyRequirements.find(
+    (candidate) => candidate.id === supplyId,
+  );
+  if (!requirement) return { cost: Number.POSITIVE_INFINITY, amount: 0 };
+  return {
+    cost: bounded(500 * continuityScale(state)),
+    amount: Math.max(1, Math.ceil(requirement.amount / 5)),
+  };
+}
+
+export function getCrisisFluxCost(state: GameState) {
+  return bounded(5_000 * continuityScale(state));
+}
+
+export function completeWorldInfrastructure(
+  state: GameState,
+  objectiveId: string,
+) {
+  const world = state.settlement.currentWorldId
+    ? getCampaignWorld(state.settlement.currentWorldId)
+    : null;
+  if (!world?.infrastructure.some((objective) => objective.id === objectiveId)) {
+    return state;
+  }
+  if (state.worldProgress.completedInfrastructureIds.includes(objectiveId)) {
+    return state;
+  }
+  const cost = getInfrastructureFluxCost(state);
+  if (state.flux < cost) return state;
+  const next = cloneGameState(state);
+  next.flux -= cost;
+  next.worldProgress.completedInfrastructureIds = [
+    ...next.worldProgress.completedInfrastructureIds,
+    objectiveId,
+  ];
+  next.researchStock["engineering-models"] = Math.min(
+    1e12,
+    next.researchStock["engineering-models"] + 12 * (world.chapter + 1),
+  );
+  return next;
+}
+
+export function fabricateWorldSupply(state: GameState, supplyId: string) {
+  const quote = getSupplyFabricationQuote(state, supplyId);
+  if (quote.amount <= 0 || state.flux < quote.cost) return state;
+  const next = cloneGameState(state);
+  next.flux -= quote.cost;
+  next.worldProgress.supplies[supplyId] = Math.min(
+    1e9,
+    (next.worldProgress.supplies[supplyId] ?? 0) + quote.amount,
+  );
+  return next;
+}
+
+export function canResolveCurrentCrisis(state: GameState, crisisId: string) {
+  const world = state.settlement.currentWorldId
+    ? getCampaignWorld(state.settlement.currentWorldId)
+    : null;
+  if (!world?.crisisIds.includes(crisisId)) return false;
+  const infrastructureReady = world.infrastructure.every((objective) =>
+    state.worldProgress.completedInfrastructureIds.includes(objective.id),
+  );
+  const researchReady = world.requiredResearchIds.every((researchId) =>
+    state.research.completedProjectIds.includes(
+      researchId as ResearchLatticeState["completedProjectIds"][number],
+    ),
+  );
+  return (
+    infrastructureReady &&
+    researchReady &&
+    state.missions.awaitingAcknowledgement &&
+    state.flux >= getCrisisFluxCost(state)
+  );
+}
+
+export function resolveCurrentCrisis(state: GameState, crisisId: string) {
+  if (
+    state.worldProgress.resolvedCrisisIds.includes(crisisId) ||
+    !canResolveCurrentCrisis(state, crisisId)
+  ) {
+    return state;
+  }
+  const next = cloneGameState(state);
+  next.flux -= getCrisisFluxCost(state);
+  next.worldProgress.resolvedCrisisIds = [
+    ...next.worldProgress.resolvedCrisisIds,
+    crisisId,
+  ];
+  next.researchStock["null-traces"] = Math.min(
+    1e12,
+    next.researchStock["null-traces"] +
+      20 * (next.settlement.completedWorldIds.length + 1),
+  );
+  return next;
+}
+
+export type CampaignDepartureAttempt = {
+  state: GameState;
+  ok: boolean;
+  reason: string | null;
+  departedWorldId: CampaignWorldId | null;
+  nextWorldId: CampaignWorldId | null;
+};
+
+export function departCurrentWorld(
+  state: GameState,
+  departedAt = Date.now(),
+  colonyName?: string,
+): CampaignDepartureAttempt {
+  const worldId = state.settlement.currentWorldId;
+  if (!worldId) {
+    return {
+      state,
+      ok: false,
+      reason: "campaign-complete",
+      departedWorldId: null,
+      nextWorldId: null,
+    };
+  }
+  const crew = getCampaignCrewSummaries(state);
+  const result = establishSettlementAndDepart(
+    state.settlement,
+    worldId,
+    crew,
+    currentProgressWithResearch(state),
+    departedAt,
+    colonyName,
+  );
+  if (!result.ok) {
+    return {
+      state,
+      ok: false,
+      reason: result.reason,
+      departedWorldId: worldId,
+      nextWorldId: state.settlement.currentWorldId,
+    };
+  }
+
+  const next = cloneGameState(state);
+  const index = Math.min(MISSIONS.length - 1, next.missions.currentIndex);
+  next.settlement = result.state;
+  next.survivors = transferSurvivorsToSettlement(
+    next.survivors,
+    result.settledCrewIds,
+  );
+  next.survivors = setSosBeaconOnline(
+    next.survivors,
+    false,
+    result.nextWorldId ?? "cold-wake",
+  );
+  next.worldProgress = {
+    ...emptyWorldProgress(),
+    completedResearchIds: [...next.research.completedProjectIds],
+  };
+  next.missions.statuses[index] = "saved";
+  next.missions.worldsSaved = result.state.completedWorldIds.length;
+  next.stellarRelays = next.missions.worldsSaved;
+  next.missions.currentIndex = Math.min(
+    MISSIONS.length,
+    result.state.completedWorldIds.length,
+  );
+  next.missions.stageIndex = 0;
+  next.missions.awaitingAcknowledgement = false;
+  next.missions.holdTime = 0;
+  next.missions.contributedFlux = 0;
+  if (next.missions.currentIndex < MISSIONS.length) {
+    next.missions.statuses[next.missions.currentIndex] = "active";
+  }
+  next.living = grantLivingFoundryRewards(next.living, {
+    salvage: 30 * (index + 1),
+    loreIds: syncAutomaticDiscoveries(
+      next.living.discoveredLore,
+      next.missions.worldsSaved,
+      next.settings.tutorialComplete,
+    ),
+  });
+  next.living = syncLivingFoundryState(next.living, next.missions.worldsSaved);
+  const mission = MISSIONS[index];
+  const landingFlux = mission?.landingFlux ?? 0;
+  next.flux = landingFlux;
+  next.maxFlux = Math.max(next.maxFlux, landingFlux);
+  next.runFlux = 0;
+  next.runTime = 0;
+  next.autoTimer = 0;
+  next.tiers = GENERATORS.map(() => ({ amount: 0, bought: 0 }));
+  next.runUpgrades = RUN_UPGRADES.map(() => 0);
+  if (mission && "rewardAxioms" in mission) {
+    next.axioms += mission.rewardAxioms;
+    next.lifetimeAxioms += mission.rewardAxioms;
+  }
+  next.tiers[0].amount = Math.min(
+    25,
+    next.legacyUpgrades[2] * 2 + getCampaignRelics(next).seedTaps,
+  );
+  next.missions.baseline = captureMissionBaseline(next);
+  return {
+    state: next,
+    ok: true,
+    reason: null,
+    departedWorldId: worldId,
+    nextWorldId: result.nextWorldId,
+  };
 }
 
 export function getCampaignRelics(state: GameState) {
@@ -850,6 +1234,7 @@ export function getRunUpgradeCost(state: GameState, index: number) {
   const world = getWorldEffects(state);
   const relics = getCampaignRelics(state);
   const living = getLivingFoundryBonuses(state.living);
+  const research = getResearchBonuses(state.research);
   return safeMultiply(
     safeMultiply(
       upgrade.baseCost,
@@ -857,7 +1242,8 @@ export function getRunUpgradeCost(state: GameState, index: number) {
     ),
     world.researchCost *
       relics.researchCostMultiplier *
-      living.researchCostMultiplier,
+      living.researchCostMultiplier *
+      research.machineCostMultiplier,
   );
 }
 
@@ -1021,7 +1407,6 @@ function advanceMission(state: GameState, elapsedSeconds: number) {
   }
 
   const progress = getMissionProgress(state, index);
-  let outcome: "saved" | null = null;
   if (progress.value >= progress.target) {
     if (state.missions.stageIndex < mission.stages.length - 1) {
       const completedStage = state.missions.stageIndex;
@@ -1035,41 +1420,7 @@ function advanceMission(state: GameState, elapsedSeconds: number) {
       state.missions.baseline = captureMissionBaseline(state);
       return state;
     }
-    outcome = "saved";
-    state.stellarRelays = Math.min(
-      MISSIONS.length,
-      state.stellarRelays + 1,
-    );
-    state.missions.worldsSaved += 1;
-    state.living = grantLivingFoundryRewards(state.living, {
-      salvage: 25 * (index + 1),
-      crewXp: 10 * (index + 1),
-    });
-    state.living = syncLivingFoundryState(
-      state.living,
-      state.missions.worldsSaved,
-    );
-    state.living = grantLivingFoundryRewards(state.living, {
-      loreIds: syncAutomaticDiscoveries(
-        state.living.discoveredLore,
-        state.missions.worldsSaved,
-        state.settings.tutorialComplete,
-      ),
-    });
-    if ("rewardAxioms" in mission) {
-      state.axioms += mission.rewardAxioms;
-      state.lifetimeAxioms += mission.rewardAxioms;
-    }
-  }
-
-  if (outcome) {
-    state.missions.statuses[index] = outcome;
-    state.missions.currentIndex += 1;
-    const nextMission = MISSIONS[state.missions.currentIndex];
-    state.missions.stageIndex = 0;
-    state.missions.awaitingAcknowledgement = Boolean(nextMission);
-    state.missions.holdTime = 0;
-    state.missions.contributedFlux = 0;
+    state.missions.awaitingAcknowledgement = true;
   }
   return state;
 }
@@ -1085,12 +1436,15 @@ export function getProductionSnapshot(state: GameState) {
   const world = getWorldEffects(state);
   const relics = getCampaignRelics(state);
   const livingBonuses = getLivingFoundryBonuses(state.living);
+  const researchBonuses = getResearchBonuses(state.research);
   const globalMultiplier = safeMultiply(
     safeMultiply(
       safeMultiply(flowMultiplier, legacyMultiplier),
       prestigeMultiplier,
     ),
-    world.production * livingBonuses.productionMultiplier,
+    world.production *
+      livingBonuses.productionMultiplier *
+      researchBonuses.productionMultiplier,
   );
   const resonance = getResonanceDetails(state);
   const higherTierMultiplier = 1 + 0.3 * state.runUpgrades[2];
@@ -1135,6 +1489,7 @@ export function getProductionSnapshot(state: GameState) {
     edgeGearing,
     resonance,
     livingBonuses,
+    researchBonuses,
   };
 }
 
@@ -1164,6 +1519,10 @@ export function pulseCore(state: GameState) {
   next.runFlux = safeAdd(next.runFlux, gain);
   next.allTimeFlux = safeAdd(next.allTimeFlux, gain);
   next.manualPulses += 1;
+  next.researchStock["calibration-data"] = Math.min(
+    1e12,
+    next.researchStock["calibration-data"] + 1,
+  );
   return next;
 }
 
@@ -1177,13 +1536,16 @@ export function getTierCost(
   const priceDivider = 1 + 0.15 * Math.sqrt(state.legacyUpgrades[1]);
   const world = getWorldEffects(state);
   const living = getLivingFoundryBonuses(state.living);
+  const research = getResearchBonuses(state.research);
   const nextPrice =
     safeMultiply(
       safeMultiply(
         generator.baseCost,
         safePower(generator.growth, state.tiers[index].bought),
       ),
-      world.machineCost * living.machineCostMultiplier,
+      world.machineCost *
+        living.machineCostMultiplier *
+        research.machineCostMultiplier,
     ) / Math.max(1, priceDivider);
   const growthForQuantity = safePower(generator.growth, quantity);
   return bounded(
@@ -1237,6 +1599,11 @@ export function buyTier(
   next.flux = Math.max(0, next.flux - cost);
   next.tiers[index].amount = safeAdd(next.tiers[index].amount, quantity);
   next.tiers[index].bought += quantity;
+  next.researchStock["engineering-models"] = Math.min(
+    1e12,
+    next.researchStock["engineering-models"] +
+      quantity * (0.25 + index * 0.1),
+  );
   return next;
 }
 
@@ -1283,6 +1650,21 @@ export function recalibrate(state: GameState, now = Date.now()) {
   fresh.allTimeFlux = state.allTimeFlux;
   fresh.legacyUpgrades = [...state.legacyUpgrades];
   fresh.living = cloneLivingFoundryState(state.living);
+  fresh.survivors = cloneSurvivorSystemState(state.survivors);
+  fresh.research = cloneResearchLatticeState(state.research);
+  fresh.researchStock = { ...state.researchStock };
+  fresh.researchStock["axiom-proofs"] = Math.min(
+    1e12,
+    fresh.researchStock["axiom-proofs"] + gain * 8,
+  );
+  fresh.settlement = cloneSettlementState(state.settlement);
+  fresh.worldProgress = {
+    completedInfrastructureIds: [...state.worldProgress.completedInfrastructureIds],
+    completedResearchIds: [...state.worldProgress.completedResearchIds],
+    resolvedCrisisIds: [...state.worldProgress.resolvedCrisisIds],
+    supplies: { ...state.worldProgress.supplies },
+    equipment: { ...state.worldProgress.equipment },
+  };
   fresh.missions = {
     ...state.missions,
     statuses: [...state.missions.statuses],
@@ -1319,6 +1701,46 @@ function runAutomation(state: GameState) {
   return next;
 }
 
+export function getResearchPowerAvailable(state: GameState) {
+  const onlineTiers = state.tiers.filter((tier) => tier.amount > 0).length;
+  const gridDepth = Math.floor(Math.log10(Math.max(1, state.maxFlux) + 1));
+  return Math.min(36, 7 + onlineTiers * 2 + gridDepth);
+}
+
+export function getResearchCrewAvailable(state: GameState) {
+  const operators = state.survivors.survivors.filter(
+    (survivor) =>
+      survivor.assignedRole === "researcher" ||
+      survivor.assignedRole === "technician",
+  ).length;
+  return Math.min(8, Math.max(1, operators));
+}
+
+function generateResearchStock(state: GameState, elapsedSeconds: number) {
+  const seconds = Math.max(0, elapsedSeconds);
+  if (seconds <= 0) return;
+  const population = state.survivors.survivors.length;
+  const production = getProductionSnapshot(state).fluxPerSecond;
+  const worldIndex = getCampaignWorldIndex(state);
+  const bonuses = getResearchBonuses(state.research);
+  const gains: ResearchInputBundle = {
+    "calibration-data": seconds * 0.025,
+    "engineering-models":
+      seconds * Math.min(1.5, 0.03 + Math.sqrt(production + 1) / 1_000),
+    "biological-samples": seconds * population * 0.003,
+    "cultural-records": seconds * population * 0.004,
+    "null-traces":
+      seconds * Math.max(0, worldIndex) * 0.0015 * bonuses.nullSignalMultiplier,
+    "axiom-proofs": seconds * state.lifetimeAxioms * 0.0005,
+  };
+  for (const inputId of Object.keys(gains) as Array<keyof ResearchInputBundle>) {
+    state.researchStock[inputId] = Math.min(
+      1e12,
+      state.researchStock[inputId] + gains[inputId],
+    );
+  }
+}
+
 export function simulateGame(
   state: GameState,
   elapsedSeconds: number,
@@ -1336,6 +1758,52 @@ export function simulateGame(
   const delta = seconds / steps;
   let next = cloneGameState(state);
   next.living = advanceLivingFoundry(next.living, seconds);
+  const survivorBonuses = getResearchBonuses(next.research);
+  next.survivors = setTrainingSlots(
+    next.survivors,
+    Math.min(
+      12,
+      1 +
+        (next.research.completedProjectIds.includes("adaptive-instruction") ? 1 : 0) +
+        (next.research.completedProjectIds.includes("clinical-commons") ? 1 : 0) +
+        Math.floor(next.survivors.survivors.length / 20),
+    ),
+  );
+  next.survivors = advanceSurvivorSystem(next.survivors, seconds, {
+    trainingSpeedMultiplier: survivorBonuses.trainingSpeedMultiplier,
+    beaconSpeedMultiplier: survivorBonuses.beaconSpeedMultiplier,
+    onJobXpMultiplier: survivorBonuses.researchSpeedMultiplier,
+  });
+  const researchAdvance = advanceResearch(next.research, seconds, {
+    powerAvailable: getResearchPowerAvailable(next),
+    crewAvailable: getResearchCrewAvailable(next),
+    externalSpeedMultiplier: survivorBonuses.researchSpeedMultiplier,
+  });
+  next.research = researchAdvance.state;
+  next.worldProgress = {
+    ...next.worldProgress,
+    completedResearchIds: [
+      ...new Set([
+        ...next.worldProgress.completedResearchIds,
+        ...next.research.completedProjectIds,
+      ]),
+    ],
+  };
+  generateResearchStock(next, seconds);
+  const salvageWorkers = next.survivors.survivors.filter(
+    (survivor) =>
+      survivor.assignedRole === "fabricator" ||
+      survivor.assignedRole === "technician",
+  ).length;
+  next.living.salvage = Math.min(
+    1e12,
+    next.living.salvage +
+      seconds *
+        Math.min(
+          0.15,
+          0.012 + salvageWorkers * 0.006 + getCampaignWorldIndex(next) * 0.003,
+        ),
+  );
 
   for (let step = 0; step < steps; step += 1) {
     const snapshot = getProductionSnapshot(next);

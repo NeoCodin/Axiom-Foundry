@@ -1,24 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { syncLivingFoundryState } from "../app/living-foundry-engine.ts";
 import {
   MISSIONS,
   RECALIBRATION_THRESHOLD,
   RETIRED_SAVE_KEYS,
   RUN_UPGRADES,
   SAVE_KEY,
-  acknowledgeNextMission,
-  buyRunUpgrade,
   buyTier,
   contributeToMission,
   createInitialState,
+  departCurrentWorld,
   getCampaignRelics,
   getCampaignWorldIndex,
-  getManualGain,
+  getCurrentViabilityForecast,
   getMaxAffordableCount,
   getProductionSnapshot,
-  getRecalibrationGain,
-  getRunUpgradeCost,
   getTierCost,
   isTierUnlocked,
   pulseCore,
@@ -29,10 +25,11 @@ import {
 } from "../app/game-engine.ts";
 
 test("the campaign reset retires every previous public save key", () => {
-  assert.equal(SAVE_KEY, "axiom-foundry-save-v3");
+  assert.equal(SAVE_KEY, "axiom-foundry-save-v4");
   assert.deepEqual(RETIRED_SAVE_KEYS, [
     "axiom-foundry-save-v1",
     "axiom-foundry-save-v2",
+    "axiom-foundry-save-v3",
   ]);
   assert.equal(
     (RETIRED_SAVE_KEYS as readonly string[]).includes(SAVE_KEY),
@@ -107,15 +104,20 @@ test("recalibration grants the previewed Axiom and retains legacy progress", () 
   assert.equal(next.living.crew[0].assignedRoomId, "axiom-chamber");
 });
 
-test("staffed Foundry rooms provide capped final economy support", () => {
-  const empty = createInitialState(0);
-  empty.living.crew[0].assignedRoomId = null;
-  const staffed = createInitialState(0);
-  staffed.living = syncLivingFoundryState(staffed.living, 1);
-  staffed.living.crew[0].assignedRoomId = "axiom-chamber";
-  staffed.living.crew[1].assignedRoomId = "fabrication-floor";
-  assert.ok(getManualGain(staffed) > getManualGain(empty));
-  assert.ok(getTierCost(staffed, 0, 1) < getTierCost(empty, 0, 1));
+test("completed lattice research provides modest final economy support", () => {
+  const baseline = createInitialState(0);
+  baseline.tiers[0] = { amount: 10, bought: 10 };
+  const researched = createInitialState(0);
+  researched.tiers[0] = { amount: 10, bought: 10 };
+  researched.research.completedProjectIds = [
+    "auxiliary-power-routing",
+    "predictive-fabrication",
+  ];
+  assert.ok(
+    getProductionSnapshot(researched).fluxPerSecond >
+      getProductionSnapshot(baseline).fluxPerSecond,
+  );
+  assert.ok(getTierCost(researched, 0, 1) < getTierCost(baseline, 0, 1));
 });
 
 test("malformed saves recover to finite nonnegative state", () => {
@@ -137,7 +139,7 @@ test("planetary directives do not expose countdown state", () => {
   assert.equal("timeLimit" in MISSIONS[0], false);
 });
 
-test("a three-phase rescue grants a relay and waits before Planetfall", () => {
+test("Cold Wake engineering waits for an explicit continuity departure", () => {
   let state = setTutorialComplete(createInitialState(0), true);
   state.manualPulses = 12;
   state = simulateGame(state, 0.1, 1);
@@ -152,40 +154,41 @@ test("a three-phase rescue grants a relay and waits before Planetfall", () => {
   state.runFlux = 5_000;
   state = contributeToMission(state);
 
-  const rescued = simulateGame(state, 0.1, 1);
-  assert.equal(rescued.missions.statuses[0], "saved");
-  assert.equal(rescued.missions.currentIndex, 1);
-  assert.equal(rescued.missions.awaitingAcknowledgement, true);
-  assert.equal(rescued.stellarRelays, 1);
-  assert.ok(rescued.living.salvage > 35);
-  assert.equal(
-    rescued.living.crew.find((crew) => crew.id === "sena-marr")?.unlocked,
-    true,
-  );
-  assert.equal(
-    rescued.living.rooms.find((room) => room.id === "memory-archive")?.unlocked,
-    true,
-  );
-  assert.ok(rescued.flux < 10);
+  const readyForContinuity = simulateGame(state, 0.1, 1);
+  assert.equal(readyForContinuity.missions.statuses[0], "active");
+  assert.equal(readyForContinuity.missions.currentIndex, 0);
+  assert.equal(readyForContinuity.missions.awaitingAcknowledgement, true);
+  assert.equal(readyForContinuity.stellarRelays, 0);
+  assert.equal(readyForContinuity.settlement.currentWorldId, "cold-wake");
+  assert.ok(readyForContinuity.living.salvage > 35);
 
-  const waiting = simulateGame(rescued, 120, 10);
+  const waiting = simulateGame(readyForContinuity, 120, 10);
   assert.equal(waiting.missions.awaitingAcknowledgement, true);
-  assert.equal(waiting.missions.currentIndex, 1);
-  waiting.axioms = 3;
-  waiting.lifetimeAxioms = 3;
-  waiting.legacyUpgrades[0] = 1;
-  waiting.runUpgrades[0] = 2;
+  assert.equal(waiting.missions.currentIndex, 0);
+  assert.equal(waiting.missions.worldsSaved, 0);
+  assert.equal(getCampaignWorldIndex(waiting), 0);
+});
 
-  const accepted = acknowledgeNextMission(waiting);
-  assert.equal(accepted.missions.awaitingAcknowledgement, false);
-  assert.equal(accepted.missions.statuses[1], "active");
-  assert.equal(accepted.flux, MISSIONS[0].landingFlux);
-  assert.equal(accepted.tiers[0].bought, 0);
-  assert.ok(accepted.tiers[0].amount >= 0);
-  assert.equal(accepted.runUpgrades[0], 0);
-  assert.equal(accepted.axioms, 3);
-  assert.equal(accepted.legacyUpgrades[0], 1);
-  assert.equal(getCampaignWorldIndex(accepted), 1);
+test("Cold Wake departure requires the full Ark-readiness forecast", () => {
+  const state = setTutorialComplete(createInitialState(0), true);
+  assert.equal(getCurrentViabilityForecast(state)?.canDepart, false);
+  state.missions.awaitingAcknowledgement = true;
+  state.research.completedProjectIds = ["closed-loop-atmosphere"];
+  state.worldProgress.completedInfrastructureIds = [
+    "wake-axiom-chamber",
+    "restore-life-support",
+    "recover-orbital-control",
+  ];
+  state.worldProgress.completedResearchIds = ["closed-loop-atmosphere"];
+  state.worldProgress.resolvedCrisisIds = ["ark-reactor-desynchronization"];
+  state.worldProgress.supplies = { "reserve-power": 12 };
+
+  const departure = departCurrentWorld(state, 1_000);
+  assert.equal(departure.ok, true);
+  assert.equal(departure.state.settlement.currentWorldId, "pelagos");
+  assert.equal(departure.state.missions.statuses[0], "saved");
+  assert.equal(departure.state.missions.currentIndex, 1);
+  assert.equal(departure.state.survivors.survivors.length, 0);
 });
 
 test("unfinished planetary directives remain active indefinitely", () => {
@@ -276,7 +279,7 @@ test("v2 saves enter the expanded campaign without replaying old Flux progress",
       statuses: MISSIONS.map(() => "saved"),
     },
   }, 100);
-  assert.equal(migrated.version, 5);
+  assert.equal(migrated.version, 6);
   assert.equal(migrated.missions.currentIndex, 0);
   assert.equal(migrated.missions.stageIndex, 0);
   assert.equal(migrated.missions.worldsSaved, 0);
@@ -301,7 +304,7 @@ test("v3 timed saves recover lost worlds under the untimed campaign", () => {
     },
   }, 100);
 
-  assert.equal(migrated.version, 5);
+  assert.equal(migrated.version, 6);
   assert.equal(migrated.missions.schema, 3);
   assert.deepEqual(migrated.missions.statuses.slice(0, 4), [
     "saved",
@@ -316,9 +319,6 @@ test("v3 timed saves recover lost worlds under the untimed campaign", () => {
   assert.ok(getCampaignRelics(migrated).phaseCoilMultiplier > 1);
   assert.ok(getCampaignRelics(migrated).resonanceBonus > 0);
 
-  const continued = acknowledgeNextMission(migrated);
-  assert.equal(continued.flux, MISSIONS[2].landingFlux);
-  assert.equal(continued.missions.statuses[3], "active");
 });
 
 test("a timed Vesper loss restores its final Axiom exactly once", () => {
@@ -344,71 +344,23 @@ test("a timed Vesper loss restores its final Axiom exactly once", () => {
   assert.equal(reloaded.lifetimeAxioms, 4);
 });
 
-test("representative active play takes hours, not minutes, to finish the route", () => {
+test("idle time cannot silently skip the continuity campaign", () => {
   let state = setTutorialComplete(createInitialState(0), true);
-  let twoHourSnapshot: { index: number; lifetimeAxioms: number } | null = null;
+  state.manualPulses = 12;
+  state = simulateGame(state, 0.1, 1);
+  state.tiers[0] = { amount: 25, bought: 25 };
+  state = simulateGame(state, 0.1, 1);
+  state.flux = 5_000;
+  state.maxFlux = 5_000;
+  state.runFlux = 5_000;
+  state = contributeToMission(state);
+  state = simulateGame(state, 0.1, 1);
+  assert.equal(state.missions.awaitingAcknowledgement, true);
 
-  for (
-    let second = 0;
-    second < 8 * 3_600 && state.missions.currentIndex < MISSIONS.length;
-    second += 1
-  ) {
-    state = pulseCore(pulseCore(state));
-    const mission = MISSIONS[state.missions.currentIndex];
-    const stage = mission?.stages[state.missions.stageIndex];
-
-    for (let index = state.tiers.length - 1; index >= 0; index -= 1) {
-      const costTen = getTierCost(state, index, 10);
-      const costOne = getTierCost(state, index, 1);
-      if (
-        stage?.kind === "tierPurchaseDelta" &&
-        stage.tierIndex === index &&
-        costOne <= state.flux
-      ) {
-        state = buyTier(state, index, "1");
-      } else if (costTen <= state.flux * 0.18) {
-        state = buyTier(state, index, "10");
-      } else if (costOne <= state.flux * 0.04) {
-        state = buyTier(state, index, "1");
-      }
-    }
-
-    for (let index = 0; index < RUN_UPGRADES.length; index += 1) {
-      if (getRunUpgradeCost(state, index) <= state.flux * 0.08) {
-        state = buyRunUpgrade(state, index);
-      }
-    }
-
-    if (
-      stage?.kind === "contributeFlux" &&
-      state.flux >= stage.target - state.missions.contributedFlux
-    ) {
-      state = contributeToMission(state);
-    }
-    if (
-      stage?.kind === "recalibrateGain" &&
-      getRecalibrationGain(state) > 0
-    ) {
-      state = recalibrate(state, second * 1_000);
-    }
-
-    state = simulateGame(state, 1, 4);
-    if (state.missions.awaitingAcknowledgement) {
-      state = acknowledgeNextMission(state);
-    }
-    if (second === 2 * 3_600 - 1) {
-      twoHourSnapshot = {
-        index: state.missions.currentIndex,
-        lifetimeAxioms: state.lifetimeAxioms,
-      };
-    }
-  }
-
-  assert.ok(twoHourSnapshot);
-  assert.ok(twoHourSnapshot.index < MISSIONS.length - 1);
-  assert.equal(twoHourSnapshot.lifetimeAxioms, 0);
-  assert.equal(state.missions.currentIndex, MISSIONS.length);
-  assert.equal(state.missions.worldsSaved, MISSIONS.length);
-  assert.ok(state.playTime >= 2 * 3_600);
-  assert.ok(state.playTime <= 8 * 3_600);
+  const fourHoursLater = simulateGame(state, 4 * 3_600, 120);
+  assert.equal(fourHoursLater.missions.currentIndex, 0);
+  assert.equal(fourHoursLater.missions.worldsSaved, 0);
+  assert.equal(fourHoursLater.settlement.currentWorldId, "cold-wake");
+  assert.equal(fourHoursLater.survivors.survivors.length, 0);
+  assert.ok(fourHoursLater.playTime >= 4 * 3_600);
 });
