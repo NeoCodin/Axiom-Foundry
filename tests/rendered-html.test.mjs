@@ -38,9 +38,11 @@ test("server-renders the Axiom Foundry game surface", async () => {
   assert.match(html, /Planetary theater/);
   assert.match(html, /Find a stable frequency/);
   assert.match(html, /Planetary Directives/);
+  assert.match(html, /No deadline/);
   assert.match(html, /Run Research/);
   assert.match(html, /role="progressbar"/);
   assert.match(html, /property="og:image"/);
+  assert.doesNotMatch(html, /Cohesion window|If the clock expires/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|react-loading-skeleton/);
 });
 

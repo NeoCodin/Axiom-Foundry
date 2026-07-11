@@ -11,6 +11,7 @@ import {
   buyTier,
   contributeToMission,
   createInitialState,
+  getCampaignRelics,
   getCampaignWorldIndex,
   getMaxAffordableCount,
   getProductionSnapshot,
@@ -108,17 +109,10 @@ test("malformed saves recover to finite nonnegative state", () => {
   assert.ok(state.tiers.every((tier) => tier.amount >= 0 && tier.bought >= 0));
 });
 
-test("planetary clocks wait for orientation and pause during offline progress", () => {
+test("planetary directives do not expose countdown state", () => {
   const initial = createInitialState(0);
-  const beforeOrientation = simulateGame(initial, 60, 10);
-  assert.equal(beforeOrientation.missions.timeLeft, MISSIONS[0].timeLimit);
-
-  const started = setTutorialComplete(beforeOrientation, true);
-  const active = simulateGame(started, 1, 1);
-  assert.equal(active.missions.timeLeft, MISSIONS[0].timeLimit - 1);
-
-  const offline = simulateGame(active, 60, 10, false);
-  assert.equal(offline.missions.timeLeft, active.missions.timeLeft);
+  assert.equal("timeLeft" in initial.missions, false);
+  assert.equal("timeLimit" in MISSIONS[0], false);
 });
 
 test("a three-phase rescue grants a relay and waits before Planetfall", () => {
@@ -144,7 +138,8 @@ test("a three-phase rescue grants a relay and waits before Planetfall", () => {
   assert.ok(rescued.flux < 10);
 
   const waiting = simulateGame(rescued, 120, 10);
-  assert.equal(waiting.missions.timeLeft, MISSIONS[1].timeLimit);
+  assert.equal(waiting.missions.awaitingAcknowledgement, true);
+  assert.equal(waiting.missions.currentIndex, 1);
   waiting.axioms = 3;
   waiting.lifetimeAxioms = 3;
   waiting.legacyUpgrades[0] = 1;
@@ -162,22 +157,18 @@ test("a three-phase rescue grants a relay and waits before Planetfall", () => {
   assert.equal(getCampaignWorldIndex(accepted), 1);
 });
 
-test("missing a deadline records the world without resetting progression", () => {
+test("unfinished planetary directives remain active indefinitely", () => {
   const state = setTutorialComplete(createInitialState(0), true);
   state.flux = 42;
   state.maxFlux = 42;
-  state.missions.timeLeft = 0.05;
-  const lost = simulateGame(state, 0.1, 1);
-  assert.equal(lost.missions.statuses[0], "lost");
-  assert.equal(lost.missions.worldsLost, 1);
-  assert.equal(lost.flux, 42);
-  assert.equal(lost.cycle, 1);
-  assert.equal(lost.stellarRelays, 0);
-  assert.equal(getCampaignWorldIndex(lost), 0);
-  const continued = acknowledgeNextMission(lost);
-  assert.equal(getCampaignWorldIndex(continued), 1);
-  continued.maxFlux = 250;
-  assert.equal(isTierUnlocked(continued, 1), true);
+  const muchLater = simulateGame(state, 48 * 60 * 60, 10);
+  assert.equal(muchLater.missions.statuses[0], "active");
+  assert.equal(muchLater.missions.currentIndex, 0);
+  assert.equal("worldsLost" in muchLater.missions, false);
+  assert.equal(muchLater.flux, 42);
+  assert.equal(muchLater.cycle, 1);
+  assert.equal(muchLater.stellarRelays, 0);
+  assert.equal(getCampaignWorldIndex(muchLater), 0);
 });
 
 test("milestone efficiency grows linearly at 25-purchase breakpoints", () => {
@@ -254,13 +245,72 @@ test("v2 saves enter the expanded campaign without replaying old Flux progress",
       statuses: MISSIONS.map(() => "saved"),
     },
   }, 100);
-  assert.equal(migrated.version, 3);
+  assert.equal(migrated.version, 4);
   assert.equal(migrated.missions.currentIndex, 0);
   assert.equal(migrated.missions.stageIndex, 0);
   assert.equal(migrated.missions.worldsSaved, 0);
   assert.equal(migrated.axioms, 7);
   assert.equal(migrated.lifetimeAxioms, 9);
   assert.equal(migrated.missions.baseline.manualPulses, migrated.manualPulses);
+});
+
+test("v3 timed saves recover lost worlds under the untimed campaign", () => {
+  const migrated = sanitizeGameState({
+    version: 3,
+    axioms: 2,
+    lifetimeAxioms: 3,
+    stellarRelays: 1,
+    missions: {
+      schema: 2,
+      currentIndex: 3,
+      stageIndex: 0,
+      timeLeft: 0,
+      statuses: ["saved", "lost", "lost", "locked", "locked", "locked"],
+      awaitingAcknowledgement: true,
+    },
+  }, 100);
+
+  assert.equal(migrated.version, 4);
+  assert.equal(migrated.missions.schema, 3);
+  assert.deepEqual(migrated.missions.statuses.slice(0, 4), [
+    "saved",
+    "saved",
+    "saved",
+    "locked",
+  ]);
+  assert.equal(migrated.missions.worldsSaved, 3);
+  assert.equal(migrated.stellarRelays, 3);
+  assert.equal("timeLeft" in migrated.missions, false);
+  assert.equal("worldsLost" in migrated.missions, false);
+  assert.ok(getCampaignRelics(migrated).phaseCoilMultiplier > 1);
+  assert.ok(getCampaignRelics(migrated).resonanceBonus > 0);
+
+  const continued = acknowledgeNextMission(migrated);
+  assert.equal(continued.flux, MISSIONS[2].landingFlux);
+  assert.equal(continued.missions.statuses[3], "active");
+});
+
+test("a timed Vesper loss restores its final Axiom exactly once", () => {
+  const migrated = sanitizeGameState({
+    version: 3,
+    axioms: 2,
+    lifetimeAxioms: 3,
+    stellarRelays: 5,
+    missions: {
+      schema: 2,
+      currentIndex: MISSIONS.length,
+      statuses: ["saved", "saved", "saved", "saved", "saved", "lost"],
+    },
+  }, 100);
+
+  assert.equal(migrated.missions.worldsSaved, MISSIONS.length);
+  assert.equal(migrated.stellarRelays, MISSIONS.length);
+  assert.equal(migrated.axioms, 3);
+  assert.equal(migrated.lifetimeAxioms, 4);
+
+  const reloaded = sanitizeGameState(migrated, 200);
+  assert.equal(reloaded.axioms, 3);
+  assert.equal(reloaded.lifetimeAxioms, 4);
 });
 
 test("representative active play takes hours, not minutes, to finish the route", () => {

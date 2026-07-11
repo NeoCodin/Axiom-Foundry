@@ -31,15 +31,15 @@ export const TOUR_STEPS = [
     target: "missions",
     eyebrow: "Sixfold evacuation // 05",
     title: "Every world is a chapter",
-    body: "Each planet has three operations and one active-play cohesion window. Construction, sustained Resonance, research, and direct Flux contributions now repair visible parts of that world's failing physics.",
-    note: "If time expires, the planet is recorded as lost—but its black box still yields the next blueprint. Clocks pause while the game is closed, hidden, or on a result screen.",
+    body: "Each planet has three operations. Construction, sustained Resonance, research, and direct Flux contributions repair visible parts of that world's failing physics.",
+    note: "Planetary Directives have no deadline. Progress saves automatically, so you can leave the Foundry idle and return whenever you are ready.",
   },
   {
     target: "recalibration",
     eyebrow: "Portable laws // 06",
     title: "Turn one cycle into an Axiom",
     body: "At 1 trillion run Flux, Recalibrate. Your temporary machines and Run Research collapse, but the pattern they proved condenses into a permanent Axiom. Vesper requires that proof and seals a second copy as its rescue grant.",
-    note: "An Axiom is a portable law of physics. It keeps mass, time, and spacecraft consistent inside the Null Tide. Begin at Helion when you are ready—the first planetary clock starts then.",
+    note: "An Axiom is a portable law of physics. It keeps mass, time, and spacecraft consistent inside the Null Tide. Begin at Helion when you are ready; the route will wait for you.",
   },
 ] as const;
 
@@ -94,10 +94,10 @@ export const LORE_ENTRIES = [
   },
   {
     title: "The Planetary Ledger",
-    tag: "The stakes",
+    tag: "The route",
     paragraphs: [
-      "Every beacon on the Directive board belongs to a living world. Its timer measures how long local physics is expected to hold. Three repair phases change both the planet and the hazard currently weakening your Foundry.",
-      "A rescue leaves a working relic and a relay that shields later worlds. A loss leaves debris, a name in the Ledger, and a black box carrying the next blueprint. Failure changes the final exodus; it never soft-locks the campaign.",
+      "Every beacon on the Directive board belongs to a living world. Three repair phases change both the planet and the hazard currently weakening your Foundry.",
+      "The Foundry no longer treats rescue as a race. Each operation waits for your return, and every completed world leaves a working relic, a new blueprint, and a relay that shields the route ahead.",
     ],
   },
   {
@@ -113,7 +113,7 @@ export const LORE_ENTRIES = [
     tag: "Consequences",
     paragraphs: [
       "Helion's lens strengthens manual alignment. Pelagos improves the Phase Coil. Cinderwake sharpens Resonance. Ilyra reduces research loss. Orison seeds every future assembly. These are not trophies; they alter the machine that reaches Vesper.",
-      "The final transmission has three possible records. Save every world and the Concordance crosses together. Save at least half and a Lifeboat carries the survivors and the dead worlds' archives. Save fewer, and the Last Foundry remains behind as the only dependable law in the old universe.",
+      "Every finished chapter brings another world into the final route. When Vesper's corridor opens, the Concordance can cross together with a complete record of how each rescue changed the Foundry.",
     ],
   },
 ] as const;

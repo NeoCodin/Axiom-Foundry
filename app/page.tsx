@@ -70,17 +70,6 @@ function thresholdProgress(current: number, previous: number, next: number) {
   return Math.min(1, Math.max(0, (position - start) / (end - start)));
 }
 
-function formatCountdown(seconds: number) {
-  const remaining = Math.max(0, Math.ceil(seconds));
-  const hours = Math.floor(remaining / 3_600);
-  const minutes = Math.floor(remaining / 60);
-  const rest = remaining % 60;
-  if (hours > 0) {
-    return `${hours}:${String(minutes % 60).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
-  }
-  return `${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
-}
-
 function getNextObjective(state: GameState) {
   const activeMission = MISSIONS[state.missions.currentIndex];
   if (activeMission && !state.missions.awaitingAcknowledgement) {
@@ -208,6 +197,7 @@ export default function Home() {
       if (raw) {
         const parsed = JSON.parse(raw) as { version?: number };
         const expandedCampaignWasNew = (parsed.version ?? 1) < 3;
+        const untimedDirectivesWereNew = (parsed.version ?? 1) < 4;
         const loaded = sanitizeGameState(parsed, now);
         const absence = Math.max(0, (now - loaded.lastSaved) / 1_000);
         const credited = Math.min(
@@ -225,6 +215,10 @@ export default function Home() {
         } else if (expandedCampaignWasNew) {
           setAnnouncement(
             "New planetary charts loaded. Your permanent progress survived, and the expanded Helion campaign is ready.",
+          );
+        } else if (untimedDirectivesWereNew) {
+          setAnnouncement(
+            "Planetary deadlines have been retired. Every world now waits for you, and any earlier loss has been restored.",
           );
         }
       }
@@ -378,10 +372,6 @@ export default function Home() {
     game.missions.currentIndex > 0
       ? MISSIONS[game.missions.currentIndex - 1]
       : null;
-  const lastResolvedStatus =
-    game.missions.currentIndex > 0
-      ? game.missions.statuses[game.missions.currentIndex - 1]
-      : null;
   const firstLockedGenerator = GENERATORS.findIndex(
     (_, index) => !isTierUnlocked(game, index),
   );
@@ -392,27 +382,22 @@ export default function Home() {
 
   useEffect(() => {
     if (!ready) return;
-    const signature = `${game.missions.currentIndex}:${game.missions.awaitingAcknowledgement}:${game.missions.worldsSaved}:${game.missions.worldsLost}`;
+    const signature = `${game.missions.currentIndex}:${game.missions.awaitingAcknowledgement}:${game.missions.worldsSaved}`;
     if (
       missionSignatureRef.current &&
       signature !== missionSignatureRef.current &&
-      lastResolvedMission &&
-      lastResolvedStatus
+      lastResolvedMission
     ) {
       setAnnouncement(
-        lastResolvedStatus === "saved"
-          ? `${lastResolvedMission.world} secured. Its relic is online, and a Stellar Relay now shields future planetfalls.`
-          : `${lastResolvedMission.world} has been lost to the Null Tide. The Foundry continues.`,
+        `${lastResolvedMission.world} secured. Its relic is online, and a Stellar Relay now shields future planetfalls.`,
       );
     }
     missionSignatureRef.current = signature;
   }, [
     game.missions.awaitingAcknowledgement,
     game.missions.currentIndex,
-    game.missions.worldsLost,
     game.missions.worldsSaved,
     lastResolvedMission,
-    lastResolvedStatus,
     ready,
   ]);
 
@@ -527,7 +512,7 @@ export default function Home() {
     setGame(next);
     setTourStep(null);
     setAnnouncement(
-      "Orientation complete. The first planetary rescue clock is now running.",
+      "Orientation complete. Helion's rescue operation is ready whenever you are.",
     );
     window.setTimeout(() => persistGame("Orientation saved"), 0);
   };
@@ -552,7 +537,7 @@ export default function Home() {
     setGame(next);
     setAnnouncement(
       MISSIONS[next.missions.currentIndex]
-        ? `Planetfall at ${MISSIONS[next.missions.currentIndex].world}. Temporary machinery was translated into a landing cache; its clock is now running.`
+        ? `Planetfall at ${MISSIONS[next.missions.currentIndex].world}. Temporary machinery was translated into a landing cache; continue whenever you are ready.`
         : "The Sixfold Evacuation is complete.",
     );
     window.setTimeout(() => persistGame("Directive saved"), 0);
@@ -616,7 +601,7 @@ export default function Home() {
             <span>{formatNumber(objective.current)} / {formatNumber(objective.threshold)} required</span>
             {activeMission && game.settings.tutorialComplete && !game.missions.awaitingAcknowledgement && (
               <button className="crisis-link" type="button" onClick={() => setMobileTab("systems")}>
-                {activeMission.world} · {formatCountdown(game.missions.timeLeft)}
+                {activeMission.world} · Open directive
               </button>
             )}
           </div>
@@ -839,14 +824,10 @@ export default function Home() {
             </div>
 
             {game.missions.awaitingAcknowledgement && lastResolvedMission ? (
-              <div className={`mission-outcome ${lastResolvedStatus === "saved" ? "saved" : "lost"}`}>
-                <p>{lastResolvedStatus === "saved" ? "World secured" : "Planetary cohesion failed"}</p>
+              <div className="mission-outcome saved">
+                <p>World secured</p>
                 <h3>{lastResolvedMission.world}</h3>
-                <span>
-                  {lastResolvedStatus === "saved"
-                    ? `${lastResolvedMission.success} ${lastResolvedMission.rewardLabel}.`
-                    : lastResolvedMission.failure}
-                </span>
+                <span>{lastResolvedMission.success} {lastResolvedMission.rewardLabel}.</span>
                 {activeMission && (
                   <button type="button" onClick={acknowledgeMission}>
                     Travel to {activeMission.world}
@@ -863,10 +844,6 @@ export default function Home() {
                     <span>World {game.missions.currentIndex + 1} of {MISSIONS.length} · Phase {game.missions.stageIndex + 1} of {activeMission.stages.length}</span>
                     <h3>{activeMission.world}</h3>
                     <small>{activeMission.epithet}</small>
-                  </div>
-                  <div className={`mission-clock ${game.missions.timeLeft <= 5 * 60 && game.settings.tutorialComplete ? "critical" : ""}`}>
-                    <span>{game.settings.tutorialComplete ? "Cohesion window" : "Clock paused"}</span>
-                    <strong>{formatCountdown(game.missions.timeLeft)}</strong>
                   </div>
                 </div>
                 <h4>{activeMission.title}</h4>
@@ -920,7 +897,7 @@ export default function Home() {
                 </div>
                 <div className="mission-stakes">
                   <span><b>Rescue grant</b>{activeMission.rewardLabel}</span>
-                  <span><b>If the clock expires</b>{activeMission.failure}</span>
+                  <span><b>Foundry protocol</b>No deadline. Progress saves automatically, so every operation can be completed at your pace.</span>
                 </div>
                 {!game.settings.tutorialComplete && (
                   <button className="orientation-button" type="button" onClick={() => setTourStep(0)}>Complete orientation to begin</button>
@@ -929,21 +906,15 @@ export default function Home() {
             ) : (
               <div className="campaign-complete">
                 <span aria-hidden="true">✦</span>
-                <h3>{game.missions.worldsSaved === MISSIONS.length ? "The Concordance Ending" : game.missions.worldsSaved >= 3 ? "The Lifeboat Ending" : "The Last Foundry Ending"}</h3>
-                <p>
-                  {game.missions.worldsSaved === MISSIONS.length
-                    ? "Every rescued world follows Vesper through a corridor of portable law. Humanity leaves no one behind."
-                    : game.missions.worldsSaved >= 3
-                      ? "The surviving worlds cross together, carrying the names and archives of those the Tide claimed."
-                      : "Vesper vanishes into uncertain space. The Foundry remains behind, preserving the last dependable laws in the old universe."}
-                </p>
-                <small>{game.missions.worldsSaved} worlds secured · {game.missions.worldsLost} recorded in the Ledger of Lost Worlds.</small>
+                <h3>The Concordance Ending</h3>
+                <p>Every rescued world follows Vesper through a corridor of portable law. Humanity leaves no one behind.</p>
+                <small>{game.missions.worldsSaved} worlds secured · the Sixfold Evacuation is complete.</small>
               </div>
             )}
 
             <div className="mission-footer">
               <span><b>{game.missions.worldsSaved}</b> saved</span>
-              <span><b>{game.missions.worldsLost}</b> lost</span>
+              <span><b>{Math.max(0, MISSIONS.length - game.missions.currentIndex)}</b> remaining</span>
               <span><b>{Math.round(production.hazardShield * 100)}%</b> relay shielding</span>
             </div>
           </section>
@@ -1136,25 +1107,23 @@ export default function Home() {
               </div>
               <section className="planetary-ledger">
                 <div className="ledger-heading">
-                  <div><p className="section-kicker danger-text">Permanent record</p><h3>Planetary Ledger</h3></div>
-                  <span>{game.missions.worldsSaved} secured · {game.missions.worldsLost} lost</span>
+                  <div><p className="section-kicker">Rescue record</p><h3>Planetary Ledger</h3></div>
+                  <span>{game.missions.worldsSaved} secured · {Math.max(0, MISSIONS.length - game.missions.worldsSaved)} remaining</span>
                 </div>
                 <div className="ledger-worlds">
                   {MISSIONS.map((mission, index) => {
                     const status = game.missions.statuses[index];
-                    const label = status === "saved" ? "World secured" : status === "lost" ? "World lost" : status === "active" ? "Signal active" : "Signal pending";
+                    const label = status === "saved" ? "World secured" : status === "active" ? "Signal active" : "Signal pending";
                     return (
                       <article className={status} key={mission.world}>
                         <span>{label}</span>
                         <strong>{mission.world}</strong>
                         <small>
-                          {status === "lost"
-                            ? mission.failure
-                            : status === "saved"
-                              ? mission.success
-                              : status === "active"
-                                ? `${mission.hazardLabel}: ${mission.hazard}`
-                                : mission.epithet}
+                          {status === "saved"
+                            ? mission.success
+                            : status === "active"
+                              ? `${mission.hazardLabel}: ${mission.hazard}`
+                              : mission.epithet}
                         </small>
                       </article>
                     );

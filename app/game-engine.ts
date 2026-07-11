@@ -1,4 +1,4 @@
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 export const SAVE_KEY = "axiom-foundry-save-v2";
 export const RETIRED_SAVE_KEYS = ["axiom-foundry-save-v1"] as const;
 export const MAX_VALUE = 1e280;
@@ -18,7 +18,7 @@ export type GameSettings = {
   tutorialComplete: boolean;
 };
 
-export type MissionStatus = "locked" | "active" | "saved" | "lost";
+export type MissionStatus = "locked" | "active" | "saved";
 
 export type MissionStageKind =
   | "pulseDelta"
@@ -40,10 +40,8 @@ export type MissionState = {
   schema: number;
   currentIndex: number;
   stageIndex: number;
-  timeLeft: number;
   statuses: MissionStatus[];
   worldsSaved: number;
-  worldsLost: number;
   awaitingAcknowledgement: boolean;
   holdTime: number;
   contributedFlux: number;
@@ -232,14 +230,10 @@ export const MISSIONS = [
         lore: "This Flux leaves your reserves permanently. What it buys is a route for millions of people.",
       },
     ],
-    timeLimit: 15 * 60,
     landingFlux: 100,
-    failureFlux: 25,
     rewardLabel: "Beacon Lens relic + Stellar Relay + 100-Flux landing cache",
     success:
       "Helion's first sunrise in eleven days reveals evacuation craft already climbing toward the Foundry's route.",
-    failure:
-      "Helion's settlements flare into a final aurora before the signal goes black.",
   },
   {
     world: "Pelagos",
@@ -284,14 +278,10 @@ export const MISSIONS = [
         lore: "The corridor becomes a temporary law: water falls toward Pelagos, and nowhere else.",
       },
     ],
-    timeLimit: 30 * 60,
     landingFlux: 2_500,
-    failureFlux: 500,
     rewardLabel: "Gravity Keel relic + Stellar Relay + 2,500-Flux landing cache",
     success:
       "Pelagos receives rain from every direction for nine minutes. When it ends, the seas are home and the ferries are full.",
-    failure:
-      "Gravity releases its claim on the oceans; they crush the evacuation ring from above.",
   },
   {
     world: "Cinderwake",
@@ -337,14 +327,10 @@ export const MISSIONS = [
         lore: "The final charge joins every station into one claim: this moon remains whole.",
       },
     ],
-    timeLimit: 60 * 60,
     landingFlux: 50_000,
-    failureFlux: 10_000,
     rewardLabel: "Shield Harmonic relic + Stellar Relay + 50,000-Flux landing cache",
     success:
       "The stations strike one impossible chord. Cinderwake's shield closes, and falling fire bends harmlessly around the moon.",
-    failure:
-      "The moon breaks apart; its fragments scour the world the shields were built to protect.",
   },
   {
     world: "Ilyra",
@@ -389,14 +375,10 @@ export const MISSIONS = [
         lore: "The prism does not move the population. It moves the definition of where they are.",
       },
     ],
-    timeLimit: 120 * 60,
     landingFlux: 2_000_000,
-    failureFlux: 400_000,
     rewardLabel: "Prismatic Index relic + Stellar Relay + 2-million-Flux landing cache",
     success:
       "The duplicate worlds fold into light. One Ilyra remains, carrying the memories of every city that might have been.",
-    failure:
-      "Ilyra's cities refract into vacuum like light through shattered crystal.",
   },
   {
     world: "Orison Prime",
@@ -442,14 +424,10 @@ export const MISSIONS = [
         lore: "The archive rises first. The Foundry is measured by what it chooses to carry.",
       },
     ],
-    timeLimit: 240 * 60,
     landingFlux: 100_000_000,
-    failureFlux: 20_000_000,
     rewardLabel: "Seed Archive relic + Stellar Relay + 100-million-Flux landing cache",
     success:
       "Orison climbs into a new orbit. Its seed vault joins the fleet carrying forests for worlds that do not exist yet.",
-    failure:
-      "Orison spirals inward while its habitats transmit the last valid map of the sector.",
   },
   {
     world: "Vesper Ark",
@@ -494,15 +472,11 @@ export const MISSIONS = [
         lore: "The forged Axiom opens the route. Vesper's rescue grant seals a second copy inside the ark so cause still follows effect after it crosses.",
       },
     ],
-    timeLimit: 360 * 60,
     landingFlux: 0,
-    failureFlux: 0,
     rewardAxioms: 1,
     rewardLabel: "1 bonus Axiom + final Stellar Relay + Concordance ending",
     success:
       "Vesper crosses the Null Tide carrying a pocket of reality large enough for every surviving world to follow.",
-    failure:
-      "The Tide erases Vesper's route, but its black box reaches the Foundry inside a pocket of stable time.",
   },
 ] as const;
 
@@ -561,15 +535,13 @@ export function createInitialState(now = Date.now()): GameState {
     runUpgrades: RUN_UPGRADES.map(() => 0),
     legacyUpgrades: LEGACY_UPGRADES.map(() => 0),
     missions: {
-      schema: 2,
+      schema: 3,
       currentIndex: 0,
       stageIndex: 0,
-      timeLeft: MISSIONS[0].timeLimit,
       statuses: MISSIONS.map((_, index) =>
         index === 0 ? "active" : "locked",
       ),
       worldsSaved: 0,
-      worldsLost: 0,
       awaitingAcknowledgement: false,
       holdTime: 0,
       contributedFlux: 0,
@@ -616,9 +588,20 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
   const rawBaselineTiers = Array.isArray(rawBaseline.tierBought)
     ? rawBaseline.tierBought
     : [];
-  const hasExpandedCampaign =
-    Math.floor(readNumber(value.version, 1, SAVE_VERSION)) >= 3 &&
-    Math.floor(readNumber(rawMissions.schema, 0, 2)) === 2;
+  const sourceVersion = Math.floor(readNumber(value.version, 1, SAVE_VERSION));
+  const missionSchema = Math.floor(readNumber(rawMissions.schema, 0, 3));
+  const hasExpandedCampaign = sourceVersion >= 3 && missionSchema >= 2;
+  const expandedCampaignIndex = Math.min(
+    MISSIONS.length,
+    Math.floor(readNumber(rawMissions.currentIndex, 0, MISSIONS.length)),
+  );
+  const recoveredFinalAxiom =
+    sourceVersion === 3 &&
+    hasExpandedCampaign &&
+    expandedCampaignIndex === MISSIONS.length &&
+    rawMissionStatuses[MISSIONS.length - 1] === "lost"
+      ? 1
+      : 0;
 
   const tiers = GENERATORS.map((_, index) => {
     const raw = isRecord(rawTiers[index]) ? rawTiers[index] : {};
@@ -642,26 +625,22 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
   const allTimeFlux = Math.max(runFlux, readNumber(value.allTimeFlux));
   const savedAt = readNumber(value.lastSaved, now, now);
   const cycle = Math.max(1, Math.floor(readNumber(value.cycle, 1, 1e9)));
-  const lifetimeAxioms = Math.floor(
-    readNumber(value.lifetimeAxioms, 0, 1e15),
-  );
+  const axioms =
+    Math.floor(readNumber(value.axioms, 0, 1e15)) + recoveredFinalAxiom;
+  const lifetimeAxioms =
+    Math.floor(readNumber(value.lifetimeAxioms, 0, 1e15)) +
+    recoveredFinalAxiom;
   const manualPulses = Math.floor(readNumber(value.manualPulses, 0, 1e15));
   const currentMissionIndex = hasExpandedCampaign
-    ? Math.min(
-        MISSIONS.length,
-        Math.floor(readNumber(rawMissions.currentIndex, 0, MISSIONS.length)),
-      )
+    ? expandedCampaignIndex
     : 0;
   const awaitingAcknowledgement =
     hasExpandedCampaign &&
     rawMissions.awaitingAcknowledgement === true &&
     currentMissionIndex < MISSIONS.length;
   const missionStatuses: MissionStatus[] = MISSIONS.map((_, index) => {
-    const rawStatus = hasExpandedCampaign
-      ? rawMissionStatuses[index]
-      : undefined;
     if (index < currentMissionIndex) {
-      return rawStatus === "saved" ? "saved" : "lost";
+      return "saved";
     }
     if (index === currentMissionIndex) {
       return awaitingAcknowledgement ? "locked" : "active";
@@ -671,11 +650,6 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
   const savedWorlds = missionStatuses.filter(
     (status) => status === "saved",
   ).length;
-  const lostWorlds = missionStatuses.filter(
-    (status) => status === "lost",
-  ).length;
-  const defaultMissionTime =
-    MISSIONS[currentMissionIndex]?.timeLimit ?? 0;
   const activeStageCount =
     MISSIONS[currentMissionIndex]?.stages.length ?? 1;
   const stageIndex = hasExpandedCampaign
@@ -727,30 +701,19 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
     maxFlux,
     runFlux,
     allTimeFlux,
-    axioms: Math.floor(readNumber(value.axioms, 0, 1e15)),
+    axioms,
     lifetimeAxioms,
-    stellarRelays: Math.max(
-      savedWorlds,
-      Math.floor(readNumber(value.stellarRelays, savedWorlds, MISSIONS.length)),
-    ),
+    stellarRelays: savedWorlds,
     cycle,
     tiers,
     runUpgrades,
     legacyUpgrades,
     missions: {
-      schema: 2,
+      schema: 3,
       currentIndex: currentMissionIndex,
       stageIndex,
-      timeLeft: hasExpandedCampaign
-        ? readNumber(
-            rawMissions.timeLeft,
-            defaultMissionTime,
-            defaultMissionTime,
-          )
-        : defaultMissionTime,
       statuses: missionStatuses,
       worldsSaved: savedWorlds,
-      worldsLost: lostWorlds,
       awaitingAcknowledgement,
       holdTime: hasExpandedCampaign
         ? readNumber(rawMissions.holdTime, 0, 1e9)
@@ -1027,7 +990,7 @@ function advanceMission(state: GameState, elapsedSeconds: number) {
   }
 
   const progress = getMissionProgress(state, index);
-  let outcome: MissionStatus | null = null;
+  let outcome: "saved" | null = null;
   if (progress.value >= progress.target) {
     if (state.missions.stageIndex < mission.stages.length - 1) {
       state.missions.stageIndex += 1;
@@ -1046,15 +1009,6 @@ function advanceMission(state: GameState, elapsedSeconds: number) {
       state.axioms += mission.rewardAxioms;
       state.lifetimeAxioms += mission.rewardAxioms;
     }
-  } else {
-    state.missions.timeLeft = Math.max(
-      0,
-      state.missions.timeLeft - elapsedSeconds,
-    );
-    if (state.missions.timeLeft <= 0) {
-      outcome = "lost";
-      state.missions.worldsLost += 1;
-    }
   }
 
   if (outcome) {
@@ -1062,7 +1016,6 @@ function advanceMission(state: GameState, elapsedSeconds: number) {
     state.missions.currentIndex += 1;
     const nextMission = MISSIONS[state.missions.currentIndex];
     state.missions.stageIndex = 0;
-    state.missions.timeLeft = nextMission?.timeLimit ?? 0;
     state.missions.awaitingAcknowledgement = Boolean(nextMission);
     state.missions.holdTime = 0;
     state.missions.contributedFlux = 0;
@@ -1394,11 +1347,7 @@ export function acknowledgeNextMission(state: GameState) {
   const next = cloneGameState(state);
   const resolvedIndex = Math.max(0, next.missions.currentIndex - 1);
   const resolvedMission = MISSIONS[resolvedIndex];
-  const resolvedStatus = next.missions.statuses[resolvedIndex];
-  const landingFlux =
-    resolvedStatus === "saved"
-      ? resolvedMission?.landingFlux ?? 0
-      : resolvedMission?.failureFlux ?? 0;
+  const landingFlux = resolvedMission?.landingFlux ?? 0;
 
   next.flux = landingFlux;
   next.maxFlux = landingFlux;

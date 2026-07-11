@@ -7,13 +7,13 @@ The Null Tide is erasing the laws of physics from inhabited space. The Foundry t
 ## How to play
 
 1. Tune the Axiom Chamber to create your first Flux.
-2. Complete three operations on Helion before its active-play cohesion timer expires.
+2. Complete Helion's three operations at your own pace; planetary progress saves automatically.
 3. Build machines in groups of 25 for measured efficiency milestones.
 4. Balance neighboring tiers in groups of 15 to strengthen Resonance.
 5. Spend or directly contribute Flux to solve each planet's physics hazard.
 6. Travel from planet to planet, retaining Axioms, relics, relays, and blueprints while rebuilding temporary machinery from a landing cache.
 7. Reach 1 trillion run Flux and Recalibrate for permanent Axioms.
-8. Reach Vesper Ark and determine one of three endings based on the worlds you saved.
+8. Reach Vesper Ark and open the Concordance route for every rescued world.
 
 Progress saves automatically in browser storage. Returning players receive simulated offline production, initially capped at eight hours.
 
@@ -33,7 +33,7 @@ The expanded Planetfall release intentionally retires the original prototype sav
 - Machine and research automation
 - Versioned local saves and offline progress
 - First-run guided orientation and replayable field manual
-- Six timed planetary rescue directives with persistent saved/lost outcomes and three endings
+- Six untimed planetary rescue directives designed for active or idle play
 - In-depth lore archive and planetary ledger
 - Responsive desktop and mobile interfaces
 - Reduced-motion and keyboard-accessible controls

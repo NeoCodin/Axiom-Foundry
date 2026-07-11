@@ -88,7 +88,6 @@ export const WORLD_VISUALS: readonly WorldVisual[] = [
 const STATUS_LABELS: Record<MissionStatus, string> = {
   active: "Signal active",
   saved: "World secured",
-  lost: "World lost",
   locked: "Signal pending",
 };
 
@@ -125,7 +124,6 @@ function getWorldSummary(
   if (status === "saved") {
     return mission.success;
   }
-  if (status === "lost") return mission.failure;
   if (status === "active") return mission.briefing;
   return "The Foundry has not yet accepted this planetary signal.";
 }
@@ -191,7 +189,6 @@ function FoundryVistaView({ game }: FoundryVistaProps) {
           <span className="foundry-planet-surface" />
           <span className="foundry-planet-shadow" />
           <span className="foundry-planet-shield" />
-          <span className="foundry-planet-fractures" />
         </div>
 
         <div className="foundry-beacon">
@@ -267,11 +264,9 @@ function FoundryVistaView({ game }: FoundryVistaProps) {
               <span className="route-marker" aria-hidden="true">
                 {routeStatus === "saved"
                   ? "\u2713"
-                  : routeStatus === "lost"
-                    ? "\u00d7"
-                    : routeStatus === "active"
-                      ? "\u2022"
-                      : "\u25cb"}
+                  : routeStatus === "active"
+                    ? "\u2022"
+                    : "\u25cb"}
               </span>
               <span className="route-copy">
                 <strong>{String(index + 1).padStart(2, "0")}</strong>

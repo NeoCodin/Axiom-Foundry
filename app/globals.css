@@ -981,8 +981,7 @@ button:disabled {
 
 .mission-world-line span,
 .mission-goal span,
-.mission-stakes b,
-.mission-clock span {
+.mission-stakes b {
   display: block;
   color: var(--text-dim);
   font-size: 8px;
@@ -1001,34 +1000,6 @@ button:disabled {
 .mission-world-line small {
   color: var(--text-muted);
   font-size: 9px;
-}
-
-.mission-clock {
-  flex: 0 0 auto;
-  padding: 7px 8px;
-  border: 1px solid rgba(240, 186, 91, 0.32);
-  border-radius: 6px;
-  background: var(--brass-soft);
-  text-align: right;
-}
-
-.mission-clock strong {
-  display: block;
-  margin-top: 2px;
-  color: var(--brass);
-  font-family: var(--font-number);
-  font-size: 16px;
-  font-variant-numeric: tabular-nums;
-}
-
-.mission-clock.critical {
-  border-color: rgba(255, 120, 130, 0.55);
-  background: rgba(255, 120, 130, 0.12);
-}
-
-.mission-clock.critical strong,
-.mission-clock.critical span {
-  color: var(--danger);
 }
 
 .mission-body h4 {
@@ -1152,14 +1123,6 @@ button:disabled {
 
 .mission-outcome.saved > p {
   color: var(--success);
-}
-
-.mission-outcome.lost {
-  background: rgba(255, 120, 130, 0.05);
-}
-
-.mission-outcome.lost > p {
-  color: var(--danger);
 }
 
 .campaign-complete > span {
@@ -1895,14 +1858,6 @@ input[type="checkbox"]:disabled {
   color: var(--success);
 }
 
-.ledger-worlds article.lost {
-  border-color: rgba(255, 120, 130, 0.3);
-}
-
-.ledger-worlds article.lost > span {
-  color: var(--danger);
-}
-
 .ledger-worlds article.active {
   border-color: rgba(240, 186, 91, 0.4);
 }
@@ -2026,11 +1981,6 @@ input[type="checkbox"]:disabled {
   color: var(--success);
 }
 
-.foundry-world-status.status-lost {
-  border-color: rgba(255, 120, 130, 0.42);
-  color: var(--danger);
-}
-
 .foundry-scene {
   position: relative;
   min-height: 280px;
@@ -2116,8 +2066,7 @@ input[type="checkbox"]:disabled {
 
 .foundry-planet-surface,
 .foundry-planet-shadow,
-.foundry-planet-shield,
-.foundry-planet-fractures {
+.foundry-planet-shield {
   position: absolute;
   inset: 0;
   border-radius: 50%;
@@ -2162,15 +2111,6 @@ input[type="checkbox"]:disabled {
 }
 
 .status-saved .foundry-planet-shield { opacity: 1; }
-
-.foundry-planet-fractures {
-  display: none;
-  background: repeating-conic-gradient(from 11deg, transparent 0 23deg, rgba(255,120,130,0.72) 24deg 25deg, transparent 26deg 56deg);
-  mix-blend-mode: screen;
-}
-
-.status-lost .foundry-planet-fractures { display: block; }
-.status-lost .foundry-planet { filter: grayscale(0.8) brightness(0.55); }
 
 .foundry-beacon {
   position: absolute;
@@ -2390,7 +2330,6 @@ input[type="checkbox"]:disabled {
 .route-world:last-child { border-right: 0; }
 .route-world[aria-current="step"] { background: var(--world-accent-soft); color: var(--world-accent); }
 .route-world.status-saved { color: var(--success); }
-.route-world.status-lost { color: var(--danger); opacity: 0.75; }
 
 .route-marker {
   display: grid;
