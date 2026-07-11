@@ -562,20 +562,138 @@ textarea {
 }
 
 /* Engineering controls -------------------------------------------------- */
+.foundry-workspace {
+  display: grid;
+  gap: 16px;
+  width: 100%;
+  margin-bottom: 56px;
+  animation: stage-arrival 520ms ease-out both;
+}
+
+.foundry-workspace-header {
+  display: flex;
+  min-height: 106px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 20px clamp(20px, 2.2vw, 38px);
+  border: 1px solid rgb(var(--world-accent-rgb) / 0.28);
+  border-radius: 20px 20px 8px 8px;
+  background:
+    linear-gradient(100deg, rgb(var(--world-accent-rgb) / 0.11), transparent 42%),
+    linear-gradient(180deg, rgb(10 19 29 / 0.98), rgb(4 9 15 / 0.98));
+  box-shadow: 0 24px 70px rgb(0 0 0 / 0.3), inset 0 1px rgb(255 255 255 / 0.04);
+}
+
+.foundry-workspace-header > div {
+  min-width: 0;
+}
+
+.foundry-workspace-header h2 {
+  margin: 4px 0 5px;
+  font-family: var(--font-display);
+  font-size: clamp(34px, 3.2vw, 52px);
+  font-weight: 700;
+  letter-spacing: 0.025em;
+  line-height: 0.92;
+}
+
+.foundry-workspace-header > div > span {
+  display: block;
+  max-width: 760px;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.foundry-workspace-header .quiet-button {
+  flex: 0 0 auto;
+  min-height: 46px;
+  border-color: rgb(var(--world-accent-rgb) / 0.35);
+}
+
+.foundry-telemetry {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid rgb(var(--world-accent-rgb) / 0.24);
+  border-radius: 8px 8px 16px 16px;
+  background: rgb(3 9 15 / 0.88);
+  box-shadow: inset 0 1px rgb(255 255 255 / 0.025);
+}
+
+.foundry-telemetry > div {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  min-height: 78px;
+  align-content: center;
+  gap: 3px;
+  padding: 13px clamp(12px, 1.4vw, 24px);
+  border-right: 1px solid rgb(var(--world-accent-rgb) / 0.16);
+}
+
+.foundry-telemetry > div:last-of-type {
+  border-right: 0;
+}
+
+.foundry-telemetry > div > span {
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.foundry-telemetry strong {
+  color: #e9f8fa;
+  font-family: var(--font-number);
+  font-size: clamp(17px, 1.6vw, 24px);
+  font-weight: 600;
+}
+
+.foundry-telemetry strong small {
+  color: var(--world-accent);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.foundry-telemetry-flow {
+  position: absolute;
+  z-index: 1;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  overflow: hidden;
+  background: rgb(var(--world-accent-rgb) / 0.12);
+}
+
+.foundry-telemetry-flow i {
+  position: absolute;
+  width: 9%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, var(--world-accent), transparent);
+  box-shadow: 0 0 12px var(--world-accent);
+  animation: foundry-telemetry-packet 5s linear infinite;
+}
+
+.foundry-telemetry-flow i:nth-child(2) { animation-delay: -1.25s; }
+.foundry-telemetry-flow i:nth-child(3) { animation-delay: -2.5s; }
+.foundry-telemetry-flow i:nth-child(4) { animation-delay: -3.75s; }
+
 .game-grid {
   display: grid;
-  grid-template-columns: minmax(330px, 0.66fr) minmax(620px, 1.7fr);
+  grid-template-columns: minmax(600px, 1.55fr) minmax(340px, 0.75fr);
   gap: 18px;
   align-items: start;
 }
 
-.game-grid:not(:has(.machine-panel)) .left-column {
+.foundry-grid:not(:has(.systems-column)) .machine-panel {
   grid-column: 1 / -1;
-  width: min(720px, 100%);
-  justify-self: center;
 }
 
-.left-column,
 .systems-column {
   gap: 18px;
 }
@@ -789,15 +907,21 @@ textarea {
 }
 
 .systems-column {
-  grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   align-items: start;
 }
 
-.systems-column .mission-panel,
+.systems-column .mission-panel {
+  order: -2;
+}
+
 .systems-column .statistics-panel {
-  grid-column: 1 / -1;
+  grid-column: auto;
+}
+
+.foundry-recalibration {
+  padding-bottom: 14px;
 }
 
 .mission-body p,
@@ -853,6 +977,13 @@ textarea {
 @keyframes nav-system-awake {
   from { opacity: 0; transform: translateY(-10px); filter: blur(4px); }
   to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+@keyframes foundry-telemetry-packet {
+  from { left: -12%; opacity: 0; }
+  18% { opacity: 1; }
+  82% { opacity: 1; }
+  to { left: 104%; opacity: 0; }
 }
 
 @keyframes stage-arrival {
@@ -933,11 +1064,23 @@ textarea {
   }
 
   .game-grid {
-    grid-template-columns: minmax(300px, 0.75fr) minmax(500px, 1.35fr);
+    grid-template-columns: minmax(500px, 1.35fr) minmax(310px, 0.8fr);
   }
 
   .systems-column {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
+  }
+
+  .foundry-telemetry {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .foundry-telemetry > div:nth-of-type(3) {
+    border-right: 0;
+  }
+
+  .foundry-telemetry > div:nth-of-type(n + 4) {
+    border-top: 1px solid rgb(var(--world-accent-rgb) / 0.16);
   }
 
   .foundry-planet {
@@ -991,10 +1134,31 @@ textarea {
     display: block;
   }
 
-  .left-column,
   .machine-panel,
   .systems-column {
     margin-bottom: 14px;
+  }
+
+  .foundry-workspace-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .foundry-workspace-header .quiet-button {
+    width: 100%;
+  }
+
+  .foundry-telemetry {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .foundry-telemetry > div:nth-of-type(2n) {
+    border-right: 0;
+  }
+
+  .foundry-telemetry > div:nth-of-type(n + 3) {
+    border-top: 1px solid rgb(var(--world-accent-rgb) / 0.16);
   }
 
   .systems-column {

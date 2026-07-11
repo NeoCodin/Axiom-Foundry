@@ -26,6 +26,7 @@ The campaign moves through Cold Wake, Pelagos, Viridia, Cinder, Nox, and Vesper.
 - A physical Ark cross-section that lights and fills as systems and people come online
 - Full-width cinematic presentation with a pulsing Axiom Chamber, animated planetary theater, and physical research machinery
 - Progressive navigation that reveals Foundry, Research, Life Support, Crew, and Continuity only when each system matters
+- A clear division between the Ark home screen, which owns Core tuning, and the Foundry floor, which owns fabrication and Planetfall operations
 - Zero-human Cold Wake opening and a one-time fresh save generation
 - Deterministic survivor signals that never expire or fail
 - Procedural names, backgrounds, traits, aptitudes, professional roles, and rare authored story hooks

@@ -49,9 +49,10 @@ test("server-renders the Axiom Foundry game surface", async () => {
 });
 
 test("removes all temporary starter-preview wiring", async () => {
-  const [page, layout, pagesEntry, packageJson, css, arkCss, continuityCss, researchCss, awakeningCss, story] =
+  const [page, arkDeck, layout, pagesEntry, packageJson, css, arkCss, continuityCss, researchCss, awakeningCss, story] =
     await Promise.all([
       readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/ark-deck.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
       readFile(new URL("../github-pages/main.tsx", import.meta.url), "utf8"),
       readFile(new URL("../package.json", import.meta.url), "utf8"),
@@ -64,7 +65,10 @@ test("removes all temporary starter-preview wiring", async () => {
     ]);
 
   assert.match(page, /from "\.\/game-engine"/);
-  assert.match(page, /Tune the Core/);
+  assert.match(arkDeck, /Tune the Core/);
+  assert.match(page, /The Foundry Floor/);
+  assert.match(page, /Core tuning remains aboard the Ark/);
+  assert.doesNotMatch(page, /className=.*tune-button/);
   assert.match(page, /Fabrication Chain/);
   assert.match(page, /No deadline/);
   assert.match(layout, /Axiom Foundry — Restore Worlds\. Question Your Orders\./);

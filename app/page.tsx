@@ -62,7 +62,7 @@ import {
   type GameState,
   type PurchaseMode,
 } from "./game-engine";
-import FoundryVista, { WORLD_VISUALS } from "./foundry-vista";
+import { WORLD_VISUALS } from "./foundry-vista";
 import ArkDeck, { type ArkViewId } from "./ark-deck";
 import PopulationConsole from "./population-console";
 import ResearchLattice from "./research-lattice";
@@ -115,7 +115,7 @@ import {
 import { getCampaignWorld } from "./campaign-content";
 import { LORE_ENTRIES, TOUR_STEPS } from "./story-content";
 
-type MobileTab = "core" | "machines" | "systems" | "recalibrate";
+type MobileTab = "machines" | "systems";
 type PrimaryView =
   | "deck"
   | "engineering"
@@ -226,17 +226,13 @@ export default function Home() {
   const [game, setGame] = useState<GameState>(() => createInitialState(0));
   const [ready, setReady] = useState(false);
   const [primaryView, setPrimaryView] = useState<PrimaryView>("deck");
-  const [mobileTab, setMobileTab] = useState<MobileTab>("core");
+  const [mobileTab, setMobileTab] = useState<MobileTab>("machines");
   const [clockNow, setClockNow] = useState(0);
   const [announcement, setAnnouncement] = useState("");
   const [saveStatus, setSaveStatus] = useState("Local save pending");
   const [offlineNotice, setOfflineNotice] = useState<{
     seconds: number;
     gain: number;
-  } | null>(null);
-  const [pulseFeedback, setPulseFeedback] = useState<{
-    id: number;
-    value: string;
   } | null>(null);
   const [confirmPrestige, setConfirmPrestige] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -323,17 +319,8 @@ export default function Home() {
 
   useEffect(() => {
     if (tourStep === null) return;
-    const target = TOUR_STEPS[tourStep].target;
-    if (target === "welcome") {
-      setPrimaryView("deck");
-      setMobileTab("core");
-    } else if (target === "flux") {
-      setPrimaryView("engineering");
-      setMobileTab("core");
-    } else {
-      setPrimaryView("engineering");
-      setMobileTab("machines");
-    }
+    setPrimaryView("deck");
+    setMobileTab("machines");
   }, [tourStep]);
 
   useEffect(() => {
@@ -614,10 +601,7 @@ export default function Home() {
   ]);
 
   const handlePulse = () => {
-    const gain = getManualGain(gameRef.current);
     setGame((current) => pulseCore(current));
-    setPulseFeedback({ id: Date.now(), value: `+${formatNumber(gain)}` });
-    window.setTimeout(() => setPulseFeedback(null), 650);
   };
 
   const handleBuyTier = (index: number) => {
@@ -673,7 +657,7 @@ export default function Home() {
     gameRef.current = next;
     setGame(next);
     setConfirmPrestige(false);
-    setMobileTab("core");
+    setMobileTab("machines");
     setAnnouncement(
       `Recalibration complete. Cycle ${next.cycle} begins with ${gain} new Axiom${gain === 1 ? "" : "s"}.`,
     );
@@ -690,7 +674,7 @@ export default function Home() {
     gameRef.current = next;
     setGame(next);
     setPrimaryView("deck");
-    setMobileTab("core");
+    setMobileTab("machines");
     setConfirmReset(false);
     setAnnouncement("The Foundry has been reset to Cycle 1.");
     setSaveStatus("Fresh local save started");
@@ -711,7 +695,7 @@ export default function Home() {
       return;
     }
     setPrimaryView(view);
-    if (view === "engineering") setMobileTab("core");
+    if (view === "engineering") setMobileTab("machines");
   };
 
   const handleUpgradeSupport = (key: LifeSupportKey) => {
@@ -1045,14 +1029,12 @@ export default function Home() {
   };
 
   const currentTour = tourStep === null ? null : TOUR_STEPS[tourStep];
-  const tourTarget = currentTour?.target ?? null;
   const engineeringUnlocked =
     game.manualPulses >= 12 ||
     game.missions.stageIndex >= 1 ||
     game.missions.currentIndex > 0 ||
     game.missions.worldsSaved > 0 ||
-    game.tiers[0].bought > 0 ||
-    tourTarget === "flux";
+    game.tiers[0].bought > 0;
   const researchUnlocked =
     game.tiers[0].bought > 0 ||
     game.research.activeProjectId !== null ||
@@ -1080,22 +1062,10 @@ export default function Home() {
     game.maxFlux >= RUN_UPGRADES[RUN_UPGRADES.length - 1].revealAt ||
     game.lifetimeAxioms > 0 ||
     recalibrationGain > 0;
-  const coreEnergyLevel = Math.min(
-    5,
-    Math.max(
-      0,
-      Math.floor(Math.log10(Math.max(1, production.fluxPerSecond + 1)) * 0.9),
-    ),
-  );
-  const coreMotionStyle = {
-    "--core-cycle": `${Math.max(2.4, 13 - coreEnergyLevel * 1.8)}s`,
-    "--core-inner-cycle": `${Math.max(1.6, (13 - coreEnergyLevel * 1.8) * 0.66)}s`,
-    "--core-packet-cycle": `${Math.max(0.7, (13 - coreEnergyLevel * 1.8) * 0.38)}s`,
-  } as CSSProperties;
-  const engineeringMobileTabs: Array<[MobileTab, string]> = [["core", "Core"]];
-  if (fabricationUnlocked) engineeringMobileTabs.push(["machines", "Fabricate"]);
-  if (systemsUnlocked) engineeringMobileTabs.push(["systems", "Mission"]);
-  if (recalibrationUnlocked) engineeringMobileTabs.push(["recalibrate", "Recalibrate"]);
+  const engineeringMobileTabs: Array<[MobileTab, string]> = [["machines", "Fabricate"]];
+  if (systemsUnlocked || protocolsUnlocked || recalibrationUnlocked || game.lifetimeAxioms > 0) {
+    engineeringMobileTabs.push(["systems", "Campaign"]);
+  }
   const unlockedArkViews: ArkViewId[] = [];
   if (engineeringUnlocked) unlockedArkViews.push("engineering");
   if (researchUnlocked) unlockedArkViews.push("research");
@@ -1380,106 +1350,43 @@ export default function Home() {
           onBack={() => setPrimaryView("deck")}
         />
       ) : (
-      <>
-      <section className="engineering-theater-stage" aria-label="Current planetary theater">
-        <FoundryVista game={game} />
-      </section>
-      <div className="game-grid">
-        <div className="left-column">
-          <section className={`panel core-panel mobile-section ${mobileTab === "core" ? "is-mobile-active" : ""} ${currentTour?.target === "flux" ? "tour-focus" : ""}`}>
-            <div className="panel-heading">
-              <div>
-                <p className="section-kicker">Instrument core</p>
-                <h2>The Axiom Chamber</h2>
-              </div>
-              <span className="status-chip online">{Math.round(worldEffects.repairProgress * 100)}% STABLE</span>
-            </div>
+      <section className="foundry-workspace" aria-labelledby="foundry-workspace-title">
+        <header className="foundry-workspace-header">
+          <div>
+            <p className="section-kicker">Fabrication deck // systems online</p>
+            <h2 id="foundry-workspace-title">The Foundry Floor</h2>
+            <span>Build the nested mechanisms that turn Core energy into planetary recovery. Core tuning remains aboard the Ark.</span>
+          </div>
+          <button className="quiet-button" type="button" onClick={() => setPrimaryView("deck")}>Return to Ark Core</button>
+        </header>
 
-            <div
-              className={`core-stage core-energy-${coreEnergyLevel} ${pulseFeedback ? "is-pulsing" : ""}`}
-              data-energy={coreEnergyLevel}
-              style={coreMotionStyle}
-            >
-              <div className="core-flux-streams" aria-hidden="true">
-                <i /><i /><i /><i /><i /><i />
-              </div>
-              <div className="core-orbit core-orbit-outer" aria-hidden="true">
-                <span className="orbit-node node-one" />
-                <span className="orbit-node node-two" />
-              </div>
-              <div className="core-orbit core-orbit-inner" aria-hidden="true" />
-              <div className="core-iris" aria-hidden="true"><i /></div>
-              <div className="core-center">
-                <span>OUTPUT</span>
-                <strong>×{formatNumber(production.globalMultiplier * production.resonance.multiplier)}</strong>
-              </div>
-              {pulseFeedback && (
-                <span key={pulseFeedback.id} className="pulse-feedback" aria-hidden="true">
-                  {pulseFeedback.value}
-                </span>
-              )}
-            </div>
+        <section className="foundry-telemetry" aria-label="Foundry diagnostics">
+          <div>
+            <span>Flux flow</span>
+            <strong>{formatNumber(production.fluxPerSecond)}<small>/sec</small></strong>
+          </div>
+          <div>
+            <span>Machine multiplier</span>
+            <strong>×{formatNumber(production.globalMultiplier)}</strong>
+          </div>
+          <div>
+            <span>Balanced links</span>
+            <strong>{production.resonance.levels}<small> active</small></strong>
+          </div>
+          <div>
+            <span>Lifetime Axioms</span>
+            <strong>{formatNumber(game.lifetimeAxioms)}</strong>
+          </div>
+          <div>
+            <span>Chain depth</span>
+            <strong>{Math.max(1, visibleGeneratorCount)}<small> / {GENERATORS.length}</small></strong>
+          </div>
+          <span className="foundry-telemetry-flow" aria-hidden="true"><i /><i /><i /><i /></span>
+        </section>
 
-            <button className={`tune-button ${currentTour?.target === "flux" ? "tour-focus" : ""}`} type="button" onClick={handlePulse} disabled={!ready}>
-              <span>Tune the Core</span>
-              <small>Force an alignment · +{formatNumber(manualGain)} Flux</small>
-            </button>
-
-            <div className="core-diagnostics">
-              <div>
-                <span>Machine multiplier</span>
-                <strong>×{formatNumber(production.globalMultiplier)}</strong>
-              </div>
-              <div>
-                <span>Balanced links</span>
-                <strong>{production.resonance.levels}</strong>
-              </div>
-              <div>
-                <span>Lifetime Axioms</span>
-                <strong>{formatNumber(game.lifetimeAxioms)}</strong>
-              </div>
-            </div>
-          </section>
-
-          {recalibrationUnlocked && (
-          <section className={`panel recalibration-panel mobile-section ${mobileTab === "recalibrate" ? "is-mobile-active" : ""}`}>
-            <div className="panel-heading">
-              <div>
-                <p className="section-kicker violet">Permanent layer</p>
-                <h2>Recalibration</h2>
-              </div>
-              <span className="axiom-symbol" aria-hidden="true">A</span>
-            </div>
-            <p className="panel-copy">
-              Collapse this assembly into a portable law of physics. Machines and run research reset; the proven Axiom and every Legacy upgrade survive.
-            </p>
-            <div className="prestige-preview">
-              <span>Projected yield</span>
-              <strong>{recalibrationGain} Axiom{recalibrationGain === 1 ? "" : "s"}</strong>
-              <small>{formatNumber(game.runFlux)} / {formatNumber(RECALIBRATION_THRESHOLD)} run Flux</small>
-            </div>
-            <p className="axiom-definition">Axioms are permanent laws that keep ships, time, and matter consistent inside the Null Tide.</p>
-            {!confirmPrestige ? (
-              <button
-                className="prestige-button"
-                type="button"
-                disabled={recalibrationGain < 1}
-                onClick={() => setConfirmPrestige(true)}
-              >
-                {recalibrationGain < 1 ? "Recalibration not yet stable" : "Prepare Recalibration"}
-              </button>
-            ) : (
-              <div className="confirm-row" role="group" aria-label="Confirm Recalibration">
-                <button className="prestige-button" type="button" onClick={handleRecalibrate}>Begin Cycle {game.cycle + 1}</button>
-                <button className="quiet-button" type="button" onClick={() => setConfirmPrestige(false)}>Cancel</button>
-              </div>
-            )}
-          </section>
-          )}
-        </div>
-
+      <div className="game-grid foundry-grid">
         {fabricationUnlocked && (
-        <section className={`panel machine-panel mobile-section ${mobileTab === "machines" ? "is-mobile-active" : ""} ${currentTour?.target === "fabrication" ? "tour-focus" : ""}`}>
+        <section className={`panel machine-panel mobile-section ${mobileTab === "machines" ? "is-mobile-active" : ""}`}>
           <div className="panel-heading machine-heading">
             <div>
               <p className="section-kicker">Nested mechanisms</p>
@@ -1576,7 +1483,7 @@ export default function Home() {
         </section>
         )}
 
-        {(systemsUnlocked || protocolsUnlocked || game.lifetimeAxioms > 0) && (
+        {(systemsUnlocked || protocolsUnlocked || recalibrationUnlocked || game.lifetimeAxioms > 0) && (
         <aside className={`systems-column mobile-section ${mobileTab === "systems" ? "is-mobile-active" : ""}`}>
           {systemsUnlocked && (
           <section id="planetary-directives" className="panel mission-panel">
@@ -1742,6 +1649,42 @@ export default function Home() {
           </section>
           )}
 
+          {recalibrationUnlocked && (
+          <section className="panel recalibration-panel foundry-recalibration">
+            <div className="panel-heading">
+              <div>
+                <p className="section-kicker violet">Permanent layer</p>
+                <h2>Recalibration</h2>
+              </div>
+              <span className="axiom-symbol" aria-hidden="true">A</span>
+            </div>
+            <p className="panel-copy">
+              Collapse the fabrication chain into a portable law of physics. Machines and run protocols reset; proven Axioms and Legacy upgrades survive.
+            </p>
+            <div className="prestige-preview">
+              <span>Projected yield</span>
+              <strong>{recalibrationGain} Axiom{recalibrationGain === 1 ? "" : "s"}</strong>
+              <small>{formatNumber(game.runFlux)} / {formatNumber(RECALIBRATION_THRESHOLD)} run Flux</small>
+            </div>
+            <p className="axiom-definition">Axioms are permanent laws that keep ships, time, and matter consistent inside the Null Tide.</p>
+            {!confirmPrestige ? (
+              <button
+                className="prestige-button"
+                type="button"
+                disabled={recalibrationGain < 1}
+                onClick={() => setConfirmPrestige(true)}
+              >
+                {recalibrationGain < 1 ? "Recalibration not yet stable" : "Prepare Recalibration"}
+              </button>
+            ) : (
+              <div className="confirm-row" role="group" aria-label="Confirm Recalibration">
+                <button className="prestige-button" type="button" onClick={handleRecalibrate}>Begin Cycle {game.cycle + 1}</button>
+                <button className="quiet-button" type="button" onClick={() => setConfirmPrestige(false)}>Cancel</button>
+              </div>
+            )}
+          </section>
+          )}
+
           {game.lifetimeAxioms > 0 && (
           <section className="panel automation-panel">
             <div className="panel-heading">
@@ -1839,7 +1782,7 @@ export default function Home() {
         </aside>
         )}
       </div>
-      </>
+      </section>
       )}
 
       {currentTour && (
@@ -1961,9 +1904,9 @@ export default function Home() {
       <nav className="mobile-nav" aria-label="Game sections">
         {engineeringMobileTabs.map(([value, label]) => (
           <button key={value} type="button" className={mobileTab === value ? "active" : ""} aria-pressed={mobileTab === value} onClick={() => setMobileTab(value)}>
-            <span aria-hidden="true">{value === "machines" ? "II" : value === "core" ? "◇" : value === "systems" ? "≡" : "A"}</span>
+            <span aria-hidden="true">{value === "machines" ? "II" : "≡"}</span>
             {label}
-            {value === "recalibrate" && recalibrationGain > 0 && <i aria-label="Recalibration available" />}
+            {value === "systems" && recalibrationGain > 0 && <i aria-label="Recalibration available" />}
           </button>
         ))}
       </nav>
