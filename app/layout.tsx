@@ -4,6 +4,7 @@ import "./globals.css";
 import "./ark-deck.css";
 import "./continuity-console.css";
 import "./research-lattice.css";
+import "./game-manual.css";
 import "./awakening.css";
 
 export async function generateMetadata(): Promise<Metadata> {

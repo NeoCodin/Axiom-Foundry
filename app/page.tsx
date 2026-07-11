@@ -64,6 +64,12 @@ import {
 } from "./game-engine";
 import { WORLD_VISUALS } from "./foundry-vista";
 import ArkDeck, { type ArkViewId } from "./ark-deck";
+import {
+  GameManualDialog,
+  HelpTrigger,
+  type ManualPageId,
+  type ManualTopicId,
+} from "./game-manual";
 import PopulationConsole from "./population-console";
 import ResearchLattice from "./research-lattice";
 import SettlementConsole from "./settlement-console";
@@ -87,6 +93,7 @@ import {
   assignSurvivorToRole,
   getLifeSupportStatus,
   getRescueReadiness,
+  getSurvivorRarity,
   getSurvivorSkillLevel,
   renameSurvivorCallsign,
   rescueSurvivorSignal,
@@ -116,12 +123,7 @@ import { getCampaignWorld } from "./campaign-content";
 import { LORE_ENTRIES, TOUR_STEPS } from "./story-content";
 
 type MobileTab = "machines" | "systems";
-type PrimaryView =
-  | "deck"
-  | "engineering"
-  | "population"
-  | "research"
-  | "settlement";
+type PrimaryView = ManualPageId;
 
 const purchaseModes: Array<{ value: PurchaseMode; label: string }> = [
   { value: "1", label: "×1" },
@@ -238,6 +240,7 @@ export default function Home() {
   const [confirmReset, setConfirmReset] = useState(false);
   const [tourStep, setTourStep] = useState<number | null>(null);
   const [loreOpen, setLoreOpen] = useState(false);
+  const [manualTopic, setManualTopic] = useState<ManualTopicId | null>(null);
   const loadStarted = useRef(false);
   const gameRef = useRef(game);
   const tourActionRef = useRef<HTMLButtonElement>(null);
@@ -247,6 +250,15 @@ export default function Home() {
   useEffect(() => {
     gameRef.current = game;
   }, [game]);
+
+  useEffect(() => {
+    if (!manualTopic) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setManualTopic(null);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [manualTopic]);
 
   useEffect(() => {
     if (loadStarted.current) return;
@@ -1071,6 +1083,11 @@ export default function Home() {
   if (researchUnlocked) unlockedArkViews.push("research");
   if (populationUnlocked) unlockedArkViews.push("population");
   if (settlementUnlocked) unlockedArkViews.push("settlement");
+  const availableManualPages: ManualPageId[] = ["deck"];
+  if (engineeringUnlocked) availableManualPages.push("engineering");
+  if (researchUnlocked) availableManualPages.push("research");
+  if (populationUnlocked) availableManualPages.push("population");
+  if (settlementUnlocked) availableManualPages.push("settlement");
 
   return (
     <main
@@ -1114,6 +1131,7 @@ export default function Home() {
 
         <div className="header-actions">
           <span className="save-status">{ready ? saveStatus : "Restoring local cycle…"}</span>
+          <HelpTrigger label="Open guide for this page" withLabel onClick={() => setManualTopic(primaryView)} />
           <button className="quiet-button" type="button" onClick={() => setLoreOpen(true)}>Lore archive</button>
           <button className="quiet-button" type="button" onClick={() => persistGame("Saved")}>Save now</button>
         </div>
@@ -1248,6 +1266,7 @@ export default function Home() {
             const training = game.survivors.training.find(
               (program) => program.survivorId === survivor.id,
             );
+            const rarity = getSurvivorRarity(survivor);
             return {
               id: survivor.id,
               name: survivor.callsign || survivor.name,
@@ -1257,6 +1276,9 @@ export default function Home() {
                 survivor.role === "civilian" ? "teacher" : survivor.role,
               )),
               training: training?.targetRole ?? null,
+              rarity: rarity.id,
+              rarityLabel: rarity.label,
+              rarityDescription: rarity.description,
             };
           })}
           beaconAvailable={
@@ -1293,6 +1315,7 @@ export default function Home() {
           onActivateBeacon={handleActivateBeacon}
           onRescueSignal={handleRescueSurvivors}
           onOpenView={handleOpenArkView}
+          onOpenHelp={setManualTopic}
         />
       ) : primaryView === "population" ? (
         <PopulationConsole
@@ -1311,6 +1334,7 @@ export default function Home() {
           onCancelTraining={handleCancelTraining}
           onAssignRole={handleAssignSurvivor}
           onRenameCallsign={handleRenameSurvivor}
+          onOpenHelp={setManualTopic}
           onBack={() => setPrimaryView("deck")}
         />
       ) : primaryView === "research" ? (
@@ -1323,6 +1347,7 @@ export default function Home() {
           onStateChange={handleResearchStateChange}
           onTransferInput={handleTransferResearchInput}
           onAssignedCrewChange={handleResearchCrewChange}
+          onOpenHelp={setManualTopic}
           onClose={() => setPrimaryView("deck")}
         />
       ) : primaryView === "settlement" && viabilityForecast ? (
@@ -1898,6 +1923,15 @@ export default function Home() {
             </footer>
           </section>
         </div>
+      )}
+
+      {manualTopic && (
+        <GameManualDialog
+          topicId={manualTopic}
+          availablePages={availableManualPages}
+          onSelectTopic={setManualTopic}
+          onClose={() => setManualTopic(null)}
+        />
       )}
 
       {primaryView === "engineering" && (

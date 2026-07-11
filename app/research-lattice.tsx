@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type CSSProperties } from "react";
+import { HelpTrigger, type ManualTopicId } from "./game-manual";
 
 import {
   RESEARCH_INPUT_DEFINITIONS,
@@ -37,6 +38,7 @@ export type ResearchLatticeProps = {
   onStateChange: (state: ResearchLatticeState) => void;
   onTransferInput: (inputId: ResearchInputId, amount: number) => void;
   onAssignedCrewChange?: (assignedCrew: number) => void;
+  onOpenHelp: (topicId: ManualTopicId) => void;
   onClose?: () => void;
 };
 
@@ -75,6 +77,15 @@ const INPUT_ACCENTS: Record<ResearchInputId, string> = {
   "axiom-proofs": "255 105 121",
 };
 
+const INPUT_SOURCE_COPY: Record<ResearchInputId, string> = {
+  "calibration-data": "Core tunes + passive chamber observations",
+  "engineering-models": "Machine purchases, Flux production, and infrastructure",
+  "biological-samples": "18 per rescued person + 10.8 per person each hour",
+  "cultural-records": "22 per rescued person + 14.4 per person each hour",
+  "null-traces": "Later worlds, passive Null signals, and resolved crises",
+  "axiom-proofs": "Recalibration + passive generation from lifetime Axioms",
+};
+
 const formatNumber = (value: number) =>
   value >= 1_000_000
     ? value.toExponential(2)
@@ -101,6 +112,7 @@ export function ResearchLattice({
   onStateChange,
   onTransferInput,
   onAssignedCrewChange,
+  onOpenHelp,
   onClose,
 }: ResearchLatticeProps) {
   const activeDefinition = state.activeProjectId
@@ -230,6 +242,7 @@ export function ResearchLattice({
           </p>
         </div>
         <div className="research-lattice-header-actions">
+          <HelpTrigger label="Open the Research page guide" withLabel onClick={() => onOpenHelp("research")} />
           <span className="research-lattice-clock" title="Local lattice time">
             T+{Math.max(0, Math.floor((now - projectStartedAt) / 1000))}s
           </span>
@@ -326,8 +339,12 @@ export function ResearchLattice({
                   </span>
                   <span className="research-lattice-input-code">{input.shortName}</span>
                   <div>
-                    <h3>{input.name}</h3>
+                    <div className="research-lattice-input-title">
+                      <h3>{input.name}</h3>
+                      <HelpTrigger label={`How do I get ${input.name}?`} onClick={() => onOpenHelp(input.id)} />
+                    </div>
                     <p>{input.description}</p>
+                    <small className="research-lattice-input-source">Source: {INPUT_SOURCE_COPY[input.id]}</small>
                     <div className="research-lattice-input-counts">
                       <span>
                         Lattice <b>{formatNumber(state.inventory[input.id])}</b>

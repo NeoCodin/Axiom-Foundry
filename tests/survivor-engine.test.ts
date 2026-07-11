@@ -17,6 +17,8 @@ import {
   getPopulationExpertiseTotals,
   getPopulationRoleCounts,
   getRescueReadiness,
+  getSurvivorRarity,
+  getSurvivorRarityScore,
   getSurvivorSkillLevel,
   getTrainingQuote,
   renameSurvivorCallsign,
@@ -135,6 +137,37 @@ test("procedural groups are reproducible and contain readable survivor detail", 
       ),
     );
   }
+});
+
+test("profile rarity is deterministic, readable, and independent of training progress", () => {
+  const survivor = structuredClone(stateWithCivilian().survivors[0]!);
+  for (const role of PROFESSIONAL_ROLES) survivor.aptitudes[role] = 1;
+  survivor.adaptability = 1;
+  survivor.traits = ["adaptable"];
+  survivor.storyHookId = null;
+
+  assert.equal(getSurvivorRarityScore(survivor), 6);
+  assert.equal(getSurvivorRarity(survivor).id, "standard");
+
+  survivor.aptitudes.engineer = 5;
+  survivor.aptitudes.doctor = 4;
+  survivor.aptitudes.researcher = 2;
+  assert.equal(getSurvivorRarityScore(survivor), 25);
+  assert.equal(getSurvivorRarity(survivor).id, "notable");
+
+  survivor.aptitudes.doctor = 5;
+  survivor.aptitudes.researcher = 3;
+  assert.equal(getSurvivorRarityScore(survivor), 28);
+  assert.equal(getSurvivorRarity(survivor).id, "exceptional");
+
+  const beforeTraining = getSurvivorRarity(survivor);
+  survivor.role = "engineer";
+  survivor.skillXp.engineer = 1_000_000;
+  survivor.assignedRole = "engineer";
+  assert.deepEqual(getSurvivorRarity(survivor), beforeTraining);
+
+  survivor.storyHookId = "pelagos-cartographer";
+  assert.equal(getSurvivorRarity(survivor).id, "anomalous");
 });
 
 test("a detected survivor signal waits indefinitely without failure or replacement", () => {

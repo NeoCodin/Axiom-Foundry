@@ -159,6 +159,12 @@
   box-shadow: 0 0 18px rgb(108 231 236 / 0.13);
 }
 
+.research-lattice-header-actions .context-help-trigger.with-label {
+  min-width: 72px;
+  min-height: 39px;
+  padding: 8px 11px;
+}
+
 .research-lattice-clock {
   color: #78908d;
   font-family: var(--font-mono, "Cascadia Mono", Consolas, monospace);
@@ -450,12 +456,18 @@
   font-weight: 720;
 }
 
+.research-lattice-input-title { display: flex; align-items: center; gap: 7px; }
+.research-lattice-input-title h3 { flex: 1; }
+.research-lattice-input-title .context-help-trigger { width: 18px; height: 18px; color: rgb(var(--research-input-rgb)); border-color: rgb(var(--research-input-rgb) / 0.48); background: rgb(var(--research-input-rgb) / 0.08); font-size: 9px; }
+
 .research-lattice-input p {
   margin: 0 0 6px;
   color: #708783;
   font-size: 0.61rem;
   line-height: 1.35;
 }
+
+.research-lattice-input-source { display: block; margin: -1px 0 7px; color: rgb(var(--research-input-rgb) / 0.72); font-size: 0.5rem; line-height: 1.35; }
 
 .research-lattice-input-counts {
   display: flex;

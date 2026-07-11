@@ -1,13 +1,16 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
+import { HelpTrigger, type ManualTopicId } from "./game-manual";
 
 import {
   BACKGROUND_DEFINITIONS,
   PROFESSIONAL_ROLES,
+  SURVIVOR_RARITY_DEFINITIONS,
   TRAIT_DEFINITIONS,
   getLifeSupportStatus,
   getPopulationRoleCounts,
+  getSurvivorRarity,
   getSurvivorSkillLevel,
   getTrainingQuote,
   type LifeSupportKey,
@@ -29,6 +32,7 @@ export type PopulationConsoleProps = {
   onCancelTraining: (survivorId: string) => void;
   onAssignRole: (survivorId: string, role: SurvivorRole | null) => void;
   onRenameCallsign: (survivorId: string, callsign: string) => void;
+  onOpenHelp: (topicId: ManualTopicId) => void;
   onBack: () => void;
 };
 
@@ -67,12 +71,14 @@ function PopulationConsole({
   onCancelTraining,
   onAssignRole,
   onRenameCallsign,
+  onOpenHelp,
   onBack,
 }: PopulationConsoleProps) {
   const [selectedCrewId, setSelectedCrewId] = useState<string | null>(null);
   const lifeSupport = useMemo(() => getLifeSupportStatus(state), [state]);
   const roleCounts = useMemo(() => getPopulationRoleCounts(state), [state]);
   const selectedCrew = state.survivors.find((survivor) => survivor.id === selectedCrewId) ?? state.survivors[0] ?? null;
+  const selectedRarity = selectedCrew ? getSurvivorRarity(selectedCrew) : null;
   const selectedTraining = selectedCrew
     ? state.training.find((program) => program.survivorId === selectedCrew.id) ?? null
     : null;
@@ -104,7 +110,7 @@ function PopulationConsole({
         <div><span>Stable capacity</span><strong>{Math.min(...Object.values(state.lifeSupport))}</strong></div>
         <div><span>Training</span><strong>{state.training.length}/{state.trainingSlots}</strong></div>
         <div><span>Signals answered</span><strong>{state.signalsResolved}</strong></div>
-        <div><span>Available Salvage</span><strong>{Math.floor(salvage)}</strong></div>
+        <div className="continuity-summary-help"><span>Available Salvage <HelpTrigger label="How do I get Salvage?" onClick={() => onOpenHelp("salvage")} /></span><strong>{Math.floor(salvage)}</strong></div>
       </div>
 
       <section className="continuity-panel support-capacity-panel">
@@ -141,13 +147,16 @@ function PopulationConsole({
               <span>SIGNAL {String(activeSignal.sequence).padStart(2, "0")} · {activeSignal.sourceLabel}</span>
               <h4>{activeSignal.survivors.length} survivors requesting retrieval</h4>
               <ul>
-                {activeSignal.survivors.map((survivor) => (
-                  <li key={survivor.id}>
-                    <div className="crew-avatar">{survivor.name.slice(0, 1)}</div>
-                    <div><strong>{survivor.name}</strong><small>{titleCase(survivor.role)} · {BACKGROUND_DEFINITIONS.find((item) => item.id === survivor.backgroundId)?.name ?? titleCase(survivor.backgroundId)}</small></div>
-                    {survivor.storyHookId && <em>Unusual record</em>}
-                  </li>
-                ))}
+                {activeSignal.survivors.map((survivor) => {
+                  const rarity = getSurvivorRarity(survivor);
+                  return (
+                    <li className={`crew-rarity-${rarity.id}`} key={survivor.id}>
+                      <div className="crew-avatar">{survivor.name.slice(0, 1)}</div>
+                      <div><strong>{survivor.name}</strong><small>{titleCase(survivor.role)} · {BACKGROUND_DEFINITIONS.find((item) => item.id === survivor.backgroundId)?.name ?? titleCase(survivor.backgroundId)}</small></div>
+                      <em className="crew-rarity-badge" title={rarity.description}>{rarity.label}</em>
+                    </li>
+                  );
+                })}
               </ul>
               <div className="signal-readiness">
                 <span>{activeSignalLifeSupport?.stable ? "Life support ready" : "Insufficient safe capacity"}</span>
@@ -167,6 +176,15 @@ function PopulationConsole({
             {Object.entries(roleCounts).map(([role, count]) => <div key={role}><span>{titleCase(role)}</span><strong>{count}</strong></div>)}
           </div>
           <p>Every specialist can gain experience while assigned. Civilians train faster and let you shape the population around each world&apos;s needs.</p>
+          <div className="crew-rarity-key" aria-label="Survivor rarity colors">
+            {SURVIVOR_RARITY_DEFINITIONS.map((rarity) => (
+              <span className={`crew-rarity-${rarity.id}`} title={rarity.description} key={rarity.id}>
+                <i aria-hidden="true" />
+                {rarity.label}
+              </span>
+            ))}
+          </div>
+          <small className="crew-rarity-note">Color measures how scarce a profile&apos;s aptitudes and traits are—never the worth of a person.</small>
         </section>
       </div>
 
@@ -179,11 +197,12 @@ function PopulationConsole({
             <div className="crew-roster-list">
               {state.survivors.map((survivor) => {
                 const training = state.training.find((program) => program.survivorId === survivor.id);
+                const rarity = getSurvivorRarity(survivor);
                 return (
-                  <button className={selectedCrew?.id === survivor.id ? "is-selected" : ""} type="button" key={survivor.id} onClick={() => setSelectedCrewId(survivor.id)}>
+                  <button className={`crew-rarity-${rarity.id} ${selectedCrew?.id === survivor.id ? "is-selected" : ""}`} type="button" key={survivor.id} onClick={() => setSelectedCrewId(survivor.id)}>
                     <span className="crew-avatar">{survivor.name.slice(0, 1)}</span>
                     <span><strong>{survivor.callsign ? `“${survivor.callsign}” ${survivor.name}` : survivor.name}</strong><small>{training ? `Training ${titleCase(training.targetRole)} · ${Math.round((training.progressSeconds / training.durationSeconds) * 100)}%` : `${titleCase(survivor.role)} · ${titleCase(survivor.assignedRole ?? "unassigned")}`}</small></span>
-                    {survivor.storyHookId && <em>◆</em>}
+                    <em className="crew-rarity-badge" title={rarity.description}>{rarity.label}</em>
                   </button>
                 );
               })}
@@ -191,10 +210,10 @@ function PopulationConsole({
           )}
         </section>
 
-        <section className="continuity-panel crew-detail-panel">
+        <section className={`continuity-panel crew-detail-panel ${selectedRarity ? `crew-rarity-${selectedRarity.id}` : ""}`}>
           {selectedCrew ? (
             <>
-              <header><div><span>PERSONNEL FILE</span><h3>{selectedCrew.name}</h3></div><small>{selectedCrew.storyHookId ? "Archive discrepancy attached" : `Joined from ${titleCase(selectedCrew.origin)}`}</small></header>
+              <header><div><span>PERSONNEL FILE</span><h3>{selectedCrew.name}</h3></div><div className="crew-file-classification"><em className="crew-rarity-badge" title={selectedRarity?.description}>{selectedRarity?.label}</em><small>{selectedCrew.storyHookId ? "Archive discrepancy attached" : `Joined from ${titleCase(selectedCrew.origin)}`}</small></div></header>
               <div className="crew-detail-identity"><span className="crew-avatar large">{selectedCrew.name.slice(0, 1)}</span><div><strong>{titleCase(selectedCrew.role)}</strong><small>{BACKGROUND_DEFINITIONS.find((item) => item.id === selectedCrew.backgroundId)?.summary ?? titleCase(selectedCrew.backgroundId)}</small></div></div>
               <form className="crew-callsign-form" onSubmit={submitCallsign}><label htmlFor="crew-callsign">Callsign</label><input id="crew-callsign" name="callsign" maxLength={18} defaultValue={selectedCrew.callsign} placeholder="Optional" /><button type="submit">Save</button></form>
               <div className="crew-trait-list">

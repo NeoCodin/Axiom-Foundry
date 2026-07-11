@@ -26,10 +26,12 @@ The campaign moves through Cold Wake, Pelagos, Viridia, Cinder, Nox, and Vesper.
 - A physical Ark cross-section that lights and fills as systems and people come online
 - Full-width cinematic presentation with a pulsing Axiom Chamber, animated planetary theater, and physical research machinery
 - Progressive navigation that reveals Foundry, Research, Life Support, Crew, and Continuity only when each system matters
+- A contextual AXIOM Field Manual with unlocked-page guides, exact resource sources, and in-place question-mark help
 - A clear division between the Ark home screen, which owns Core tuning, and the Foundry floor, which owns fabrication and Planetfall operations
 - Zero-human Cold Wake opening and a one-time fresh save generation
 - Deterministic survivor signals that never expire or fail
 - Procedural names, backgrounds, traits, aptitudes, professional roles, and rare authored story hooks
+- Stable profile-rarity colors across survivor signals, rosters, Ark previews, and founder selection
 - Stable life-support capacity with no hunger, death, punishment timers, or negative offline decay
 - Civilian education, specialist cross-training, callsigns, work assignments, and offline XP
 - A visual Research Lattice with safe auto-routing and an optional manual patch panel

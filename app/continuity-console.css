@@ -74,6 +74,8 @@
 .continuity-summary-band div { padding: 12px 16px; border-right: 1px solid rgb(108 147 176 / 0.15); }
 .continuity-summary-band span { display: block; color: #657d90; font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase; }
 .continuity-summary-band strong { display: block; margin-top: 5px; color: #e0ebf2; font-family: var(--font-mono, monospace); font-size: 15px; font-variant-numeric: tabular-nums; }
+.continuity-summary-band .continuity-summary-help > span { display: flex; align-items: center; gap: 6px; }
+.continuity-summary-band .continuity-summary-help .context-help-trigger { width: 18px; height: 18px; font-size: 9px; }
 
 .continuity-panel { padding: 16px; }
 .continuity-panel > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 14px; }
@@ -98,6 +100,10 @@
 .continuity-two-column,
 .crew-management-grid,
 .settlement-layout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.crew-rarity-standard { --crew-rarity: #a7b6c2; --crew-rarity-rgb: 167 182 194; }
+.crew-rarity-notable { --crew-rarity: #58d6b3; --crew-rarity-rgb: 88 214 179; }
+.crew-rarity-exceptional { --crew-rarity: #b694ff; --crew-rarity-rgb: 182 148 255; }
+.crew-rarity-anomalous { --crew-rarity: #ffd166; --crew-rarity-rgb: 255 209 102; }
 .survivor-beacon-panel { min-height: 330px; }
 .survivor-beacon-panel.is-online { border-color: rgb(var(--world-accent-rgb, 85 214 232) / 0.4); }
 .continuity-empty-state { display: grid; min-height: 210px; place-items: center; align-content: center; padding: 24px; text-align: center; border: 1px dashed #263c4b; background: #071019; }
@@ -107,15 +113,16 @@
 .survivor-signal-detail { padding: 14px; border: 1px dashed rgb(var(--world-accent-rgb, 85 214 232) / 0.38); background: rgb(var(--world-accent-rgb, 85 214 232) / 0.04); }
 .survivor-signal-detail h4 { margin: 5px 0 13px; color: #eef4f7; }
 .survivor-signal-detail ul { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
-.survivor-signal-detail li { display: flex; align-items: center; gap: 9px; padding: 7px; border: 1px solid #1b2c39; background: #07111a; }
+.survivor-signal-detail li { display: flex; align-items: center; gap: 9px; padding: 7px; border: 1px solid #1b2c39; border-left: 3px solid var(--crew-rarity, #a7b6c2); background: linear-gradient(90deg, rgb(var(--crew-rarity-rgb, 167 182 194) / 0.08), transparent 34%), #07111a; }
 .survivor-signal-detail li > div:nth-child(2) { min-width: 0; flex: 1; }
 .survivor-signal-detail li strong,
 .survivor-signal-detail li small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .survivor-signal-detail li strong { color: #dce8ef; font-size: 10px; }
 .survivor-signal-detail li small { margin-top: 2px; color: #6d8293; font-size: 8px; }
-.survivor-signal-detail li em { color: #d7b077; font-size: 8px; font-style: normal; }
-.crew-avatar { display: grid; width: 28px; height: 28px; place-items: center; flex: 0 0 auto; color: #061116; border-radius: 50%; background: var(--world-accent, #55d6e8); font-weight: 850; box-shadow: 0 0 12px rgb(var(--world-accent-rgb, 85 214 232) / 0.16); }
+.survivor-signal-detail li em { font-size: 8px; font-style: normal; }
+.crew-avatar { display: grid; width: 28px; height: 28px; place-items: center; flex: 0 0 auto; color: #061116; border: 1px solid rgb(var(--crew-rarity-rgb, 85 214 232) / 0.75); border-radius: 50%; background: var(--crew-rarity, var(--world-accent, #55d6e8)); font-weight: 850; box-shadow: 0 0 12px rgb(var(--crew-rarity-rgb, 85 214 232) / 0.2); }
 .crew-avatar.large { width: 54px; height: 54px; font-size: 19px; }
+.crew-rarity-badge { display: inline-flex; align-items: center; min-height: 19px; padding: 3px 6px; color: var(--crew-rarity, #a7b6c2); border: 1px solid rgb(var(--crew-rarity-rgb, 167 182 194) / 0.42); border-radius: 999px; background: rgb(var(--crew-rarity-rgb, 167 182 194) / 0.08); font-family: var(--font-mono, monospace); font-size: 7px; font-style: normal; font-weight: 800; letter-spacing: 0.08em; line-height: 1; text-transform: uppercase; white-space: nowrap; }
 .signal-readiness { display: flex; justify-content: space-between; gap: 12px; margin: 12px 0 0; color: #8da2b0; font-size: 9px; }
 .survivor-signal-detail > button { width: 100%; margin-top: 9px; }
 .survivor-signal-detail > p { margin: 8px 0 0; color: #657b8b; font-size: 8px; }
@@ -124,19 +131,25 @@
 .role-count-grid div { display: flex; justify-content: space-between; padding: 9px; border: 1px solid #1a2b38; background: #071019; }
 .role-count-grid span { color: #718799; font-size: 9px; }
 .role-count-grid strong { color: #d9e7ee; font-family: var(--font-mono, monospace); font-size: 12px; }
+.crew-rarity-key { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; padding-top: 11px; border-top: 1px solid #182a37; }
+.crew-rarity-key span { display: inline-flex; align-items: center; gap: 5px; color: var(--crew-rarity, #a7b6c2); font-family: var(--font-mono, monospace); font-size: 8px; font-weight: 750; text-transform: uppercase; }
+.crew-rarity-key i { width: 7px; height: 7px; border-radius: 50%; background: var(--crew-rarity, #a7b6c2); box-shadow: 0 0 8px rgb(var(--crew-rarity-rgb, 167 182 194) / 0.4); }
+.crew-rarity-note { display: block; margin-top: 8px; color: #657b8b; font-size: 8px; line-height: 1.45; }
 
 .crew-roster-panel,
 .crew-detail-panel { min-height: 600px; }
 .crew-roster-list { display: grid; gap: 6px; max-height: 720px; overflow: auto; padding-right: 3px; }
-.crew-roster-list > button { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 9px; width: 100%; padding: 8px; color: inherit; text-align: left; border: 1px solid #192a37; background: #071019; cursor: pointer; }
-.crew-roster-list > button.is-selected { border-color: rgb(var(--world-accent-rgb, 85 214 232) / 0.58); background: rgb(var(--world-accent-rgb, 85 214 232) / 0.075); }
+.crew-roster-list > button { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 9px; width: 100%; padding: 8px; color: inherit; text-align: left; border: 1px solid #192a37; border-left: 3px solid var(--crew-rarity, #a7b6c2); background: linear-gradient(90deg, rgb(var(--crew-rarity-rgb, 167 182 194) / 0.055), transparent 32%), #071019; cursor: pointer; }
+.crew-roster-list > button.is-selected { border-color: rgb(var(--crew-rarity-rgb, 167 182 194) / 0.66); background: rgb(var(--crew-rarity-rgb, 167 182 194) / 0.1); box-shadow: inset 3px 0 0 var(--crew-rarity, #a7b6c2); }
 .crew-roster-list > button > span:nth-child(2) { min-width: 0; }
 .crew-roster-list strong,
 .crew-roster-list small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .crew-roster-list strong { color: #dce8ef; font-size: 10px; }
 .crew-roster-list small { margin-top: 3px; color: #6c8294; font-size: 8px; }
-.crew-roster-list em { color: #d9a969; font-size: 11px; font-style: normal; }
-.crew-detail-identity { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid #1b2d3a; background: #071019; }
+.crew-roster-list em { font-style: normal; }
+.crew-detail-panel[class*="crew-rarity-"] { border-top-color: var(--crew-rarity, #a7b6c2); box-shadow: inset 0 2px 0 rgb(var(--crew-rarity-rgb, 167 182 194) / 0.2); }
+.crew-file-classification { display: grid; justify-items: end; gap: 5px; }
+.crew-detail-identity { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid rgb(var(--crew-rarity-rgb, 167 182 194) / 0.32); background: linear-gradient(90deg, rgb(var(--crew-rarity-rgb, 167 182 194) / 0.08), transparent 45%), #071019; }
 .crew-detail-identity > div { min-width: 0; }
 .crew-detail-identity strong { display: block; color: #e0ebf1; }
 .crew-detail-identity small { display: block; margin-top: 5px; color: #718798; font-size: 9px; line-height: 1.45; }
@@ -193,15 +206,16 @@
 .deficit-list strong { display: block; color: #cbb7bd; font-size: 9px; }
 .deficit-list span { display: block; margin-top: 4px; color: #806d76; font-size: 8px; }
 .settler-selection-list { display: grid; gap: 6px; max-height: 620px; overflow: auto; }
-.settler-selection-list label { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: 9px; padding: 8px; border: 1px solid #192b38; background: #071019; cursor: pointer; }
-.settler-selection-list label.is-selected { border-color: rgb(var(--world-accent-rgb, 85 214 232) / 0.52); background: rgb(var(--world-accent-rgb, 85 214 232) / 0.06); }
+.settler-selection-list label { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: 9px; padding: 8px; border: 1px solid #192b38; border-left: 3px solid var(--crew-rarity, #a7b6c2); background: linear-gradient(90deg, rgb(var(--crew-rarity-rgb, 167 182 194) / 0.055), transparent 30%), #071019; cursor: pointer; }
+.settler-selection-list label.is-selected { border-color: rgb(var(--crew-rarity-rgb, 167 182 194) / 0.6); background: rgb(var(--crew-rarity-rgb, 167 182 194) / 0.09); }
 .settler-selection-list input { accent-color: var(--world-accent, #55d6e8); }
 .settler-selection-list label > span:nth-of-type(2) { min-width: 0; }
 .settler-selection-list strong,
 .settler-selection-list small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .settler-selection-list strong { color: #dce7ee; font-size: 9px; }
 .settler-selection-list small { margin-top: 3px; color: #6b8192; font-size: 8px; }
-.settler-selection-list em { color: #8da4b2; font-family: var(--font-mono, monospace); font-size: 8px; font-style: normal; }
+.settler-row-status { display: grid; justify-items: end; gap: 4px; }
+.settler-row-status b { color: #8da4b2; font-family: var(--font-mono, monospace); font-size: 8px; font-weight: 700; }
 .world-progress-actions { display: grid; gap: 7px; }
 .world-progress-action { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px; border: 1px solid #1a2c39; background: #071019; }
 .world-progress-action.is-complete { border-color: rgb(104 190 143 / 0.3); }

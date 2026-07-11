@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type CSSProperties } from "react";
+import { HelpTrigger, type ManualTopicId } from "./game-manual";
 
 export type ArkViewId =
   | "engineering"
@@ -22,6 +23,9 @@ export type ArkCrewPreview = {
   role: string;
   level: number;
   training?: string | null;
+  rarity: string;
+  rarityLabel: string;
+  rarityDescription: string;
 };
 
 export type ArkSignalPreview = {
@@ -68,6 +72,7 @@ export type ArkDeckProps = {
   onActivateBeacon: () => void;
   onRescueSignal: (signalId: string) => void;
   onOpenView: (view: ArkViewId) => void;
+  onOpenHelp: (topicId: ManualTopicId) => void;
 };
 
 type ArkRoom = {
@@ -127,6 +132,7 @@ function ArkDeck({
   onActivateBeacon,
   onRescueSignal,
   onOpenView,
+  onOpenHelp,
 }: ArkDeckProps) {
   const [corePulse, setCorePulse] = useState(0);
   const normalizedWorldProgress = clamp(worldProgress);
@@ -235,7 +241,7 @@ function ArkDeck({
         <div className="ark-heading-metrics" aria-label="Ark status">
           <div><span>Population</span><strong>{population}/{populationCapacity}</strong></div>
           <div><span>Cohesion</span><strong>{Math.round(normalizedCohesion)}%</strong></div>
-          <div><span>Salvage</span><strong>{salvageLabel}</strong></div>
+          <div className="ark-metric-with-help"><span>Salvage <HelpTrigger label="How do I get Salvage?" onClick={() => onOpenHelp("salvage")} /></span><strong>{salvageLabel}</strong></div>
           <div><span>Ark awake</span><strong>{onlineRoomCount}/{totalRoomCount}</strong></div>
         </div>
       </header>
@@ -446,9 +452,10 @@ function ArkDeck({
                 ) : (
                   <ul>
                     {crew.slice(0, 4).map((member) => (
-                      <li key={member.id}>
-                        <span>{member.name.slice(0, 1)}</span>
+                      <li className={`crew-rarity-${member.rarity}`} key={member.id}>
+                        <span className="ark-crew-avatar">{member.name.slice(0, 1)}</span>
                         <div><strong>{member.name}</strong><small>{member.training ? `${member.role} · training ${member.training}` : `${member.role} · level ${member.level}`}</small></div>
+                        <em className="crew-rarity-badge" title={member.rarityDescription}>{member.rarityLabel}</em>
                       </li>
                     ))}
                   </ul>

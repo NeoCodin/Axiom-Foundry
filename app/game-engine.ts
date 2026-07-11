@@ -13,6 +13,7 @@ import {
   advanceSurvivorSystem,
   cloneSurvivorSystemState,
   createSurvivorSystemState,
+  getSurvivorRarity,
   getSurvivorSkillLevel,
   sanitizeSurvivorSystemState,
   setSosBeaconOnline,
@@ -928,19 +929,25 @@ export function getCampaignCrewSummaries(
   const trainingIds = new Set(
     state.survivors.training.map((program) => program.survivorId),
   );
-  return state.survivors.survivors.map((survivor) => ({
-    id: survivor.id,
-    name: survivor.callsign
-      ? `${survivor.name} “${survivor.callsign}”`
-      : survivor.name,
-    role: survivor.role,
-    roles: [survivor.role, survivor.assignedRole].filter(
-      (role): role is string => Boolean(role),
-    ),
-    expertise: survivorContinuityExpertise(survivor),
-    available: !trainingIds.has(survivor.id),
-    canSettle: !trainingIds.has(survivor.id),
-  }));
+  return state.survivors.survivors.map((survivor) => {
+    const rarity = getSurvivorRarity(survivor);
+    return {
+      id: survivor.id,
+      name: survivor.callsign
+        ? `${survivor.name} “${survivor.callsign}”`
+        : survivor.name,
+      role: survivor.role,
+      roles: [survivor.role, survivor.assignedRole].filter(
+        (role): role is string => Boolean(role),
+      ),
+      expertise: survivorContinuityExpertise(survivor),
+      available: !trainingIds.has(survivor.id),
+      canSettle: !trainingIds.has(survivor.id),
+      rarity: rarity.id,
+      rarityLabel: rarity.label,
+      rarityDescription: rarity.description,
+    };
+  });
 }
 
 function currentProgressWithResearch(state: GameState): WorldProgressSummary {

@@ -156,11 +156,11 @@ function SettlementConsole({
           {world.settlementRequired ? (
             <div className="settler-selection-list">
               {crew.map((member) => (
-                <label className={selected.has(member.id) ? "is-selected" : ""} key={member.id}>
+                <label className={`${member.rarity ? `crew-rarity-${member.rarity}` : ""} ${selected.has(member.id) ? "is-selected" : ""}`} key={member.id}>
                   <input type="checkbox" checked={selected.has(member.id)} onChange={() => onToggleSettler(member.id)} />
                   <span className="crew-avatar">{member.name.slice(0, 1)}</span>
                   <span><strong>{member.name}</strong><small>{titleCase(member.role ?? "civilian")} · {Object.entries(member.expertise ?? {}).filter(([, value]) => (value ?? 0) > 0).slice(0, 3).map(([id, value]) => `${titleCase(id)} ${value}`).join(" · ") || "Adaptable civilian"}</small></span>
-                  <em>{selected.has(member.id) ? "FOUNDER" : "ARK"}</em>
+                  <span className="settler-row-status"><em className="crew-rarity-badge" title={member.rarityDescription}>{member.rarityLabel ?? "Standard"}</em><b>{selected.has(member.id) ? "FOUNDER" : "ARK"}</b></span>
                 </label>
               ))}
             </div>

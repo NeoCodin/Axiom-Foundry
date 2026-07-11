@@ -162,6 +162,9 @@
   font-variant-numeric: tabular-nums;
 }
 
+.ark-heading-metrics .ark-metric-with-help > span { display: flex; align-items: center; gap: 6px; }
+.ark-heading-metrics .ark-metric-with-help .context-help-trigger { width: 18px; height: 18px; font-size: 9px; }
+
 /* The visual stage is the main screen: space, destination, and an explorable Ark. */
 .ark-visual-stage {
   position: relative;
@@ -933,8 +936,8 @@
 .ark-habitat-visual i:nth-child(2n) { height: 24px; animation-delay: -2s; }
 
 .ark-crew-card ul { display: grid; width: 100%; margin: 11px 0 13px; padding: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; list-style: none; }
-.ark-crew-card li { display: flex; min-width: 0; padding: 7px; align-items: center; gap: 8px; border: 1px solid #1c2e39; background: #071018; }
-.ark-crew-card li > span { display: grid; width: 27px; height: 27px; flex: 0 0 auto; place-items: center; color: #051116; border-radius: 50%; background: var(--ark-cyan); font-size: 10px; font-weight: 850; }
+.ark-crew-card li { display: grid; min-width: 0; padding: 7px; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; border: 1px solid #1c2e39; border-left: 3px solid var(--crew-rarity, #a7b6c2); background: linear-gradient(90deg, rgb(var(--crew-rarity-rgb, 167 182 194) / 0.075), transparent 36%), #071018; }
+.ark-crew-card li > .ark-crew-avatar { display: grid; width: 27px; height: 27px; flex: 0 0 auto; place-items: center; color: #051116; border: 1px solid rgb(var(--crew-rarity-rgb, 167 182 194) / 0.7); border-radius: 50%; background: var(--crew-rarity, #a7b6c2); box-shadow: 0 0 10px rgb(var(--crew-rarity-rgb, 167 182 194) / 0.2); font-size: 10px; font-weight: 850; }
 .ark-crew-card li div { min-width: 0; }
 .ark-crew-card li strong,
 .ark-crew-card li small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

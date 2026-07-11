@@ -5,6 +5,7 @@ import "../app/globals.css";
 import "../app/ark-deck.css";
 import "../app/continuity-console.css";
 import "../app/research-lattice.css";
+import "../app/game-manual.css";
 import "../app/awakening.css";
 
 createRoot(document.getElementById("root")!).render(

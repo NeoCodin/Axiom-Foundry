@@ -56,6 +56,68 @@ export type Survivor = {
   storyHookId: RareSurvivorHookId | null;
 };
 
+export const SURVIVOR_RARITY_DEFINITIONS = [
+  {
+    id: "standard",
+    label: "Standard",
+    description: "A dependable profile with broadly useful potential.",
+  },
+  {
+    id: "notable",
+    label: "Notable",
+    description: "A scarce mix of strong aptitudes or unusual adaptability.",
+  },
+  {
+    id: "exceptional",
+    label: "Exceptional",
+    description: "Exceptional natural potential across multiple disciplines.",
+  },
+  {
+    id: "anomalous",
+    label: "Anomalous",
+    description: "A singular survivor whose record is tied to the Ark's deeper mystery.",
+  },
+] as const;
+
+export type SurvivorRarityId =
+  (typeof SURVIVOR_RARITY_DEFINITIONS)[number]["id"];
+
+export type SurvivorRarity = {
+  id: SurvivorRarityId;
+  label: string;
+  description: string;
+  score: number;
+};
+
+export function getSurvivorRarityScore(survivor: Survivor) {
+  const aptitudes = PROFESSIONAL_ROLES
+    .map((role) => Math.max(1, Math.min(5, survivor.aptitudes[role] ?? 1)))
+    .sort((left, right) => right - left);
+  const [highest = 1, second = 1, third = 1] = aptitudes;
+  return (
+    highest * 3 +
+    second * 2 +
+    third +
+    Math.max(0, survivor.traits.length - 1) * 2 +
+    (survivor.adaptability >= 5 ? 2 : survivor.adaptability >= 4 ? 1 : 0)
+  );
+}
+
+export function getSurvivorRarity(survivor: Survivor): SurvivorRarity {
+  const score = getSurvivorRarityScore(survivor);
+  const rarityId: SurvivorRarityId = survivor.storyHookId
+    ? "anomalous"
+    : score >= 28
+      ? "exceptional"
+      : score >= 25
+        ? "notable"
+        : "standard";
+  const definition = SURVIVOR_RARITY_DEFINITIONS.find(
+    (candidate) => candidate.id === rarityId,
+  )!;
+  return { ...definition, score };
+}
+
 export type SurvivorSignal = {
   id: string;
   sequence: number;

@@ -41,6 +41,7 @@ test("server-renders the Axiom Foundry game surface", async () => {
   assert.match(html, /Continuity Bridge/);
   assert.match(html, /Awakens later/);
   assert.match(html, /Salvage/);
+  assert.match(html, /Open guide for this page/);
   assert.match(html, /Wake the caretaker core/);
   assert.match(html, /role="progressbar"/);
   assert.match(html, /property="og:image"/);
@@ -49,7 +50,7 @@ test("server-renders the Axiom Foundry game surface", async () => {
 });
 
 test("removes all temporary starter-preview wiring", async () => {
-  const [page, arkDeck, layout, pagesEntry, packageJson, css, arkCss, continuityCss, researchCss, awakeningCss, story] =
+  const [page, arkDeck, layout, pagesEntry, packageJson, css, arkCss, continuityCss, researchCss, manualCss, awakeningCss, story, manual, survivorEngine] =
     await Promise.all([
       readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/ark-deck.tsx", import.meta.url), "utf8"),
@@ -60,8 +61,11 @@ test("removes all temporary starter-preview wiring", async () => {
       readFile(new URL("../app/ark-deck.css", import.meta.url), "utf8"),
       readFile(new URL("../app/continuity-console.css", import.meta.url), "utf8"),
       readFile(new URL("../app/research-lattice.css", import.meta.url), "utf8"),
+      readFile(new URL("../app/game-manual.css", import.meta.url), "utf8"),
       readFile(new URL("../app/awakening.css", import.meta.url), "utf8"),
       readFile(new URL("../app/story-content.ts", import.meta.url), "utf8"),
+      readFile(new URL("../app/game-manual.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/survivor-engine.ts", import.meta.url), "utf8"),
     ]);
 
   assert.match(page, /from "\.\/game-engine"/);
@@ -80,13 +84,19 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(arkCss, /\.ark-visual-stage\s*\{/);
   assert.match(continuityCss, /\.settler-selection-list\s*\{/);
   assert.match(researchCss, /\.research-lattice-analysis-core\s*\{/);
+  assert.match(manualCss, /\.game-manual\s*\{/);
   assert.match(awakeningCss, /\.living-foundry-nav\s*\{[^}]*position:\s*fixed/s);
-  for (const stylesheet of ["ark-deck", "continuity-console", "research-lattice", "awakening"]) {
+  for (const stylesheet of ["ark-deck", "continuity-console", "research-lattice", "game-manual", "awakening"]) {
     assert.match(layout, new RegExp(`import "\\./${stylesheet}\\.css"`));
     assert.match(pagesEntry, new RegExp(`import "\\.\\./app/${stylesheet}\\.css"`));
   }
   assert.match(story, /Axioms are not fuel for space travel/);
   assert.match(story, /When the Ark may leave/);
+  for (const topic of ["Ark", "Foundry", "Research", "Crew", "Continuity", "Biological Samples", "Cultural Records", "Ark Supply", "Salvage"]) {
+    assert.match(manual, new RegExp(topic));
+  }
+  assert.match(survivorEngine, /SURVIVOR_RARITY_DEFINITIONS/);
+  assert.match(survivorEngine, /anomalous/);
   await access(new URL("../public/og.png", import.meta.url));
   await assert.rejects(access(new URL("../dist/server/og.png", import.meta.url)));
   await assert.rejects(

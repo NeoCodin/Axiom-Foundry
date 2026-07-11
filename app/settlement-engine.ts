@@ -18,6 +18,9 @@ export type CampaignCrewSummary = {
   expertise?: Readonly<Partial<Record<ExpertiseId | string, number>>>;
   available?: boolean;
   canSettle?: boolean;
+  rarity?: string;
+  rarityLabel?: string;
+  rarityDescription?: string;
 };
 
 export type WorldProgressSummary = {
