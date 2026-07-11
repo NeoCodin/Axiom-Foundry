@@ -1,5 +1,6 @@
 export const SAVE_VERSION = 3;
-export const SAVE_KEY = "axiom-foundry-save-v1";
+export const SAVE_KEY = "axiom-foundry-save-v2";
+export const RETIRED_SAVE_KEYS = ["axiom-foundry-save-v1"] as const;
 export const MAX_VALUE = 1e280;
 
 export type PurchaseMode = "1" | "10" | "max";

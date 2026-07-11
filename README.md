@@ -17,6 +17,8 @@ The Null Tide is erasing the laws of physics from inhabited space. The Foundry t
 
 Progress saves automatically in browser storage. Returning players receive simulated offline production, initially capped at eight hours.
 
+The expanded Planetfall release intentionally retires the original prototype save key so every player begins the campaign together at Helion Reach.
+
 ## Features
 
 - Six-tier nested production chain

@@ -3,7 +3,9 @@ import test from "node:test";
 import {
   MISSIONS,
   RECALIBRATION_THRESHOLD,
+  RETIRED_SAVE_KEYS,
   RUN_UPGRADES,
+  SAVE_KEY,
   acknowledgeNextMission,
   buyRunUpgrade,
   buyTier,
@@ -22,6 +24,15 @@ import {
   setTutorialComplete,
   simulateGame,
 } from "../app/game-engine.ts";
+
+test("the campaign reset retires every previous public save key", () => {
+  assert.equal(SAVE_KEY, "axiom-foundry-save-v2");
+  assert.deepEqual(RETIRED_SAVE_KEYS, ["axiom-foundry-save-v1"]);
+  assert.equal(
+    (RETIRED_SAVE_KEYS as readonly string[]).includes(SAVE_KEY),
+    false,
+  );
+});
 
 test("manual tuning bootstraps a new cycle", () => {
   let state = createInitialState(0);

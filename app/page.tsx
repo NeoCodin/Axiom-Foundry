@@ -15,6 +15,7 @@ import {
   LEGACY_UPGRADES,
   MISSIONS,
   RECALIBRATION_THRESHOLD,
+  RETIRED_SAVE_KEYS,
   RUN_UPGRADES,
   SAVE_KEY,
   acknowledgeNextMission,
@@ -200,6 +201,9 @@ export default function Home() {
     let next = createInitialState(now);
 
     try {
+      for (const retiredKey of RETIRED_SAVE_KEYS) {
+        window.localStorage.removeItem(retiredKey);
+      }
       const raw = window.localStorage.getItem(SAVE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as { version?: number };
