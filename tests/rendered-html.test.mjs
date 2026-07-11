@@ -33,13 +33,12 @@ test("server-renders the Axiom Foundry game surface", async () => {
   const html = await response.text();
   assert.match(html, /<title>Axiom Foundry/);
   assert.match(html, /Helion appears as a black disc/);
-  assert.match(html, /Tune the Core/);
-  assert.match(html, /Fabrication Chain/);
-  assert.match(html, /Planetary theater/);
+  assert.match(html, /Foundry Deck/);
+  assert.match(html, /The inhabited machine/);
+  assert.match(html, /Crew roster/);
+  assert.match(html, /Expedition hangar/);
+  assert.match(html, /Salvage/);
   assert.match(html, /Find a stable frequency/);
-  assert.match(html, /Planetary Directives/);
-  assert.match(html, /No deadline/);
-  assert.match(html, /Run Research/);
   assert.match(html, /role="progressbar"/);
   assert.match(html, /property="og:image"/);
   assert.doesNotMatch(html, /Cohesion window|If the clock expires/);
@@ -56,7 +55,10 @@ test("removes all temporary starter-preview wiring", async () => {
   ]);
 
   assert.match(page, /from "\.\/game-engine"/);
-  assert.match(layout, /Axiom Foundry — Cosmic Incremental Game/);
+  assert.match(page, /Tune the Core/);
+  assert.match(page, /Fabrication Chain/);
+  assert.match(page, /No deadline/);
+  assert.match(layout, /Axiom Foundry — Living Cosmic Idle Game/);
   assert.doesNotMatch(page, /SkeletonPreview|codex-preview/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.match(css, /\.machine-panel\s*\{[^}]*overflow:\s*clip/s);

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { syncLivingFoundryState } from "../app/living-foundry-engine.ts";
 import {
   MISSIONS,
   RECALIBRATION_THRESHOLD,
@@ -13,6 +14,7 @@ import {
   createInitialState,
   getCampaignRelics,
   getCampaignWorldIndex,
+  getManualGain,
   getMaxAffordableCount,
   getProductionSnapshot,
   getRecalibrationGain,
@@ -27,8 +29,11 @@ import {
 } from "../app/game-engine.ts";
 
 test("the campaign reset retires every previous public save key", () => {
-  assert.equal(SAVE_KEY, "axiom-foundry-save-v2");
-  assert.deepEqual(RETIRED_SAVE_KEYS, ["axiom-foundry-save-v1"]);
+  assert.equal(SAVE_KEY, "axiom-foundry-save-v3");
+  assert.deepEqual(RETIRED_SAVE_KEYS, [
+    "axiom-foundry-save-v1",
+    "axiom-foundry-save-v2",
+  ]);
   assert.equal(
     (RETIRED_SAVE_KEYS as readonly string[]).includes(SAVE_KEY),
     false,
@@ -88,12 +93,29 @@ test("recalibration grants the previewed Axiom and retains legacy progress", () 
   state.runFlux = RECALIBRATION_THRESHOLD;
   state.maxFlux = RECALIBRATION_THRESHOLD;
   state.legacyUpgrades[0] = 2;
+  state.living.foundryName = "The Quiet Argument";
+  state.living.crew[0].callsign = "Ember";
+  state.living.crew[0].assignedRoomId = "axiom-chamber";
   const next = recalibrate(state, 1_000);
   assert.equal(next.axioms, 1);
   assert.equal(next.lifetimeAxioms, 1);
   assert.equal(next.cycle, 2);
   assert.equal(next.legacyUpgrades[0], 2);
   assert.equal(next.runFlux, 0);
+  assert.equal(next.living.foundryName, "The Quiet Argument");
+  assert.equal(next.living.crew[0].callsign, "Ember");
+  assert.equal(next.living.crew[0].assignedRoomId, "axiom-chamber");
+});
+
+test("staffed Foundry rooms provide capped final economy support", () => {
+  const empty = createInitialState(0);
+  empty.living.crew[0].assignedRoomId = null;
+  const staffed = createInitialState(0);
+  staffed.living = syncLivingFoundryState(staffed.living, 1);
+  staffed.living.crew[0].assignedRoomId = "axiom-chamber";
+  staffed.living.crew[1].assignedRoomId = "fabrication-floor";
+  assert.ok(getManualGain(staffed) > getManualGain(empty));
+  assert.ok(getTierCost(staffed, 0, 1) < getTierCost(empty, 0, 1));
 });
 
 test("malformed saves recover to finite nonnegative state", () => {
@@ -135,6 +157,15 @@ test("a three-phase rescue grants a relay and waits before Planetfall", () => {
   assert.equal(rescued.missions.currentIndex, 1);
   assert.equal(rescued.missions.awaitingAcknowledgement, true);
   assert.equal(rescued.stellarRelays, 1);
+  assert.ok(rescued.living.salvage > 35);
+  assert.equal(
+    rescued.living.crew.find((crew) => crew.id === "sena-marr")?.unlocked,
+    true,
+  );
+  assert.equal(
+    rescued.living.rooms.find((room) => room.id === "memory-archive")?.unlocked,
+    true,
+  );
   assert.ok(rescued.flux < 10);
 
   const waiting = simulateGame(rescued, 120, 10);
@@ -245,7 +276,7 @@ test("v2 saves enter the expanded campaign without replaying old Flux progress",
       statuses: MISSIONS.map(() => "saved"),
     },
   }, 100);
-  assert.equal(migrated.version, 4);
+  assert.equal(migrated.version, 5);
   assert.equal(migrated.missions.currentIndex, 0);
   assert.equal(migrated.missions.stageIndex, 0);
   assert.equal(migrated.missions.worldsSaved, 0);
@@ -270,7 +301,7 @@ test("v3 timed saves recover lost worlds under the untimed campaign", () => {
     },
   }, 100);
 
-  assert.equal(migrated.version, 4);
+  assert.equal(migrated.version, 5);
   assert.equal(migrated.missions.schema, 3);
   assert.deepEqual(migrated.missions.statuses.slice(0, 4), [
     "saved",

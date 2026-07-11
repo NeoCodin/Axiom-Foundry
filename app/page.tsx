@@ -52,9 +52,38 @@ import {
   type PurchaseMode,
 } from "./game-engine";
 import FoundryVista, { WORLD_VISUALS } from "./foundry-vista";
+import FoundryDeck from "./foundry-deck";
+import {
+  addDiscovery,
+  getChosenDoctrine,
+  getCrewTransmission,
+  getDiscoveredFragments,
+  getDoctrineAvailability,
+  getNextArchiveDiscovery,
+  getNextRoomDiscovery,
+  syncAutomaticDiscoveries,
+} from "./discovery-engine";
+import {
+  DISCOVERY_FRAGMENTS,
+  type DoctrineId,
+  type ExpeditionId,
+  type RoomId,
+} from "./discovery-content";
+import {
+  assignCrew,
+  chooseDoctrine,
+  claimExpedition,
+  getCrewDefinition,
+  grantLivingFoundryRewards,
+  launchExpedition,
+  renameCrew,
+  renameFoundry,
+  upgradeRoom,
+} from "./living-foundry-engine";
 import { LORE_ENTRIES, TOUR_STEPS } from "./story-content";
 
 type MobileTab = "core" | "machines" | "systems" | "recalibrate";
+type PrimaryView = "deck" | "engineering";
 
 const purchaseModes: Array<{ value: PurchaseMode; label: string }> = [
   { value: "1", label: "×1" },
@@ -158,7 +187,9 @@ function getNextObjective(state: GameState) {
 export default function Home() {
   const [game, setGame] = useState<GameState>(() => createInitialState(0));
   const [ready, setReady] = useState(false);
+  const [primaryView, setPrimaryView] = useState<PrimaryView>("deck");
   const [mobileTab, setMobileTab] = useState<MobileTab>("core");
+  const [clockNow, setClockNow] = useState(0);
   const [announcement, setAnnouncement] = useState("");
   const [saveStatus, setSaveStatus] = useState("Local save pending");
   const [offlineNotice, setOfflineNotice] = useState<{
@@ -255,12 +286,31 @@ export default function Home() {
   useEffect(() => {
     if (tourStep === null) return;
     const target = TOUR_STEPS[tourStep].target;
-    if (target === "fabrication") setMobileTab("machines");
+    if (target === "welcome") {
+      setPrimaryView("deck");
+      setMobileTab("core");
+    } else if (target === "fabrication") {
+      setPrimaryView("engineering");
+      setMobileTab("machines");
+    }
     else if (target === "research" || target === "missions") {
+      setPrimaryView("engineering");
       setMobileTab("systems");
-    } else if (target === "recalibration") setMobileTab("recalibrate");
-    else setMobileTab("core");
+    } else if (target === "recalibration") {
+      setPrimaryView("engineering");
+      setMobileTab("recalibrate");
+    } else {
+      setPrimaryView("engineering");
+      setMobileTab("core");
+    }
   }, [tourStep]);
+
+  useEffect(() => {
+    if (!ready) return;
+    setClockNow(Date.now());
+    const clock = window.setInterval(() => setClockNow(Date.now()), 1_000);
+    return () => window.clearInterval(clock);
+  }, [ready]);
 
   useEffect(() => {
     if (!ready) return;
@@ -368,6 +418,60 @@ export default function Home() {
     "--world-ground": worldVisual.ground,
     "--world-planet": worldVisual.planet,
   } as CSSProperties;
+  const discoveredFragments = useMemo(
+    () => getDiscoveredFragments(game.living.discoveredLore),
+    [game.living.discoveredLore],
+  );
+  const nextArchiveDiscovery = useMemo(
+    () => getNextArchiveDiscovery(game.living.discoveredLore),
+    [game.living.discoveredLore],
+  );
+  const investigableRoomIds = useMemo(
+    () =>
+      game.living.rooms
+        .filter(
+          (room) =>
+            room.unlocked &&
+            Boolean(
+              getNextRoomDiscovery(
+                game.living.discoveredLore,
+                room.id,
+                room.level,
+              ),
+            ),
+        )
+        .map((room) => room.id),
+    [game.living.discoveredLore, game.living.rooms],
+  );
+  const crewTransmission = useMemo(
+    () =>
+      getCrewTransmission(
+        game.living.discoveredLore,
+        game.missions.worldsSaved,
+        game.living.crew
+          .filter((crew) => crew.unlocked)
+          .map((crew) => ({
+            homeworld: getCrewDefinition(crew.id)?.homeworld ?? "foundry",
+            assignedRoomId: crew.assignedRoomId,
+          })),
+        Math.floor(game.playTime / 30),
+      ),
+    [
+      game.living.crew,
+      game.living.discoveredLore,
+      game.missions.worldsSaved,
+      game.playTime,
+    ],
+  );
+  const doctrineAvailability = useMemo(
+    () =>
+      getDoctrineAvailability(
+        game.living.discoveredLore,
+        game.missions.worldsSaved,
+      ),
+    [game.living.discoveredLore, game.missions.worldsSaved],
+  );
+  const chosenDoctrine = getChosenDoctrine(game.living.doctrine);
   const lastResolvedMission =
     game.missions.currentIndex > 0
       ? MISSIONS[game.missions.currentIndex - 1]
@@ -506,11 +610,141 @@ export default function Home() {
     setSaveStatus("Fresh local save started");
   };
 
+  const commitLivingChange = (
+    transform: (state: GameState["living"], game: GameState) => GameState["living"],
+    message: string,
+  ) => {
+    const current = gameRef.current;
+    let living = transform(current.living, current);
+    if (living === current.living) return false;
+    living = grantLivingFoundryRewards(living, {
+      loreIds: syncAutomaticDiscoveries(
+        living.discoveredLore,
+        current.missions.worldsSaved,
+        current.settings.tutorialComplete,
+      ),
+    });
+    const next = { ...current, living };
+    gameRef.current = next;
+    setGame(next);
+    setAnnouncement(message);
+    window.setTimeout(() => persistGame("Living Foundry saved"), 0);
+    return true;
+  };
+
+  const handleRenameFoundry = (name: string) => {
+    commitLivingChange(
+      (living) => renameFoundry(living, name),
+      `Foundry registry updated to ${name.trim()}.`,
+    );
+  };
+
+  const handleAssignCrew = (crewId: string, roomId: RoomId | null) => {
+    const crewName = getCrewDefinition(crewId)?.canonicalName ?? "Crew member";
+    commitLivingChange(
+      (living) => assignCrew(living, crewId, roomId),
+      roomId
+        ? `${crewName} assigned to ${roomId.replaceAll("-", " ")}.`
+        : `${crewName} released from room duty.`,
+    );
+  };
+
+  const handleRenameCallsign = (crewId: string, callsign: string) => {
+    const crewName = getCrewDefinition(crewId)?.canonicalName ?? "Crew member";
+    commitLivingChange(
+      (living) => renameCrew(living, crewId, callsign),
+      `${crewName} now answers to ${callsign.trim()}.`,
+    );
+  };
+
+  const handleUpgradeRoom = (roomId: RoomId) => {
+    commitLivingChange(
+      (living) => upgradeRoom(living, roomId),
+      `${roomId.replaceAll("-", " ")} awakened one level.`,
+    );
+  };
+
+  const handleLaunchExpedition = (
+    expeditionId: ExpeditionId,
+    crewIds: readonly string[],
+  ) => {
+    commitLivingChange(
+      (living, current) =>
+        launchExpedition(
+          living,
+          expeditionId,
+          crewIds,
+          current.missions.worldsSaved,
+          Date.now(),
+        ),
+      `Expedition ${expeditionId} launched. Its return can be claimed whenever you come back.`,
+    );
+  };
+
+  const handleClaimExpedition = () => {
+    const expedition = gameRef.current.living.activeExpedition;
+    if (!expedition) return;
+    commitLivingChange(
+      (living) => claimExpedition(living, Date.now()),
+      `Expedition returned with ${formatNumber(expedition.rewardSalvage)} Salvage and a recovered record.`,
+    );
+  };
+
+  const handleInvestigateRoom = (roomId: RoomId) => {
+    const current = gameRef.current;
+    const room = current.living.rooms.find((candidate) => candidate.id === roomId);
+    const fragment = room
+      ? getNextRoomDiscovery(
+          current.living.discoveredLore,
+          roomId,
+          room.level,
+        )
+      : null;
+    if (!fragment) {
+      setAnnouncement("This room has no readable contradiction yet.");
+      return;
+    }
+    commitLivingChange(
+      (living) =>
+        grantLivingFoundryRewards(living, {
+          salvage: 5,
+          loreIds: addDiscovery(living.discoveredLore, fragment.id),
+        }),
+      `Recovered record: ${fragment.title}.`,
+    );
+  };
+
+  const handleArchiveInvestigation = () => {
+    const fragment = getNextArchiveDiscovery(
+      gameRef.current.living.discoveredLore,
+    );
+    if (!fragment) return;
+    commitLivingChange(
+      (living) =>
+        grantLivingFoundryRewards(living, {
+          loreIds: addDiscovery(living.discoveredLore, fragment.id),
+        }),
+      `Archive cross-index complete: ${fragment.title}.`,
+    );
+  };
+
+  const handleDoctrineChoice = (doctrineId: DoctrineId) => {
+    const available = doctrineAvailability.find(
+      ({ doctrine }) => doctrine.id === doctrineId,
+    )?.available;
+    if (!available) return;
+    commitLivingChange(
+      (living) => chooseDoctrine(living, doctrineId),
+      `Final doctrine recorded: ${doctrineId}. This campaign will remember the choice.`,
+    );
+  };
+
   const finishTour = () => {
     const next = setTutorialComplete(gameRef.current, true);
     gameRef.current = next;
     setGame(next);
     setTourStep(null);
+    setPrimaryView("deck");
     setAnnouncement(
       "Orientation complete. Helion's rescue operation is ready whenever you are.",
     );
@@ -528,6 +762,7 @@ export default function Home() {
     gameRef.current = next;
     setGame(next);
     setLoreOpen(false);
+    setPrimaryView("deck");
     setTourStep(0);
   };
 
@@ -600,7 +835,7 @@ export default function Home() {
             <span>{objective.label}</span>
             <span>{formatNumber(objective.current)} / {formatNumber(objective.threshold)} required</span>
             {activeMission && game.settings.tutorialComplete && !game.missions.awaitingAcknowledgement && (
-              <button className="crisis-link" type="button" onClick={() => setMobileTab("systems")}>
+              <button className="crisis-link" type="button" onClick={() => { setPrimaryView("engineering"); setMobileTab("systems"); }}>
                 {activeMission.world} · Open directive
               </button>
             )}
@@ -618,6 +853,50 @@ export default function Home() {
         </div>
       </header>
 
+      <nav className="living-foundry-nav" aria-label="Foundry views" role="tablist">
+        <button
+          className={primaryView === "deck" ? "active" : ""}
+          type="button"
+          role="tab"
+          aria-selected={primaryView === "deck"}
+          onClick={() => setPrimaryView("deck")}
+        >
+          <span aria-hidden="true">▦</span>
+          Foundry Deck
+        </button>
+        <button
+          className={primaryView === "engineering" ? "active" : ""}
+          type="button"
+          role="tab"
+          aria-selected={primaryView === "engineering"}
+          onClick={() => setPrimaryView("engineering")}
+        >
+          <span aria-hidden="true">◇</span>
+          Engineering
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setPrimaryView("engineering");
+            setMobileTab("systems");
+            window.setTimeout(
+              () =>
+                document
+                  .getElementById("planetary-directives")
+                  ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+              0,
+            );
+          }}
+        >
+          <span aria-hidden="true">◎</span>
+          Directives
+        </button>
+        <button type="button" onClick={() => setLoreOpen(true)}>
+          <span aria-hidden="true">≡</span>
+          Archive {discoveredFragments.length}/{DISCOVERY_FRAGMENTS.length}
+        </button>
+      </nav>
+
       {offlineNotice && (
         <section className="offline-banner" aria-label="Offline production summary">
           <div>
@@ -631,6 +910,30 @@ export default function Home() {
         </section>
       )}
 
+      {primaryView === "deck" ? (
+        <FoundryDeck
+          state={game.living}
+          worldsSaved={game.missions.worldsSaved}
+          currentWorld={campaignWorldIndex}
+          now={clockNow || game.lastSaved}
+          onRenameFoundry={handleRenameFoundry}
+          onAssignCrew={handleAssignCrew}
+          onRenameCallsign={handleRenameCallsign}
+          onUpgradeRoom={handleUpgradeRoom}
+          onLaunchExpedition={handleLaunchExpedition}
+          onClaimExpedition={handleClaimExpedition}
+          investigationLabel={
+            investigableRoomIds.length > 0
+              ? "Investigate contradictory room records"
+              : null
+          }
+          investigableRoomIds={investigableRoomIds}
+          onInvestigateRoom={handleInvestigateRoom}
+          transmission={crewTransmission}
+          onOpenEngineeringConsole={() => setPrimaryView("engineering")}
+          onOpenArchive={() => setLoreOpen(true)}
+        />
+      ) : (
       <div className="game-grid">
         <div className="left-column">
           <section className={`panel core-panel mobile-section ${mobileTab === "core" ? "is-mobile-active" : ""} ${currentTour?.target === "flux" ? "tour-focus" : ""}`}>
@@ -814,7 +1117,7 @@ export default function Home() {
         </section>
 
         <aside className={`systems-column mobile-section ${mobileTab === "systems" ? "is-mobile-active" : ""}`}>
-          <section className={`panel mission-panel ${currentTour?.target === "missions" ? "tour-focus" : ""}`}>
+          <section id="planetary-directives" className={`panel mission-panel ${currentTour?.target === "missions" ? "tour-focus" : ""}`}>
             <div className="panel-heading mission-heading">
               <div>
                 <p className="section-kicker danger-text">Planetfall campaign</p>
@@ -906,9 +1209,32 @@ export default function Home() {
             ) : (
               <div className="campaign-complete">
                 <span aria-hidden="true">✦</span>
-                <h3>The Concordance Ending</h3>
-                <p>Every rescued world follows Vesper through a corridor of portable law. Humanity leaves no one behind.</p>
-                <small>{game.missions.worldsSaved} worlds secured · the Sixfold Evacuation is complete.</small>
+                {chosenDoctrine ? (
+                  <>
+                    <h3>{chosenDoctrine.title}</h3>
+                    <p>{chosenDoctrine.commitment}</p>
+                    <blockquote>{chosenDoctrine.lyraResponse}</blockquote>
+                    <p>{chosenDoctrine.epilogue}</p>
+                    <small>The choice is written beneath the reset layer. This campaign will remember.</small>
+                  </>
+                ) : (
+                  <>
+                    <h3>The Vesper Choice</h3>
+                    <p>The rescue is complete, but the recovered record does not support Lyra&apos;s original story. Choose what the Foundry carries into the next reality.</p>
+                    <div className="doctrine-grid">
+                      {doctrineAvailability.map(({ doctrine, available }) => (
+                        <article key={doctrine.id} className={available ? "available" : "locked"}>
+                          <span>{available ? "Doctrine available" : "Evidence incomplete"}</span>
+                          <strong>{doctrine.shortName}</strong>
+                          <p>{doctrine.thesis}</p>
+                          <button type="button" disabled={!available} onClick={() => handleDoctrineChoice(doctrine.id)}>
+                            {available ? doctrine.choiceLabel : `${doctrine.unlock.minDiscoveries} records required`}
+                          </button>
+                        </article>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
@@ -1047,6 +1373,7 @@ export default function Home() {
           </details>
         </aside>
       </div>
+      )}
 
       {currentTour && (
         <div className="tour-layer">
@@ -1105,6 +1432,30 @@ export default function Home() {
                   </article>
                 ))}
               </div>
+              <section className="archive-prologue mystery-index">
+                <p>Contradiction index // {discoveredFragments.length} of {DISCOVERY_FRAGMENTS.length}</p>
+                <span>
+                  These records were not part of Lyra&apos;s approved briefing. New fragments appear through rescued worlds, staffed rooms, Archive cross-indexing, and expeditions.
+                </span>
+                {nextArchiveDiscovery && (
+                  <button className="tour-next" type="button" onClick={handleArchiveInvestigation}>
+                    Cross-index: {nextArchiveDiscovery.title}
+                  </button>
+                )}
+              </section>
+              {discoveredFragments.length > 0 && (
+                <div className="lore-grid mystery-grid">
+                  {discoveredFragments.map((fragment, index) => (
+                    <article key={fragment.id}>
+                      <span>Recovered {String(index + 1).padStart(2, "0")} · {fragment.arc.replaceAll("-", " ")}</span>
+                      <h3>{fragment.title}</h3>
+                      <small>{fragment.source}</small>
+                      {fragment.excerpt.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+                      {fragment.contradiction && <p><strong>Contradiction:</strong> {fragment.contradiction}</p>}
+                    </article>
+                  ))}
+                </div>
+              )}
               <section className="planetary-ledger">
                 <div className="ledger-heading">
                   <div><p className="section-kicker">Rescue record</p><h3>Planetary Ledger</h3></div>
@@ -1139,6 +1490,7 @@ export default function Home() {
         </div>
       )}
 
+      {primaryView === "engineering" && (
       <nav className="mobile-nav" aria-label="Game sections">
         {([
           ["machines", "Machines"],
@@ -1153,6 +1505,7 @@ export default function Home() {
           </button>
         ))}
       </nav>
+      )}
     </main>
   );
 }

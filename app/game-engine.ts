@@ -1,6 +1,21 @@
-export const SAVE_VERSION = 4;
-export const SAVE_KEY = "axiom-foundry-save-v2";
-export const RETIRED_SAVE_KEYS = ["axiom-foundry-save-v1"] as const;
+import {
+  advanceLivingFoundry,
+  cloneLivingFoundryState,
+  createLivingFoundryState,
+  getLivingFoundryBonuses,
+  grantLivingFoundryRewards,
+  sanitizeLivingFoundryState,
+  syncLivingFoundryState,
+  type LivingFoundryState,
+} from "./living-foundry-engine.ts";
+import { syncAutomaticDiscoveries } from "./discovery-engine.ts";
+
+export const SAVE_VERSION = 5;
+export const SAVE_KEY = "axiom-foundry-save-v3";
+export const RETIRED_SAVE_KEYS = [
+  "axiom-foundry-save-v1",
+  "axiom-foundry-save-v2",
+] as const;
 export const MAX_VALUE = 1e280;
 
 export type PurchaseMode = "1" | "10" | "max";
@@ -62,6 +77,7 @@ export type GameState = {
   runUpgrades: number[];
   legacyUpgrades: number[];
   missions: MissionState;
+  living: LivingFoundryState;
   settings: GameSettings;
   manualPulses: number;
   playTime: number;
@@ -547,6 +563,7 @@ export function createInitialState(now = Date.now()): GameState {
       contributedFlux: 0,
       baseline: emptyMissionBaseline(),
     },
+    living: createLivingFoundryState(0),
     settings: {
       buyMode: "1",
       autoEnabled: false,
@@ -694,6 +711,14 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
         cycle,
         lifetimeAxioms,
       };
+  let living = sanitizeLivingFoundryState(value.living, savedWorlds);
+  living = grantLivingFoundryRewards(living, {
+    loreIds: syncAutomaticDiscoveries(
+      living.discoveredLore,
+      savedWorlds,
+      rawSettings.tutorialComplete === true,
+    ),
+  });
 
   return {
     version: SAVE_VERSION,
@@ -723,6 +748,7 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
         : 0,
       baseline,
     },
+    living,
     settings: {
       buyMode:
         rawSettings.buyMode === "10" || rawSettings.buyMode === "max"
@@ -758,6 +784,7 @@ export function cloneGameState(state: GameState): GameState {
         tierBought: [...state.missions.baseline.tierBought],
       },
     },
+    living: cloneLivingFoundryState(state.living),
     settings: {
       ...state.settings,
       autoTiers: [...state.settings.autoTiers],
@@ -822,12 +849,15 @@ export function getRunUpgradeCost(state: GameState, index: number) {
   const upgrade = RUN_UPGRADES[index];
   const world = getWorldEffects(state);
   const relics = getCampaignRelics(state);
+  const living = getLivingFoundryBonuses(state.living);
   return safeMultiply(
     safeMultiply(
       upgrade.baseCost,
       safePower(upgrade.growth, state.runUpgrades[index]),
     ),
-    world.researchCost * relics.researchCostMultiplier,
+    world.researchCost *
+      relics.researchCostMultiplier *
+      living.researchCostMultiplier,
   );
 }
 
@@ -857,6 +887,7 @@ export function getResonanceDetails(state: GameState) {
   const levels = links.reduce((sum, level) => sum + level, 0);
   const world = getWorldEffects(state);
   const relics = getCampaignRelics(state);
+  const living = getLivingFoundryBonuses(state.living);
   const perLevel =
     (0.04 + state.runUpgrades[3] * 0.01 + relics.resonanceBonus) *
     world.resonance;
@@ -866,7 +897,7 @@ export function getResonanceDetails(state: GameState) {
     levels,
     base,
     perLevel,
-    multiplier: 1 + levels * perLevel,
+    multiplier: (1 + levels * perLevel) * living.resonanceMultiplier,
   };
 }
 
@@ -993,6 +1024,11 @@ function advanceMission(state: GameState, elapsedSeconds: number) {
   let outcome: "saved" | null = null;
   if (progress.value >= progress.target) {
     if (state.missions.stageIndex < mission.stages.length - 1) {
+      const completedStage = state.missions.stageIndex;
+      state.living = grantLivingFoundryRewards(state.living, {
+        salvage: 6 * (index + 1) * (completedStage + 1),
+        crewXp: 3 * (index + 1),
+      });
       state.missions.stageIndex += 1;
       state.missions.holdTime = 0;
       state.missions.contributedFlux = 0;
@@ -1005,6 +1041,21 @@ function advanceMission(state: GameState, elapsedSeconds: number) {
       state.stellarRelays + 1,
     );
     state.missions.worldsSaved += 1;
+    state.living = grantLivingFoundryRewards(state.living, {
+      salvage: 25 * (index + 1),
+      crewXp: 10 * (index + 1),
+    });
+    state.living = syncLivingFoundryState(
+      state.living,
+      state.missions.worldsSaved,
+    );
+    state.living = grantLivingFoundryRewards(state.living, {
+      loreIds: syncAutomaticDiscoveries(
+        state.living.discoveredLore,
+        state.missions.worldsSaved,
+        state.settings.tutorialComplete,
+      ),
+    });
     if ("rewardAxioms" in mission) {
       state.axioms += mission.rewardAxioms;
       state.lifetimeAxioms += mission.rewardAxioms;
@@ -1033,12 +1084,13 @@ export function getProductionSnapshot(state: GameState) {
   const hazardShield = Math.min(0.1, state.stellarRelays * 0.02);
   const world = getWorldEffects(state);
   const relics = getCampaignRelics(state);
+  const livingBonuses = getLivingFoundryBonuses(state.living);
   const globalMultiplier = safeMultiply(
     safeMultiply(
       safeMultiply(flowMultiplier, legacyMultiplier),
       prestigeMultiplier,
     ),
-    world.production,
+    world.production * livingBonuses.productionMultiplier,
   );
   const resonance = getResonanceDetails(state);
   const higherTierMultiplier = 1 + 0.3 * state.runUpgrades[2];
@@ -1082,6 +1134,7 @@ export function getProductionSnapshot(state: GameState) {
     higherTierMultiplier,
     edgeGearing,
     resonance,
+    livingBonuses,
   };
 }
 
@@ -1090,13 +1143,14 @@ export function getManualGain(state: GameState) {
   const responsiveBase = 1 + Math.sqrt(production + 1) * 0.04;
   const world = getWorldEffects(state);
   const relics = getCampaignRelics(state);
+  const living = getLivingFoundryBonuses(state.living);
   return safeMultiply(
     responsiveBase,
     safeMultiply(
       safePower(1.65, state.runUpgrades[0]),
       safeMultiply(
         1 + 0.12 * Math.sqrt(state.legacyUpgrades[0]),
-        world.manual * relics.manualMultiplier,
+        world.manual * relics.manualMultiplier * living.manualMultiplier,
       ),
     ),
   );
@@ -1122,13 +1176,14 @@ export function getTierCost(
   const generator = GENERATORS[index];
   const priceDivider = 1 + 0.15 * Math.sqrt(state.legacyUpgrades[1]);
   const world = getWorldEffects(state);
+  const living = getLivingFoundryBonuses(state.living);
   const nextPrice =
     safeMultiply(
       safeMultiply(
         generator.baseCost,
         safePower(generator.growth, state.tiers[index].bought),
       ),
-      world.machineCost,
+      world.machineCost * living.machineCostMultiplier,
     ) / Math.max(1, priceDivider);
   const growthForQuantity = safePower(generator.growth, quantity);
   return bounded(
@@ -1227,6 +1282,7 @@ export function recalibrate(state: GameState, now = Date.now()) {
   fresh.cycle = state.cycle + 1;
   fresh.allTimeFlux = state.allTimeFlux;
   fresh.legacyUpgrades = [...state.legacyUpgrades];
+  fresh.living = cloneLivingFoundryState(state.living);
   fresh.missions = {
     ...state.missions,
     statuses: [...state.missions.statuses],
@@ -1279,6 +1335,7 @@ export function simulateGame(
   );
   const delta = seconds / steps;
   let next = cloneGameState(state);
+  next.living = advanceLivingFoundry(next.living, seconds);
 
   for (let step = 0; step < steps; step += 1) {
     const snapshot = getProductionSnapshot(next);
@@ -1339,6 +1396,15 @@ export function setBuyMode(state: GameState, mode: PurchaseMode) {
 export function setTutorialComplete(state: GameState, complete: boolean) {
   const next = cloneGameState(state);
   next.settings.tutorialComplete = complete;
+  if (complete) {
+    next.living = grantLivingFoundryRewards(next.living, {
+      loreIds: syncAutomaticDiscoveries(
+        next.living.discoveredLore,
+        next.missions.worldsSaved,
+        true,
+      ),
+    });
+  }
   return next;
 }
 
