@@ -4,9 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   GENERATORS,
   LEGACY_UPGRADES,
+  MISSIONS,
   RECALIBRATION_THRESHOLD,
   RUN_UPGRADES,
   SAVE_KEY,
+  acknowledgeNextMission,
   buyLegacyUpgrade,
   buyRunUpgrade,
   buyTier,
@@ -15,6 +17,7 @@ import {
   formatNumber,
   getLegacyUpgradeCost,
   getManualGain,
+  getMissionProgress,
   getOfflineCapHours,
   getProductionSnapshot,
   getPurchaseQuantity,
@@ -29,10 +32,12 @@ import {
   setAutoTier,
   setAutoUpgrades,
   setBuyMode,
+  setTutorialComplete,
   simulateGame,
   type GameState,
   type PurchaseMode,
 } from "./game-engine";
+import { LORE_ENTRIES, TOUR_STEPS } from "./story-content";
 
 type MobileTab = "core" | "machines" | "systems" | "recalibrate";
 
@@ -48,6 +53,13 @@ function thresholdProgress(current: number, previous: number, next: number) {
   const end = Math.log10(next + 1);
   const position = Math.log10(Math.max(0, current) + 1);
   return Math.min(1, Math.max(0, (position - start) / (end - start)));
+}
+
+function formatCountdown(seconds: number) {
+  const remaining = Math.max(0, Math.ceil(seconds));
+  const minutes = Math.floor(remaining / 60);
+  const rest = remaining % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
 }
 
 function getNextObjective(state: GameState) {
@@ -125,8 +137,12 @@ export default function Home() {
   } | null>(null);
   const [confirmPrestige, setConfirmPrestige] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [tourStep, setTourStep] = useState<number | null>(null);
+  const [loreOpen, setLoreOpen] = useState(false);
   const loadStarted = useRef(false);
   const gameRef = useRef(game);
+  const tourActionRef = useRef<HTMLButtonElement>(null);
+  const missionSignatureRef = useRef("");
 
   useEffect(() => {
     gameRef.current = game;
@@ -148,7 +164,7 @@ export default function Home() {
           getOfflineCapHours(loaded) * 3_600,
         );
         const before = loaded.flux;
-        next = simulateGame(loaded, credited, 720);
+        next = simulateGame(loaded, credited, 720, false);
         next.lastSaved = now;
         if (credited >= 2) {
           setOfflineNotice({ seconds: credited, gain: next.flux - before });
@@ -176,6 +192,26 @@ export default function Home() {
     setGame(next);
     setReady(true);
   }, []);
+
+  useEffect(() => {
+    if (ready && !game.settings.tutorialComplete && tourStep === null) {
+      setTourStep(0);
+    }
+  }, [game.settings.tutorialComplete, ready, tourStep]);
+
+  useEffect(() => {
+    if (tourStep !== null) tourActionRef.current?.focus();
+  }, [tourStep]);
+
+  useEffect(() => {
+    if (tourStep === null) return;
+    const target = TOUR_STEPS[tourStep].target;
+    if (target === "fabrication") setMobileTab("machines");
+    else if (target === "research" || target === "missions") {
+      setMobileTab("systems");
+    } else if (target === "recalibration") setMobileTab("recalibrate");
+    else setMobileTab("core");
+  }, [tourStep]);
 
   useEffect(() => {
     if (!ready) return;
@@ -242,6 +278,19 @@ export default function Home() {
     [game],
   );
   const objective = useMemo(() => getNextObjective(game), [game]);
+  const activeMission = MISSIONS[game.missions.currentIndex];
+  const missionProgress = useMemo(
+    () => getMissionProgress(game),
+    [game],
+  );
+  const lastResolvedMission =
+    game.missions.currentIndex > 0
+      ? MISSIONS[game.missions.currentIndex - 1]
+      : null;
+  const lastResolvedStatus =
+    game.missions.currentIndex > 0
+      ? game.missions.statuses[game.missions.currentIndex - 1]
+      : null;
   const firstLockedGenerator = GENERATORS.findIndex(
     (_, index) => !isTierUnlocked(game, index),
   );
@@ -249,6 +298,32 @@ export default function Home() {
     firstLockedGenerator === -1
       ? GENERATORS.length
       : Math.min(GENERATORS.length, firstLockedGenerator + 1);
+
+  useEffect(() => {
+    if (!ready) return;
+    const signature = `${game.missions.currentIndex}:${game.missions.awaitingAcknowledgement}:${game.missions.worldsSaved}:${game.missions.worldsLost}`;
+    if (
+      missionSignatureRef.current &&
+      signature !== missionSignatureRef.current &&
+      game.missions.currentIndex > 0
+    ) {
+      const resolvedIndex = game.missions.currentIndex - 1;
+      const resolved = MISSIONS[resolvedIndex];
+      const status = game.missions.statuses[resolvedIndex];
+      setAnnouncement(
+        status === "saved"
+          ? `${resolved.world} secured. A Stellar Relay now multiplies all Foundry output.`
+          : `${resolved.world} has been lost to the Null Tide. The Foundry continues.`,
+      );
+    }
+    missionSignatureRef.current = signature;
+  }, [
+    game.missions.awaitingAcknowledgement,
+    game.missions.currentIndex,
+    game.missions.worldsLost,
+    game.missions.worldsSaved,
+    ready,
+  ]);
 
   const handlePulse = () => {
     const gain = getManualGain(gameRef.current);
@@ -315,9 +390,48 @@ export default function Home() {
     setSaveStatus("Fresh local save started");
   };
 
+  const finishTour = () => {
+    const next = setTutorialComplete(gameRef.current, true);
+    gameRef.current = next;
+    setGame(next);
+    setTourStep(null);
+    setAnnouncement(
+      "Orientation complete. The first planetary rescue clock is now running.",
+    );
+    window.setTimeout(() => persistGame("Orientation saved"), 0);
+  };
+
+  const advanceTour = () => {
+    if (tourStep === null) return;
+    if (tourStep >= TOUR_STEPS.length - 1) finishTour();
+    else setTourStep(tourStep + 1);
+  };
+
+  const replayTour = () => {
+    const next = setTutorialComplete(gameRef.current, false);
+    gameRef.current = next;
+    setGame(next);
+    setLoreOpen(false);
+    setTourStep(0);
+  };
+
+  const acknowledgeMission = () => {
+    const next = acknowledgeNextMission(gameRef.current);
+    gameRef.current = next;
+    setGame(next);
+    setAnnouncement(
+      MISSIONS[next.missions.currentIndex]
+        ? `${MISSIONS[next.missions.currentIndex].world} distress signal accepted. Its clock is now running.`
+        : "The Sixfold Evacuation is complete.",
+    );
+    window.setTimeout(() => persistGame("Directive saved"), 0);
+  };
+
   const updateMode = (mode: PurchaseMode) => {
     setGame((current) => setBuyMode(current, mode));
   };
+
+  const currentTour = tourStep === null ? null : TOUR_STEPS[tourStep];
 
   return (
     <main className="game-shell">
@@ -326,25 +440,25 @@ export default function Home() {
         {announcement}
       </div>
 
-      <header className="command-bar">
+      <header className={`command-bar ${currentTour?.target === "welcome" || currentTour?.target === "flux" ? "tour-focus" : ""}`}>
         <div className="brand-lockup">
           <span className="brand-mark" aria-hidden="true">
             ◇
           </span>
           <div>
             <p className="eyebrow">AXIOM FOUNDRY // CYCLE {String(game.cycle).padStart(2, "0")}</p>
-            <h1>Build the machine that teaches the universe to multiply.</h1>
+            <h1>Forge the laws that keep humanity alive beyond the Null Tide.</h1>
           </div>
         </div>
 
-        <div className="resource-readout" title={`${game.flux.toExponential(6)} Flux`}>
+        <div className={`resource-readout ${currentTour?.target === "flux" ? "tour-focus" : ""}`} title={`${game.flux.toExponential(6)} Flux`}>
           <span className="resource-label">Available Flux</span>
           <strong>{formatNumber(game.flux)}</strong>
           <span className="rate">+{formatNumber(production.fluxPerSecond)} / sec</span>
         </div>
 
         <div className="header-metrics">
-          <div>
+          <div title="Axioms are portable, permanent laws of physics forged by Recalibration.">
             <span>Axioms</span>
             <strong>{formatNumber(game.axioms)}</strong>
           </div>
@@ -356,6 +470,7 @@ export default function Home() {
 
         <div className="header-actions">
           <span className="save-status">{ready ? saveStatus : "Restoring local cycle…"}</span>
+          <button className="quiet-button" type="button" onClick={() => setLoreOpen(true)}>Lore archive</button>
           <button className="quiet-button" type="button" onClick={() => persistGame("Saved")}>Save now</button>
         </div>
 
@@ -363,6 +478,11 @@ export default function Home() {
           <div className="objective-copy">
             <span>{objective.label}</span>
             <span>{formatNumber(game.maxFlux)} / {formatNumber(objective.threshold)} discovered</span>
+            {activeMission && game.settings.tutorialComplete && !game.missions.awaitingAcknowledgement && (
+              <button className="crisis-link" type="button" onClick={() => setMobileTab("systems")}>
+                {activeMission.world} · {formatCountdown(game.missions.timeLeft)}
+              </button>
+            )}
           </div>
           <div
             className="objective-track"
@@ -392,7 +512,7 @@ export default function Home() {
 
       <div className="game-grid">
         <div className="left-column">
-          <section className={`panel core-panel mobile-section ${mobileTab === "core" ? "is-mobile-active" : ""}`}>
+          <section className={`panel core-panel mobile-section ${mobileTab === "core" ? "is-mobile-active" : ""} ${currentTour?.target === "flux" ? "tour-focus" : ""}`}>
             <div className="panel-heading">
               <div>
                 <p className="section-kicker">Instrument core</p>
@@ -418,7 +538,7 @@ export default function Home() {
               )}
             </div>
 
-            <button className="tune-button" type="button" onClick={handlePulse} disabled={!ready}>
+            <button className={`tune-button ${currentTour?.target === "flux" ? "tour-focus" : ""}`} type="button" onClick={handlePulse} disabled={!ready}>
               <span>Tune the Core</span>
               <small>Force an alignment · +{formatNumber(manualGain)} Flux</small>
             </button>
@@ -439,7 +559,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className={`panel recalibration-panel mobile-section ${mobileTab === "recalibrate" ? "is-mobile-active" : ""}`}>
+          <section className={`panel recalibration-panel mobile-section ${mobileTab === "recalibrate" ? "is-mobile-active" : ""} ${currentTour?.target === "recalibration" ? "tour-focus" : ""}`}>
             <div className="panel-heading">
               <div>
                 <p className="section-kicker violet">Permanent layer</p>
@@ -448,13 +568,14 @@ export default function Home() {
               <span className="axiom-symbol" aria-hidden="true">A</span>
             </div>
             <p className="panel-copy">
-              Collapse this assembly into a reusable law. Machines and run research reset; Axioms and Legacy upgrades remain.
+              Collapse this assembly into a portable law of physics. Machines and run research reset; the proven Axiom and every Legacy upgrade survive.
             </p>
             <div className="prestige-preview">
               <span>Projected yield</span>
               <strong>{recalibrationGain} Axiom{recalibrationGain === 1 ? "" : "s"}</strong>
               <small>{formatNumber(game.runFlux)} / {formatNumber(RECALIBRATION_THRESHOLD)} run Flux</small>
             </div>
+            <p className="axiom-definition">Axioms are permanent laws that keep ships, time, and matter consistent inside the Null Tide.</p>
             {!confirmPrestige ? (
               <button
                 className="prestige-button"
@@ -473,7 +594,7 @@ export default function Home() {
           </section>
         </div>
 
-        <section className={`panel machine-panel mobile-section ${mobileTab === "machines" ? "is-mobile-active" : ""}`}>
+        <section className={`panel machine-panel mobile-section ${mobileTab === "machines" ? "is-mobile-active" : ""} ${currentTour?.target === "fabrication" ? "tour-focus" : ""}`}>
           <div className="panel-heading machine-heading">
             <div>
               <p className="section-kicker">Nested mechanisms</p>
@@ -565,7 +686,79 @@ export default function Home() {
         </section>
 
         <aside className={`systems-column mobile-section ${mobileTab === "systems" ? "is-mobile-active" : ""}`}>
-          <section className="panel upgrades-panel">
+          <section className={`panel mission-panel ${currentTour?.target === "missions" ? "tour-focus" : ""}`}>
+            <div className="panel-heading mission-heading">
+              <div>
+                <p className="section-kicker danger-text">Sixfold evacuation</p>
+                <h2>Planetary Directives</h2>
+              </div>
+              <button className="archive-button" type="button" onClick={() => setLoreOpen(true)}>Archive</button>
+            </div>
+
+            {game.missions.awaitingAcknowledgement && lastResolvedMission ? (
+              <div className={`mission-outcome ${lastResolvedStatus === "saved" ? "saved" : "lost"}`}>
+                <p>{lastResolvedStatus === "saved" ? "World secured" : "Planetary cohesion failed"}</p>
+                <h3>{lastResolvedMission.world}</h3>
+                <span>
+                  {lastResolvedStatus === "saved"
+                    ? `${lastResolvedMission.rewardLabel}. The rescue relay permanently adds 10% to all production.`
+                    : lastResolvedMission.failure}
+                </span>
+                {activeMission && (
+                  <button type="button" onClick={acknowledgeMission}>
+                    Accept {activeMission.world} signal
+                  </button>
+                )}
+              </div>
+            ) : activeMission ? (
+              <div className="mission-body">
+                <div className="mission-world-line">
+                  <div>
+                    <span>Directive {game.missions.currentIndex + 1} of {MISSIONS.length}</span>
+                    <h3>{activeMission.world}</h3>
+                    <small>{activeMission.epithet}</small>
+                  </div>
+                  <div className={`mission-clock ${game.missions.timeLeft <= 60 && game.settings.tutorialComplete ? "critical" : ""}`}>
+                    <span>{game.settings.tutorialComplete ? "Physics holds" : "Clock paused"}</span>
+                    <strong>{formatCountdown(game.missions.timeLeft)}</strong>
+                  </div>
+                </div>
+                <h4>{activeMission.title}</h4>
+                <p>{activeMission.briefing}</p>
+                <div className="mission-goal">
+                  <div>
+                    <span>Rescue condition</span>
+                    <strong>{activeMission.goal}</strong>
+                  </div>
+                  <span className="mission-numbers">{formatNumber(missionProgress.value)} / {formatNumber(missionProgress.target)}</span>
+                </div>
+                <div className="mission-progress" role="progressbar" aria-label={`${activeMission.world}: ${activeMission.goal}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(missionProgress.ratio * 100)}>
+                  <span style={{ width: `${missionProgress.ratio * 100}%` }} />
+                </div>
+                <div className="mission-stakes">
+                  <span><b>Rescue grant</b>{activeMission.rewardLabel}</span>
+                  <span><b>If the clock expires</b>{activeMission.failure}</span>
+                </div>
+                {!game.settings.tutorialComplete && (
+                  <button className="orientation-button" type="button" onClick={() => setTourStep(0)}>Complete orientation to begin</button>
+                )}
+              </div>
+            ) : (
+              <div className="campaign-complete">
+                <span aria-hidden="true">✦</span>
+                <h3>The Sixfold Evacuation is complete</h3>
+                <p>{game.missions.worldsSaved} worlds secured. {game.missions.worldsLost} recorded in the Ledger of Lost Worlds.</p>
+              </div>
+            )}
+
+            <div className="mission-footer">
+              <span><b>{game.missions.worldsSaved}</b> saved</span>
+              <span><b>{game.missions.worldsLost}</b> lost</span>
+              <span><b>×{formatNumber(production.relayMultiplier)}</b> relay output</span>
+            </div>
+          </section>
+
+          <section className={`panel upgrades-panel ${currentTour?.target === "research" ? "tour-focus" : ""}`}>
             <div className="panel-heading">
               <div>
                 <p className="section-kicker brass">Current cycle</p>
@@ -675,6 +868,10 @@ export default function Home() {
               <div><dt>Core tunes</dt><dd>{formatNumber(game.manualPulses)}</dd></div>
               <div><dt>Offline cap</dt><dd>{getOfflineCapHours(game)} hours</dd></div>
             </dl>
+            <div className="help-actions">
+              <button className="quiet-button" type="button" onClick={replayTour}>Replay orientation</button>
+              <button className="quiet-button" type="button" onClick={() => setLoreOpen(true)}>Open lore archive</button>
+            </div>
             {!confirmReset ? (
               <button className="danger-link" type="button" onClick={() => setConfirmReset(true)}>Reset all local progress</button>
             ) : (
@@ -687,6 +884,91 @@ export default function Home() {
           </details>
         </aside>
       </div>
+
+      {currentTour && (
+        <div className="tour-layer">
+          <div className="tour-scrim" aria-hidden="true" />
+          <section className="tour-card" role="dialog" aria-modal="true" aria-labelledby="tour-title" aria-describedby="tour-description">
+            <div className="tour-speaker">
+              <span aria-hidden="true">L</span>
+              <div>
+                <strong>Archivist Lyra</strong>
+                <small>Foundry memory custodian</small>
+              </div>
+            </div>
+            <p className="tour-eyebrow">{currentTour.eyebrow}</p>
+            <h2 id="tour-title">{currentTour.title}</h2>
+            <p id="tour-description">{currentTour.body}</p>
+            <div className="tour-note">{currentTour.note}</div>
+            <div className="tour-progress" aria-label={`Tour step ${tourStep! + 1} of ${TOUR_STEPS.length}`}>
+              {TOUR_STEPS.map((step, index) => (
+                <span key={step.target} className={index === tourStep ? "active" : index < tourStep! ? "complete" : ""} />
+              ))}
+            </div>
+            <div className="tour-actions">
+              <button className="tour-skip" type="button" onClick={finishTour}>Skip orientation</button>
+              <div>
+                <button className="quiet-button" type="button" disabled={tourStep === 0} onClick={() => setTourStep((current) => current === null ? 0 : Math.max(0, current - 1))}>Back</button>
+                <button ref={tourActionRef} className="tour-next" type="button" onClick={advanceTour}>{tourStep === TOUR_STEPS.length - 1 ? "Begin rescues" : "Next"}</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {loreOpen && (
+        <div className="archive-layer">
+          <button className="modal-backdrop" type="button" aria-label="Close lore archive" onClick={() => setLoreOpen(false)} />
+          <section className="lore-archive" role="dialog" aria-modal="true" aria-labelledby="archive-title">
+            <header>
+              <div>
+                <p className="section-kicker violet">Concordance memory vault</p>
+                <h2 id="archive-title">The Axiom Archive</h2>
+                <span>A field guide to the Foundry, the Null Tide, and the worlds depending on you.</span>
+              </div>
+              <button className="archive-close" type="button" aria-label="Close lore archive" onClick={() => setLoreOpen(false)}>Close</button>
+            </header>
+            <div className="archive-scroll">
+              <section className="archive-prologue">
+                <p>The universe is not dying. It is forgetting how to exist.</p>
+                <span>A wave called the Null Tide is stripping gravity, light, and time from one star system after another. The Axiom Foundry is the last machine capable of forging stable laws and carrying them between worlds.</span>
+              </section>
+              <div className="lore-grid">
+                {LORE_ENTRIES.map((entry, index) => (
+                  <article key={entry.title}>
+                    <span>Archive {String(index + 1).padStart(2, "0")} · {entry.tag}</span>
+                    <h3>{entry.title}</h3>
+                    {entry.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+                  </article>
+                ))}
+              </div>
+              <section className="planetary-ledger">
+                <div className="ledger-heading">
+                  <div><p className="section-kicker danger-text">Permanent record</p><h3>Planetary Ledger</h3></div>
+                  <span>{game.missions.worldsSaved} secured · {game.missions.worldsLost} lost</span>
+                </div>
+                <div className="ledger-worlds">
+                  {MISSIONS.map((mission, index) => {
+                    const status = game.missions.statuses[index];
+                    const label = status === "saved" ? "World secured" : status === "lost" ? "World lost" : status === "active" ? "Signal active" : "Signal pending";
+                    return (
+                      <article className={status} key={mission.world}>
+                        <span>{label}</span>
+                        <strong>{mission.world}</strong>
+                        <small>{status === "lost" ? mission.failure : mission.epithet}</small>
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+            </div>
+            <footer>
+              <button className="quiet-button" type="button" onClick={replayTour}>Replay field orientation</button>
+              <button className="tour-next" type="button" onClick={() => setLoreOpen(false)}>Return to Foundry</button>
+            </footer>
+          </section>
+        </div>
+      )}
 
       <nav className="mobile-nav" aria-label="Game sections">
         {([

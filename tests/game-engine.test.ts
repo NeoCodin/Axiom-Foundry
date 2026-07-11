@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  MISSIONS,
   RECALIBRATION_THRESHOLD,
+  acknowledgeNextMission,
   buyTier,
   createInitialState,
   getMaxAffordableCount,
@@ -9,6 +11,7 @@ import {
   pulseCore,
   recalibrate,
   sanitizeGameState,
+  setTutorialComplete,
   simulateGame,
 } from "../app/game-engine.ts";
 
@@ -84,4 +87,51 @@ test("malformed saves recover to finite nonnegative state", () => {
   assert.ok(Number.isFinite(state.runFlux));
   assert.ok(state.flux >= 0);
   assert.ok(state.tiers.every((tier) => tier.amount >= 0 && tier.bought >= 0));
+});
+
+test("planetary clocks wait for orientation and pause during offline progress", () => {
+  const initial = createInitialState(0);
+  const beforeOrientation = simulateGame(initial, 60, 10);
+  assert.equal(beforeOrientation.missions.timeLeft, MISSIONS[0].timeLimit);
+
+  const started = setTutorialComplete(beforeOrientation, true);
+  const active = simulateGame(started, 1, 1);
+  assert.equal(active.missions.timeLeft, MISSIONS[0].timeLimit - 1);
+
+  const offline = simulateGame(active, 60, 10, false);
+  assert.equal(offline.missions.timeLeft, active.missions.timeLeft);
+});
+
+test("a rescued world grants a relay and waits before the next timer", () => {
+  let state = setTutorialComplete(createInitialState(0), true);
+  state.flux = 75;
+  state.maxFlux = 75;
+  state.runFlux = 75;
+  state.allTimeFlux = 75;
+
+  const rescued = simulateGame(state, 0.1, 1);
+  assert.equal(rescued.missions.statuses[0], "saved");
+  assert.equal(rescued.missions.currentIndex, 1);
+  assert.equal(rescued.missions.awaitingAcknowledgement, true);
+  assert.equal(rescued.stellarRelays, 1);
+  assert.ok(rescued.flux >= 125);
+
+  const waiting = simulateGame(rescued, 120, 10);
+  assert.equal(waiting.missions.timeLeft, MISSIONS[1].timeLimit);
+
+  const accepted = acknowledgeNextMission(waiting);
+  assert.equal(accepted.missions.awaitingAcknowledgement, false);
+  assert.equal(accepted.missions.statuses[1], "active");
+});
+
+test("missing a deadline records the world without resetting progression", () => {
+  let state = setTutorialComplete(createInitialState(0), true);
+  state.flux = 42;
+  state.maxFlux = 42;
+  state.missions.timeLeft = 0.05;
+  const lost = simulateGame(state, 0.1, 1);
+  assert.equal(lost.missions.statuses[0], "lost");
+  assert.equal(lost.missions.worldsLost, 1);
+  assert.equal(lost.flux, 42);
+  assert.equal(lost.cycle, 1);
 });

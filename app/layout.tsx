@@ -1,11 +1,46 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "Axiom Foundry — Cosmic Incremental Game",
-  description:
-    "Build a nested cosmic machine, automate its production, and recalibrate reality for permanent power.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const requestHeaders = await headers();
+  const host =
+    requestHeaders.get("x-forwarded-host") ??
+    requestHeaders.get("host") ??
+    "axiom-foundry-neocodin.dusenbor.chatgpt.site";
+  const protocol =
+    requestHeaders.get("x-forwarded-proto") ??
+    (host.startsWith("localhost") ? "http" : "https");
+  const origin = `${protocol}://${host}`;
+  const title = "Axiom Foundry — Cosmic Incremental Game";
+  const description =
+    "Forge portable laws of physics, rescue worlds from the Null Tide, and build an endlessly multiplying cosmic machine.";
+
+  return {
+    metadataBase: new URL(origin),
+    title,
+    description,
+    openGraph: {
+      type: "website",
+      title,
+      description,
+      images: [
+        {
+          url: "/og.png",
+          width: 1672,
+          height: 941,
+          alt: "Axiom Foundry — Forge the laws. Save the worlds.",
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: ["/og.png"],
+    },
+  };
+}
 
 export default function RootLayout({
   children,

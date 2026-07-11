@@ -2,6 +2,8 @@
 
 Axiom Foundry is a cosmic incremental game about building a machine that teaches the universe to multiply. Higher-tier mechanisms manufacture the tiers beneath them, groups of ten create production milestones, and balanced adjacent tiers generate a global Resonance multiplier.
 
+The Null Tide is erasing the laws of physics from inhabited space. The Foundry turns completed production cycles into portable Axioms—proven laws that keep ships, planets, time, and gravity consistent long enough for humanity to escape.
+
 ## How to play
 
 1. Tune the Axiom Chamber to create your first Flux.
@@ -24,6 +26,9 @@ Progress saves automatically in browser storage. Returning players receive simul
 - Permanent Legacy upgrades
 - Machine and research automation
 - Versioned local saves and offline progress
+- First-run guided orientation and replayable field manual
+- Six timed planetary rescue directives with persistent saved/lost outcomes
+- In-depth lore archive and planetary ledger
 - Responsive desktop and mobile interfaces
 - Reduced-motion and keyboard-accessible controls
 

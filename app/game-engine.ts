@@ -1,4 +1,4 @@
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 export const SAVE_KEY = "axiom-foundry-save-v1";
 export const MAX_VALUE = 1e280;
 
@@ -14,6 +14,18 @@ export type GameSettings = {
   autoEnabled: boolean;
   autoUpgrades: boolean;
   autoTiers: boolean[];
+  tutorialComplete: boolean;
+};
+
+export type MissionStatus = "locked" | "active" | "saved" | "lost";
+
+export type MissionState = {
+  currentIndex: number;
+  timeLeft: number;
+  statuses: MissionStatus[];
+  worldsSaved: number;
+  worldsLost: number;
+  awaitingAcknowledgement: boolean;
 };
 
 export type GameState = {
@@ -24,10 +36,12 @@ export type GameState = {
   allTimeFlux: number;
   axioms: number;
   lifetimeAxioms: number;
+  stellarRelays: number;
   cycle: number;
   tiers: TierState[];
   runUpgrades: number[];
   legacyUpgrades: number[];
+  missions: MissionState;
   settings: GameSettings;
   manualPulses: number;
   playTime: number;
@@ -152,6 +166,103 @@ export const LEGACY_UPGRADES = [
 
 export const RECALIBRATION_THRESHOLD = 10_000_000_000;
 
+export const MISSIONS = [
+  {
+    world: "Helion Reach",
+    epithet: "The Beacon Colony",
+    title: "Light the first jump beacon",
+    briefing:
+      "Helion's magnetosphere is unthreading behind the Null Tide. Produce enough Flux to wake its evacuation beacon.",
+    goal: "Reach 75 total Flux",
+    goalKind: "maxFlux",
+    target: 75,
+    timeLimit: 4 * 60,
+    rewardFlux: 50,
+    rewardLabel: "50 Flux cache + Stellar Relay",
+    failure:
+      "Helion's settlements flare into a final aurora before the signal goes black.",
+  },
+  {
+    world: "Pelagos",
+    epithet: "The Ocean Habitats",
+    title: "Build the gravity ferry",
+    briefing:
+      "Pelagos's oceans are beginning to rise into orbit. A Phase Coil can stabilize the ferry corridor.",
+    goal: "Build 1 Phase Coil",
+    goalKind: "tierBought",
+    tierIndex: 1,
+    target: 1,
+    timeLimit: 6 * 60,
+    rewardFlux: 300,
+    rewardLabel: "300 Flux cache + Stellar Relay",
+    failure:
+      "Gravity releases its claim on the oceans; they crush the evacuation ring from above.",
+  },
+  {
+    world: "Cinderwake",
+    epithet: "The Shielded Moon",
+    title: "Synchronize the shields",
+    briefing:
+      "Cinderwake's shield stations are drifting out of phase. Prove that two neighboring machine tiers can agree.",
+    goal: "Create the first Resonance link",
+    goalKind: "resonanceLink",
+    linkIndex: 0,
+    target: 1,
+    timeLimit: 12 * 60,
+    rewardFlux: 3_000,
+    rewardLabel: "3,000 Flux cache + Stellar Relay",
+    failure:
+      "The moon breaks apart; its fragments scour the world the shields were built to protect.",
+  },
+  {
+    world: "Ilyra",
+    epithet: "The Crystal Cities",
+    title: "Weave the transit corridor",
+    briefing:
+      "Ilyra is losing phase coherence. A Harmonic Loom can weave a corridor through the failing constants.",
+    goal: "Build 1 Harmonic Loom",
+    goalKind: "tierBought",
+    tierIndex: 2,
+    target: 1,
+    timeLimit: 10 * 60,
+    rewardFlux: 50_000,
+    rewardLabel: "50,000 Flux cache + Stellar Relay",
+    failure:
+      "Ilyra's cities refract into vacuum like light through shattered crystal.",
+  },
+  {
+    world: "Orison Prime",
+    epithet: "The Last Garden",
+    title: "Hold the final orbit",
+    briefing:
+      "Orison's orbital constant is changing. An Axiom Engine can hold the garden world in place.",
+    goal: "Build 1 Axiom Engine",
+    goalKind: "tierBought",
+    tierIndex: 4,
+    target: 1,
+    timeLimit: 20 * 60,
+    rewardFlux: 100_000_000,
+    rewardLabel: "100 million Flux cache + Stellar Relay",
+    failure:
+      "Orison spirals inward while its habitats transmit the last valid map of the sector.",
+  },
+  {
+    world: "Vesper Ark",
+    epithet: "The Exodus Fleet",
+    title: "Prove a portable law",
+    briefing:
+      "The final ark cannot cross the Tide without a permanent law. Recalibrate the Foundry and deliver its first Axiom.",
+    goal: "Forge 1 lifetime Axiom",
+    goalKind: "lifetimeAxioms",
+    target: 1,
+    timeLimit: 30 * 60,
+    rewardAxioms: 1,
+    rewardLabel: "1 bonus Axiom + Stellar Relay",
+    failure:
+      "The Tide erases Vesper's route, but its black box reaches the Foundry inside a pocket of stable time.",
+  },
+] as const;
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
@@ -182,15 +293,27 @@ export function createInitialState(now = Date.now()): GameState {
     allTimeFlux: 0,
     axioms: 0,
     lifetimeAxioms: 0,
+    stellarRelays: 0,
     cycle: 1,
     tiers: GENERATORS.map(() => ({ amount: 0, bought: 0 })),
     runUpgrades: RUN_UPGRADES.map(() => 0),
     legacyUpgrades: LEGACY_UPGRADES.map(() => 0),
+    missions: {
+      currentIndex: 0,
+      timeLeft: MISSIONS[0].timeLimit,
+      statuses: MISSIONS.map((_, index) =>
+        index === 0 ? "active" : "locked",
+      ),
+      worldsSaved: 0,
+      worldsLost: 0,
+      awaitingAcknowledgement: false,
+    },
     settings: {
       buyMode: "1",
       autoEnabled: false,
       autoUpgrades: false,
       autoTiers: GENERATORS.map(() => true),
+      tutorialComplete: false,
     },
     manualPulses: 0,
     playTime: 0,
@@ -216,6 +339,10 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
   const rawAutoTiers = Array.isArray(rawSettings.autoTiers)
     ? rawSettings.autoTiers
     : [];
+  const rawMissions = isRecord(value.missions) ? value.missions : {};
+  const rawMissionStatuses = Array.isArray(rawMissions.statuses)
+    ? rawMissions.statuses
+    : [];
 
   const tiers = GENERATORS.map((_, index) => {
     const raw = isRecord(rawTiers[index]) ? rawTiers[index] : {};
@@ -229,6 +356,31 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
   const runFlux = Math.max(maxFlux, readNumber(value.runFlux));
   const allTimeFlux = Math.max(runFlux, readNumber(value.allTimeFlux));
   const savedAt = readNumber(value.lastSaved, now, now);
+  const currentMissionIndex = Math.min(
+    MISSIONS.length,
+    Math.floor(readNumber(rawMissions.currentIndex, 0, MISSIONS.length)),
+  );
+  const awaitingAcknowledgement =
+    rawMissions.awaitingAcknowledgement === true &&
+    currentMissionIndex < MISSIONS.length;
+  const missionStatuses: MissionStatus[] = MISSIONS.map((_, index) => {
+    const rawStatus = rawMissionStatuses[index];
+    if (index < currentMissionIndex) {
+      return rawStatus === "saved" ? "saved" : "lost";
+    }
+    if (index === currentMissionIndex) {
+      return awaitingAcknowledgement ? "locked" : "active";
+    }
+    return "locked";
+  });
+  const savedWorlds = missionStatuses.filter(
+    (status) => status === "saved",
+  ).length;
+  const lostWorlds = missionStatuses.filter(
+    (status) => status === "lost",
+  ).length;
+  const defaultMissionTime =
+    MISSIONS[currentMissionIndex]?.timeLimit ?? 0;
 
   return {
     version: SAVE_VERSION,
@@ -239,6 +391,10 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
     axioms: Math.floor(readNumber(value.axioms, 0, 1e15)),
     lifetimeAxioms: Math.floor(
       readNumber(value.lifetimeAxioms, 0, 1e15),
+    ),
+    stellarRelays: Math.max(
+      savedWorlds,
+      Math.floor(readNumber(value.stellarRelays, savedWorlds, MISSIONS.length)),
     ),
     cycle: Math.max(1, Math.floor(readNumber(value.cycle, 1, 1e9))),
     tiers,
@@ -251,6 +407,18 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
     legacyUpgrades: LEGACY_UPGRADES.map((_, index) =>
       Math.floor(readNumber(rawLegacy[index], 0, 1_000)),
     ),
+    missions: {
+      currentIndex: currentMissionIndex,
+      timeLeft: readNumber(
+        rawMissions.timeLeft,
+        defaultMissionTime,
+        defaultMissionTime,
+      ),
+      statuses: missionStatuses,
+      worldsSaved: savedWorlds,
+      worldsLost: lostWorlds,
+      awaitingAcknowledgement,
+    },
     settings: {
       buyMode:
         rawSettings.buyMode === "10" || rawSettings.buyMode === "max"
@@ -261,6 +429,7 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
       autoTiers: GENERATORS.map(
         (_, index) => rawAutoTiers[index] !== false,
       ),
+      tutorialComplete: rawSettings.tutorialComplete === true,
     },
     manualPulses: Math.floor(readNumber(value.manualPulses, 0, 1e15)),
     playTime: readNumber(value.playTime, 0, 1e12),
@@ -277,6 +446,10 @@ export function cloneGameState(state: GameState): GameState {
     tiers: state.tiers.map((tier) => ({ ...tier })),
     runUpgrades: [...state.runUpgrades],
     legacyUpgrades: [...state.legacyUpgrades],
+    missions: {
+      ...state.missions,
+      statuses: [...state.missions.statuses],
+    },
     settings: {
       ...state.settings,
       autoTiers: [...state.settings.autoTiers],
@@ -324,15 +497,93 @@ export function getResonanceDetails(state: GameState) {
   return { links, levels, base, multiplier: safePower(base, levels) };
 }
 
+export function getMissionProgress(
+  state: GameState,
+  index = state.missions.currentIndex,
+) {
+  const mission = MISSIONS[index];
+  if (!mission) return { value: 1, target: 1, ratio: 1 };
+
+  let value = 0;
+  switch (mission.goalKind) {
+    case "maxFlux":
+      value = state.maxFlux;
+      break;
+    case "tierBought":
+      value = state.tiers[mission.tierIndex].bought;
+      break;
+    case "resonanceLink":
+      value = getResonanceDetails(state).links[mission.linkIndex];
+      break;
+    case "lifetimeAxioms":
+      value = state.lifetimeAxioms;
+      break;
+  }
+
+  return {
+    value,
+    target: mission.target,
+    ratio: Math.min(1, Math.max(0, value / mission.target)),
+  };
+}
+
+function advanceMission(state: GameState, elapsedSeconds: number) {
+  if (!state.settings.tutorialComplete) return state;
+  if (state.missions.awaitingAcknowledgement) return state;
+  const index = state.missions.currentIndex;
+  const mission = MISSIONS[index];
+  if (!mission) return state;
+
+  const progress = getMissionProgress(state, index);
+  let outcome: MissionStatus | null = null;
+  if (progress.value >= progress.target) {
+    outcome = "saved";
+    state.stellarRelays += 1;
+    state.missions.worldsSaved += 1;
+    if ("rewardFlux" in mission) {
+      state.flux = safeAdd(state.flux, mission.rewardFlux);
+      state.maxFlux = Math.max(state.maxFlux, state.flux);
+      state.runFlux = safeAdd(state.runFlux, mission.rewardFlux);
+      state.allTimeFlux = safeAdd(state.allTimeFlux, mission.rewardFlux);
+    }
+    if ("rewardAxioms" in mission) {
+      state.axioms += mission.rewardAxioms;
+      state.lifetimeAxioms += mission.rewardAxioms;
+    }
+  } else {
+    state.missions.timeLeft = Math.max(
+      0,
+      state.missions.timeLeft - elapsedSeconds,
+    );
+    if (state.missions.timeLeft <= 0) {
+      outcome = "lost";
+      state.missions.worldsLost += 1;
+    }
+  }
+
+  if (outcome) {
+    state.missions.statuses[index] = outcome;
+    state.missions.currentIndex += 1;
+    const nextMission = MISSIONS[state.missions.currentIndex];
+    state.missions.timeLeft = nextMission?.timeLimit ?? 0;
+    state.missions.awaitingAcknowledgement = Boolean(nextMission);
+  }
+  return state;
+}
+
 export function getProductionSnapshot(state: GameState) {
   const prestigeMultiplier =
     1 + safePower(state.lifetimeAxioms, 0.65) * 0.5;
+  const relayMultiplier = 1 + state.stellarRelays * 0.1;
   const globalMultiplier = safeMultiply(
     safeMultiply(
-      safePower(1.6, state.runUpgrades[1]),
-      safePower(1.5, state.legacyUpgrades[0]),
+      safeMultiply(
+        safePower(1.6, state.runUpgrades[1]),
+        safePower(1.5, state.legacyUpgrades[0]),
+      ),
+      prestigeMultiplier,
     ),
-    prestigeMultiplier,
+    relayMultiplier,
   );
   const resonance = getResonanceDetails(state);
   const higherTierMultiplier = safePower(2, state.runUpgrades[2]);
@@ -357,6 +608,7 @@ export function getProductionSnapshot(state: GameState) {
     tierOutputs,
     globalMultiplier,
     prestigeMultiplier,
+    relayMultiplier,
     higherTierMultiplier,
     resonance,
   };
@@ -490,9 +742,14 @@ export function recalibrate(state: GameState, now = Date.now()) {
   const fresh = createInitialState(now);
   fresh.axioms = state.axioms + gain;
   fresh.lifetimeAxioms = state.lifetimeAxioms + gain;
+  fresh.stellarRelays = state.stellarRelays;
   fresh.cycle = state.cycle + 1;
   fresh.allTimeFlux = state.allTimeFlux;
   fresh.legacyUpgrades = [...state.legacyUpgrades];
+  fresh.missions = {
+    ...state.missions,
+    statuses: [...state.missions.statuses],
+  };
   fresh.settings = {
     ...state.settings,
     autoTiers: [...state.settings.autoTiers],
@@ -521,6 +778,7 @@ export function simulateGame(
   state: GameState,
   elapsedSeconds: number,
   maxSteps = 240,
+  advanceMissions = true,
 ) {
   const capSeconds = getOfflineCapHours(state) * 3_600;
   const seconds = Math.min(capSeconds, Math.max(0, elapsedSeconds));
@@ -567,6 +825,8 @@ export function simulateGame(
     next.playTime += delta;
     next.runTime += delta;
 
+    if (advanceMissions) next = advanceMission(next, delta);
+
     if (next.lifetimeAxioms >= 1 && next.settings.autoEnabled) {
       next.autoTimer += delta;
       const passes = Math.min(8, Math.floor(next.autoTimer));
@@ -584,6 +844,22 @@ export function simulateGame(
 export function setBuyMode(state: GameState, mode: PurchaseMode) {
   const next = cloneGameState(state);
   next.settings.buyMode = mode;
+  return next;
+}
+
+export function setTutorialComplete(state: GameState, complete: boolean) {
+  const next = cloneGameState(state);
+  next.settings.tutorialComplete = complete;
+  return next;
+}
+
+export function acknowledgeNextMission(state: GameState) {
+  if (!state.missions.awaitingAcknowledgement) return state;
+  const next = cloneGameState(state);
+  next.missions.awaitingAcknowledgement = false;
+  if (MISSIONS[next.missions.currentIndex]) {
+    next.missions.statuses[next.missions.currentIndex] = "active";
+  }
   return next;
 }
 
