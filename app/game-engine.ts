@@ -26,9 +26,11 @@ import {
   cloneResearchLatticeState,
   createResearchLatticeState,
   getResearchBonuses,
+  getResearchProjectDefinition,
   sanitizeResearchLatticeState,
   type ResearchInputBundle,
   type ResearchLatticeState,
+  type ResearchProjectId,
 } from "./research-engine.ts";
 import {
   cloneSettlementState,
@@ -1004,6 +1006,135 @@ export function getCrisisFluxCost(state: GameState) {
   return bounded(5_000 * continuityScale(state));
 }
 
+export type CrisisRequirementCategory =
+  | "Foundry"
+  | "Infrastructure"
+  | "Research"
+  | "Flux";
+
+export type CrisisRequirementStatus = {
+  id: string;
+  category: CrisisRequirementCategory;
+  label: string;
+  detail: string;
+  met: boolean;
+};
+
+export type CrisisReadiness = {
+  canResolve: boolean;
+  cost: number;
+  requirements: readonly CrisisRequirementStatus[];
+};
+
+export function getCrisisReadiness(
+  state: GameState,
+  crisisId: string,
+): CrisisReadiness {
+  const world = state.settlement.currentWorldId
+    ? getCampaignWorld(state.settlement.currentWorldId)
+    : null;
+  if (!world?.crisisIds.includes(crisisId)) {
+    return {
+      canResolve: false,
+      cost: Number.POSITIVE_INFINITY,
+      requirements: [],
+    };
+  }
+
+  const activeMission = MISSIONS[state.missions.currentIndex];
+  const worldMission = MISSIONS.find((mission) => mission.world === world.name);
+  const missionMatches = activeMission?.world === world.name;
+  const cost = getCrisisFluxCost(state);
+  const directiveRequirements: CrisisRequirementStatus[] =
+    worldMission?.stages.map((stage, index) => {
+      const met = Boolean(
+        missionMatches &&
+          (state.missions.awaitingAcknowledgement ||
+            state.missions.stageIndex > index),
+      );
+      return {
+        id: `directive:${index}`,
+        category: "Foundry",
+        label: stage.label,
+        met,
+        detail: met
+          ? `Completed: ${stage.instruction}`
+          : missionMatches && state.missions.stageIndex === index
+            ? `Current objective: ${stage.instruction}`
+            : `Upcoming objective: ${stage.instruction}`,
+      };
+    }) ?? [
+      {
+        id: "directive:campaign",
+        category: "Foundry",
+        label: `Finish the ${world.name} Foundry directive`,
+        met: Boolean(missionMatches && state.missions.awaitingAcknowledgement),
+        detail: `Return to the Foundry and complete ${world.name}'s active campaign.`,
+      },
+    ];
+  const infrastructureRequirements: CrisisRequirementStatus[] =
+    world.infrastructure.map((objective) => {
+      const met = state.worldProgress.completedInfrastructureIds.includes(
+        objective.id,
+      );
+      return {
+        id: `infrastructure:${objective.id}`,
+        category: "Infrastructure",
+        label: objective.name,
+        met,
+        detail: met ? "Planetary infrastructure secured." : objective.description,
+      };
+    });
+  const researchRequirements: CrisisRequirementStatus[] =
+    world.requiredResearchIds.map((researchId) => {
+      const definition = getResearchProjectDefinition(
+        researchId as ResearchProjectId,
+      );
+      const met = state.research.completedProjectIds.includes(
+        researchId as ResearchProjectId,
+      );
+      const incompletePrerequisites =
+        definition?.prerequisites.filter(
+          (prerequisiteId) =>
+            !state.research.completedProjectIds.includes(prerequisiteId),
+        ) ?? [];
+      const prerequisiteNames = incompletePrerequisites.map(
+        (prerequisiteId) =>
+          getResearchProjectDefinition(prerequisiteId)?.name ??
+          prerequisiteId.replaceAll("-", " "),
+      );
+      return {
+        id: `research:${researchId}`,
+        category: "Research",
+        label: definition?.name ?? researchId.replaceAll("-", " "),
+        met,
+        detail: met
+          ? "Research Lattice project proven."
+          : prerequisiteNames.length > 0
+            ? `Blocked by: ${prerequisiteNames.join(", ")}. Complete those projects first.`
+            : definition?.summary ?? "Complete this project in the Research Lattice.",
+      };
+    });
+  const requirements: CrisisRequirementStatus[] = [
+    ...directiveRequirements,
+    ...infrastructureRequirements,
+    ...researchRequirements,
+    {
+      id: "flux",
+      category: "Flux",
+      label: `Reserve ${formatNumber(cost)} Flux`,
+      met: state.flux >= cost,
+      detail: `${formatNumber(state.flux)} / ${formatNumber(cost)} Flux available.`,
+    },
+  ];
+
+  return {
+    canResolve: requirements.every((requirement) => requirement.met),
+    cost,
+    requirements,
+  };
+}
+
 export function completeWorldInfrastructure(
   state: GameState,
   objectiveId: string,
@@ -1045,24 +1176,7 @@ export function fabricateWorldSupply(state: GameState, supplyId: string) {
 }
 
 export function canResolveCurrentCrisis(state: GameState, crisisId: string) {
-  const world = state.settlement.currentWorldId
-    ? getCampaignWorld(state.settlement.currentWorldId)
-    : null;
-  if (!world?.crisisIds.includes(crisisId)) return false;
-  const infrastructureReady = world.infrastructure.every((objective) =>
-    state.worldProgress.completedInfrastructureIds.includes(objective.id),
-  );
-  const researchReady = world.requiredResearchIds.every((researchId) =>
-    state.research.completedProjectIds.includes(
-      researchId as ResearchLatticeState["completedProjectIds"][number],
-    ),
-  );
-  return (
-    infrastructureReady &&
-    researchReady &&
-    state.missions.awaitingAcknowledgement &&
-    state.flux >= getCrisisFluxCost(state)
-  );
+  return getCrisisReadiness(state, crisisId).canResolve;
 }
 
 export function resolveCurrentCrisis(state: GameState, crisisId: string) {

@@ -224,6 +224,26 @@
 .world-progress-action strong { color: #dbe6ed; font-size: 10px; }
 .world-progress-action small { margin-top: 4px; color: #687e8f; font-size: 8px; }
 .world-progress-action button { padding: 8px 10px; color: #aebfca; border: 1px solid #294153; background: #0a1620; cursor: pointer; }
+.world-progress-action.crisis-action { display: block; padding: 0; overflow: hidden; }
+.crisis-action-heading { display: grid; padding: 11px; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; }
+.crisis-action-heading > div { min-width: 0; }
+.crisis-action-heading > button { min-width: 96px; }
+.crisis-resolved { color: #75c79a; font-family: var(--font-mono, monospace); font-size: 8px; font-weight: 800; letter-spacing: 0.1em; }
+.crisis-requirements { padding: 10px; border-top: 1px solid #1b2f3c; background: #050d14; }
+.crisis-requirements > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 7px; }
+.crisis-requirements > header span { color: #8197a6; font-size: 8px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; }
+.crisis-requirements > header strong { color: var(--world-accent, #55d6e8); font-family: var(--font-mono, monospace); font-size: 8px; text-transform: uppercase; }
+.crisis-requirements ul { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; }
+.crisis-requirements li { display: grid; min-width: 0; padding: 8px; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 8px; border: 1px solid #1a2b37; border-left: 2px solid #765a66; background: #081018; }
+.crisis-requirements li.is-met { border-left-color: #63ba89; background: linear-gradient(90deg, rgb(99 186 137 / 0.07), transparent 38%), #081018; }
+.crisis-requirements li > i { display: grid; width: 20px; height: 20px; place-items: center; color: #a87887; border: 1px solid currentColor; border-radius: 50%; font-family: var(--font-mono, monospace); font-size: 10px; font-style: normal; }
+.crisis-requirements li.is-met > i { color: #6fca98; }
+.crisis-requirements li > div { min-width: 0; }
+.crisis-requirements .crisis-requirement-category { display: block; margin-bottom: 3px; color: var(--world-accent, #55d6e8); font-family: var(--font-mono, monospace); font-size: 6px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.crisis-requirements li > div strong { color: #c9d7df; font-size: 9px; }
+.crisis-requirements li > div small { overflow: visible; color: #6c8393; font-size: 8px; line-height: 1.4; white-space: normal; }
+.crisis-requirements li > em { color: #9b7480; font-family: var(--font-mono, monospace); font-size: 7px; font-style: normal; font-weight: 800; letter-spacing: 0.08em; }
+.crisis-requirements li.is-met > em { color: #6fbd8f; }
 .departure-panel { border-color: rgb(var(--world-accent-rgb, 85 214 232) / 0.42); }
 .departure-panel blockquote { margin: 12px 0; padding: 11px; color: #a7bac6; border-left: 2px solid var(--world-accent, #55d6e8); background: #071019; font-size: 10px; line-height: 1.55; }
 .departure-panel .colony-name-input { width: 100%; margin-bottom: 10px; }
@@ -254,4 +274,11 @@
   .crew-actions-grid { grid-template-columns: 1fr; }
   .settlement-hero > * { max-width: 100%; }
   .settlement-hero::after { opacity: 0.35; }
+}
+
+@media (max-width: 560px) {
+  .crisis-action-heading { grid-template-columns: 1fr; }
+  .crisis-action-heading > button { width: 100%; }
+  .crisis-requirements li { grid-template-columns: 22px minmax(0, 1fr); }
+  .crisis-requirements li > em { grid-column: 2; }
 }

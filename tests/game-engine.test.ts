@@ -12,6 +12,8 @@ import {
   departCurrentWorld,
   getCampaignRelics,
   getCampaignWorldIndex,
+  getCrisisFluxCost,
+  getCrisisReadiness,
   getCurrentViabilityForecast,
   getMaxAffordableCount,
   getProductionSnapshot,
@@ -23,6 +25,11 @@ import {
   setTutorialComplete,
   simulateGame,
 } from "../app/game-engine.ts";
+import { CAMPAIGN_WORLDS } from "../app/campaign-content.ts";
+import {
+  getResearchProjectDefinition,
+  type ResearchProjectId,
+} from "../app/research-engine.ts";
 
 test("the campaign reset retires every previous public save key", () => {
   assert.equal(SAVE_KEY, "axiom-foundry-save-v5");
@@ -36,6 +43,103 @@ test("the campaign reset retires every previous public save key", () => {
     (RETIRED_SAVE_KEYS as readonly string[]).includes(SAVE_KEY),
     false,
   );
+});
+
+test("every planetary crisis exposes a complete data-driven resolution checklist", () => {
+  for (const [index, world] of CAMPAIGN_WORLDS.entries()) {
+    assert.equal(MISSIONS[index]!.world, world.name);
+    for (const researchId of world.requiredResearchIds) {
+      assert.ok(
+        getResearchProjectDefinition(researchId as ResearchProjectId),
+        `${world.name}: ${researchId}`,
+      );
+    }
+    const state = createInitialState(0);
+    state.settlement.currentWorldId = world.id;
+    state.settlement.completedWorldIds = CAMPAIGN_WORLDS.slice(0, index).map(
+      (completedWorld) => completedWorld.id,
+    );
+    state.missions.currentIndex = index;
+    state.missions.stageIndex = 0;
+    state.missions.awaitingAcknowledgement = false;
+    state.flux = 0;
+    const expectedCount =
+      MISSIONS[index]!.stages.length +
+      world.infrastructure.length +
+      world.requiredResearchIds.length +
+      1;
+    for (const crisisId of world.crisisIds) {
+      const readiness = getCrisisReadiness(state, crisisId);
+      assert.equal(readiness.requirements.length, expectedCount, world.name);
+      assert.equal(
+        new Set(readiness.requirements.map((requirement) => requirement.id)).size,
+        expectedCount,
+        world.name,
+      );
+      assert.ok(
+        readiness.requirements.every(
+          (requirement) => requirement.label && requirement.detail,
+        ),
+        world.name,
+      );
+      assert.equal(readiness.canResolve, false, world.name);
+      assert.ok(Number.isFinite(readiness.cost), world.name);
+    }
+  }
+});
+
+test("Pelagos Brine Sickness names every gate and unlocks only when all are ready", () => {
+  const state = createInitialState(0);
+  const pelagos = CAMPAIGN_WORLDS.find((world) => world.id === "pelagos")!;
+  state.settlement.currentWorldId = "pelagos";
+  state.settlement.completedWorldIds = ["cold-wake"];
+  state.missions.currentIndex = 1;
+  state.missions.stageIndex = 0;
+  state.missions.awaitingAcknowledgement = false;
+
+  let readiness = getCrisisReadiness(state, "pelagos-brine-sickness");
+  assert.equal(readiness.cost, 500_000);
+  for (const label of [
+    "Assemble the gravity ferry",
+    "Model the returning tide",
+    "Tow the oceans home",
+    "Restart the tidal grid",
+    "Build the purification spine",
+    "Seal the highwater habitat",
+    "Continuity Index",
+    "Adaptive Instruction",
+    "Reserve 500.00K Flux",
+  ]) {
+    assert.ok(
+      readiness.requirements.some((requirement) => requirement.label === label),
+      label,
+    );
+  }
+  assert.match(readiness.requirements[0]!.detail, /Current objective/);
+  assert.match(
+    readiness.requirements.find(
+      (requirement) => requirement.id === "research:adaptive-instruction",
+    )!.detail,
+    /Closed-Loop Atmosphere/,
+  );
+
+  state.missions.stageIndex = 1;
+  readiness = getCrisisReadiness(state, "pelagos-brine-sickness");
+  assert.equal(readiness.requirements[0]!.met, true);
+  assert.equal(readiness.requirements[1]!.met, false);
+
+  state.missions.awaitingAcknowledgement = true;
+  state.worldProgress.completedInfrastructureIds = pelagos.infrastructure.map(
+    (objective) => objective.id,
+  );
+  state.research.completedProjectIds = [
+    "continuity-index",
+    "adaptive-instruction",
+  ];
+  state.flux = getCrisisFluxCost(state);
+  readiness = getCrisisReadiness(state, "pelagos-brine-sickness");
+  assert.equal(readiness.canResolve, true);
+  assert.ok(readiness.requirements.every((requirement) => requirement.met));
 });
 
 test("manual tuning bootstraps a new cycle", () => {

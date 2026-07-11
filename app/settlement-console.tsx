@@ -14,6 +14,13 @@ export type ContinuityActionQuote = {
   canAfford: boolean;
   costLabel: string;
   rewardLabel?: string;
+  requirements?: readonly {
+    id: string;
+    category: string;
+    label: string;
+    detail: string;
+    met: boolean;
+  }[];
 };
 
 export type SettlementConsoleProps = {
@@ -142,7 +149,40 @@ function SettlementConsole({
             {world.crisisIds.map((crisisId) => {
               const complete = progress.resolvedCrisisIds.includes(crisisId);
               const quote = crisisQuotes[crisisId];
-              return <article className={`world-progress-action ${complete ? "is-complete" : ""}`} key={crisisId}><div><strong>{titleCase(crisisId)}</strong><small>The planetary crisis must be resolved, but it never has a deadline.</small></div>{complete ? <span>RESOLVED</span> : <button type="button" disabled={!quote?.canAfford} onClick={() => onResolveCrisis(crisisId)}>{quote?.costLabel ?? "Unavailable"}</button>}</article>;
+              const requirements = quote?.requirements ?? [];
+              const readyCount = requirements.filter((requirement) => requirement.met).length;
+              return (
+                <article className={`world-progress-action crisis-action ${complete ? "is-complete" : ""}`} key={crisisId}>
+                  <div className="crisis-action-heading">
+                    <div>
+                      <strong>{titleCase(crisisId)}</strong>
+                      <small>The crisis has no deadline. Complete every item below when you are ready.</small>
+                    </div>
+                    {complete ? (
+                      <span className="crisis-resolved">RESOLVED</span>
+                    ) : (
+                      <button type="button" disabled={!quote?.canAfford} onClick={() => onResolveCrisis(crisisId)}>{quote?.costLabel ?? "Unavailable"}</button>
+                    )}
+                  </div>
+                  {!complete && requirements.length > 0 && (
+                    <section className="crisis-requirements" aria-label={`${titleCase(crisisId)} resolution requirements`}>
+                      <header>
+                        <span>Resolution checklist</span>
+                        <strong>{readyCount} / {requirements.length} ready</strong>
+                      </header>
+                      <ul>
+                        {requirements.map((requirement) => (
+                          <li className={requirement.met ? "is-met" : ""} key={requirement.id}>
+                            <i aria-hidden="true">{requirement.met ? "✓" : "·"}</i>
+                            <div><span className="crisis-requirement-category">{requirement.category}</span><strong>{requirement.label}</strong><small>{requirement.detail}</small></div>
+                            <em>{requirement.met ? "READY" : "PENDING"}</em>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  )}
+                </article>
+              );
             })}
             {world.requiredResearchIds.map((researchId) => {
               const complete = progress.completedResearchIds.includes(researchId);

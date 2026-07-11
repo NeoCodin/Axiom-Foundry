@@ -130,7 +130,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
       "Continuity combines population, expertise, infrastructure, supplies, research, crisis response, and your chosen founders into one departure forecast.",
     steps: [
       { title: "Read the explicit deficits", detail: "Every unmet requirement names the direct fix and any research or equipment substitute." },
-      { title: "Complete permanent world work", detail: "Infrastructure, stored supplies, required research, and crisis resolutions remain completed." },
+      { title: "Complete permanent world work", detail: "Infrastructure, stored supplies, and required research remain completed. Every crisis card lists its Foundry, infrastructure, research, and Flux prerequisites live." },
       { title: "Choose eligible founders", detail: "Select enough people and enough combined expertise for the colony to remain stable." },
       { title: "Name and establish the settlement", detail: "Departure becomes available only when every requirement is met. There is no deadline." },
     ],

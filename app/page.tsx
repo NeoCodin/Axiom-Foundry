@@ -21,7 +21,6 @@ import {
   buyLegacyUpgrade,
   buyRunUpgrade,
   buyTier,
-  canResolveCurrentCrisis,
   completeWorldInfrastructure,
   contributeToMission,
   createInitialState,
@@ -31,7 +30,7 @@ import {
   formatNumber,
   getCampaignCrewSummaries,
   getCampaignWorldIndex,
-  getCrisisFluxCost,
+  getCrisisReadiness,
   getCurrentViabilityForecast,
   getInfrastructureFluxCost,
   getLegacyUpgradeCost,
@@ -556,12 +555,13 @@ export default function Home() {
   );
   const crisisQuotes = Object.fromEntries(
     campaignWorld.crisisIds.map((crisisId) => {
-      const cost = getCrisisFluxCost(game);
+      const readiness = getCrisisReadiness(game, crisisId);
       return [
         crisisId,
         {
-          canAfford: canResolveCurrentCrisis(game, crisisId),
-          costLabel: `${formatNumber(cost)} Flux`,
+          canAfford: readiness.canResolve,
+          costLabel: `${formatNumber(readiness.cost)} Flux`,
+          requirements: readiness.requirements,
         },
       ];
     }),

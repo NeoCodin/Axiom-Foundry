@@ -38,6 +38,7 @@ The campaign moves through Cold Wake, Pelagos, Viridia, Cinder, Nox, and Vesper.
 - Six manufactured research inputs, six processors, crew/power limits, and three connected branches
 - Research that unlocks habitation, training, medicine, fabrication, settlement planning, and the Null mystery
 - Planet-specific population, expertise, infrastructure, supply, crisis, and research requirements
+- Live crisis-resolution checklists generated from every world's Foundry stages, infrastructure, research, and Flux gates
 - Explicit founder selection and detailed viability forecasts with fair research/equipment substitutions
 - Persistent colonies, transmissions, legacy bonuses, and contradictory Continuity Protocol records
 - Recalibration and permanent Axioms beneath the larger Ark campaign
