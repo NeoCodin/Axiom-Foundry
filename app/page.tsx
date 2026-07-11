@@ -1,6 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+/* eslint-disable react-hooks/set-state-in-effect */
+
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import {
   GENERATORS,
   LEGACY_UPGRADES,
@@ -12,18 +21,22 @@ import {
   buyLegacyUpgrade,
   buyRunUpgrade,
   buyTier,
+  contributeToMission,
   createInitialState,
   formatDuration,
   formatNumber,
+  getCampaignWorldIndex,
   getLegacyUpgradeCost,
   getManualGain,
   getMissionProgress,
+  getMissionStageProgress,
   getOfflineCapHours,
   getProductionSnapshot,
   getPurchaseQuantity,
   getRecalibrationGain,
   getRunUpgradeCost,
   getTierCost,
+  getWorldEffects,
   isTierUnlocked,
   pulseCore,
   recalibrate,
@@ -37,6 +50,7 @@ import {
   type GameState,
   type PurchaseMode,
 } from "./game-engine";
+import FoundryVista, { WORLD_VISUALS } from "./foundry-vista";
 import { LORE_ENTRIES, TOUR_STEPS } from "./story-content";
 
 type MobileTab = "core" | "machines" | "systems" | "recalibrate";
@@ -57,14 +71,42 @@ function thresholdProgress(current: number, previous: number, next: number) {
 
 function formatCountdown(seconds: number) {
   const remaining = Math.max(0, Math.ceil(seconds));
+  const hours = Math.floor(remaining / 3_600);
   const minutes = Math.floor(remaining / 60);
   const rest = remaining % 60;
+  if (hours > 0) {
+    return `${hours}:${String(minutes % 60).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
+  }
   return `${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
 }
 
 function getNextObjective(state: GameState) {
+  const activeMission = MISSIONS[state.missions.currentIndex];
+  if (activeMission && !state.missions.awaitingAcknowledgement) {
+    const stage =
+      activeMission.stages[state.missions.stageIndex] ?? activeMission.stages[0];
+    const progress = getMissionProgress(state);
+    return {
+      label: `${activeMission.world}: ${stage.label}`,
+      threshold: progress.target,
+      current: progress.value,
+      progress: progress.ratio,
+    };
+  }
+
+  if (state.missions.awaitingAcknowledgement) {
+    return {
+      label: "Planetfall route ready",
+      threshold: 1,
+      current: 1,
+      progress: 1,
+    };
+  }
+
+  const worldIndex = getCampaignWorldIndex(state);
   const generatorUnlock = GENERATORS.find(
-    (generator) => state.maxFlux < generator.unlockAt,
+    (generator, index) =>
+      index <= worldIndex && state.maxFlux < generator.unlockAt,
   );
   const upgradeReveal = RUN_UPGRADES.find(
     (upgrade) => state.maxFlux < upgrade.revealAt,
@@ -99,6 +141,7 @@ function getNextObjective(state: GameState) {
     return {
       label: "The Foundry is ready to Recalibrate",
       threshold: RECALIBRATION_THRESHOLD,
+      current: state.runFlux,
       progress: 1,
     };
   }
@@ -113,6 +156,7 @@ function getNextObjective(state: GameState) {
 
   return {
     ...next,
+    current: state.maxFlux,
     progress: thresholdProgress(
       state.maxFlux,
       previousThreshold,
@@ -143,6 +187,7 @@ export default function Home() {
   const gameRef = useRef(game);
   const tourActionRef = useRef<HTMLButtonElement>(null);
   const missionSignatureRef = useRef("");
+  const stageSignatureRef = useRef("");
 
   useEffect(() => {
     gameRef.current = game;
@@ -157,7 +202,9 @@ export default function Home() {
     try {
       const raw = window.localStorage.getItem(SAVE_KEY);
       if (raw) {
-        const loaded = sanitizeGameState(JSON.parse(raw), now);
+        const parsed = JSON.parse(raw) as { version?: number };
+        const expandedCampaignWasNew = (parsed.version ?? 1) < 3;
+        const loaded = sanitizeGameState(parsed, now);
         const absence = Math.max(0, (now - loaded.lastSaved) / 1_000);
         const credited = Math.min(
           absence,
@@ -170,6 +217,10 @@ export default function Home() {
           setOfflineNotice({ seconds: credited, gain: next.flux - before });
           setAnnouncement(
             `Welcome back. The Foundry produced ${formatNumber(next.flux - before)} Flux while you were away.`,
+          );
+        } else if (expandedCampaignWasNew) {
+          setAnnouncement(
+            "New planetary charts loaded. Your permanent progress survived, and the expanded Helion campaign is ready.",
           );
         }
       }
@@ -225,11 +276,31 @@ export default function Home() {
           current,
           elapsed,
           Math.min(720, Math.max(1, Math.ceil(elapsed * 4))),
+          document.visibilityState === "visible" && tourStep === null,
         ),
       );
     }, 100);
-    return () => window.clearInterval(timer);
-  }, [ready]);
+    const settleVisibility = () => {
+      const now = Date.now();
+      if (document.visibilityState === "visible") {
+        const elapsed = Math.max(0, (now - previous) / 1_000);
+        setGame((current) =>
+          simulateGame(
+            current,
+            elapsed,
+            Math.min(720, Math.max(1, Math.ceil(elapsed * 4))),
+            false,
+          ),
+        );
+      }
+      previous = now;
+    };
+    document.addEventListener("visibilitychange", settleVisibility);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", settleVisibility);
+    };
+  }, [ready, tourStep]);
 
   const persistGame = useCallback((message = "Progress saved") => {
     try {
@@ -279,10 +350,26 @@ export default function Home() {
   );
   const objective = useMemo(() => getNextObjective(game), [game]);
   const activeMission = MISSIONS[game.missions.currentIndex];
+  const activeStage =
+    activeMission?.stages[game.missions.stageIndex] ?? null;
   const missionProgress = useMemo(
     () => getMissionProgress(game),
     [game],
   );
+  const worldEffects = useMemo(() => getWorldEffects(game), [game]);
+  const campaignWorldIndex = getCampaignWorldIndex(game);
+  const worldVisual =
+    WORLD_VISUALS[campaignWorldIndex] ?? WORLD_VISUALS[0];
+  const shellStyle = {
+    "--flux": worldVisual.accent,
+    "--flux-soft": worldVisual.accentSoft,
+    "--world-accent": worldVisual.accent,
+    "--world-accent-rgb": worldVisual.accentRgb,
+    "--world-secondary": worldVisual.secondary,
+    "--world-sky": worldVisual.sky,
+    "--world-ground": worldVisual.ground,
+    "--world-planet": worldVisual.planet,
+  } as CSSProperties;
   const lastResolvedMission =
     game.missions.currentIndex > 0
       ? MISSIONS[game.missions.currentIndex - 1]
@@ -305,15 +392,13 @@ export default function Home() {
     if (
       missionSignatureRef.current &&
       signature !== missionSignatureRef.current &&
-      game.missions.currentIndex > 0
+      lastResolvedMission &&
+      lastResolvedStatus
     ) {
-      const resolvedIndex = game.missions.currentIndex - 1;
-      const resolved = MISSIONS[resolvedIndex];
-      const status = game.missions.statuses[resolvedIndex];
       setAnnouncement(
-        status === "saved"
-          ? `${resolved.world} secured. A Stellar Relay now multiplies all Foundry output.`
-          : `${resolved.world} has been lost to the Null Tide. The Foundry continues.`,
+        lastResolvedStatus === "saved"
+          ? `${lastResolvedMission.world} secured. Its relic is online, and a Stellar Relay now shields future planetfalls.`
+          : `${lastResolvedMission.world} has been lost to the Null Tide. The Foundry continues.`,
       );
     }
     missionSignatureRef.current = signature;
@@ -322,6 +407,32 @@ export default function Home() {
     game.missions.currentIndex,
     game.missions.worldsLost,
     game.missions.worldsSaved,
+    lastResolvedMission,
+    lastResolvedStatus,
+    ready,
+  ]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const signature = `${game.missions.currentIndex}:${game.missions.stageIndex}`;
+    if (
+      stageSignatureRef.current &&
+      signature !== stageSignatureRef.current &&
+      !game.missions.awaitingAcknowledgement &&
+      activeMission &&
+      activeStage
+    ) {
+      setAnnouncement(
+        `${activeMission.world} phase ${game.missions.stageIndex + 1}: ${activeStage.label}.`,
+      );
+    }
+    stageSignatureRef.current = signature;
+  }, [
+    activeMission,
+    activeStage,
+    game.missions.awaitingAcknowledgement,
+    game.missions.currentIndex,
+    game.missions.stageIndex,
     ready,
   ]);
 
@@ -359,6 +470,22 @@ export default function Home() {
     }
     setGame((current) => buyLegacyUpgrade(current, index));
     setAnnouncement(`${LEGACY_UPGRADES[index].name} advanced one level.`);
+  };
+
+  const handleMissionContribution = () => {
+    const current = gameRef.current;
+    const mission = MISSIONS[current.missions.currentIndex];
+    const stage = mission?.stages[current.missions.stageIndex];
+    if (!stage || stage.kind !== "contributeFlux") return;
+    const amount = Math.min(
+      current.flux,
+      Math.max(0, stage.target - current.missions.contributedFlux),
+    );
+    if (amount <= 0) return;
+    setGame((state) => contributeToMission(state));
+    setAnnouncement(
+      `${formatNumber(amount)} Flux diverted to ${mission.world}.`,
+    );
   };
 
   const handleRecalibrate = () => {
@@ -421,7 +548,7 @@ export default function Home() {
     setGame(next);
     setAnnouncement(
       MISSIONS[next.missions.currentIndex]
-        ? `${MISSIONS[next.missions.currentIndex].world} distress signal accepted. Its clock is now running.`
+        ? `Planetfall at ${MISSIONS[next.missions.currentIndex].world}. Temporary machinery was translated into a landing cache; its clock is now running.`
         : "The Sixfold Evacuation is complete.",
     );
     window.setTimeout(() => persistGame("Directive saved"), 0);
@@ -434,7 +561,12 @@ export default function Home() {
   const currentTour = tourStep === null ? null : TOUR_STEPS[tourStep];
 
   return (
-    <main className="game-shell">
+    <main
+      className={`game-shell world-theme-${worldVisual.slug}`}
+      data-world={worldVisual.slug}
+      data-world-index={campaignWorldIndex}
+      style={shellStyle}
+    >
       <div className="ambient-grid" aria-hidden="true" />
       <div className="sr-only" aria-live="polite">
         {announcement}
@@ -446,13 +578,13 @@ export default function Home() {
             ◇
           </span>
           <div>
-            <p className="eyebrow">AXIOM FOUNDRY // CYCLE {String(game.cycle).padStart(2, "0")}</p>
-            <h1>Forge the laws that keep humanity alive beyond the Null Tide.</h1>
+            <p className="eyebrow">{MISSIONS[campaignWorldIndex].world.toUpperCase()} · CYCLE {String(game.cycle).padStart(2, "0")}</p>
+            <h1>{MISSIONS[campaignWorldIndex].arrival}</h1>
           </div>
         </div>
 
         <div className={`resource-readout ${currentTour?.target === "flux" ? "tour-focus" : ""}`} title={`${game.flux.toExponential(6)} Flux`}>
-          <span className="resource-label">Available Flux</span>
+          <span className="resource-label">Local Flux</span>
           <strong>{formatNumber(game.flux)}</strong>
           <span className="rate">+{formatNumber(production.fluxPerSecond)} / sec</span>
         </div>
@@ -477,7 +609,7 @@ export default function Home() {
         <div className="objective-strip">
           <div className="objective-copy">
             <span>{objective.label}</span>
-            <span>{formatNumber(game.maxFlux)} / {formatNumber(objective.threshold)} discovered</span>
+            <span>{formatNumber(objective.current)} / {formatNumber(objective.threshold)} required</span>
             {activeMission && game.settings.tutorialComplete && !game.missions.awaitingAcknowledgement && (
               <button className="crisis-link" type="button" onClick={() => setMobileTab("systems")}>
                 {activeMission.world} · {formatCountdown(game.missions.timeLeft)}
@@ -518,7 +650,7 @@ export default function Home() {
                 <p className="section-kicker">Instrument core</p>
                 <h2>The Axiom Chamber</h2>
               </div>
-              <span className="status-chip online">STABLE</span>
+              <span className="status-chip online">{Math.round(worldEffects.repairProgress * 100)}% STABLE</span>
             </div>
 
             <div className="core-stage">
@@ -615,6 +747,8 @@ export default function Home() {
             </div>
           </div>
 
+          <FoundryVista game={game} />
+
           <div className="machine-list">
             {GENERATORS.slice(0, visibleGeneratorCount).map((generator, index) => {
               const unlocked = isTierUnlocked(game, index);
@@ -622,8 +756,9 @@ export default function Home() {
               const quantity = getPurchaseQuantity(game, index, game.settings.buyMode);
               const displayQuantity = game.settings.buyMode === "max" ? Math.max(1, quantity) : game.settings.buyMode === "10" ? 10 : 1;
               const cost = getTierCost(game, index, displayQuantity);
-              const milestoneProgress = tier.bought % 10;
+              const milestoneProgress = tier.bought % 25;
               const resonanceLevel = index > 0 ? production.resonance.links[index - 1] : 0;
+              const blueprintLocked = index > campaignWorldIndex;
 
               if (!unlocked) {
                 return (
@@ -632,7 +767,11 @@ export default function Home() {
                     <div>
                       <p className="machine-index">NEXT DISCOVERY</p>
                       <h3>Unresolved mechanism</h3>
-                      <p>Reach {formatNumber(generator.unlockAt)} total Flux to stabilize this signal.</p>
+                      <p>
+                        {blueprintLocked
+                          ? `Recover this blueprint at ${MISSIONS[index].world}.`
+                          : `Reach ${formatNumber(generator.unlockAt)} local Flux to stabilize this signal.`}
+                      </p>
                     </div>
                   </article>
                 );
@@ -643,7 +782,7 @@ export default function Home() {
                   {index > 0 && (
                     <div className={`resonance-link ${resonanceLevel > 0 ? "active" : ""}`}>
                       <span aria-hidden="true" />
-                      <p>Resonance link {resonanceLevel}/5 · balance both tiers in groups of 10</p>
+                      <p>Resonance link {resonanceLevel}/4 · balance both tiers in groups of 15</p>
                     </div>
                   )}
                   <article className="machine-row">
@@ -662,10 +801,10 @@ export default function Home() {
                       <div className="machine-output">
                         <span>Output <strong>{formatNumber(production.tierOutputs[index])}/s</strong></span>
                         <span>Bought <strong>{formatNumber(tier.bought)}</strong></span>
-                        <span>Milestone <strong>×{formatNumber(Math.pow(2, Math.floor(tier.bought / 10)))}</strong></span>
+                        <span>Milestone <strong>×{formatNumber(1 + 0.5 * Math.floor(tier.bought / 25))}</strong></span>
                       </div>
-                      <div className="milestone-track" aria-label={`${milestoneProgress} of 10 purchases toward the next multiplier`}>
-                        <span style={{ width: `${milestoneProgress * 10}%` }} />
+                      <div className="milestone-track" aria-label={`${milestoneProgress} of 25 purchases toward the next efficiency step`}>
+                        <span style={{ width: `${milestoneProgress * 4}%` }} />
                       </div>
                     </div>
                     <button
@@ -689,7 +828,7 @@ export default function Home() {
           <section className={`panel mission-panel ${currentTour?.target === "missions" ? "tour-focus" : ""}`}>
             <div className="panel-heading mission-heading">
               <div>
-                <p className="section-kicker danger-text">Sixfold evacuation</p>
+                <p className="section-kicker danger-text">Planetfall campaign</p>
                 <h2>Planetary Directives</h2>
               </div>
               <button className="archive-button" type="button" onClick={() => setLoreOpen(true)}>Archive</button>
@@ -701,39 +840,79 @@ export default function Home() {
                 <h3>{lastResolvedMission.world}</h3>
                 <span>
                   {lastResolvedStatus === "saved"
-                    ? `${lastResolvedMission.rewardLabel}. The rescue relay permanently adds 10% to all production.`
+                    ? `${lastResolvedMission.success} ${lastResolvedMission.rewardLabel}.`
                     : lastResolvedMission.failure}
                 </span>
                 {activeMission && (
                   <button type="button" onClick={acknowledgeMission}>
-                    Accept {activeMission.world} signal
+                    Travel to {activeMission.world}
                   </button>
                 )}
+                {activeMission && (
+                  <small>Planetfall converts temporary machines and Run Research into a landing cache. Axioms, relics, relays, and blueprints survive.</small>
+                )}
               </div>
-            ) : activeMission ? (
+            ) : activeMission && activeStage ? (
               <div className="mission-body">
                 <div className="mission-world-line">
                   <div>
-                    <span>Directive {game.missions.currentIndex + 1} of {MISSIONS.length}</span>
+                    <span>World {game.missions.currentIndex + 1} of {MISSIONS.length} · Phase {game.missions.stageIndex + 1} of {activeMission.stages.length}</span>
                     <h3>{activeMission.world}</h3>
                     <small>{activeMission.epithet}</small>
                   </div>
-                  <div className={`mission-clock ${game.missions.timeLeft <= 60 && game.settings.tutorialComplete ? "critical" : ""}`}>
-                    <span>{game.settings.tutorialComplete ? "Physics holds" : "Clock paused"}</span>
+                  <div className={`mission-clock ${game.missions.timeLeft <= 5 * 60 && game.settings.tutorialComplete ? "critical" : ""}`}>
+                    <span>{game.settings.tutorialComplete ? "Cohesion window" : "Clock paused"}</span>
                     <strong>{formatCountdown(game.missions.timeLeft)}</strong>
                   </div>
                 </div>
                 <h4>{activeMission.title}</h4>
                 <p>{activeMission.briefing}</p>
+                <ol className="mission-stages" aria-label={`${activeMission.world} operation phases`}>
+                  {activeMission.stages.map((stage, index) => {
+                    const progress = getMissionStageProgress(game, index);
+                    const phaseState = index < game.missions.stageIndex
+                      ? "complete"
+                      : index === game.missions.stageIndex
+                        ? "active"
+                        : "pending";
+                    return (
+                      <li className={phaseState} key={stage.label}>
+                        <span>{index < game.missions.stageIndex ? "✓" : index + 1}</span>
+                        <div><strong>{stage.label}</strong><small>{stage.instruction}</small></div>
+                        {index === game.missions.stageIndex && <b>{Math.round(progress.ratio * 100)}%</b>}
+                      </li>
+                    );
+                  })}
+                </ol>
                 <div className="mission-goal">
                   <div>
-                    <span>Rescue condition</span>
-                    <strong>{activeMission.goal}</strong>
+                    <span>Active operation</span>
+                    <strong>{activeStage.instruction}</strong>
                   </div>
-                  <span className="mission-numbers">{formatNumber(missionProgress.value)} / {formatNumber(missionProgress.target)}</span>
+                  <span className="mission-numbers">
+                    {activeStage.kind === "resonanceHold"
+                      ? `${formatDuration(missionProgress.value)} / ${formatDuration(missionProgress.target)}`
+                      : `${formatNumber(missionProgress.value)} / ${formatNumber(missionProgress.target)}`}
+                  </span>
                 </div>
-                <div className="mission-progress" role="progressbar" aria-label={`${activeMission.world}: ${activeMission.goal}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(missionProgress.ratio * 100)}>
+                <div className="mission-progress" role="progressbar" aria-label={`${activeMission.world}: ${activeStage.instruction}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(missionProgress.ratio * 100)}>
                   <span style={{ width: `${missionProgress.ratio * 100}%` }} />
+                </div>
+                <p className="mission-lore-impact">{activeStage.lore}</p>
+                {activeStage.kind === "contributeFlux" && (
+                  <button
+                    className="mission-contribute"
+                    type="button"
+                    disabled={game.flux <= 0 || !game.settings.tutorialComplete}
+                    onClick={handleMissionContribution}
+                  >
+                    Divert {formatNumber(Math.min(game.flux, Math.max(0, activeStage.target - game.missions.contributedFlux)))} Flux
+                  </button>
+                )}
+                <div className="mission-hazard">
+                  <div><span>Local physics hazard</span><strong>{activeMission.hazardLabel}</strong></div>
+                  <b>{Math.round(worldEffects.repairProgress * 100)}% stabilized</b>
+                  <p>{activeMission.hazard}</p>
                 </div>
                 <div className="mission-stakes">
                   <span><b>Rescue grant</b>{activeMission.rewardLabel}</span>
@@ -746,15 +925,22 @@ export default function Home() {
             ) : (
               <div className="campaign-complete">
                 <span aria-hidden="true">✦</span>
-                <h3>The Sixfold Evacuation is complete</h3>
-                <p>{game.missions.worldsSaved} worlds secured. {game.missions.worldsLost} recorded in the Ledger of Lost Worlds.</p>
+                <h3>{game.missions.worldsSaved === MISSIONS.length ? "The Concordance Ending" : game.missions.worldsSaved >= 3 ? "The Lifeboat Ending" : "The Last Foundry Ending"}</h3>
+                <p>
+                  {game.missions.worldsSaved === MISSIONS.length
+                    ? "Every rescued world follows Vesper through a corridor of portable law. Humanity leaves no one behind."
+                    : game.missions.worldsSaved >= 3
+                      ? "The surviving worlds cross together, carrying the names and archives of those the Tide claimed."
+                      : "Vesper vanishes into uncertain space. The Foundry remains behind, preserving the last dependable laws in the old universe."}
+                </p>
+                <small>{game.missions.worldsSaved} worlds secured · {game.missions.worldsLost} recorded in the Ledger of Lost Worlds.</small>
               </div>
             )}
 
             <div className="mission-footer">
               <span><b>{game.missions.worldsSaved}</b> saved</span>
               <span><b>{game.missions.worldsLost}</b> lost</span>
-              <span><b>×{formatNumber(production.relayMultiplier)}</b> relay output</span>
+              <span><b>{Math.round(production.hazardShield * 100)}%</b> relay shielding</span>
             </div>
           </section>
 
@@ -861,6 +1047,8 @@ export default function Home() {
           <details className="panel statistics-panel">
             <summary>Foundry statistics</summary>
             <dl>
+              <div><dt>Current world</dt><dd>{MISSIONS[campaignWorldIndex].world}</dd></div>
+              <div><dt>Campaign phase</dt><dd>{Math.min(MISSIONS.length, game.missions.currentIndex + 1)} / {MISSIONS.length}</dd></div>
               <div><dt>This cycle</dt><dd>{formatDuration(game.runTime)}</dd></div>
               <div><dt>Total play</dt><dd>{formatDuration(game.playTime)}</dd></div>
               <div><dt>Run Flux</dt><dd>{formatNumber(game.runFlux)}</dd></div>
@@ -924,7 +1112,7 @@ export default function Home() {
               <div>
                 <p className="section-kicker violet">Concordance memory vault</p>
                 <h2 id="archive-title">The Axiom Archive</h2>
-                <span>A field guide to the Foundry, the Null Tide, and the worlds depending on you.</span>
+                <span>A field guide to the Null Tide, Planetfall protocol, recovered relics, and every world changed by your decisions.</span>
               </div>
               <button className="archive-close" type="button" aria-label="Close lore archive" onClick={() => setLoreOpen(false)}>Close</button>
             </header>
@@ -955,7 +1143,15 @@ export default function Home() {
                       <article className={status} key={mission.world}>
                         <span>{label}</span>
                         <strong>{mission.world}</strong>
-                        <small>{status === "lost" ? mission.failure : mission.epithet}</small>
+                        <small>
+                          {status === "lost"
+                            ? mission.failure
+                            : status === "saved"
+                              ? mission.success
+                              : status === "active"
+                                ? `${mission.hazardLabel}: ${mission.hazard}`
+                                : mission.epithet}
+                        </small>
                       </article>
                     );
                   })}

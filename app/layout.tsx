@@ -27,9 +27,9 @@ export async function generateMetadata(): Promise<Metadata> {
       images: [
         {
           url: "/og.png",
-          width: 1672,
-          height: 941,
-          alt: "Axiom Foundry — Forge the laws. Save the worlds.",
+          width: 1662,
+          height: 946,
+          alt: "Axiom Foundry — Six worlds. One portable reality.",
         },
       ],
     },

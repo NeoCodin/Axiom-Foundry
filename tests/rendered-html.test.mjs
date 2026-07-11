@@ -32,9 +32,11 @@ test("server-renders the Axiom Foundry game surface", async () => {
 
   const html = await response.text();
   assert.match(html, /<title>Axiom Foundry/);
-  assert.match(html, /Forge the laws that keep humanity alive beyond the Null Tide/);
+  assert.match(html, /Helion appears as a black disc/);
   assert.match(html, /Tune the Core/);
   assert.match(html, /Fabrication Chain/);
+  assert.match(html, /Planetary theater/);
+  assert.match(html, /Find a stable frequency/);
   assert.match(html, /Planetary Directives/);
   assert.match(html, /Run Research/);
   assert.match(html, /role="progressbar"/);
@@ -56,7 +58,10 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.doesNotMatch(page, /SkeletonPreview|codex-preview/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.match(css, /\.machine-panel\s*\{[^}]*overflow:\s*clip/s);
+  assert.match(css, /\.foundry-vista\s*\{/);
+  assert.match(css, /\.mission-stages\s*\{/);
   assert.match(story, /Axioms are not fuel for space travel/);
+  assert.match(story, /Why the Foundry rebuilds/);
   await access(new URL("../public/og.png", import.meta.url));
   await assert.rejects(access(new URL("app/_sites-preview/SkeletonPreview.tsx", projectRoot)));
 });

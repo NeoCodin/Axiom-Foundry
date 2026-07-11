@@ -1,24 +1,28 @@
 # Axiom Foundry
 
-Axiom Foundry is a cosmic incremental game about building a machine that teaches the universe to multiply. Higher-tier mechanisms manufacture the tiers beneath them, groups of ten create production milestones, and balanced adjacent tiers generate a global Resonance multiplier.
+Axiom Foundry is a cosmic incremental campaign about rebuilding a reality-forging machine across six endangered worlds. Higher-tier mechanisms manufacture the tiers beneath them, measured efficiency milestones reward long-term construction, and balanced adjacent tiers generate Resonance without runaway recursive multipliers.
 
 The Null Tide is erasing the laws of physics from inhabited space. The Foundry turns completed production cycles into portable Axioms—proven laws that keep ships, planets, time, and gravity consistent long enough for humanity to escape.
 
 ## How to play
 
 1. Tune the Axiom Chamber to create your first Flux.
-2. Spend Flux on Vacuum Taps and progressively unlock five higher machine tiers.
-3. Buy machines in groups of ten to double their individual output.
-4. Balance neighboring tiers in groups of ten to strengthen Resonance.
-5. Buy Run Research upgrades to accelerate the current cycle.
-6. Reach 10 billion run Flux and Recalibrate for permanent Axioms.
-7. Spend Axioms on Legacy upgrades and unlock the Foreman automation system.
+2. Complete three operations on Helion before its active-play cohesion timer expires.
+3. Build machines in groups of 25 for measured efficiency milestones.
+4. Balance neighboring tiers in groups of 15 to strengthen Resonance.
+5. Spend or directly contribute Flux to solve each planet's physics hazard.
+6. Travel from planet to planet, retaining Axioms, relics, relays, and blueprints while rebuilding temporary machinery from a landing cache.
+7. Reach 1 trillion run Flux and Recalibrate for permanent Axioms.
+8. Reach Vesper Ark and determine one of three endings based on the worlds you saved.
 
 Progress saves automatically in browser storage. Returning players receive simulated offline production, initially capped at eight hours.
 
 ## Features
 
 - Six-tier nested production chain
+- Six-world, three-phase Planetfall campaign designed for hours of progression
+- Planet-specific color themes, hazards, relics, and mechanical consequences
+- Visual Foundry theater that grows with purchased machinery
 - Buy one, buy ten, and buy-max controls
 - Per-tier milestones and adjacent-tier Resonance
 - Repeatable run upgrades
@@ -27,7 +31,7 @@ Progress saves automatically in browser storage. Returning players receive simul
 - Machine and research automation
 - Versioned local saves and offline progress
 - First-run guided orientation and replayable field manual
-- Six timed planetary rescue directives with persistent saved/lost outcomes
+- Six timed planetary rescue directives with persistent saved/lost outcomes and three endings
 - In-depth lore archive and planetary ledger
 - Responsive desktop and mobile interfaces
 - Reduced-motion and keyboard-accessible controls
@@ -49,7 +53,7 @@ Open `http://localhost:3000`.
 npm test
 ```
 
-The test suite verifies the deployment build, server-rendered game surface, core economy invariants, bulk-purchase equivalence, production consistency, save recovery, and Recalibration behavior.
+The test suite verifies the deployment build, server-rendered game surface, economy invariants, multiplier placement, planet gates, save migration, Planetfall transitions, Recalibration behavior, and a deterministic multi-hour campaign pacing guard.
 
 ## Technology
 

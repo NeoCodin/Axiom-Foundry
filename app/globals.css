@@ -1921,6 +1921,594 @@ input[type="checkbox"]:disabled {
   display: none;
 }
 
+.game-shell::before {
+  position: fixed;
+  z-index: -3;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 7%, rgb(var(--world-accent-rgb) / 0.13), transparent 34rem),
+    radial-gradient(circle at 88% 58%, color-mix(in srgb, var(--world-secondary) 10%, transparent), transparent 34rem),
+    linear-gradient(180deg, var(--world-sky), #070a12 48%, #05070c);
+  content: "";
+  pointer-events: none;
+  transition: background 900ms ease;
+}
+
+.game-shell .ambient-grid {
+  background-image:
+    linear-gradient(rgb(var(--world-accent-rgb) / 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--world-accent-rgb) / 0.045) 1px, transparent 1px),
+    radial-gradient(circle, rgb(var(--world-accent-rgb) / 0.35) 0 1px, transparent 1.5px);
+}
+
+.game-shell .panel,
+.game-shell .command-bar,
+.game-shell .mobile-nav {
+  transition: border-color 650ms ease, background-color 650ms ease, box-shadow 650ms ease;
+}
+
+.game-shell .panel {
+  border-color: rgb(var(--world-accent-rgb) / 0.23);
+  background:
+    linear-gradient(145deg, rgb(var(--world-accent-rgb) / 0.055), transparent 48%),
+    linear-gradient(145deg, rgba(18, 28, 43, 0.94), rgba(8, 13, 22, 0.98));
+}
+
+.game-shell .command-bar,
+.game-shell .mobile-nav {
+  border-color: rgb(var(--world-accent-rgb) / 0.28);
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.36), inset 0 1px rgb(var(--world-accent-rgb) / 0.04);
+}
+
+.world-theme-helion .panel {
+  background:
+    linear-gradient(145deg, rgba(85, 214, 232, 0.025), transparent 46%),
+    linear-gradient(145deg, rgba(11, 17, 24, 0.97), rgba(4, 7, 11, 0.99));
+}
+
+.foundry-vista {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  margin: 0;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--world-sky), var(--world-ground));
+  contain: paint;
+}
+
+.foundry-vista-heading {
+  position: relative;
+  z-index: 7;
+  display: flex;
+  min-height: 66px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 11px 15px;
+  border-bottom: 1px solid rgb(var(--world-accent-rgb) / 0.16);
+  background: linear-gradient(90deg, rgba(3, 7, 12, 0.88), rgba(3, 7, 12, 0.38));
+}
+
+.foundry-vista-kicker {
+  margin: 0;
+  color: var(--world-accent);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.foundry-vista-heading h3 {
+  margin: 3px 0 1px;
+  font-family: var(--font-display);
+  font-size: 18px;
+  letter-spacing: 0.02em;
+}
+
+.foundry-vista-heading div > span {
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+.foundry-world-status {
+  padding: 5px 8px;
+  border: 1px solid rgb(var(--world-accent-rgb) / 0.32);
+  border-radius: 999px;
+  color: var(--world-accent);
+  font-family: var(--font-number);
+  font-size: 9px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.foundry-world-status.status-saved {
+  border-color: rgba(112, 217, 155, 0.4);
+  color: var(--success);
+}
+
+.foundry-world-status.status-lost {
+  border-color: rgba(255, 120, 130, 0.42);
+  color: var(--danger);
+}
+
+.foundry-scene {
+  position: relative;
+  min-height: 280px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 70%, rgb(var(--world-accent-rgb) / 0.18), transparent 34%),
+    linear-gradient(180deg, transparent 62%, rgba(0, 0, 0, 0.38));
+}
+
+.foundry-starfield {
+  position: absolute;
+  inset: 0;
+  opacity: 0.58;
+  background-image:
+    radial-gradient(circle, rgba(255,255,255,0.8) 0 1px, transparent 1.4px),
+    radial-gradient(circle, rgb(var(--world-accent-rgb) / 0.75) 0 1px, transparent 1.6px);
+  background-position: 5px 8px, 62px 31px;
+  background-size: 91px 79px, 137px 111px;
+}
+
+.foundry-starfield-near {
+  opacity: 0.28;
+  background-position: 27px 14px, 9px 63px;
+  background-size: 181px 149px, 223px 171px;
+  animation: foundry-drift 30s linear infinite;
+}
+
+.foundry-orbit {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  top: 48%;
+  width: 70%;
+  height: 34%;
+  border: 1px solid rgb(var(--world-accent-rgb) / 0.25);
+  border-radius: 50%;
+  transform: translate(-50%, -50%) rotate(-8deg);
+}
+
+.foundry-orbit-inner {
+  width: 48%;
+  height: 24%;
+  border-style: dashed;
+  animation: orbit-spin 26s linear infinite;
+}
+
+.foundry-orbit span {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border: 1px solid var(--world-accent);
+  border-radius: 50%;
+  background: var(--world-sky);
+  box-shadow: 0 0 11px var(--world-accent);
+}
+
+.foundry-orbit span:first-child { left: 10%; top: 18%; }
+.foundry-orbit span:nth-child(2) { right: 13%; bottom: 17%; }
+
+.foundry-planet {
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  bottom: -82px;
+  width: 270px;
+  height: 270px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 25%, rgb(var(--world-accent-rgb) / 0.7), transparent 11%),
+    radial-gradient(circle at 38% 35%, var(--world-planet), color-mix(in srgb, var(--world-planet) 42%, #020307) 64%, #010205 74%);
+  box-shadow: 0 -8px 38px rgb(var(--world-accent-rgb) / 0.28), inset -38px -20px 48px rgba(0,0,0,0.58);
+  transform: translateX(-50%);
+}
+
+.foundry-planet-atmosphere {
+  position: absolute;
+  inset: -5px;
+  border: 2px solid rgb(var(--world-accent-rgb) / 0.52);
+  border-radius: 50%;
+  filter: blur(1px);
+  box-shadow: 0 0 21px rgb(var(--world-accent-rgb) / 0.24);
+}
+
+.foundry-planet-surface,
+.foundry-planet-shadow,
+.foundry-planet-shield,
+.foundry-planet-fractures {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+
+.foundry-planet-surface {
+  opacity: 0.6;
+  background:
+    repeating-linear-gradient(15deg, transparent 0 22px, rgb(var(--world-accent-rgb) / 0.13) 23px 24px),
+    radial-gradient(ellipse at 30% 40%, transparent 0 15%, rgba(0,0,0,0.28) 16% 23%, transparent 24%);
+}
+
+.world-pelagos .foundry-planet-surface {
+  background: repeating-radial-gradient(ellipse at 44% 42%, rgb(var(--world-accent-rgb) / 0.18) 0 7px, transparent 8px 21px);
+}
+
+.world-cinderwake .foundry-planet-surface {
+  background: repeating-conic-gradient(from 18deg, transparent 0 15deg, rgb(var(--world-accent-rgb) / 0.34) 16deg 18deg, transparent 19deg 42deg);
+}
+
+.world-ilyra .foundry-planet-surface {
+  background: repeating-conic-gradient(from 32deg, rgb(var(--world-accent-rgb) / 0.2) 0 9deg, transparent 10deg 25deg);
+}
+
+.world-orison .foundry-planet-surface {
+  background: radial-gradient(ellipse at 35% 40%, rgba(12, 85, 48, 0.7) 0 10%, transparent 11%), repeating-linear-gradient(18deg, transparent 0 16px, rgba(230,196,90,0.16) 17px 19px);
+}
+
+.world-vesper .foundry-planet-surface {
+  background: linear-gradient(90deg, transparent 49%, rgb(var(--world-accent-rgb) / 0.5) 50% 51%, transparent 52%), repeating-linear-gradient(0deg, transparent 0 17px, rgb(var(--world-accent-rgb) / 0.18) 18px 19px);
+}
+
+.foundry-planet-shadow {
+  background: linear-gradient(105deg, transparent 28%, rgba(0,0,0,0.72) 72%);
+}
+
+.foundry-planet-shield {
+  inset: -13px;
+  opacity: 0;
+  border: 1px solid rgba(112, 217, 155, 0.7);
+  box-shadow: 0 0 25px rgba(112, 217, 155, 0.28), inset 0 0 20px rgba(112,217,155,0.12);
+}
+
+.status-saved .foundry-planet-shield { opacity: 1; }
+
+.foundry-planet-fractures {
+  display: none;
+  background: repeating-conic-gradient(from 11deg, transparent 0 23deg, rgba(255,120,130,0.72) 24deg 25deg, transparent 26deg 56deg);
+  mix-blend-mode: screen;
+}
+
+.status-lost .foundry-planet-fractures { display: block; }
+.status-lost .foundry-planet { filter: grayscale(0.8) brightness(0.55); }
+
+.foundry-beacon {
+  position: absolute;
+  z-index: 5;
+  left: 50%;
+  bottom: 79px;
+  width: 14px;
+  height: 116px;
+  transform: translateX(-50%);
+}
+
+.foundry-beacon-beam {
+  position: absolute;
+  right: -24px;
+  bottom: 9px;
+  left: -24px;
+  height: 150px;
+  opacity: 0.18;
+  background: linear-gradient(to top, rgb(var(--world-accent-rgb) / 0.72), transparent);
+  clip-path: polygon(42% 100%, 58% 100%, 100% 0, 0 0);
+  filter: blur(4px);
+}
+
+.foundry-vista[data-stage="1"] .foundry-beacon-beam { opacity: 0.45; }
+.foundry-vista[data-stage="2"] .foundry-beacon-beam,
+.status-saved .foundry-beacon-beam { opacity: 0.78; }
+
+.foundry-beacon-source {
+  position: absolute;
+  bottom: 0;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--world-accent);
+  border-radius: 50%;
+  background: #07101a;
+  box-shadow: 0 0 16px var(--world-accent);
+}
+
+.foundry-horizon {
+  position: absolute;
+  z-index: 4;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 75px;
+  background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+}
+
+.foundry-horizon-rim {
+  position: absolute;
+  right: 12%;
+  bottom: 26px;
+  left: 12%;
+  height: 38px;
+  border-top: 1px solid rgb(var(--world-accent-rgb) / 0.48);
+  border-radius: 50%;
+  box-shadow: 0 -7px 19px rgb(var(--world-accent-rgb) / 0.12);
+}
+
+.foundry-horizon-grid {
+  position: absolute;
+  inset: 35px 0 0;
+  opacity: 0.35;
+  background: repeating-linear-gradient(90deg, transparent 0 34px, rgb(var(--world-accent-rgb) / 0.18) 35px 36px);
+}
+
+.foundry-facility {
+  position: absolute;
+  z-index: 6;
+  bottom: 25px;
+  width: 46px;
+  height: 76px;
+  opacity: 0.2;
+  filter: saturate(0.4);
+  transform: translateX(-50%);
+  transition: opacity 400ms ease, filter 400ms ease;
+}
+
+.foundry-facility.is-online {
+  opacity: 1;
+  filter: none;
+}
+
+.facility-tier-1 { left: 10%; transform: scale(0.75); }
+.facility-tier-2 { left: 24%; transform: scale(0.86); }
+.facility-tier-3 { left: 37%; transform: scale(0.94); }
+.facility-tier-4 { right: 29%; transform: scale(0.94); }
+.facility-tier-5 { right: 15%; transform: scale(0.86); }
+.facility-tier-6 { right: 3%; transform: scale(0.75); }
+
+.facility-foundation {
+  position: absolute;
+  right: 2px;
+  bottom: 0;
+  left: 2px;
+  height: 8px;
+  border: 1px solid rgb(var(--world-accent-rgb) / 0.7);
+  background: #090f16;
+}
+
+.facility-structure {
+  position: absolute;
+  left: 50%;
+  bottom: 7px;
+  width: 18px;
+  height: 50px;
+  border: 1px solid rgb(var(--world-accent-rgb) / 0.7);
+  background: linear-gradient(90deg, #0a111a, rgb(var(--world-accent-rgb) / 0.2), #0a111a);
+  box-shadow: 0 0 11px rgb(var(--world-accent-rgb) / 0.15);
+  clip-path: polygon(31% 0, 69% 0, 100% 100%, 0 100%);
+  transform: translateX(-50%);
+}
+
+.facility-tier-2 .facility-structure,
+.facility-tier-5 .facility-structure { border-radius: 50% 50% 3px 3px; }
+.facility-tier-3 .facility-structure { width: 36px; height: 32px; border-radius: 50% 50% 0 0; }
+.facility-tier-4 .facility-structure { width: 4px; height: 63px; }
+.facility-tier-6 .facility-structure { width: 32px; height: 60px; clip-path: polygon(46% 0, 54% 0, 100% 100%, 0 100%); }
+
+.facility-emitter {
+  position: absolute;
+  left: 50%;
+  top: 10px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--world-accent);
+  box-shadow: 0 0 12px var(--world-accent);
+  transform: translateX(-50%);
+}
+
+.facility-units {
+  position: absolute;
+  right: -4px;
+  bottom: 3px;
+  left: -4px;
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+}
+
+.facility-units i {
+  width: 4px;
+  height: 8px;
+  border: 1px solid rgb(var(--world-accent-rgb) / 0.7);
+  background: #081018;
+}
+
+.facility-units i:nth-child(2) { height: 11px; }
+.facility-units i:nth-child(3) { height: 14px; }
+.facility-units i:nth-child(4) { height: 11px; }
+.facility-units i:nth-child(5) { height: 8px; }
+
+.foundry-evacuation-lanes {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  opacity: 0;
+}
+
+.status-saved .foundry-evacuation-lanes { opacity: 0.8; }
+
+.foundry-evacuation-lanes span {
+  position: absolute;
+  right: 9%;
+  width: 70px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--success));
+  box-shadow: 0 0 6px rgba(112,217,155,0.8);
+  transform: rotate(-18deg);
+}
+
+.foundry-evacuation-lanes span:first-child { top: 32%; }
+.foundry-evacuation-lanes span:nth-child(2) { top: 39%; right: 15%; }
+.foundry-evacuation-lanes span:nth-child(3) { top: 46%; right: 6%; }
+
+.foundry-vista-caption {
+  position: relative;
+  z-index: 8;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 10px;
+  padding: 10px 14px;
+  border-top: 1px solid rgb(var(--world-accent-rgb) / 0.17);
+  background: rgba(4, 8, 14, 0.88);
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.foundry-vista-caption strong { color: var(--world-accent); }
+.foundry-vista-caption small { grid-column: 1 / -1; color: var(--text-dim); }
+
+.foundry-world-route {
+  position: relative;
+  z-index: 8;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid rgb(var(--world-accent-rgb) / 0.16);
+  background: rgba(3, 7, 12, 0.96);
+  list-style: none;
+}
+
+.route-world {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 5px;
+  border-right: 1px solid rgba(70,97,127,0.24);
+  color: var(--text-dim);
+}
+
+.route-world:last-child { border-right: 0; }
+.route-world[aria-current="step"] { background: var(--world-accent-soft); color: var(--world-accent); }
+.route-world.status-saved { color: var(--success); }
+.route-world.status-lost { color: var(--danger); opacity: 0.75; }
+
+.route-marker {
+  display: grid;
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-family: var(--font-number);
+  font-size: 9px;
+}
+
+.route-copy { display: grid; min-width: 0; }
+.route-copy strong { font-family: var(--font-number); font-size: 8px; }
+.route-copy small { overflow: hidden; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+
+.mission-outcome > small {
+  display: block;
+  margin-top: 9px;
+  color: var(--text-dim);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.mission-stages {
+  display: grid;
+  gap: 5px;
+  margin: 12px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mission-stages li {
+  display: grid;
+  grid-template-columns: 23px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 47px;
+  padding: 7px 8px;
+  border: 1px solid rgba(70,97,127,0.32);
+  border-radius: 6px;
+  background: rgba(4,9,16,0.28);
+  color: var(--text-dim);
+}
+
+.mission-stages li > span {
+  display: grid;
+  width: 23px;
+  height: 23px;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-family: var(--font-number);
+  font-size: 9px;
+}
+
+.mission-stages li div { display: grid; min-width: 0; gap: 2px; }
+.mission-stages li strong { color: inherit; font-size: 10px; }
+.mission-stages li small { color: var(--text-dim); font-size: 9px; line-height: 1.35; }
+.mission-stages li > b { font-family: var(--font-number); font-size: 9px; }
+.mission-stages li.active { border-color: rgb(var(--world-accent-rgb) / 0.42); background: var(--world-accent-soft); color: var(--world-accent); }
+.mission-stages li.complete { border-color: rgba(112,217,155,0.3); color: var(--success); }
+
+.mission-lore-impact {
+  margin: 9px 0 0 !important;
+  padding: 8px 9px;
+  border-left: 2px solid var(--world-accent);
+  background: rgb(var(--world-accent-rgb) / 0.07);
+  color: var(--text-muted) !important;
+  font-size: 10px !important;
+  font-style: italic;
+}
+
+.mission-contribute {
+  width: 100%;
+  min-height: 43px;
+  margin-top: 9px;
+  border: 1px solid rgb(var(--world-accent-rgb) / 0.52);
+  border-radius: 6px;
+  background: linear-gradient(135deg, rgb(var(--world-accent-rgb) / 0.28), rgb(var(--world-accent-rgb) / 0.1));
+  color: var(--text);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.mission-contribute:hover:not(:disabled) { box-shadow: 0 0 18px rgb(var(--world-accent-rgb) / 0.16); }
+.mission-contribute:disabled { opacity: 0.38; }
+
+.mission-hazard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 10px;
+  margin-top: 10px;
+  padding: 9px;
+  border: 1px solid rgba(255,120,130,0.24);
+  border-radius: 6px;
+  background: rgba(255,120,130,0.045);
+}
+
+.mission-hazard div { display: grid; gap: 2px; }
+.mission-hazard span { color: var(--danger); font-size: 8px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.mission-hazard strong { font-size: 10px; }
+.mission-hazard > b { color: var(--world-accent); font-family: var(--font-number); font-size: 9px; }
+.mission-hazard p { grid-column: 1 / -1; margin: 2px 0 0; color: var(--text-dim); font-size: 9px; line-height: 1.4; }
+
+.campaign-complete > small {
+  display: block;
+  margin-top: 10px;
+  color: var(--text-dim);
+  font-size: 9px;
+}
+
+@keyframes foundry-drift {
+  to { transform: translate3d(-60px, 15px, 0); }
+}
+
 @keyframes orbit-spin {
   to { transform: rotate(360deg); }
 }
@@ -2101,6 +2689,51 @@ input[type="checkbox"]:disabled {
 
   .panel-heading {
     min-height: 58px;
+  }
+
+  .foundry-vista-heading {
+    min-height: 58px;
+    padding: 9px 10px;
+  }
+
+  .foundry-vista-heading h3 {
+    font-size: 16px;
+  }
+
+  .foundry-scene {
+    min-height: 238px;
+  }
+
+  .foundry-planet {
+    bottom: -75px;
+    width: 225px;
+    height: 225px;
+  }
+
+  .foundry-beacon {
+    bottom: 60px;
+  }
+
+  .foundry-vista-caption {
+    grid-template-columns: 1fr;
+    padding-inline: 10px;
+  }
+
+  .foundry-vista-caption small {
+    grid-column: auto;
+  }
+
+  .route-world {
+    justify-content: center;
+    padding: 7px 2px;
+  }
+
+  .route-copy {
+    display: none;
+  }
+
+  .mission-stages li {
+    min-height: 52px;
   }
 
   .core-stage {
@@ -2314,6 +2947,15 @@ input[type="checkbox"]:disabled {
   .core-diagnostics > div:last-child {
     display: none;
   }
+
+  .foundry-world-status {
+    max-width: 94px;
+    text-align: center;
+  }
+
+  .foundry-scene {
+    min-height: 215px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2337,7 +2979,8 @@ input[type="checkbox"]:disabled {
   }
 
   .ambient-grid,
-  .core-stage {
+  .core-stage,
+  .foundry-scene {
     display: none;
   }
 }
