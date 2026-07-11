@@ -3,6 +3,7 @@ name: Deploy GitHub Pages fallback
 on:
   push:
     branches:
+      - main
       - codex/axiom-foundry-game
   workflow_dispatch:
 
