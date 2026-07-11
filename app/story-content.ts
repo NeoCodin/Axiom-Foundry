@@ -17,27 +17,11 @@ export const TOUR_STEPS = [
   },
   {
     id: "orientation.habitation",
-    target: "fabrication",
-    eyebrow: "AXIOM // habitation protocol 02",
-    title: "Make the Ark safe for one person",
-    body: "Restore atmosphere, water, nutrition, medical care, and berths before broadcasting for survivors. Capacity is stable and forgiving: nobody is harmed because you close the game.",
-    note: "The Ark has thousands of sealed rooms. Its manifest says it has never carried a passenger.",
-  },
-  {
-    id: "orientation.research",
-    target: "research",
-    eyebrow: "AXIOM // analysis lattice 03",
-    title: "Route evidence, not just numbers",
-    body: "Research consumes data, models, samples, records, and Null traces. Auto-route always works; a carefully configured lattice produces better throughput and stranger truths.",
-    note: "One research branch was completed before your activation. It is still asking to be discovered.",
-  },
-  {
-    id: "orientation.pelagos",
-    target: "missions",
-    eyebrow: "AXIOM // continuity directive 04",
-    title: "Reach Pelagos, then answer it",
-    body: "Enter orbit, activate the SOS beacon, rescue whoever answers, and train a population capable of rebuilding the planet. You leave only when its new settlement can survive without the Ark.",
-    note: "A survivor signal never expires. Humanity has waited long enough; it can wait until you are ready.",
+    target: "flux",
+    eyebrow: "AXIOM // awakening protocol 02",
+    title: "The Ark will teach you one system at a time",
+    body: "Keep the Axiom Chamber stable and follow the highlighted objective. The Foundry will wake after twelve tunes; research, life support, survivors, and continuity planning will appear only when the Ark is ready for them.",
+    note: "Nothing expires, and no hidden timer is running. Every newly lit room is progress you earned.",
   },
 ] as const;
 

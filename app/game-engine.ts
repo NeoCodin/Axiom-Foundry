@@ -47,12 +47,13 @@ import {
   type ExpertiseId,
 } from "./campaign-content.ts";
 
-export const SAVE_VERSION = 6;
-export const SAVE_KEY = "axiom-foundry-save-v4";
+export const SAVE_VERSION = 7;
+export const SAVE_KEY = "axiom-foundry-save-v5";
 export const RETIRED_SAVE_KEYS = [
   "axiom-foundry-save-v1",
   "axiom-foundry-save-v2",
   "axiom-foundry-save-v3",
+  "axiom-foundry-save-v4",
 ] as const;
 export const MAX_VALUE = 1e280;
 

@@ -2,6 +2,10 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import Game from "../app/page";
 import "../app/globals.css";
+import "../app/ark-deck.css";
+import "../app/continuity-console.css";
+import "../app/research-lattice.css";
+import "../app/awakening.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

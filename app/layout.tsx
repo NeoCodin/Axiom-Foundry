@@ -3,6 +3,8 @@ import { headers } from "next/headers";
 import "./globals.css";
 import "./ark-deck.css";
 import "./continuity-console.css";
+import "./research-lattice.css";
+import "./awakening.css";
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();

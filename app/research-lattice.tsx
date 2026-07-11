@@ -193,16 +193,40 @@ export function ResearchLattice({
   };
 
   const projectStartedAt = state.lastAdvancedAt ?? now;
+  const completedResearch = state.completedProjectIds.length;
+  const connectedRoutes = resolvedRoutes.filter(
+    (route) => route.sourceId && route.processorId && route.enabled,
+  ).length;
+  const coreOnline = Boolean(activeDefinition && !network.stalledReason);
+  const activity = Math.min(
+    1,
+    Math.max(
+      completedResearch / RESEARCH_PROJECT_DEFINITIONS.length,
+      Math.min(1, network.progressPerSecond / 2.8),
+    ),
+  );
+  const machineStyle = {
+    "--research-activity": activity.toFixed(3),
+    "--research-core-speed": `${Math.max(2.6, 16 - activity * 11.5 - connectedRoutes * 0.45)}s`,
+    "--research-packet-speed": `${Math.max(0.58, 2.8 - activity * 1.55 - connectedRoutes * 0.12)}s`,
+    "--research-completion": `${completedResearch / RESEARCH_PROJECT_DEFINITIONS.length}`,
+  } as CSSProperties;
 
   return (
-    <section className="research-lattice-shell" aria-label="Research Lattice">
+    <section
+      className={`research-lattice-shell ${coreOnline ? "is-core-online" : "is-core-idle"} ${
+        network.stalledReason ? "is-core-stalled" : ""
+      }`}
+      style={machineStyle}
+      aria-label="Research Lattice"
+    >
       <header className="research-lattice-header">
         <div>
-          <p className="research-lattice-kicker">ARK SYSTEM // ANALYSIS CORE</p>
+          <p className="research-lattice-kicker">ANALYSIS DECK // SYNTHESIS ENGINE</p>
           <h1>Research Lattice</h1>
           <p>
-            Route physical evidence through the Ark. AXIOM can keep a safe default
-            running; careful layouts improve throughput.
+            Feed evidence into a living machine. Every connected line wakes another
+            processor; AXIOM keeps a safe route running until you choose to rewire it.
           </p>
         </div>
         <div className="research-lattice-header-actions">
@@ -217,10 +241,33 @@ export function ResearchLattice({
         </div>
       </header>
 
+      <div
+        className="research-lattice-awakening"
+        aria-label={`${completedResearch} of 12 discoveries resolved`}
+      >
+        <span>CORE EVOLUTION</span>
+        <div aria-hidden="true">
+          {RESEARCH_PROJECT_DEFINITIONS.map((project, index) => (
+            <i
+              className={
+                state.completedProjectIds.includes(project.id)
+                  ? "is-lit"
+                  : state.activeProjectId === project.id
+                    ? "is-current"
+                    : ""
+              }
+              key={project.id}
+              style={{ "--evolution-index": index } as CSSProperties}
+            />
+          ))}
+        </div>
+        <strong>{completedResearch.toString().padStart(2, "0")} / 12</strong>
+      </div>
+
       <div className="research-lattice-telemetry" aria-label="Lattice limits">
         <div>
-          <span>Routing</span>
-          <strong>{state.autoRoute ? "AUTO / SAFE" : "MANUAL"}</strong>
+          <span>Patch mode</span>
+          <strong>{state.autoRoute ? "AXIOM ASSIST" : "HAND PATCHED"}</strong>
         </div>
         <div>
           <span>Core power</span>
@@ -239,9 +286,9 @@ export function ResearchLattice({
           <strong>{(network.progressPerSecond * 60).toFixed(1)} work/min</strong>
         </div>
         <div>
-          <span>Core state</span>
+          <span>Analysis core</span>
           <strong className={network.stalledReason ? "is-warning" : "is-online"}>
-            {network.stalledReason ?? "ANALYZING"}
+            {network.stalledReason ?? (activeDefinition ? "RESONATING" : "DORMANT")}
           </strong>
         </div>
       </div>
@@ -251,10 +298,13 @@ export function ResearchLattice({
           <div className="research-lattice-section-heading">
             <div>
               <span>01</span>
-              <h2>Input stores</h2>
+              <h2>Evidence reservoirs</h2>
             </div>
-            <small>Science is manufactured</small>
+            <small>Transfer only what the machine needs</small>
           </div>
+          <p className="research-lattice-input-guidance">
+            Glowing reservoirs feed the selected program. Dim stores are safe to leave untouched.
+          </p>
           <div className="research-lattice-input-list">
             {RESEARCH_INPUT_DEFINITIONS.map((input) => {
               const required = Boolean(
@@ -267,6 +317,13 @@ export function ResearchLattice({
                   key={input.id}
                   style={getInputStyle(input.id)}
                 >
+                  <span className="research-lattice-input-vessel" aria-hidden="true">
+                    <i
+                      style={{
+                        height: `${Math.min(100, Math.max(8, state.inventory[input.id]))}%`,
+                      }}
+                    />
+                  </span>
                   <span className="research-lattice-input-code">{input.shortName}</span>
                   <div>
                     <h3>{input.name}</h3>
@@ -298,7 +355,7 @@ export function ResearchLattice({
           <div className="research-lattice-section-heading">
             <div>
               <span>02</span>
-              <h2>Signal routing</h2>
+              <h2>Analysis machine</h2>
             </div>
             <div className="research-lattice-mode-switch" role="group" aria-label="Routing mode">
               <button
@@ -306,14 +363,14 @@ export function ResearchLattice({
                 className={state.autoRoute ? "is-active" : ""}
                 onClick={() => onStateChange(setResearchAutoRoute(state, true))}
               >
-                Auto-route
+                AXIOM assist
               </button>
               <button
                 type="button"
                 className={!state.autoRoute ? "is-active" : ""}
                 onClick={() => onStateChange(setResearchAutoRoute(state, false))}
               >
-                Manual
+                Hand patch
               </button>
             </div>
           </div>
@@ -323,6 +380,12 @@ export function ResearchLattice({
               activeDefinition?.branch === "null-studies" ? "is-null-project" : ""
             }`}
           >
+            <div className="research-lattice-machine-rails" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+              <i />
+            </div>
             <div className="research-lattice-route-stack">
               {resolvedRoutes.map((resolvedRoute) => {
                 const input = resolvedRoute.sourceId
@@ -335,9 +398,16 @@ export function ResearchLattice({
                   resolvedRoute.sourceId &&
                     network.missingInputs.includes(resolvedRoute.sourceId),
                 );
-                const routeStyle = resolvedRoute.sourceId
-                  ? getInputStyle(resolvedRoute.sourceId)
-                  : undefined;
+                const routeStyle = {
+                  ...(resolvedRoute.sourceId
+                    ? getInputStyle(resolvedRoute.sourceId)
+                    : {}),
+                  "--route-delay": `${resolvedRoute.slot * -0.31}s`,
+                  "--processor-rate": `${Math.max(
+                    0.7,
+                    3.6 - (processor?.throughputMultiplier ?? 0.75) * 1.3 - activity,
+                  )}s`,
+                } as CSSProperties;
                 return (
                   <div
                     className={`research-lattice-route ${
@@ -359,6 +429,11 @@ export function ResearchLattice({
                       <i />
                     </span>
                     <div className="research-lattice-processor-node">
+                      <span className="research-lattice-processor-rotor" aria-hidden="true">
+                        <i />
+                        <i />
+                        <i />
+                      </span>
                       <span>{processor?.code ?? "---"}</span>
                       <b>{processor?.name ?? "No processor"}</b>
                       {processor ? (
@@ -397,32 +472,48 @@ export function ResearchLattice({
             </div>
 
             <article className="research-lattice-analysis-core">
+              <div className="research-lattice-core-field" aria-hidden="true">
+                <i />
+                <i />
+                <i />
+                <i />
+                <i />
+                <i />
+              </div>
               <div className="research-lattice-core-orbit" aria-hidden="true">
                 <i />
                 <i />
                 <i />
               </div>
-              <span>DESTINATION</span>
-              <h3>Analysis Core</h3>
-              <strong>{activeDefinition?.name ?? "Awaiting project"}</strong>
-              <div className="research-lattice-core-progress" aria-hidden="true">
-                <i style={{ width: `${activeProgress * 100}%` }} />
+              <div className="research-lattice-core-reactor" aria-hidden="true">
+                <i />
+                <i />
+                <i />
+                <b />
               </div>
-              <p>
-                {activeDefinition
-                  ? `${(activeProgress * 100).toFixed(1)}% resolved · ETA ${formatDuration(eta)}`
-                  : "Select a research branch below."}
-              </p>
+              <div className="research-lattice-core-readout">
+                <span>{coreOnline ? "LIVE SYNTHESIS" : "CORE DORMANT"}</span>
+                <h3>Analysis Core</h3>
+                <strong>{activeDefinition?.name ?? "Choose a program below"}</strong>
+                <div className="research-lattice-core-progress" aria-hidden="true">
+                  <i style={{ width: `${activeProgress * 100}%` }} />
+                </div>
+                <p>
+                  {activeDefinition
+                    ? `${(activeProgress * 100).toFixed(1)}% resolved · ETA ${formatDuration(eta)}`
+                    : "Evidence will stream here when research begins."}
+                </p>
+              </div>
             </article>
           </div>
 
           {!state.autoRoute ? (
-            <div className="research-lattice-route-editor">
-              <header>
-                <h3>Manual patch panel</h3>
-                <p>Every required input needs a compatible, unique processor.</p>
-              </header>
-              <div>
+            <details className="research-lattice-route-editor">
+              <summary>
+                <span>Open manual patch panel</span>
+                <small>Advanced: pair every required source with one compatible processor</small>
+              </summary>
+              <div className="research-lattice-route-editor-grid">
                 {state.routes.map((route) => {
                   const occupiedProcessors = new Set(
                     state.routes
@@ -477,11 +568,11 @@ export function ResearchLattice({
                   );
                 })}
               </div>
-            </div>
+            </details>
           ) : (
             <p className="research-lattice-auto-note">
-              AXIOM is selecting a safe route for the active project. Manual routing
-              rewards careful power and throughput choices, but is never required.
+              <b>AXIOM assist is active.</b> Required evidence is being paired with safe
+              processors automatically. Hand patching can run faster, but is never required.
             </p>
           )}
 
@@ -534,7 +625,12 @@ export function ResearchLattice({
                 className={branch === candidate.id ? "is-active" : ""}
                 onClick={() => setBranch(candidate.id)}
               >
-                <span>{candidate.code}</span>
+                <span
+                  className="research-lattice-branch-dial"
+                  style={{ "--branch-progress": `${complete / 4}` } as CSSProperties}
+                >
+                  {candidate.code}
+                </span>
                 <b>{candidate.name}</b>
                 <small>{complete} / 4 resolved</small>
               </button>
@@ -564,6 +660,11 @@ export function ResearchLattice({
               >
                 <span className="research-lattice-project-index">
                   {String(index + 1).padStart(2, "0")}
+                </span>
+                <span className="research-lattice-project-emblem" aria-hidden="true">
+                  <i />
+                  <i />
+                  <b />
                 </span>
                 <div className="research-lattice-project-heading">
                   <div>

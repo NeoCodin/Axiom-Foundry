@@ -137,6 +137,11 @@ function FoundryVistaView({ game }: FoundryVistaProps) {
   const onlineNames = GENERATORS.filter(
     (_, index) => facilityStages[index] > 0,
   ).map((generator) => generator.name);
+  const sceneEnergy = Math.min(
+    6,
+    onlineSystems + Math.min(2, game.missions.stageIndex),
+  );
+  const vistaCycle = Math.max(3.2, 15 - sceneEnergy * 1.7);
   const style = {
     "--world-accent": visual.accent,
     "--world-accent-rgb": visual.accentRgb,
@@ -145,6 +150,9 @@ function FoundryVistaView({ game }: FoundryVistaProps) {
     "--world-sky": visual.sky,
     "--world-ground": visual.ground,
     "--world-planet": visual.planet,
+    "--vista-cycle": `${vistaCycle}s`,
+    "--vista-drift-cycle": `${vistaCycle * 0.7}s`,
+    "--vista-weather-cycle": `${vistaCycle * 2.6}s`,
   } as CSSProperties;
 
   return (
@@ -154,6 +162,7 @@ function FoundryVistaView({ game }: FoundryVistaProps) {
       data-world-index={visualWorldIndex}
       data-world-status={status}
       data-stage={game.missions.stageIndex}
+      data-energy={sceneEnergy}
       style={style}
     >
       <header className="foundry-vista-heading">
@@ -172,6 +181,30 @@ function FoundryVistaView({ game }: FoundryVistaProps) {
       <div className="foundry-scene" aria-hidden="true">
         <div className="foundry-starfield foundry-starfield-far" />
         <div className="foundry-starfield foundry-starfield-near" />
+        <div className="foundry-nebula" />
+
+        <div className="foundry-approach-readout">
+          <span>ARK OPTICAL FEED</span>
+          <strong>{onlineSystems === 0 ? "COLD DRIFT" : `${onlineSystems} SYSTEMS BURNING`}</strong>
+          <i />
+        </div>
+
+        <div className="foundry-ark">
+          <span className="foundry-ark-engine" />
+          <span className="foundry-ark-hull" />
+          <span className="foundry-ark-spine" />
+          <span className="foundry-ark-window" />
+          <span className="foundry-ark-core">
+            <i key={game.manualPulses} className="foundry-core-pulse" />
+          </span>
+          <span className="foundry-ark-trail trail-one" />
+          <span className="foundry-ark-trail trail-two" />
+          <span className="foundry-ark-trail trail-three" />
+        </div>
+
+        <div className="foundry-flux-lanes">
+          <span /><span /><span /><span />
+        </div>
 
         <div className="foundry-orbit foundry-orbit-outer">
           <span />
@@ -183,6 +216,7 @@ function FoundryVistaView({ game }: FoundryVistaProps) {
 
         <div className="foundry-planet">
           <span className="foundry-planet-atmosphere" />
+          <span className="foundry-planet-clouds" />
           <span className="foundry-planet-surface" />
           <span className="foundry-planet-shadow" />
           <span className="foundry-planet-shield" />
@@ -291,7 +325,8 @@ function foundryVistaPropsAreEqual(
     previousMissions.currentIndex !== nextMissions.currentIndex ||
     previousMissions.stageIndex !== nextMissions.stageIndex ||
     previousMissions.awaitingAcknowledgement !==
-      nextMissions.awaitingAcknowledgement
+      nextMissions.awaitingAcknowledgement ||
+    previous.game.manualPulses !== next.game.manualPulses
   ) {
     return false;
   }

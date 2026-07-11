@@ -327,20 +327,12 @@ export default function Home() {
     if (target === "welcome") {
       setPrimaryView("deck");
       setMobileTab("core");
-    } else if (target === "fabrication") {
-      setPrimaryView("engineering");
-      setMobileTab("machines");
-    }
-    else if (target === "research") {
-      setPrimaryView("research");
-    } else if (target === "missions") {
-      setPrimaryView("settlement");
-    } else if (target === "recalibration") {
-      setPrimaryView("engineering");
-      setMobileTab("recalibrate");
-    } else {
+    } else if (target === "flux") {
       setPrimaryView("engineering");
       setMobileTab("core");
+    } else {
+      setPrimaryView("engineering");
+      setMobileTab("machines");
     }
   }, [tourStep]);
 
@@ -697,6 +689,8 @@ export default function Home() {
     const next = createInitialState(Date.now());
     gameRef.current = next;
     setGame(next);
+    setPrimaryView("deck");
+    setMobileTab("core");
     setConfirmReset(false);
     setAnnouncement("The Foundry has been reset to Cycle 1.");
     setSaveStatus("Fresh local save started");
@@ -712,6 +706,10 @@ export default function Home() {
   };
 
   const handleOpenArkView = (view: ArkViewId) => {
+    if (!unlockedArkViews.includes(view)) {
+      setAnnouncement("That deck is still dormant. Follow the active directive to wake it.");
+      return;
+    }
     setPrimaryView(view);
     if (view === "engineering") setMobileTab("core");
   };
@@ -1047,6 +1045,62 @@ export default function Home() {
   };
 
   const currentTour = tourStep === null ? null : TOUR_STEPS[tourStep];
+  const tourTarget = currentTour?.target ?? null;
+  const engineeringUnlocked =
+    game.manualPulses >= 12 ||
+    game.missions.stageIndex >= 1 ||
+    game.missions.currentIndex > 0 ||
+    game.missions.worldsSaved > 0 ||
+    game.tiers[0].bought > 0 ||
+    tourTarget === "flux";
+  const researchUnlocked =
+    game.tiers[0].bought > 0 ||
+    game.research.activeProjectId !== null ||
+    game.research.completedProjectIds.length > 0;
+  const populationUnlocked =
+    game.research.completedProjectIds.includes("closed-loop-atmosphere") ||
+    campaignWorld.id !== "cold-wake" ||
+    game.survivors.survivors.length > 0 ||
+    game.survivors.beaconOnline;
+  const settlementUnlocked =
+    game.missions.awaitingAcknowledgement ||
+    game.missions.worldsSaved > 0 ||
+    game.settlement.completedWorldIds.length > 0;
+  const fabricationUnlocked =
+    game.missions.stageIndex >= 1 ||
+    game.missions.currentIndex > 0 ||
+    game.tiers[0].bought > 0;
+  const systemsUnlocked =
+    game.missions.stageIndex >= 2 ||
+    game.missions.awaitingAcknowledgement ||
+    game.missions.worldsSaved > 0;
+  const protocolsUnlocked =
+    game.maxFlux >= RUN_UPGRADES[0].revealAt || game.lifetimeAxioms > 0;
+  const recalibrationUnlocked =
+    game.maxFlux >= RUN_UPGRADES[RUN_UPGRADES.length - 1].revealAt ||
+    game.lifetimeAxioms > 0 ||
+    recalibrationGain > 0;
+  const coreEnergyLevel = Math.min(
+    5,
+    Math.max(
+      0,
+      Math.floor(Math.log10(Math.max(1, production.fluxPerSecond + 1)) * 0.9),
+    ),
+  );
+  const coreMotionStyle = {
+    "--core-cycle": `${Math.max(2.4, 13 - coreEnergyLevel * 1.8)}s`,
+    "--core-inner-cycle": `${Math.max(1.6, (13 - coreEnergyLevel * 1.8) * 0.66)}s`,
+    "--core-packet-cycle": `${Math.max(0.7, (13 - coreEnergyLevel * 1.8) * 0.38)}s`,
+  } as CSSProperties;
+  const engineeringMobileTabs: Array<[MobileTab, string]> = [["core", "Core"]];
+  if (fabricationUnlocked) engineeringMobileTabs.push(["machines", "Fabricate"]);
+  if (systemsUnlocked) engineeringMobileTabs.push(["systems", "Mission"]);
+  if (recalibrationUnlocked) engineeringMobileTabs.push(["recalibrate", "Recalibrate"]);
+  const unlockedArkViews: ArkViewId[] = [];
+  if (engineeringUnlocked) unlockedArkViews.push("engineering");
+  if (researchUnlocked) unlockedArkViews.push("research");
+  if (populationUnlocked) unlockedArkViews.push("population");
+  if (settlementUnlocked) unlockedArkViews.push("settlement");
 
   return (
     <main
@@ -1125,53 +1179,61 @@ export default function Home() {
           aria-selected={primaryView === "deck"}
           onClick={() => setPrimaryView("deck")}
         >
-          <span aria-hidden="true">▦</span>
-          Ark Deck
+          <span aria-hidden="true">A</span>
+          Ark
         </button>
-        <button
-          className={primaryView === "population" ? "active" : ""}
-          type="button"
-          role="tab"
-          aria-selected={primaryView === "population"}
-          onClick={() => setPrimaryView("population")}
-        >
-          <span aria-hidden="true">◇</span>
-          Crew
-        </button>
-        <button
-          className={primaryView === "research" ? "active" : ""}
-          type="button"
-          role="tab"
-          aria-selected={primaryView === "research"}
-          onClick={() => setPrimaryView("research")}
-        >
-          <span aria-hidden="true">◎</span>
-          Research
-        </button>
-        <button
-          className={primaryView === "settlement" ? "active" : ""}
-          type="button"
-          role="tab"
-          aria-selected={primaryView === "settlement"}
-          onClick={() => setPrimaryView("settlement")}
-        >
-          <span aria-hidden="true">CIV</span>
-          Continuity
-        </button>
-        <button
-          className={primaryView === "engineering" ? "active" : ""}
-          type="button"
-          role="tab"
-          aria-selected={primaryView === "engineering"}
-          onClick={() => setPrimaryView("engineering")}
-        >
-          <span aria-hidden="true">ENG</span>
-          Engineering
-        </button>
-        <button type="button" onClick={() => setLoreOpen(true)}>
-          <span aria-hidden="true">≡</span>
-          Archive {discoveredFragments.length}/{DISCOVERY_FRAGMENTS.length}
-        </button>
+        {engineeringUnlocked && (
+          <button
+            className={primaryView === "engineering" ? "active" : ""}
+            type="button"
+            role="tab"
+            aria-selected={primaryView === "engineering"}
+            onClick={() => setPrimaryView("engineering")}
+          >
+            <span aria-hidden="true">01</span>
+            Foundry
+          </button>
+        )}
+        {researchUnlocked && (
+          <button
+            className={primaryView === "research" ? "active" : ""}
+            type="button"
+            role="tab"
+            aria-selected={primaryView === "research"}
+            onClick={() => setPrimaryView("research")}
+          >
+            <span aria-hidden="true">02</span>
+            Research
+          </button>
+        )}
+        {populationUnlocked && (
+          <button
+            className={primaryView === "population" ? "active" : ""}
+            type="button"
+            role="tab"
+            aria-selected={primaryView === "population"}
+            onClick={() => setPrimaryView("population")}
+          >
+            <span aria-hidden="true">03</span>
+            Crew
+          </button>
+        )}
+        {settlementUnlocked && (
+          <button
+            className={primaryView === "settlement" ? "active" : ""}
+            type="button"
+            role="tab"
+            aria-selected={primaryView === "settlement"}
+            onClick={() => setPrimaryView("settlement")}
+          >
+            <span aria-hidden="true">04</span>
+            Continuity
+          </button>
+        )}
+        <div className="nav-awakening-status" aria-live="polite">
+          <span>{[engineeringUnlocked, researchUnlocked, populationUnlocked, settlementUnlocked].filter(Boolean).length + 1}</span>
+          <small>Ark systems awake</small>
+        </div>
       </nav>
 
       {offlineNotice && (
@@ -1256,6 +1318,7 @@ export default function Home() {
           settlementDeficit={viabilityForecast?.deficits[0]?.message ?? null}
           onlineRoomCount={game.living.rooms.filter((room) => room.unlocked).length}
           totalRoomCount={game.living.rooms.length}
+          unlockedViews={unlockedArkViews}
           onTuneCore={handlePulse}
           onActivateBeacon={handleActivateBeacon}
           onRescueSignal={handleRescueSurvivors}
@@ -1317,6 +1380,10 @@ export default function Home() {
           onBack={() => setPrimaryView("deck")}
         />
       ) : (
+      <>
+      <section className="engineering-theater-stage" aria-label="Current planetary theater">
+        <FoundryVista game={game} />
+      </section>
       <div className="game-grid">
         <div className="left-column">
           <section className={`panel core-panel mobile-section ${mobileTab === "core" ? "is-mobile-active" : ""} ${currentTour?.target === "flux" ? "tour-focus" : ""}`}>
@@ -1328,12 +1395,20 @@ export default function Home() {
               <span className="status-chip online">{Math.round(worldEffects.repairProgress * 100)}% STABLE</span>
             </div>
 
-            <div className="core-stage">
+            <div
+              className={`core-stage core-energy-${coreEnergyLevel} ${pulseFeedback ? "is-pulsing" : ""}`}
+              data-energy={coreEnergyLevel}
+              style={coreMotionStyle}
+            >
+              <div className="core-flux-streams" aria-hidden="true">
+                <i /><i /><i /><i /><i /><i />
+              </div>
               <div className="core-orbit core-orbit-outer" aria-hidden="true">
                 <span className="orbit-node node-one" />
                 <span className="orbit-node node-two" />
               </div>
               <div className="core-orbit core-orbit-inner" aria-hidden="true" />
+              <div className="core-iris" aria-hidden="true"><i /></div>
               <div className="core-center">
                 <span>OUTPUT</span>
                 <strong>×{formatNumber(production.globalMultiplier * production.resonance.multiplier)}</strong>
@@ -1366,7 +1441,8 @@ export default function Home() {
             </div>
           </section>
 
-          <section className={`panel recalibration-panel mobile-section ${mobileTab === "recalibrate" ? "is-mobile-active" : ""} ${currentTour?.target === "recalibration" ? "tour-focus" : ""}`}>
+          {recalibrationUnlocked && (
+          <section className={`panel recalibration-panel mobile-section ${mobileTab === "recalibrate" ? "is-mobile-active" : ""}`}>
             <div className="panel-heading">
               <div>
                 <p className="section-kicker violet">Permanent layer</p>
@@ -1399,8 +1475,10 @@ export default function Home() {
               </div>
             )}
           </section>
+          )}
         </div>
 
+        {fabricationUnlocked && (
         <section className={`panel machine-panel mobile-section ${mobileTab === "machines" ? "is-mobile-active" : ""} ${currentTour?.target === "fabrication" ? "tour-focus" : ""}`}>
           <div className="panel-heading machine-heading">
             <div>
@@ -1421,8 +1499,6 @@ export default function Home() {
               ))}
             </div>
           </div>
-
-          <FoundryVista game={game} />
 
           <div className="machine-list">
             {GENERATORS.slice(0, visibleGeneratorCount).map((generator, index) => {
@@ -1498,9 +1574,12 @@ export default function Home() {
             })}
           </div>
         </section>
+        )}
 
+        {(systemsUnlocked || protocolsUnlocked || game.lifetimeAxioms > 0) && (
         <aside className={`systems-column mobile-section ${mobileTab === "systems" ? "is-mobile-active" : ""}`}>
-          <section id="planetary-directives" className={`panel mission-panel ${currentTour?.target === "missions" ? "tour-focus" : ""}`}>
+          {systemsUnlocked && (
+          <section id="planetary-directives" className="panel mission-panel">
             <div className="panel-heading mission-heading">
               <div>
                 <p className="section-kicker danger-text">Planetfall campaign</p>
@@ -1621,8 +1700,10 @@ export default function Home() {
               <span><b>{Math.round(production.hazardShield * 100)}%</b> relay shielding</span>
             </div>
           </section>
+          )}
 
-          <section className={`panel upgrades-panel ${currentTour?.target === "research" ? "tour-focus" : ""}`}>
+          {protocolsUnlocked && (
+          <section className="panel upgrades-panel">
             <div className="panel-heading">
               <div>
                 <p className="section-kicker brass">Temporary engineering optimizations</p>
@@ -1659,7 +1740,9 @@ export default function Home() {
               })}
             </div>
           </section>
+          )}
 
+          {game.lifetimeAxioms > 0 && (
           <section className="panel automation-panel">
             <div className="panel-heading">
               <div>
@@ -1694,7 +1777,9 @@ export default function Home() {
               </>
             )}
           </section>
+          )}
 
+          {game.lifetimeAxioms > 0 && (
           <section className="panel legacy-panel">
             <div className="panel-heading">
               <div>
@@ -1721,7 +1806,9 @@ export default function Home() {
               </div>
             )}
           </section>
+          )}
 
+          {systemsUnlocked && (
           <details className="panel statistics-panel">
             <summary>Foundry statistics</summary>
             <dl>
@@ -1748,8 +1835,11 @@ export default function Home() {
               </div>
             )}
           </details>
+          )}
         </aside>
+        )}
       </div>
+      </>
       )}
 
       {currentTour && (
@@ -1869,12 +1959,7 @@ export default function Home() {
 
       {primaryView === "engineering" && (
       <nav className="mobile-nav" aria-label="Game sections">
-        {([
-          ["machines", "Machines"],
-          ["core", "Core"],
-          ["systems", "Systems"],
-          ["recalibrate", "Recalibrate"],
-        ] as Array<[MobileTab, string]>).map(([value, label]) => (
+        {engineeringMobileTabs.map(([value, label]) => (
           <button key={value} type="button" className={mobileTab === value ? "active" : ""} aria-pressed={mobileTab === value} onClick={() => setMobileTab(value)}>
             <span aria-hidden="true">{value === "machines" ? "II" : value === "core" ? "◇" : value === "systems" ? "≡" : "A"}</span>
             {label}

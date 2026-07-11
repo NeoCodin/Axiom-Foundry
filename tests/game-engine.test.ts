@@ -25,11 +25,12 @@ import {
 } from "../app/game-engine.ts";
 
 test("the campaign reset retires every previous public save key", () => {
-  assert.equal(SAVE_KEY, "axiom-foundry-save-v4");
+  assert.equal(SAVE_KEY, "axiom-foundry-save-v5");
   assert.deepEqual(RETIRED_SAVE_KEYS, [
     "axiom-foundry-save-v1",
     "axiom-foundry-save-v2",
     "axiom-foundry-save-v3",
+    "axiom-foundry-save-v4",
   ]);
   assert.equal(
     (RETIRED_SAVE_KEYS as readonly string[]).includes(SAVE_KEY),
@@ -279,7 +280,7 @@ test("v2 saves enter the expanded campaign without replaying old Flux progress",
       statuses: MISSIONS.map(() => "saved"),
     },
   }, 100);
-  assert.equal(migrated.version, 6);
+  assert.equal(migrated.version, 7);
   assert.equal(migrated.missions.currentIndex, 0);
   assert.equal(migrated.missions.stageIndex, 0);
   assert.equal(migrated.missions.worldsSaved, 0);
@@ -304,7 +305,7 @@ test("v3 timed saves recover lost worlds under the untimed campaign", () => {
     },
   }, 100);
 
-  assert.equal(migrated.version, 6);
+  assert.equal(migrated.version, 7);
   assert.equal(migrated.missions.schema, 3);
   assert.deepEqual(migrated.missions.statuses.slice(0, 4), [
     "saved",
