@@ -63,5 +63,6 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(story, /Axioms are not fuel for space travel/);
   assert.match(story, /Why the Foundry rebuilds/);
   await access(new URL("../public/og.png", import.meta.url));
+  await assert.rejects(access(new URL("../dist/server/og.png", import.meta.url)));
   await assert.rejects(access(new URL("app/_sites-preview/SkeletonPreview.tsx", projectRoot)));
 });
