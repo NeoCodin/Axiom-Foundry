@@ -1039,9 +1039,13 @@ export function getCrisisFluxCost(state: GameState) {
 
 export type EquipmentFabricationQuote = {
   cost: number;
+  modelCost: number;
   owned: number;
   maxUnits: number;
   atLimit: boolean;
+  researchId: string | null;
+  researchName: string | null;
+  researchMet: boolean;
 };
 
 export function getEquipmentFabricationQuote(
@@ -1054,26 +1058,64 @@ export function getEquipmentFabricationQuote(
   const definition = world?.equipment.find(
     (candidate) => candidate.id === equipmentId,
   );
-  if (!definition) {
-    return { cost: Number.POSITIVE_INFINITY, owned: 0, maxUnits: 0, atLimit: true };
+  if (!definition || !world) {
+    return {
+      cost: Number.POSITIVE_INFINITY,
+      modelCost: Number.POSITIVE_INFINITY,
+      owned: 0,
+      maxUnits: 0,
+      atLimit: true,
+      researchId: null,
+      researchName: null,
+      researchMet: false,
+    };
   }
   const owned = state.worldProgress.equipment[equipmentId] ?? 0;
+  const researchDefinition = getResearchProjectDefinition(
+    definition.requiredResearchId as ResearchProjectId,
+  );
+  const researchMet = state.research.completedProjectIds.includes(
+    definition.requiredResearchId as ResearchProjectId,
+  );
   // Priced against live output so equipment stays a real decision at any
   // economy size: roughly 40 minutes of current production, never below the
-  // world's continuity floor.
+  // world's continuity floor. Fabrication also consumes Engineering Models
+  // from the Ark supply so the research-input economy feeds equipment.
   const production = getProductionSnapshot(state).fluxPerSecond;
   const cost = bounded(
     Math.max(4_000 * continuityScale(state), production * 2_400) *
       getColonyLegacyEffects(state).fabricationCostMultiplier,
   );
-  return { cost, owned, maxUnits: definition.maxUnits, atLimit: owned >= definition.maxUnits };
+  return {
+    cost,
+    modelCost: 60 * (world.chapter + 1),
+    owned,
+    maxUnits: definition.maxUnits,
+    atLimit: owned >= definition.maxUnits,
+    researchId: definition.requiredResearchId,
+    researchName:
+      researchDefinition?.name ??
+      definition.requiredResearchId.replaceAll("-", " "),
+    researchMet,
+  };
 }
 
 export function fabricateWorldEquipment(state: GameState, equipmentId: string) {
   const quote = getEquipmentFabricationQuote(state, equipmentId);
-  if (quote.atLimit || state.flux < quote.cost) return state;
+  if (
+    quote.atLimit ||
+    !quote.researchMet ||
+    state.flux < quote.cost ||
+    state.researchStock["engineering-models"] < quote.modelCost
+  ) {
+    return state;
+  }
   const next = cloneGameState(state);
   next.flux -= quote.cost;
+  next.researchStock["engineering-models"] = Math.max(
+    0,
+    next.researchStock["engineering-models"] - quote.modelCost,
+  );
   next.worldProgress.equipment = {
     ...next.worldProgress.equipment,
     [equipmentId]: quote.owned + 1,

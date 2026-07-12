@@ -309,6 +309,19 @@ export function ResearchLattice({
         </div>
       </div>
 
+      {network.stalledReason === "Awaiting research inputs" && activeDefinition && (
+        <p className="research-lattice-input-guidance" role="status">
+          {RESEARCH_INPUT_DEFINITIONS.filter(
+            (input) =>
+              (activeDefinition.costs[input.id] ?? 0) > 0 &&
+              state.inventory[input.id] <= 0 &&
+              (resources[input.id] ?? 0) <= 0,
+          )
+            .map((input) => `${input.name} exhausted — source: ${INPUT_SOURCE_COPY[input.id]}.`)
+            .join(" ") || "Transfer the required evidence from the Ark supply reservoirs."}
+        </p>
+      )}
+
       <div className="research-lattice-workspace">
         <aside className="research-lattice-input-bank">
           <div className="research-lattice-section-heading">

@@ -588,10 +588,16 @@ export default function Home() {
       return [
         definition.id,
         {
-          canAfford: !quote.atLimit && game.flux >= quote.cost,
+          canAfford:
+            !quote.atLimit &&
+            quote.researchMet &&
+            game.flux >= quote.cost &&
+            game.researchStock["engineering-models"] >= quote.modelCost,
           costLabel: quote.atLimit
             ? "Fully deployed"
-            : `${formatNumber(quote.cost)} Flux`,
+            : !quote.researchMet
+              ? `Requires ${quote.researchName ?? "research"}`
+              : `${formatNumber(quote.cost)} Flux + ${formatNumber(quote.modelCost)} Engineering Models`,
         },
       ];
     }),

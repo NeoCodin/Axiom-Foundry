@@ -684,22 +684,45 @@ test("continuity equipment is fabricated with Flux and feeds substitutions", () 
   assert.equal(unknownQuote.atLimit, true);
   assert.equal(fabricateWorldEquipment(state, "not-real-equipment"), state);
 
+  const lockedQuote = getEquipmentFabricationQuote(state, "mobile-field-clinic");
+  assert.equal(lockedQuote.researchMet, false);
+  assert.equal(lockedQuote.researchName, "Clinical Commons");
+  state.flux = lockedQuote.cost * 2;
+  state.researchStock["engineering-models"] = lockedQuote.modelCost * 2;
+  assert.equal(
+    fabricateWorldEquipment(state, "mobile-field-clinic"),
+    state,
+    "equipment stays locked until its research is proven",
+  );
+
+  state.research.completedProjectIds = ["clinical-commons"];
   const quote = getEquipmentFabricationQuote(state, "mobile-field-clinic");
   assert.ok(Number.isFinite(quote.cost));
   assert.ok(quote.cost > 0);
+  assert.ok(quote.modelCost > 0);
   assert.equal(quote.owned, 0);
   assert.equal(quote.maxUnits, 1);
   assert.equal(quote.atLimit, false);
+  assert.equal(quote.researchMet, true);
 
-  // Cannot afford yet.
+  // Cannot afford Flux.
   state.flux = quote.cost - 1;
   assert.equal(fabricateWorldEquipment(state, "mobile-field-clinic"), state);
 
+  // Cannot afford Engineering Models.
   state.flux = quote.cost + 10;
+  state.researchStock["engineering-models"] = quote.modelCost - 1;
+  assert.equal(fabricateWorldEquipment(state, "mobile-field-clinic"), state);
+
+  state.researchStock["engineering-models"] = quote.modelCost + 5;
   const bought = fabricateWorldEquipment(state, "mobile-field-clinic");
   assert.notEqual(bought, state);
   assert.equal(bought.worldProgress.equipment["mobile-field-clinic"], 1);
   assert.ok(bought.flux < state.flux);
+  assert.ok(
+    bought.researchStock["engineering-models"] <
+      state.researchStock["engineering-models"],
+  );
 
   // Owned units feed the viability forecast substitutions.
   const forecast = getCurrentViabilityForecast(bought);

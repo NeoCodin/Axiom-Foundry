@@ -69,6 +69,7 @@ export type EquipmentDefinition = {
   name: string;
   description: string;
   maxUnits: number;
+  requiredResearchId: string;
 };
 
 export type ContinuitySubstitution = {
@@ -269,6 +270,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
         description:
           "A self-contained treatment bay that can stand in for one medical post and supplement medical expertise.",
         maxUnits: 1,
+        requiredResearchId: "clinical-commons",
       },
     ],
     requiredResearchIds: ["continuity-index", "adaptive-instruction"],
@@ -405,6 +407,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
         description:
           "A sealed cultivation module that tends itself; each unit can cover an ecology post.",
         maxUnits: 2,
+        requiredResearchId: "predictive-fabrication",
       },
     ],
     requiredResearchIds: ["clinical-commons", "predictive-fabrication"],
@@ -538,6 +541,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
         description:
           "A crewless forge line certified for the mantle grid; each rig can cover a fabrication post.",
         maxUnits: 2,
+        requiredResearchId: "predictive-fabrication",
       },
     ],
     requiredResearchIds: ["predictive-fabrication", "settlement-charter"],
@@ -690,6 +694,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
         description:
           "A signed autonomous transceiver; each agent can cover a communications post.",
         maxUnits: 2,
+        requiredResearchId: "discarded-spectrum",
       },
     ],
     requiredResearchIds: ["settlement-charter", "discarded-spectrum"],
@@ -842,6 +847,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
         description:
           "A sealed observatory computer bank; each cluster can cover a research post.",
         maxUnits: 2,
+        requiredResearchId: "observer-recursion",
       },
     ],
     requiredResearchIds: ["ark-drive-coupling", "axiom-origin-proof"],
