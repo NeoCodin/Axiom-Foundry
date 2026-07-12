@@ -110,16 +110,17 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
     summary:
       "Rescue groups never expire. Build safe capacity with Salvage, answer the SOS signal when ready, then assign specialists or train adaptable civilians.",
     steps: [
-      { title: "Expand every life-support category", detail: "Habitation, atmosphere, water, nutrition, and medical capacity must all cover the incoming group." },
+      { title: "Build berths and expand life support", detail: "Crew berths come from Habitation Ring sections built with Flux (assigned engineers speed construction). Atmosphere, water, nutrition, and medical capacity expand with Salvage. Both must cover the incoming group." },
       { title: "Activate the SOS beacon", detail: "Once the Ark reaches a planetary orbit, the beacon finds a persistent group after 90 seconds." },
       { title: "Dispatch the rescue shuttle", detail: "Spend the listed Salvage to bring the entire group aboard. Each person also brings Biological Samples and Cultural Records." },
       { title: "Assign or train", detail: "Assigned specialists earn profession XP offline. Standard profiles learn at ×1.00, Notable ×1.25, Exceptional ×1.60, and Anomalous ×2.00." },
     ],
     sources: [
-      { label: "Profile rarity", detail: "Colors describe how scarce a recruit's aptitude, adaptability, trait, and archive combination is—not their human worth. Rarity accelerates training and job XP." },
+      { label: "Profile rarity", detail: "Colors describe how scarce a recruit's aptitude, adaptability, trait, and archive combination is—not their human worth. Rarity accelerates training and job XP and sets profession capacity (Standard 1, Notable 2, Exceptional 3, Anomalous unlimited)." },
       { label: "Profession levels", detail: "Levels come from XP and create Continuity expertise. Rarity never multiplies that expertise directly." },
+      { label: "Training slots", detail: "One program can run per slot. Slots grow with population (+1 per 20 people) and the Adaptive Instruction and Clinical Commons research projects, up to 12." },
       { label: "Civilians", detail: "Highly adaptable recruits who can be trained around the exact needs of a future settlement." },
-      { label: "Specialists", detail: "Arrive ready for a profession and improve through assigned work." },
+      { label: "Specialists", detail: "Arrive ready for a profession and improve through assigned work. Notable-or-better specialists can cross-train additional professions." },
     ],
     tip: "Roster order stays chronological. Color and visible labels identify rare profiles without hiding anyone or changing rescue priority.",
   },

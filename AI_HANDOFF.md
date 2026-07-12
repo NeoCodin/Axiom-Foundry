@@ -500,8 +500,14 @@ Recommended order, subject to owner approval:
 
 Smaller queued items:
 
-- Wire the Lantern Null-Bloom expedition (and possibly a repeatable Null sounding expedition) to award Null Traces; the `null-expeditions` unlock from Discarded Spectrum is currently a dead hook that no system consumes.
-- Mention in the Recalibration confirmation that unspent Flux is lost (players saving toward berth sections or equipment should see the trade-off).
+- The Living Foundry expedition/legacy-crew subsystem is fully dormant: `launchExpedition`/`claimExpedition` are never called from any UI, `foundry-deck.tsx` is not imported, and the nine named legacy crew are permanently locked (`unlocked: false` on every sync). Decide whether to resurrect it (expeditions awarding Null Traces would fit) or remove it. Until then, Archive cross-indexing awards Null Traces as the active source, and the Phase 2 Observe doctrine becomes the main one.
+- The `null-expeditions` unlock from Discarded Spectrum remains a dead hook until that decision.
+
+Completed from this list:
+
+- Recalibration copy now states that unspent Flux is lost.
+- Training-slot capacity is explained in the Crew UI and Field Manual, and a full slot roster disables the training dropdown with the reason instead of failing silently.
+- Archive cross-index discoveries award Null Traces (15 + 10 × world index).
 
 The next implementation should begin with a written mechanic specification and balance table. Do not jump directly into random combat events; the idle-resolution and failure-safety rules must be decided first.
 

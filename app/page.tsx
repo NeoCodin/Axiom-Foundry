@@ -1099,16 +1099,27 @@ export default function Home() {
   };
 
   const handleArchiveInvestigation = () => {
-    const fragment = getNextArchiveDiscovery(
-      gameRef.current.living.discoveredLore,
-    );
+    const current = gameRef.current;
+    const fragment = getNextArchiveDiscovery(current.living.discoveredLore);
     if (!fragment) return;
-    commitLivingChange(
-      (living) =>
-        grantLivingFoundryRewards(living, {
-          loreIds: addDiscovery(living.discoveredLore, fragment.id),
+    // Cross-indexing contradictions exposes measurable absences: the one
+    // active Null Trace source outside crisis resolution.
+    const traceReward = 15 + 10 * getCampaignWorldIndex(current);
+    commitGameState(
+      {
+        ...current,
+        living: grantLivingFoundryRewards(current.living, {
+          loreIds: addDiscovery(current.living.discoveredLore, fragment.id),
         }),
-      `Archive cross-index complete: ${fragment.title}.`,
+        researchStock: {
+          ...current.researchStock,
+          "null-traces": Math.min(
+            1e12,
+            current.researchStock["null-traces"] + traceReward,
+          ),
+        },
+      },
+      `Archive cross-index complete: ${fragment.title}. The comparison exposed ${traceReward} Null Traces.`,
     );
   };
 
@@ -1819,7 +1830,7 @@ export default function Home() {
               <span className="axiom-symbol" aria-hidden="true">A</span>
             </div>
             <p className="panel-copy">
-              Collapse the fabrication chain into a portable law of physics. Machines and run protocols reset; proven Axioms and Legacy upgrades survive.
+              Collapse the fabrication chain into a portable law of physics. Machines, run protocols, and <strong>all unspent Flux</strong> reset; proven Axioms and Legacy upgrades survive. Spend Flux on berths, equipment, and supplies before you begin.
             </p>
             <div className="prestige-preview">
               <span>Projected yield</span>
