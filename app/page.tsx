@@ -34,7 +34,11 @@ import {
   getColonyLegacyEffects,
   buyDefenseInstallation,
   chooseDefenseDoctrine,
+  craftArmoryItem,
+  repairArmoryItem,
   getArkRescueQuote,
+  getArmoryCraftQuote,
+  getArmoryRepairQuote,
   getAutoTransferStatus,
   getExpeditionLaunchQuote,
   startExpedition,
@@ -86,6 +90,7 @@ import {
 } from "./game-manual";
 import PopulationConsole from "./population-console";
 import DefenseConsole from "./defense-console";
+import ArmoryConsole, { type ArmoryItemQuoteView } from "./armory-console";
 import ResearchLattice from "./research-lattice";
 import SettlementConsole from "./settlement-console";
 import {
@@ -108,6 +113,7 @@ import {
   assignSurvivorToRole,
   getBerthCapacity,
   getScanDurationSeconds,
+  getSurvivorBestSkillLevel,
   setAutoRescueEnabled,
   getLifeSupportStatus,
   getSurvivorRarity,
@@ -121,6 +127,10 @@ import {
   type ProfessionalRole,
   type SurvivorRole,
 } from "./survivor-engine";
+import {
+  ARMORY_ITEM_DEFINITIONS,
+  type ArmoryItemId,
+} from "./armory-engine";
 import {
   addResearchInputs,
   getResearchBonuses,
@@ -713,6 +723,42 @@ export default function Home() {
     }),
   ) as Record<DefenseInstallationId, { cost: number; level: number; maxed: boolean; canAfford: boolean; costLabel: string }>;
 
+  const armoryUnlocked =
+    campaignWorldIndex >= 3 ||
+    ARMORY_ITEM_DEFINITIONS.some(
+      (item) =>
+        game.armory.stock[item.id].some((count) => count > 0) ||
+        game.research.completedProjectIds.includes(
+          item.requiredResearchId as (typeof game.research.completedProjectIds)[number],
+        ),
+    );
+  const armoryQuotes = Object.fromEntries(
+    ARMORY_ITEM_DEFINITIONS.map((item) => {
+      const craft = getArmoryCraftQuote(game, item.id);
+      const repair = getArmoryRepairQuote(game, item.id);
+      return [
+        item.id,
+        {
+          ready: craft.ready,
+          damaged: craft.damaged,
+          researchMet: craft.researchMet,
+          canCraft: craft.canCraft,
+          reason: craft.reason,
+          craftCostLabel: `${formatNumber(craft.fluxCost)} Flux`,
+          repairCostLabel: `${formatNumber(repair.fluxCost)} Flux`,
+          canRepair: repair.canRepair,
+          researchName:
+            getResearchProjectDefinition(
+              item.requiredResearchId as Parameters<typeof getResearchProjectDefinition>[0],
+            )?.name ?? item.requiredResearchId,
+          wielders: game.survivors.survivors.filter(
+            (survivor) => getSurvivorBestSkillLevel(survivor) >= item.wieldLevel,
+          ).length,
+        },
+      ];
+    }),
+  ) as Record<ArmoryItemId, ArmoryItemQuoteView>;
+
   useEffect(() => {
     if (!ready) return;
     const signature = `${game.missions.currentIndex}:${game.missions.awaitingAcknowledgement}:${game.missions.worldsSaved}`;
@@ -874,6 +920,22 @@ export default function Home() {
     const next = buyDefenseInstallation(current, id);
     if (next === current) return;
     commitGameState(next, `${DEFENSE_INSTALLATION_DEFINITIONS[id].name} upgraded to level ${next.defense.installations[id]}.`);
+  };
+
+  const handleCraftArmoryItem = (itemId: ArmoryItemId) => {
+    const current = gameRef.current;
+    const next = craftArmoryItem(current, itemId);
+    if (next === current) return;
+    const item = ARMORY_ITEM_DEFINITIONS.find((entry) => entry.id === itemId)!;
+    commitGameState(next, `${item.name} forged and stocked in the armory.`);
+  };
+
+  const handleRepairArmoryItem = (itemId: ArmoryItemId) => {
+    const current = gameRef.current;
+    const next = repairArmoryItem(current, itemId);
+    if (next === current) return;
+    const item = ARMORY_ITEM_DEFINITIONS.find((entry) => entry.id === itemId)!;
+    commitGameState(next, `${item.name} repaired to full durability.`);
   };
 
   const handleChooseDefenseDoctrine = (doctrine: DefenseDoctrine) => {
@@ -1297,6 +1359,7 @@ export default function Home() {
   if (researchUnlocked) availableManualPages.push("research");
   if (populationUnlocked) availableManualPages.push("population");
   if (defenseUnlocked) availableManualPages.push("defense");
+  if (armoryUnlocked) availableManualPages.push("armory");
   if (settlementUnlocked) availableManualPages.push("settlement");
 
   return (
@@ -1428,6 +1491,18 @@ export default function Home() {
             Defense
           </button>
         )}
+        {armoryUnlocked && (
+          <button
+            className={primaryView === "armory" ? "active" : ""}
+            type="button"
+            role="tab"
+            aria-selected={primaryView === "armory"}
+            onClick={() => setPrimaryView("armory")}
+          >
+            <span aria-hidden="true">0A</span>
+            Armory
+          </button>
+        )}
         {settlementUnlocked && (
           <button
             className={primaryView === "settlement" ? "active" : ""}
@@ -1441,7 +1516,7 @@ export default function Home() {
           </button>
         )}
         <div className="nav-awakening-status" aria-live="polite">
-          <span>{[engineeringUnlocked, researchUnlocked, populationUnlocked, defenseUnlocked, settlementUnlocked].filter(Boolean).length + 1}</span>
+          <span>{[engineeringUnlocked, researchUnlocked, populationUnlocked, defenseUnlocked, armoryUnlocked, settlementUnlocked].filter(Boolean).length + 1}</span>
           <small>Ark systems awake</small>
         </div>
       </nav>
@@ -1581,6 +1656,17 @@ export default function Home() {
             completed: game.worldProgress.surveysCompleted,
             required: campaignWorld.surveysRequired,
           }}
+          getExpeditionPreview={(siteId, crewIds) => {
+            const quote = getExpeditionLaunchQuote(game, siteId, crewIds);
+            return {
+              strength: quote.strength,
+              gearStrength: quote.gearStrength,
+              difficulty: quote.difficulty,
+              projectedOutcome: quote.projectedOutcome,
+              weapons: quote.loadout.filter((entry) => entry.weaponId).length,
+              armor: quote.loadout.filter((entry) => entry.armorId).length,
+            };
+          }}
           onLaunchExpedition={handleLaunchExpedition}
           berthQuote={berthPanelQuote}
           onStartBerthConstruction={handleStartBerthConstruction}
@@ -1620,6 +1706,15 @@ export default function Home() {
           installationQuotes={defenseInstallationQuotes}
           onBuyInstallation={handleBuyDefenseInstallation}
           onChooseDoctrine={handleChooseDefenseDoctrine}
+          onOpenHelp={setManualTopic}
+          onBack={() => setPrimaryView("deck")}
+        />
+      ) : primaryView === "armory" ? (
+        <ArmoryConsole
+          currentWorldName={campaignWorld.name}
+          quotes={armoryQuotes}
+          onCraft={handleCraftArmoryItem}
+          onRepair={handleRepairArmoryItem}
           onOpenHelp={setManualTopic}
           onBack={() => setPrimaryView("deck")}
         />

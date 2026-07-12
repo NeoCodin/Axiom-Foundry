@@ -1,13 +1,24 @@
 /**
- * Expedition E1: survivor-roster expeditions (see AI_HANDOFF roadmap).
- * Groups of 2-4 real crew launch to planetary sites for a fixed real-time
- * duration and ALWAYS return. E1 outcomes are success or a lean return -
- * health, gear, and mortality arrive in later phases. Planetary surveys are
- * a departure requirement from Cinder onward.
+ * Expeditions E1+E2 (see docs/expedition-e2-spec.md). Groups of 2-4 real
+ * crew launch to planetary sites for a fixed real-time duration and always
+ * return in E2. Outcomes follow the strength-vs-difficulty margin: success,
+ * lean, or setback (crew comes home wounded; armor absorbs the hit and loses
+ * durability). Planetary surveys are a departure requirement from Cinder on.
  */
 
-import type { Survivor } from "./survivor-engine.ts";
-import { getSurvivorSkillLevel } from "./survivor-engine.ts";
+import type { Survivor, SurvivorInjuryTier } from "./survivor-engine.ts";
+import {
+  getSurvivorSkillLevel,
+  type ProfessionalRole,
+} from "./survivor-engine.ts";
+import {
+  getEntryDamageMultiplier,
+  getLoadoutStrengthBonus,
+  type ArmoryArmorId,
+  type ArmoryWeaponId,
+  type ExpeditionLoadoutEntry,
+} from "./armory-engine.ts";
+import { ARMORY_ITEM_DEFINITIONS } from "./armory-engine.ts";
 
 export type ExpeditionSiteId =
   | "planetary-survey"
@@ -16,7 +27,7 @@ export type ExpeditionSiteId =
   | "null-sounding"
   | "palimpsest-origin";
 
-export type ExpeditionOutcome = "success" | "lean";
+export type ExpeditionOutcome = "success" | "lean" | "setback";
 
 export type ExpeditionSiteDefinition = {
   id: ExpeditionSiteId;
@@ -29,6 +40,8 @@ export type ExpeditionSiteDefinition = {
   durationSeconds: number;
   difficulty: number; // strength required for a full success
   fluxCostBase: number; // x continuityScale at launch
+  /** Primary roles earning bonus expedition XP at this site. */
+  focusRoles: readonly ProfessionalRole[];
   rewards: {
     salvage: number;
     engineeringModels: number;
@@ -44,6 +57,16 @@ export type ActiveExpedition = {
   startedAtSeconds: number;
   durationSeconds: number;
   strength: number;
+  loadout: ExpeditionLoadoutEntry[];
+};
+
+export type ExpeditionWound = {
+  crewId: string;
+  /** Final damage after armor mitigation. */
+  damage: number;
+  /** Injury tier inflicted if the wound leaves the member critical. */
+  injuryTier: SurvivorInjuryTier;
+  armorId: ArmoryArmorId | null;
 };
 
 export type ExpeditionResult = {
@@ -58,6 +81,8 @@ export type ExpeditionResult = {
   nullTraces: number;
   discoveryId: string | null;
   surveyCredited: boolean;
+  wounds: ExpeditionWound[];
+  loadout: ExpeditionLoadoutEntry[];
 };
 
 export type ExpeditionState = {
@@ -69,11 +94,30 @@ export type ExpeditionState = {
   stats: { launched: number; completed: number };
 };
 
-export const EXPEDITION_SCHEMA = 1;
+export const EXPEDITION_SCHEMA = 2;
 export const MIN_EXPEDITION_CREW = 2;
 export const MAX_EXPEDITION_CREW = 4;
 export const MAX_EXPEDITION_LOG = 10;
-export const EXPEDITION_XP_PER_MEMBER = 90;
+
+// Outcome bands on margin = strength - difficulty (docs/expedition-e2-spec.md §2).
+export const LEAN_MARGIN = 8;
+export const SETBACK_DAMAGE_MIN = 30;
+export const SETBACK_DAMAGE_MAX = 70;
+
+// Profession-dependent XP replaced E1's flat 90 per member.
+export const EXPEDITION_XP_BASE = 60;
+export const EXPEDITION_XP_PER_DIFFICULTY = 6;
+export const EXPEDITION_XP_FOCUS_MULTIPLIER = 1.5;
+const XP_OUTCOME_SCALE: Record<ExpeditionOutcome, number> = {
+  success: 1,
+  lean: 0.6,
+  setback: 0.4,
+};
+const REWARD_OUTCOME_SCALE: Record<ExpeditionOutcome, number> = {
+  success: 1,
+  lean: 0.45,
+  setback: 0.25,
+};
 
 export const EXPEDITION_SITE_DEFINITIONS: readonly ExpeditionSiteDefinition[] = [
   {
@@ -87,6 +131,7 @@ export const EXPEDITION_SITE_DEFINITIONS: readonly ExpeditionSiteDefinition[] = 
     durationSeconds: 90 * 60,
     difficulty: 10,
     fluxCostBase: 300,
+    focusRoles: ["navigator", "researcher"],
     rewards: { salvage: 25, engineeringModels: 20, nullTraces: 0 },
   },
   {
@@ -100,6 +145,7 @@ export const EXPEDITION_SITE_DEFINITIONS: readonly ExpeditionSiteDefinition[] = 
     durationSeconds: 60 * 60,
     difficulty: 12,
     fluxCostBase: 450,
+    focusRoles: ["technician", "researcher"],
     rewards: {
       salvage: 60,
       engineeringModels: 30,
@@ -118,6 +164,7 @@ export const EXPEDITION_SITE_DEFINITIONS: readonly ExpeditionSiteDefinition[] = 
     durationSeconds: 2 * 60 * 60,
     difficulty: 16,
     fluxCostBase: 700,
+    focusRoles: ["researcher", "navigator"],
     rewards: {
       salvage: 40,
       engineeringModels: 20,
@@ -136,6 +183,7 @@ export const EXPEDITION_SITE_DEFINITIONS: readonly ExpeditionSiteDefinition[] = 
     durationSeconds: 90 * 60,
     difficulty: 14,
     fluxCostBase: 600,
+    focusRoles: ["researcher", "navigator"],
     rewards: { salvage: 15, engineeringModels: 10, nullTraces: 25 },
   },
   {
@@ -150,6 +198,17 @@ export const EXPEDITION_SITE_DEFINITIONS: readonly ExpeditionSiteDefinition[] = 
     durationSeconds: 4 * 60 * 60,
     difficulty: 20,
     fluxCostBase: 1_200,
+    focusRoles: [
+      "engineer",
+      "doctor",
+      "researcher",
+      "navigator",
+      "technician",
+      "fabricator",
+      "farmer",
+      "teacher",
+      "security",
+    ],
     rewards: {
       salvage: 150,
       engineeringModels: 80,
@@ -189,13 +248,77 @@ export function cloneExpeditionState(state: ExpeditionState): ExpeditionState {
   return {
     ...state,
     active: state.active
-      ? { ...state.active, crewIds: [...state.active.crewIds] }
+      ? {
+          ...state.active,
+          crewIds: [...state.active.crewIds],
+          loadout: state.active.loadout.map((entry) => ({ ...entry })),
+        }
       : null,
-    log: state.log.map((entry) => ({ ...entry, crewIds: [...entry.crewIds] })),
+    log: state.log.map((entry) => ({
+      ...entry,
+      crewIds: [...entry.crewIds],
+      wounds: entry.wounds.map((wound) => ({ ...wound })),
+      loadout: entry.loadout.map((gear) => ({ ...gear })),
+    })),
     completedSiteIds: [...state.completedSiteIds],
     stats: { ...state.stats },
   };
 }
+
+const isWeaponId = (value: unknown): value is ArmoryWeaponId =>
+  ARMORY_ITEM_DEFINITIONS.some(
+    (item) => item.kind === "weapon" && item.id === value,
+  );
+
+const isArmorId = (value: unknown): value is ArmoryArmorId =>
+  ARMORY_ITEM_DEFINITIONS.some(
+    (item) => item.kind === "armor" && item.id === value,
+  );
+
+const isInjuryTier = (value: unknown): value is SurvivorInjuryTier =>
+  value === "minor" || value === "major" || value === "severe";
+
+const sanitizeLoadout = (
+  value: unknown,
+  crewIds: readonly string[],
+): ExpeditionLoadoutEntry[] => {
+  if (!Array.isArray(value)) return [];
+  const known = new Set(crewIds);
+  const seen = new Set<string>();
+  const loadout: ExpeditionLoadoutEntry[] = [];
+  for (const raw of value) {
+    if (!isRecord(raw) || typeof raw.crewId !== "string") continue;
+    if (!known.has(raw.crewId) || seen.has(raw.crewId)) continue;
+    seen.add(raw.crewId);
+    loadout.push({
+      crewId: raw.crewId,
+      weaponId: isWeaponId(raw.weaponId) ? raw.weaponId : null,
+      armorId: isArmorId(raw.armorId) ? raw.armorId : null,
+      armorDurability: Math.floor(finite(raw.armorDurability, 0, 10)),
+    });
+  }
+  return loadout;
+};
+
+const sanitizeWounds = (
+  value: unknown,
+  crewIds: readonly string[],
+): ExpeditionWound[] => {
+  if (!Array.isArray(value)) return [];
+  const known = new Set(crewIds);
+  return value
+    .filter(isRecord)
+    .filter(
+      (raw): raw is Record<string, unknown> & { crewId: string } =>
+        typeof raw.crewId === "string" && known.has(raw.crewId),
+    )
+    .map((raw) => ({
+      crewId: raw.crewId,
+      damage: finite(raw.damage, 0, 100),
+      injuryTier: isInjuryTier(raw.injuryTier) ? raw.injuryTier : "minor",
+      armorId: isArmorId(raw.armorId) ? raw.armorId : null,
+    }));
+};
 
 export function sanitizeExpeditionState(value: unknown): ExpeditionState {
   const base = createExpeditionState();
@@ -236,6 +359,7 @@ export function sanitizeExpeditionState(value: unknown): ExpeditionState {
         startedAtSeconds: finite(value.active.startedAtSeconds, 0, 1e15),
         durationSeconds: Math.max(60, duration),
         strength: finite(value.active.strength, 0, 10_000),
+        loadout: sanitizeLoadout(value.active.loadout, crewIds),
       };
     }
   }
@@ -244,22 +368,32 @@ export function sanitizeExpeditionState(value: unknown): ExpeditionState {
       .filter(isRecord)
       .filter((raw) => isSiteId(raw.siteId))
       .slice(-MAX_EXPEDITION_LOG)
-      .map((raw) => ({
-        siteId: raw.siteId as ExpeditionSiteId,
-        outcome: raw.outcome === "lean" ? ("lean" as const) : ("success" as const),
-        strength: finite(raw.strength, 0, 10_000),
-        difficulty: finite(raw.difficulty, 0, 10_000),
-        crewIds: Array.isArray(raw.crewIds)
+      .map((raw) => {
+        const crewIds = Array.isArray(raw.crewIds)
           ? raw.crewIds.filter((id): id is string => typeof id === "string")
-          : [],
-        resolvedAtSeconds: finite(raw.resolvedAtSeconds, 0, 1e15),
-        salvage: finite(raw.salvage, 0, 1e9),
-        engineeringModels: finite(raw.engineeringModels, 0, 1e9),
-        nullTraces: finite(raw.nullTraces, 0, 1e9),
-        discoveryId:
-          typeof raw.discoveryId === "string" ? raw.discoveryId : null,
-        surveyCredited: raw.surveyCredited === true,
-      }));
+          : [];
+        return {
+          siteId: raw.siteId as ExpeditionSiteId,
+          outcome:
+            raw.outcome === "lean"
+              ? ("lean" as const)
+              : raw.outcome === "setback"
+                ? ("setback" as const)
+                : ("success" as const),
+          strength: finite(raw.strength, 0, 10_000),
+          difficulty: finite(raw.difficulty, 0, 10_000),
+          crewIds,
+          resolvedAtSeconds: finite(raw.resolvedAtSeconds, 0, 1e15),
+          salvage: finite(raw.salvage, 0, 1e9),
+          engineeringModels: finite(raw.engineeringModels, 0, 1e9),
+          nullTraces: finite(raw.nullTraces, 0, 1e9),
+          discoveryId:
+            typeof raw.discoveryId === "string" ? raw.discoveryId : null,
+          surveyCredited: raw.surveyCredited === true,
+          wounds: sanitizeWounds(raw.wounds, crewIds),
+          loadout: sanitizeLoadout(raw.loadout, crewIds),
+        };
+      });
   }
   return state;
 }
@@ -323,11 +457,58 @@ export function getExpeditionAvailability(
   });
 }
 
+/** The outcome the Expedition Bay projects before launch - always visible. */
+export function getProjectedExpeditionOutcome(
+  strength: number,
+  difficulty: number,
+): ExpeditionOutcome {
+  const margin = strength - difficulty;
+  if (margin >= 0) return "success";
+  if (margin > -LEAN_MARGIN) return "lean";
+  return "setback";
+}
+
+/**
+ * Deterministic per-member damage roll in [SETBACK_DAMAGE_MIN,
+ * SETBACK_DAMAGE_MAX], derived purely from the expedition so resolution is
+ * identical online, offline, and across chunk sizes.
+ */
+function setbackDamageRoll(active: ActiveExpedition, memberIndex: number) {
+  const seed =
+    (Math.floor(active.startedAtSeconds) +
+      active.strength * 8_191 +
+      active.crewIds.length * 131) |
+    0;
+  let hash =
+    (Math.imul(seed + 0x9e37, 0x85ebca6b) ^
+      Math.imul(memberIndex + 1, 0xc2b2ae35)) >>>
+    0;
+  hash ^= hash >>> 15;
+  hash = Math.imul(hash, 0x27d4eb2f) >>> 0;
+  hash = (hash ^ (hash >>> 13)) >>> 0;
+  const span = SETBACK_DAMAGE_MAX - SETBACK_DAMAGE_MIN + 1;
+  return SETBACK_DAMAGE_MIN + (hash % span);
+}
+
+/** Expedition XP scales with site difficulty, profession focus, and outcome. */
+export function getExpeditionMemberXp(
+  site: ExpeditionSiteDefinition,
+  primaryRole: ProfessionalRole,
+  outcome: ExpeditionOutcome,
+) {
+  const base = EXPEDITION_XP_BASE + EXPEDITION_XP_PER_DIFFICULTY * site.difficulty;
+  const focus = site.focusRoles.includes(primaryRole)
+    ? EXPEDITION_XP_FOCUS_MULTIPLIER
+    : 1;
+  return Math.round(base * focus * XP_OUTCOME_SCALE[outcome]);
+}
+
 export function launchExpedition(
   state: ExpeditionState,
   site: ExpeditionSiteDefinition,
   crew: readonly Survivor[],
   worldId: string | null,
+  loadout: readonly ExpeditionLoadoutEntry[] = [],
 ): ExpeditionState {
   if (state.active) return state;
   if (crew.length < MIN_EXPEDITION_CREW || crew.length > MAX_EXPEDITION_CREW) {
@@ -341,7 +522,9 @@ export function launchExpedition(
     crewIds: crew.map((survivor) => survivor.id),
     startedAtSeconds: next.clockSeconds,
     durationSeconds: getExpeditionDurationSeconds(site, crew),
-    strength: getExpeditionGroupStrength(crew),
+    strength:
+      getExpeditionGroupStrength(crew) + getLoadoutStrengthBonus(loadout),
+    loadout: loadout.map((entry) => ({ ...entry })),
   };
   next.stats.launched += 1;
   return next;
@@ -368,13 +551,37 @@ export function advanceExpeditions(
     return { state: next, completed: null };
   }
   const site = getExpeditionSite(next.active.siteId);
-  const outcome: ExpeditionOutcome =
-    next.active.strength >= site.difficulty ? "success" : "lean";
-  const scale = outcome === "success" ? 1 : 0.45;
+  const outcome = getProjectedExpeditionOutcome(
+    next.active.strength,
+    site.difficulty,
+  );
+  const scale = REWARD_OUTCOME_SCALE[outcome];
   const surveyCredited =
     site.countsAsSurvey &&
     currentWorldId !== null &&
     currentWorldId === next.active.worldId;
+  const active = next.active;
+  const wounds: ExpeditionWound[] =
+    outcome === "setback"
+      ? active.crewIds.map((crewId, index) => {
+          const entry = active.loadout.find(
+            (candidate) => candidate.crewId === crewId,
+          );
+          return {
+            crewId,
+            damage:
+              Math.round(
+                setbackDamageRoll(active, index) *
+                  getEntryDamageMultiplier(entry) *
+                  10,
+              ) / 10,
+            // Setback wounds inflict at most a minor permanent injury; the
+            // heavier tiers are reserved for distress events (E2 spec §3).
+            injuryTier: "minor",
+            armorId: entry?.armorId ?? null,
+          };
+        })
+      : [];
   const result: ExpeditionResult = {
     siteId: site.id,
     outcome,
@@ -387,6 +594,8 @@ export function advanceExpeditions(
     nullTraces: Math.round(site.rewards.nullTraces * scale),
     discoveryId: outcome === "success" ? site.rewards.discoveryId ?? null : null,
     surveyCredited,
+    wounds,
+    loadout: next.active.loadout.map((entry) => ({ ...entry })),
   };
   next.log = [...next.log, result].slice(-MAX_EXPEDITION_LOG);
   if (!site.repeatable && outcome === "success") {

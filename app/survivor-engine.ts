@@ -42,6 +42,8 @@ export type BerthConstruction = {
 
 export type LifeSupportKey = keyof LifeSupportCapacity;
 
+export type SurvivorInjuryTier = "minor" | "major" | "severe";
+
 export type Survivor = {
   id: string;
   name: string;
@@ -63,6 +65,10 @@ export type Survivor = {
    * A survivor's displayed rarity never drops below this recorded value.
    */
   rarityFloor: "notable" | "exceptional" | null;
+  /** 0-100. Only expedition setbacks/distress ever lower it (E2). */
+  health: number;
+  /** Permanent until Prosthetic Surgery; caps max health (see INJURY_HEALTH_CAPS). */
+  injury: SurvivorInjuryTier | null;
 };
 
 export const SURVIVOR_RARITY_DEFINITIONS = [
@@ -174,6 +180,8 @@ export type SurvivorAdvanceModifiers = {
   onJobXpMultiplier?: number;
   constructionSpeedMultiplier?: number;
   reservedNames?: readonly string[];
+  /** Overloaded medical life support halves health recovery (never reverses it). */
+  medicalOverCapacity?: boolean;
 };
 
 export type SurvivorSystemState = {
@@ -424,7 +432,7 @@ export const TRAINING_DURATIONS_SECONDS: Record<ProfessionalRole, number> = {
   security: 25 * 60,
 };
 
-export const SURVIVOR_SCHEMA = 3;
+export const SURVIVOR_SCHEMA = 4;
 export const SOS_WORLD_ID = "pelagos";
 export const SOS_WORLD_IDS = [
   "pelagos",
@@ -455,6 +463,27 @@ export const BASE_BERTHS = 4;
 export const BERTHS_PER_SECTION = 8;
 export const MAX_BERTH_SECTIONS = 62;
 export const BERTH_CONSTRUCTION_BASE_SECONDS = 3 * 60 * 60;
+
+// Health (Expedition E2). Only expeditions deal damage; recovery never stops.
+export const MAX_SURVIVOR_HEALTH = 100;
+export const WOUNDED_HEALTH_THRESHOLD = 40;
+export const FOUNDER_HEALTH_THRESHOLD = 80;
+export const PERMANENT_INJURY_HEALTH = 15;
+export const EXPEDITION_HEALTH_FLOOR = 10;
+export const INJURY_HEALTH_CAPS: Record<SurvivorInjuryTier, number> = {
+  minor: 70,
+  major: 55,
+  severe: 40,
+};
+export const BASE_HEALTH_RECOVERY_PER_HOUR = 2;
+export const DOCTOR_HEALTH_RECOVERY_PER_HOUR = 0.5;
+export const MAX_RECOVERY_DOCTORS = 4;
+
+const INJURY_RANK: Record<SurvivorInjuryTier, number> = {
+  minor: 1,
+  major: 2,
+  severe: 3,
+};
 
 const DEFAULT_RNG_SEED = 0x41c6ce57;
 const MAX_COUNTER = 1_000_000_000;
@@ -672,13 +701,62 @@ const sanitizeLifeSupport = (value: unknown): LifeSupportCapacity => {
   };
 };
 
+export const getSurvivorHealthCap = (survivor: Pick<Survivor, "injury">) =>
+  survivor.injury ? INJURY_HEALTH_CAPS[survivor.injury] : MAX_SURVIVOR_HEALTH;
+
+export const isSurvivorWounded = (survivor: Pick<Survivor, "health">) =>
+  survivor.health < WOUNDED_HEALTH_THRESHOLD;
+
+export const canSurvivorFound = (survivor: Pick<Survivor, "health">) =>
+  survivor.health >= FOUNDER_HEALTH_THRESHOLD;
+
+/** True when the survivor is assigned and fit enough to actually work. */
+export const isSurvivorOnDuty = (
+  survivor: Pick<Survivor, "health" | "assignedRole">,
+  role?: SurvivorRole,
+) =>
+  !isSurvivorWounded(survivor) &&
+  (role === undefined
+    ? survivor.assignedRole !== null
+    : survivor.assignedRole === role);
+
+/**
+ * Applies expedition damage in place (callers work on cloned state). Health
+ * floors at EXPEDITION_HEALTH_FLOOR - E2 crews always come home alive - and a
+ * result below PERMANENT_INJURY_HEALTH inflicts the given injury tier unless
+ * the survivor already carries a worse one.
+ */
+export function applySurvivorWound(
+  survivor: Survivor,
+  damage: number,
+  injuryTierIfCritical: SurvivorInjuryTier | null,
+) {
+  const dealt = finite(damage, 0, MAX_SURVIVOR_HEALTH);
+  survivor.health = Math.max(
+    EXPEDITION_HEALTH_FLOOR,
+    Math.round((survivor.health - dealt) * 10) / 10,
+  );
+  let injuryApplied = false;
+  if (
+    survivor.health < PERMANENT_INJURY_HEALTH &&
+    injuryTierIfCritical &&
+    (survivor.injury === null ||
+      INJURY_RANK[injuryTierIfCritical] > INJURY_RANK[survivor.injury])
+  ) {
+    survivor.injury = injuryTierIfCritical;
+    injuryApplied = true;
+  }
+  return { healthAfter: survivor.health, injuryApplied };
+}
+
 const supportDemandForSurvivors = (
   survivors: readonly Survivor[],
 ): LifeSupportCapacity => {
   const population = survivors.length;
   const medical = survivors.reduce((sum, survivor) => {
     const doctorRelief = survivor.role === "doctor" ? 0.04 : 0;
-    return sum + Math.max(0.16, 0.25 - doctorRelief);
+    const woundedCare = isSurvivorWounded(survivor) ? 0.5 : 0;
+    return sum + Math.max(0.16, 0.25 - doctorRelief) + woundedCare;
   }, 0);
   return {
     atmosphere: population,
@@ -895,6 +973,8 @@ function createProceduralSurvivor(
     joinedAt: 0,
     storyHookId: null,
     rarityFloor: null,
+    health: MAX_SURVIVOR_HEALTH,
+    injury: null,
   };
 }
 
@@ -1268,6 +1348,14 @@ export function getSurvivorSkillLevel(
   return Math.min(10, 1 + Math.floor(Math.sqrt(xp / 120)));
 }
 
+/** The survivor's best professional level - the armory's wield gate. */
+export function getSurvivorBestSkillLevel(survivor: Survivor) {
+  return PROFESSIONAL_ROLES.reduce(
+    (best, role) => Math.max(best, getSurvivorSkillLevel(survivor, role)),
+    0,
+  );
+}
+
 export type SurvivorSkillProgress = {
   level: number;
   xp: number;
@@ -1416,6 +1504,7 @@ export function startSurvivorTraining(
   }
   const survivor = state.survivors.find((candidate) => candidate.id === survivorId);
   if (!survivor || !canSurvivorLearnProfession(survivor, targetRole)) return state;
+  if (isSurvivorWounded(survivor)) return state;
   const quote = getTrainingQuote(survivor, targetRole);
   const next = cloneSurvivorSystemState(state);
   next.survivors.find((candidate) => candidate.id === survivorId)!.assignedRole =
@@ -1455,6 +1544,7 @@ export function assignSurvivorToRole(
     return state;
   }
   if (role === "civilian" && survivor.role !== "civilian") return state;
+  if (role !== null && isSurvivorWounded(survivor)) return state;
   if (
     role !== null &&
     role !== "civilian" &&
@@ -1545,7 +1635,13 @@ function advanceOnJobExperienceMutable(
   xpMultiplier: number,
 ) {
   for (const survivor of state.survivors) {
-    if (!survivor.assignedRole || traineeIds.has(survivor.id)) continue;
+    if (
+      !survivor.assignedRole ||
+      traineeIds.has(survivor.id) ||
+      isSurvivorWounded(survivor)
+    ) {
+      continue;
+    }
     survivor.serviceSeconds = Math.min(
       MAX_OPERATIONAL_SECONDS,
       survivor.serviceSeconds + elapsedSeconds,
@@ -1558,6 +1654,35 @@ function advanceOnJobExperienceMutable(
         (elapsedSeconds / 3_600) *
           getSurvivorOnJobXpPerHour(survivor, role, xpMultiplier),
     );
+  }
+}
+
+/**
+ * Recovery runs for everyone below their cap, online and offline, and never
+ * reverses. Fit assigned Doctors speed it up; an overloaded medical envelope
+ * slows it to half rate but can never stop it.
+ */
+function advanceHealthRecoveryMutable(
+  state: SurvivorSystemState,
+  elapsedSeconds: number,
+  medicalOverCapacity: boolean,
+) {
+  const doctors = state.survivors.filter((survivor) =>
+    isSurvivorOnDuty(survivor, "doctor"),
+  ).length;
+  const perHour =
+    (BASE_HEALTH_RECOVERY_PER_HOUR +
+      DOCTOR_HEALTH_RECOVERY_PER_HOUR *
+        Math.min(MAX_RECOVERY_DOCTORS, doctors)) *
+    (medicalOverCapacity ? 0.5 : 1);
+  const gain = (elapsedSeconds / 3_600) * perHour;
+  for (const survivor of state.survivors) {
+    const cap = getSurvivorHealthCap(survivor);
+    if (survivor.health < cap) {
+      survivor.health = Math.min(cap, survivor.health + gain);
+    } else if (survivor.health > cap) {
+      survivor.health = cap;
+    }
   }
 }
 
@@ -1596,6 +1721,11 @@ export function advanceSurvivorSystem(
     elapsed,
     traineeIds,
     onJobXpMultiplier,
+  );
+  advanceHealthRecoveryMutable(
+    next,
+    elapsed,
+    modifiers.medicalOverCapacity === true,
   );
   if (next.berthConstruction) {
     const constructionSpeed = Math.min(
@@ -1721,7 +1851,19 @@ function sanitizeSurvivor(
       value.rarityFloor === "notable" || value.rarityFloor === "exceptional"
         ? value.rarityFloor
         : null,
+    health: MAX_SURVIVOR_HEALTH,
+    injury:
+      value.injury === "minor" ||
+      value.injury === "major" ||
+      value.injury === "severe"
+        ? value.injury
+        : null,
   };
+  survivor.health = finite(
+    value.health,
+    MAX_SURVIVOR_HEALTH,
+    getSurvivorHealthCap(survivor),
+  );
   if (backfillRarityFloor && !survivor.rarityFloor && !survivor.storyHookId) {
     // Crew recorded before the threshold retune keep the classification they
     // were rescued under (old thresholds: notable 25, exceptional 28).

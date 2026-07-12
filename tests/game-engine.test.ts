@@ -98,6 +98,9 @@ function testCrewMember(
     serviceSeconds: 0,
     joinedAt: 0,
     storyHookId: null,
+    rarityFloor: null,
+    health: 100,
+    injury: null,
   };
 }
 

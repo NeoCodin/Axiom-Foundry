@@ -15,15 +15,35 @@ import {
   createExpeditionState,
   getDeployedCrewIds,
   getExpeditionAvailability,
+  getExpeditionGroupStrength,
+  getExpeditionMemberXp,
   getExpeditionSite,
+  getProjectedExpeditionOutcome,
   launchExpedition,
   MAX_EXPEDITION_CREW,
   MIN_EXPEDITION_CREW,
-  EXPEDITION_XP_PER_MEMBER,
   sanitizeExpeditionState,
+  type ExpeditionOutcome,
   type ExpeditionSiteId,
   type ExpeditionState,
 } from "./expedition-engine.ts";
+import {
+  addArmoryItem,
+  ARMORY_REPAIR_COST_RATIO,
+  cloneArmoryState,
+  createArmoryState,
+  getArmoryDamagedCount,
+  getArmoryItemDefinition,
+  getArmoryReadyCount,
+  getLoadoutStrengthBonus,
+  planExpeditionLoadout,
+  repairArmoryItem as repairArmoryStockItem,
+  returnExpeditionGear,
+  sanitizeArmoryState,
+  type ArmoryItemId,
+  type ArmoryState,
+  type ExpeditionLoadoutEntry,
+} from "./armory-engine.ts";
 import {
   advanceDefense,
   cloneDefenseState,
@@ -39,13 +59,18 @@ import {
 } from "./defense-engine.ts";
 import {
   advanceSurvivorSystem,
+  applySurvivorWound,
   BERTH_CONSTRUCTION_BASE_SECONDS,
   BERTHS_PER_SECTION,
+  canSurvivorFound,
   cloneSurvivorSystemState,
   createSurvivorSystemState,
   getBerthCapacity,
+  getLifeSupportStatus,
   getSurvivorRarity,
   getSurvivorSkillLevel,
+  isSurvivorOnDuty,
+  isSurvivorWounded,
   MAX_BERTH_SECTIONS,
   RARE_SURVIVOR_HOOKS,
   getRescueReadiness,
@@ -169,6 +194,7 @@ export type GameState = {
   worldProgress: WorldProgressSummary;
   defense: DefenseState;
   expeditions: ExpeditionState;
+  armory: ArmoryState;
   settings: GameSettings;
   manualPulses: number;
   playTime: number;
@@ -688,6 +714,7 @@ export function createInitialState(now = Date.now()): GameState {
     worldProgress: emptyWorldProgress(),
     defense: createDefenseState(),
     expeditions: createExpeditionState(),
+    armory: createArmoryState(),
     settings: {
       buyMode: "1",
       autoEnabled: false,
@@ -901,6 +928,7 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
     worldProgress,
     defense: sanitizeDefenseState(value.defense),
     expeditions: sanitizeExpeditionState(value.expeditions),
+    armory: sanitizeArmoryState(value.armory),
     settings: {
       buyMode:
         rawSettings.buyMode === "10" || rawSettings.buyMode === "max"
@@ -951,6 +979,7 @@ export function cloneGameState(state: GameState): GameState {
     },
     defense: cloneDefenseState(state.defense),
     expeditions: cloneExpeditionState(state.expeditions),
+    armory: cloneArmoryState(state.armory),
     settings: {
       ...state.settings,
       autoTiers: [...state.settings.autoTiers],
@@ -984,8 +1013,9 @@ export function getCampaignCrewSummaries(
       role: survivor.role,
       roles: getQualifiedSurvivorRoles(survivor),
       expertise: getSurvivorContinuityExpertise(survivor),
-      available: !busy,
-      canSettle: !busy,
+      available: !busy && !isSurvivorWounded(survivor),
+      // Founding a colony demands health of 80+ (E2 spec §1).
+      canSettle: !busy && canSurvivorFound(survivor),
       rarity: rarity.id,
       rarityLabel: rarity.label,
       rarityDescription: rarity.description,
@@ -1265,15 +1295,117 @@ export function performArkRescue(state: GameState): GameState {
 export function hasRescueDetail(state: GameState) {
   const navigator = state.survivors.survivors.some(
     (survivor) =>
-      survivor.assignedRole === "navigator" &&
+      isSurvivorOnDuty(survivor, "navigator") &&
       getSurvivorSkillLevel(survivor, "navigator") >= 5,
   );
   const soldier = state.survivors.survivors.some(
     (survivor) =>
-      survivor.assignedRole === "security" &&
+      isSurvivorOnDuty(survivor, "security") &&
       getSurvivorSkillLevel(survivor, "security") >= 3,
   );
   return navigator && soldier;
+}
+
+export type ArmoryCraftQuote = {
+  itemId: ArmoryItemId;
+  fluxCost: number;
+  modelCost: number;
+  nullTraceCost: number;
+  ready: number;
+  damaged: number;
+  researchMet: boolean;
+  canCraft: boolean;
+  reason: "research" | "flux" | "models" | "traces" | null;
+};
+
+export function getArmoryCraftQuote(
+  state: GameState,
+  itemId: ArmoryItemId,
+): ArmoryCraftQuote {
+  const item = getArmoryItemDefinition(itemId);
+  const fluxCost = bounded(
+    item.fluxCostBase *
+      continuityScale(state) *
+      getColonyLegacyEffects(state).fabricationCostMultiplier,
+  );
+  const researchMet = state.research.completedProjectIds.includes(
+    item.requiredResearchId as ResearchProjectId,
+  );
+  const reason = !researchMet
+    ? ("research" as const)
+    : state.flux < fluxCost
+      ? ("flux" as const)
+      : state.researchStock["engineering-models"] < item.modelCost
+        ? ("models" as const)
+        : state.researchStock["null-traces"] < item.nullTraceCost
+          ? ("traces" as const)
+          : null;
+  return {
+    itemId,
+    fluxCost,
+    modelCost: item.modelCost,
+    nullTraceCost: item.nullTraceCost,
+    ready: getArmoryReadyCount(state.armory, itemId),
+    damaged: getArmoryDamagedCount(state.armory, itemId),
+    researchMet,
+    canCraft: reason === null,
+    reason,
+  };
+}
+
+export function craftArmoryItem(state: GameState, itemId: ArmoryItemId) {
+  const quote = getArmoryCraftQuote(state, itemId);
+  if (!quote.canCraft) return state;
+  const next = cloneGameState(state);
+  next.flux = Math.max(0, next.flux - quote.fluxCost);
+  next.researchStock["engineering-models"] = Math.max(
+    0,
+    next.researchStock["engineering-models"] - quote.modelCost,
+  );
+  next.researchStock["null-traces"] = Math.max(
+    0,
+    next.researchStock["null-traces"] - quote.nullTraceCost,
+  );
+  next.armory = addArmoryItem(next.armory, itemId);
+  return next;
+}
+
+export type ArmoryRepairQuote = {
+  itemId: ArmoryItemId;
+  fluxCost: number;
+  damaged: number;
+  canRepair: boolean;
+};
+
+export function getArmoryRepairQuote(
+  state: GameState,
+  itemId: ArmoryItemId,
+): ArmoryRepairQuote {
+  const item = getArmoryItemDefinition(itemId);
+  const fluxCost = bounded(
+    item.fluxCostBase *
+      ARMORY_REPAIR_COST_RATIO *
+      continuityScale(state) *
+      getColonyLegacyEffects(state).fabricationCostMultiplier,
+  );
+  const damaged = getArmoryDamagedCount(state.armory, itemId);
+  return {
+    itemId,
+    fluxCost,
+    damaged,
+    canRepair: damaged > 0 && state.flux >= fluxCost,
+  };
+}
+
+export function repairArmoryItem(state: GameState, itemId: ArmoryItemId) {
+  const quote = getArmoryRepairQuote(state, itemId);
+  if (!quote.canRepair) return state;
+  const armory = repairArmoryStockItem(state.armory, itemId);
+  if (armory === state.armory) return state;
+  const next = cloneGameState(state);
+  next.flux = Math.max(0, next.flux - quote.fluxCost);
+  next.armory = armory;
+  return next;
 }
 
 export type ExpeditionLaunchQuote = {
@@ -1284,8 +1416,16 @@ export type ExpeditionLaunchQuote = {
     | "busy"
     | "crew-count"
     | "crew-unavailable"
+    | "crew-wounded"
     | "flux"
     | null;
+  /** Base crew strength + weapon bonus, vs the site difficulty. */
+  strength: number;
+  gearStrength: number;
+  difficulty: number;
+  /** Always projected before launch - the player is never ambushed. */
+  projectedOutcome: ExpeditionOutcome | null;
+  loadout: ExpeditionLoadoutEntry[];
 };
 
 export function getExpeditionLaunchQuote(
@@ -1295,21 +1435,27 @@ export function getExpeditionLaunchQuote(
 ): ExpeditionLaunchQuote {
   const site = getExpeditionSite(siteId);
   const fluxCost = bounded(site.fluxCostBase * continuityScale(state));
+  const blocked = (reason: ExpeditionLaunchQuote["reason"]) => ({
+    fluxCost,
+    canLaunch: false,
+    reason,
+    strength: 0,
+    gearStrength: 0,
+    difficulty: site.difficulty,
+    projectedOutcome: null,
+    loadout: [],
+  });
   const availability = getExpeditionAvailability(
     state.expeditions,
     getCampaignWorldIndex(state),
     state.settlement.currentWorldId === null,
   ).find((entry) => entry.site.id === siteId);
   if (!availability?.available) {
-    return {
-      fluxCost,
-      canLaunch: false,
-      reason: availability?.reason === "busy" ? "busy" : "unavailable",
-    };
+    return blocked(availability?.reason === "busy" ? "busy" : "unavailable");
   }
   const unique = [...new Set(crewIds)];
   if (unique.length < MIN_EXPEDITION_CREW || unique.length > MAX_EXPEDITION_CREW) {
-    return { fluxCost, canLaunch: false, reason: "crew-count" };
+    return blocked("crew-count");
   }
   const trainingIds = new Set(
     state.survivors.training.map((program) => program.survivorId),
@@ -1318,12 +1464,34 @@ export function getExpeditionLaunchQuote(
     state.survivors.survivors.find((survivor) => survivor.id === id),
   );
   if (crew.some((member) => !member || trainingIds.has(member.id))) {
-    return { fluxCost, canLaunch: false, reason: "crew-unavailable" };
+    return blocked("crew-unavailable");
   }
+  const roster = crew as NonNullable<(typeof crew)[number]>[];
+  if (roster.some((member) => isSurvivorWounded(member))) {
+    return blocked("crew-wounded");
+  }
+  const plan = planExpeditionLoadout(state.armory, roster);
+  const strength =
+    getExpeditionGroupStrength(roster) + getLoadoutStrengthBonus(plan.loadout);
   if (state.flux < fluxCost) {
-    return { fluxCost, canLaunch: false, reason: "flux" };
+    return {
+      ...blocked("flux"),
+      strength,
+      gearStrength: plan.strengthBonus,
+      projectedOutcome: getProjectedExpeditionOutcome(strength, site.difficulty),
+      loadout: plan.loadout,
+    };
   }
-  return { fluxCost, canLaunch: true, reason: null };
+  return {
+    fluxCost,
+    canLaunch: true,
+    reason: null,
+    strength,
+    gearStrength: plan.strengthBonus,
+    difficulty: site.difficulty,
+    projectedOutcome: getProjectedExpeditionOutcome(strength, site.difficulty),
+    loadout: plan.loadout,
+  };
 }
 
 export function startExpedition(
@@ -1337,16 +1505,20 @@ export function startExpedition(
   const crew = unique.map(
     (id) => state.survivors.survivors.find((survivor) => survivor.id === id)!,
   );
+  // Auto-equip: check the planned loadout out of the armory for the trip.
+  const plan = planExpeditionLoadout(state.armory, crew);
   const expeditions = launchExpedition(
     state.expeditions,
     getExpeditionSite(siteId),
     crew,
     state.settlement.currentWorldId,
+    plan.loadout,
   );
   if (expeditions === state.expeditions) return state;
   const next = cloneGameState(state);
   next.flux = Math.max(0, next.flux - quote.fluxCost);
   next.expeditions = expeditions;
+  next.armory = plan.state;
   // deployed crew stand down from their stations for the duration
   for (const survivor of next.survivors.survivors) {
     if (unique.includes(survivor.id)) survivor.assignedRole = null;
@@ -1355,8 +1527,8 @@ export function startExpedition(
 }
 
 export function getAssignedEngineerCount(state: GameState) {
-  return state.survivors.survivors.filter(
-    (survivor) => survivor.assignedRole === "engineer",
+  return state.survivors.survivors.filter((survivor) =>
+    isSurvivorOnDuty(survivor, "engineer"),
   ).length;
 }
 
@@ -2273,6 +2445,8 @@ export function recalibrate(state: GameState, now = Date.now()) {
   fresh.settlement = cloneSettlementState(state.settlement);
   fresh.defense = cloneDefenseState(state.defense);
   fresh.expeditions = cloneExpeditionState(state.expeditions);
+  // The armory is Ark structure: it survives Recalibration like the crew.
+  fresh.armory = cloneArmoryState(state.armory);
   fresh.worldProgress = {
     completedInfrastructureIds: [...state.worldProgress.completedInfrastructureIds],
     completedResearchIds: [...state.worldProgress.completedResearchIds],
@@ -2326,8 +2500,8 @@ export function getResearchPowerAvailable(state: GameState) {
 export function getResearchCrewAvailable(state: GameState) {
   const operators = state.survivors.survivors.filter(
     (survivor) =>
-      survivor.assignedRole === "researcher" ||
-      survivor.assignedRole === "technician",
+      isSurvivorOnDuty(survivor, "researcher") ||
+      isSurvivorOnDuty(survivor, "technician"),
   ).length;
   return Math.min(8, Math.max(1, operators));
 }
@@ -2402,6 +2576,12 @@ export function simulateGame(
       survivorBonuses.trainingSpeedMultiplier *
       colonyBonuses.trainingSpeedMultiplier,
     constructionSpeedMultiplier: getBerthConstructionSpeed(next),
+    medicalOverCapacity:
+      getLifeSupportStatus(
+        next.survivors,
+        [],
+        survivorBonuses.habitationCapacityMultiplier,
+      ).shortages.medical > 0,
     reservedNames: next.settlement.colonies.flatMap((colony) =>
       colony.founders.map((founder) => founder.name.replace(/\s*“.*$/u, "")),
     ),
@@ -2425,8 +2605,8 @@ export function simulateGame(
   generateResearchStock(next, seconds);
   const salvageWorkers = next.survivors.survivors.filter(
     (survivor) =>
-      survivor.assignedRole === "fabricator" ||
-      survivor.assignedRole === "technician",
+      isSurvivorOnDuty(survivor, "fabricator") ||
+      isSurvivorOnDuty(survivor, "technician"),
   ).length;
   next.living.salvage = Math.min(
     1e12,
@@ -2441,14 +2621,14 @@ export function simulateGame(
   const defenseAdvance = advanceDefense(next.defense, seconds, {
     stormsEnabled: getCampaignWorldIndex(next) >= 3,
     worldIndex: getCampaignWorldIndex(next),
-    security: next.survivors.survivors.filter(
-      (survivor) => survivor.assignedRole === "security",
+    security: next.survivors.survivors.filter((survivor) =>
+      isSurvivorOnDuty(survivor, "security"),
     ).length,
-    engineers: next.survivors.survivors.filter(
-      (survivor) => survivor.assignedRole === "engineer",
+    engineers: next.survivors.survivors.filter((survivor) =>
+      isSurvivorOnDuty(survivor, "engineer"),
     ).length,
-    navigators: next.survivors.survivors.filter(
-      (survivor) => survivor.assignedRole === "navigator",
+    navigators: next.survivors.survivors.filter((survivor) =>
+      isSurvivorOnDuty(survivor, "navigator"),
     ).length,
   });
   next.defense = defenseAdvance.state;
@@ -2486,6 +2666,7 @@ export function simulateGame(
   next.expeditions = expeditionAdvance.state;
   if (expeditionAdvance.completed) {
     const completed = expeditionAdvance.completed;
+    const completedSite = getExpeditionSite(completed.siteId);
     next.living = grantLivingFoundryRewards(next.living, {
       salvage: completed.salvage,
       loreIds: completed.discoveryId ? [completed.discoveryId] : [],
@@ -2504,6 +2685,19 @@ export function simulateGame(
         surveysCompleted: next.worldProgress.surveysCompleted + 1,
       };
     }
+    for (const wound of completed.wounds) {
+      const survivor = next.survivors.survivors.find(
+        (candidate) => candidate.id === wound.crewId,
+      );
+      if (!survivor) continue;
+      applySurvivorWound(survivor, wound.damage, wound.injuryTier);
+    }
+    // Armor that absorbed a setback hit returns one durability lower.
+    next.armory = returnExpeditionGear(
+      next.armory,
+      completed.loadout,
+      new Set(completed.wounds.map((wound) => wound.crewId)),
+    );
     for (const crewId of completed.crewIds) {
       const survivor = next.survivors.survivors.find(
         (candidate) => candidate.id === crewId,
@@ -2511,7 +2705,8 @@ export function simulateGame(
       if (!survivor || survivor.role === "civilian") continue;
       survivor.skillXp[survivor.role] = Math.min(
         1_000_000_000,
-        survivor.skillXp[survivor.role] + EXPEDITION_XP_PER_MEMBER,
+        survivor.skillXp[survivor.role] +
+          getExpeditionMemberXp(completedSite, survivor.role, completed.outcome),
       );
     }
   }

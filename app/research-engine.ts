@@ -1,7 +1,8 @@
 export type ResearchBranch =
   | "ark-engineering"
   | "human-continuity"
-  | "null-studies";
+  | "null-studies"
+  | "threat-operations";
 
 export type ResearchInputId =
   | "calibration-data"
@@ -31,7 +32,13 @@ export type ResearchProjectId =
   | "null-signal-baseline"
   | "discarded-spectrum"
   | "observer-recursion"
-  | "axiom-origin-proof";
+  | "axiom-origin-proof"
+  | "expedition-armaments"
+  | "arc-discharge-weapons"
+  | "null-edge-armaments"
+  | "composite-plating"
+  | "reactive-shell"
+  | "aegis-frame";
 
 export type ResearchInputBundle = Record<ResearchInputId, number>;
 
@@ -474,6 +481,90 @@ export const RESEARCH_PROJECT_DEFINITIONS: readonly ResearchProjectDefinition[] 
     },
     nullEchoId: "echo-origin",
     nullEcho: "AXIOM DID NOT SURVIVE THE FIRST FOUNDING. AXIOM WAS WHAT SURVIVED.",
+  },
+  {
+    id: "expedition-armaments",
+    branch: "threat-operations",
+    name: "Expedition Armaments",
+    summary:
+      "Forge kinetic pikes so expedition crews stop improvising with salvage tools.",
+    completedSummary: "The Foundry can produce Kinetic Pikes.",
+    contradiction:
+      "CONTINUITY PROTOCOL OBJECTION 01: THE ARK PRESERVES. THE ARK DOES NOT ARM. OBJECTION LOGGED, NOT ENFORCED.",
+    workRequired: 260,
+    costs: { "calibration-data": 60, "engineering-models": 90 },
+    prerequisites: ["predictive-fabrication"],
+    unlocks: ["armory-weapons-t1"],
+    bonuses: {},
+  },
+  {
+    id: "arc-discharge-weapons",
+    branch: "threat-operations",
+    name: "Arc Discharge Weapons",
+    summary:
+      "Tune directed-discharge carbines to the Ark's own power signature.",
+    completedSummary: "The Foundry can produce Arc Carbines.",
+    contradiction:
+      "CONTINUITY PROTOCOL OBJECTION 02: A WEAPONIZED AXIOM HAS ALREADY COST YOU EVERYTHING ONCE. DATE OF INCIDENT: WITHHELD.",
+    workRequired: 520,
+    costs: { "calibration-data": 90, "engineering-models": 190 },
+    prerequisites: ["expedition-armaments"],
+    unlocks: ["armory-weapons-t2"],
+    bonuses: {},
+  },
+  {
+    id: "null-edge-armaments",
+    branch: "threat-operations",
+    name: "Null-Edge Armaments",
+    summary: "Shape enforced absence into a blade only masters can hold.",
+    completedSummary: "The Foundry can produce Null Lances.",
+    contradiction:
+      "CONTINUITY PROTOCOL OBJECTION 03: THE NULL DID NOT TEACH YOU THIS. YOU TAUGHT IT TO THE NULL.",
+    workRequired: 900,
+    costs: { "engineering-models": 260, "null-traces": 120 },
+    prerequisites: ["arc-discharge-weapons"],
+    unlocks: ["armory-weapons-t3"],
+    bonuses: {},
+  },
+  {
+    id: "composite-plating",
+    branch: "threat-operations",
+    name: "Composite Plating",
+    summary: "Weave fabrication mesh that keeps expedition wounds survivable.",
+    completedSummary: "The Foundry can produce Composite Weave armor.",
+    workRequired: 240,
+    costs: { "engineering-models": 110 },
+    prerequisites: ["predictive-fabrication"],
+    unlocks: ["armory-armor-t1"],
+    bonuses: {},
+  },
+  {
+    id: "reactive-shell",
+    branch: "threat-operations",
+    name: "Reactive Shell",
+    summary: "Segmented plate that stiffens on impact instead of the wearer.",
+    completedSummary: "The Foundry can produce Reactive Shell armor.",
+    workRequired: 480,
+    costs: { "engineering-models": 210, "biological-samples": 70 },
+    prerequisites: ["composite-plating"],
+    unlocks: ["armory-armor-t2"],
+    bonuses: {},
+  },
+  {
+    id: "aegis-frame",
+    branch: "threat-operations",
+    name: "Aegis Frame",
+    summary: "A powered exoframe that takes the hit so its wearer barely notices.",
+    completedSummary: "The Foundry can produce Aegis Frames.",
+    workRequired: 860,
+    costs: {
+      "engineering-models": 280,
+      "biological-samples": 90,
+      "null-traces": 90,
+    },
+    prerequisites: ["reactive-shell"],
+    unlocks: ["armory-armor-t3"],
+    bonuses: {},
   },
 ] as const;
 

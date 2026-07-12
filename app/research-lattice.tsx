@@ -68,6 +68,13 @@ const BRANCHES: readonly {
     code: "NUL",
     description: "Study the absence pursuing the Ark. Do not trust its metadata.",
   },
+  {
+    id: "threat-operations",
+    name: "Threat Operations",
+    code: "THR",
+    description:
+      "Expedition weapons and armor. The Continuity Protocol objects to every project here.",
+  },
 ] as const;
 
 const INPUT_ACCENTS: Record<ResearchInputId, string> = {

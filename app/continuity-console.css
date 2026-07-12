@@ -304,6 +304,36 @@
 .colony-list p { color: #718797; font-size: 9px; line-height: 1.5; }
 .colony-list small { color: #587084; }
 
+/* Health biometrics (Expedition E2) */
+.crew-health-track { position: relative; height: 4px; margin-top: 5px; overflow: hidden; background: #152633; }
+.crew-health-track i { display: block; height: 100%; background: linear-gradient(90deg, #2fd674, #63f2a0); box-shadow: 0 0 8px rgb(99 242 160 / 0.3); }
+.crew-health-track.is-wounded i { background: linear-gradient(90deg, #e86a55, #f2a063); box-shadow: 0 0 8px rgb(232 106 85 / 0.4); }
+.crew-health-track.is-capped::after { content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: var(--health-cap-loss, 0%); background: repeating-linear-gradient(135deg, rgb(176 125 224 / 0.35) 0 3px, transparent 3px 6px); }
+.crew-wounded-badge { display: inline-flex; align-items: center; min-height: 15px; padding: 2px 6px; color: #f2916b; border: 1px solid rgb(242 145 107 / 0.5); border-radius: 999px; background: rgb(242 145 107 / 0.1); font-family: var(--font-mono, monospace); font-size: 7px; font-style: normal; font-weight: 800; letter-spacing: 0.08em; line-height: 1; text-transform: uppercase; white-space: nowrap; }
+.crew-injured-badge { display: inline-flex; align-items: center; min-height: 15px; padding: 2px 6px; color: #c99df0; border: 1px solid rgb(176 125 224 / 0.5); border-radius: 999px; background: rgb(176 125 224 / 0.1); font-family: var(--font-mono, monospace); font-size: 7px; font-style: normal; font-weight: 800; letter-spacing: 0.08em; line-height: 1; text-transform: uppercase; white-space: nowrap; }
+.expedition-biometrics { display: grid; gap: 6px; margin-top: 8px; }
+.expedition-biometrics > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.expedition-biometrics small { color: #718797; font-size: 8px; }
+.expedition-projection { margin-top: 8px; padding: 8px 10px; border: 1px solid #243a4b; background: #08131c; color: #a8bdca; font-size: 9px; line-height: 1.5; }
+.expedition-projection.is-warning { border-color: rgb(242 145 107 / 0.5); color: #f2b08a; background: rgb(242 145 107 / 0.06); }
+
+/* Armory console */
+.armory-item-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.armory-item-card { display: grid; align-content: start; gap: 8px; padding: 12px; border: 1px solid #243a4b; background: #071019; }
+.armory-item-card.is-locked { opacity: 0.72; }
+.armory-item-card > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.armory-item-card > header span { display: block; color: #687f91; font-family: var(--font-mono, monospace); font-size: 7px; font-weight: 800; letter-spacing: 0.11em; }
+.armory-item-card > header h3 { margin: 3px 0 0; color: #dce7ee; font-size: 13px; }
+.armory-item-card > p { margin: 0; color: #718797; font-size: 9px; line-height: 1.5; }
+.armory-stock-readout { text-align: right; }
+.armory-stock-readout strong { display: block; color: var(--world-accent, #55d6e8); font-size: 18px; }
+.armory-stock-readout small { color: #587084; font-size: 8px; }
+.armory-item-stats { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.armory-item-stats li { display: flex; justify-content: space-between; gap: 10px; font-size: 9px; }
+.armory-item-stats span { color: #687f91; }
+.armory-item-stats strong { color: #a8bdca; text-align: right; }
+.armory-item-actions { display: grid; gap: 6px; }
+
 @media (max-width: 1080px) {
   .support-upgrade-grid { grid-template-columns: repeat(3, 1fr); }
   .continuity-summary-band { grid-template-columns: repeat(3, 1fr); }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, type CSSProperties, type FormEvent } from "react";
 import type { ExpeditionSiteId, ExpeditionState } from "./expedition-engine";
 import {
   EXPEDITION_SITE_DEFINITIONS,
@@ -17,12 +17,16 @@ import type { ExpertiseId } from "./campaign-content";
 
 import {
   BACKGROUND_DEFINITIONS,
+  FOUNDER_HEALTH_THRESHOLD,
+  MAX_SURVIVOR_HEALTH,
   PROFESSIONAL_ROLES,
   SURVIVOR_RARITY_DEFINITIONS,
   TRAIT_DEFINITIONS,
+  WOUNDED_HEALTH_THRESHOLD,
   canSurvivorLearnProfession,
   getLifeSupportStatus,
   getPopulationRoleCounts,
+  getSurvivorHealthCap,
   getSurvivorProfessionCapacity,
   getSurvivorProfessionCount,
   getSurvivorRarity,
@@ -31,11 +35,22 @@ import {
   getSurvivorSkillProgress,
   getSurvivorSkillLevel,
   getTrainingQuote,
+  isSurvivorWounded,
   type LifeSupportKey,
   type ProfessionalRole,
+  type Survivor,
   type SurvivorRole,
   type SurvivorSystemState,
 } from "./survivor-engine";
+
+export type ExpeditionPreview = {
+  strength: number;
+  gearStrength: number;
+  difficulty: number;
+  projectedOutcome: "success" | "lean" | "setback" | null;
+  weapons: number;
+  armor: number;
+};
 
 export type BerthPanelQuote = {
   canAfford: boolean;
@@ -66,6 +81,10 @@ export type PopulationConsoleProps = {
   expeditions: ExpeditionState;
   expeditionAccess: Readonly<Record<ExpeditionSiteId, { available: boolean; reason: string | null; fluxLabel: string; canAffordFlux: boolean }>>;
   surveyStatus: { completed: number; required: number };
+  getExpeditionPreview: (
+    siteId: ExpeditionSiteId,
+    crewIds: readonly string[],
+  ) => ExpeditionPreview;
   onLaunchExpedition: (siteId: ExpeditionSiteId, crewIds: readonly string[]) => void;
   berthQuote: BerthPanelQuote;
   onStartBerthConstruction: () => void;
@@ -103,6 +122,26 @@ function titleCase(value: string) {
   return display.replaceAll("-", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function HealthBar({ survivor }: { survivor: Survivor }) {
+  const cap = getSurvivorHealthCap(survivor);
+  const wounded = isSurvivorWounded(survivor);
+  const capLoss = ((MAX_SURVIVOR_HEALTH - cap) / MAX_SURVIVOR_HEALTH) * 100;
+  return (
+    <div
+      className={`crew-health-track ${wounded ? "is-wounded" : ""} ${cap < MAX_SURVIVOR_HEALTH ? "is-capped" : ""}`}
+      role="progressbar"
+      aria-label={`Health ${Math.round(survivor.health)} of ${cap}`}
+      aria-valuemin={0}
+      aria-valuemax={MAX_SURVIVOR_HEALTH}
+      aria-valuenow={Math.round(survivor.health)}
+      style={{ "--health-cap-loss": `${capLoss}%` } as CSSProperties}
+      title={`Health ${Math.round(survivor.health)}/${cap}${survivor.injury ? ` · permanent ${survivor.injury} injury caps health at ${cap} until prosthetic repair` : ""}`}
+    >
+      <i style={{ width: `${(Math.max(0, survivor.health) / MAX_SURVIVOR_HEALTH) * 100}%` }} />
+    </div>
+  );
+}
+
 function PopulationConsole({
   state,
   salvage,
@@ -119,6 +158,7 @@ function PopulationConsole({
   expeditions,
   expeditionAccess,
   surveyStatus,
+  getExpeditionPreview,
   onLaunchExpedition,
   berthQuote,
   onStartBerthConstruction,
@@ -135,6 +175,7 @@ function PopulationConsole({
   const [selectedCrewId, setSelectedCrewId] = useState<string | null>(null);
   const [expeditionSiteId, setExpeditionSiteId] = useState<ExpeditionSiteId>("planetary-survey");
   const [expeditionCrewIds, setExpeditionCrewIds] = useState<string[]>([]);
+  const [confirmingSetback, setConfirmingSetback] = useState(false);
   const lifeSupport = useMemo(
     () => getLifeSupportStatus(state, [], capacityMultiplier),
     [capacityMultiplier, state],
@@ -300,20 +341,33 @@ function PopulationConsole({
             const site = getExpeditionSite(expeditions.active!.siteId);
             const progress = Math.min(1, (expeditions.clockSeconds - expeditions.active!.startedAtSeconds) / Math.max(1, expeditions.active!.durationSeconds));
             const remaining = Math.max(0, expeditions.active!.startedAtSeconds + expeditions.active!.durationSeconds - expeditions.clockSeconds);
-            const crewNames = expeditions.active!.crewIds
-              .map((id) => state.survivors.find((survivor) => survivor.id === id))
-              .map((survivor, index) => survivor ? (survivor.callsign || survivor.name) : `Crew ${index + 1}`);
+            const members = expeditions.active!.crewIds.map((id, index) => ({
+              survivor: state.survivors.find((candidate) => candidate.id === id) ?? null,
+              gear: expeditions.active!.loadout.find((entry) => entry.crewId === id) ?? null,
+              fallbackLabel: `Crew ${index + 1}`,
+            }));
             return (
               <div className="continuity-empty-state">
                 <strong>{site.name} · {Math.round(progress * 100)}% · {formatTime(remaining)} remaining</strong>
                 <div role="progressbar" aria-label={`${site.name} progress`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)} className="crew-xp-track"><i style={{ width: `${progress * 100}%` }} /></div>
-                <p>{crewNames.join(", ")} · group strength {expeditions.active!.strength} vs difficulty {site.difficulty}. The crew always returns; a strong group returns with more.</p>
+                <div className="expedition-biometrics" aria-label="Party biometrics">
+                  {members.map(({ survivor, gear, fallbackLabel }, index) => (
+                    <div key={survivor?.id ?? index}>
+                      <span>
+                        <strong>{survivor ? survivor.callsign || survivor.name : fallbackLabel}</strong>
+                        {survivor && <HealthBar survivor={survivor} />}
+                      </span>
+                      <small>{gear?.weaponId ? "armed" : "unarmed"} · {gear?.armorId ? "armored" : "no armor"}</small>
+                    </div>
+                  ))}
+                </div>
+                <p>Group strength {expeditions.active!.strength} vs difficulty {site.difficulty}. The crew always returns; wounds heal back aboard the Ark.</p>
               </div>
             );
           })() : (
             <>
               <div className="crew-actions-grid">
-                <label>Destination<select value={expeditionSiteId} onChange={(event) => setExpeditionSiteId(event.target.value as ExpeditionSiteId)}>
+                <label>Destination<select value={expeditionSiteId} onChange={(event) => { setConfirmingSetback(false); setExpeditionSiteId(event.target.value as ExpeditionSiteId); }}>
                   {EXPEDITION_SITE_DEFINITIONS.map((site) => {
                     const access = expeditionAccess[site.id];
                     return <option key={site.id} value={site.id} disabled={!access.available}>{site.name}{access.available ? ` · ${access.fluxLabel}` : access.reason === "locked-world" ? " · later worlds" : access.reason === "already-completed" ? " · completed" : access.reason === "campaign-incomplete" ? " · after the campaign" : ""}</option>;
@@ -324,12 +378,20 @@ function PopulationConsole({
                 const site = getExpeditionSite(expeditionSiteId);
                 const access = expeditionAccess[expeditionSiteId];
                 const trainingIds = new Set(state.training.map((program) => program.survivorId));
-                const eligible = state.survivors.filter((survivor) => !trainingIds.has(survivor.id));
+                const woundedCount = state.survivors.filter(isSurvivorWounded).length;
+                const eligible = state.survivors.filter(
+                  (survivor) => !trainingIds.has(survivor.id) && !isSurvivorWounded(survivor),
+                );
                 const chosen = expeditionCrewIds.filter((id) => eligible.some((survivor) => survivor.id === id));
-                const toggle = (id: string) => setExpeditionCrewIds((current) => current.includes(id) ? current.filter((existing) => existing !== id) : current.length >= MAX_EXPEDITION_CREW ? current : [...current, id]);
+                const toggle = (id: string) => {
+                  setConfirmingSetback(false);
+                  setExpeditionCrewIds((current) => current.includes(id) ? current.filter((existing) => existing !== id) : current.length >= MAX_EXPEDITION_CREW ? current : [...current, id]);
+                };
+                const preview = chosen.length >= MIN_EXPEDITION_CREW ? getExpeditionPreview(expeditionSiteId, chosen) : null;
+                const needsConfirm = preview?.projectedOutcome === "setback";
                 return (
                   <>
-                    <p className="crew-rarity-note">{site.description} Difficulty {site.difficulty} · {formatTime(site.durationSeconds)} base (Navigators level 3+ shorten it) · {access.fluxLabel}{site.countsAsSurvey ? " · counts toward planetary certification" : ""}</p>
+                    <p className="crew-rarity-note">{site.description} Difficulty {site.difficulty} · {formatTime(site.durationSeconds)} base (Navigators level 3+ shorten it) · {access.fluxLabel}{site.countsAsSurvey ? " · counts toward planetary certification" : ""}{woundedCount > 0 ? ` · ${woundedCount} recovering crew unavailable` : ""}</p>
                     <div className="settler-selection-list expedition-crew-list">
                       {eligible.map((survivor) => {
                         const rarity = getSurvivorRarity(survivor);
@@ -338,19 +400,48 @@ function PopulationConsole({
                           <label className={`crew-rarity-${rarity.id} ${picked ? "is-selected" : ""}`} key={survivor.id}>
                             <input type="checkbox" checked={picked} onChange={() => toggle(survivor.id)} />
                             <span className="crew-avatar">{survivor.name.slice(0, 1)}</span>
-                            <span><strong>{survivor.callsign || survivor.name}</strong><small>{survivor.role === "civilian" ? "Civilian" : `${titleCase(survivor.role)} · Level ${getSurvivorSkillLevel(survivor, survivor.role)}`}</small></span>
+                            <span><strong>{survivor.callsign || survivor.name}</strong><small>{survivor.role === "civilian" ? "Civilian" : `${titleCase(survivor.role)} · Level ${getSurvivorSkillLevel(survivor, survivor.role)}`}</small><HealthBar survivor={survivor} /></span>
                             <span className="settler-row-status"><b>{picked ? "CREW" : ""}</b></span>
                           </label>
                         );
                       })}
                     </div>
+                    {preview && (
+                      <div className={`expedition-projection ${preview.projectedOutcome === "setback" ? "is-warning" : ""}`} aria-live="polite">
+                        <strong>
+                          {preview.projectedOutcome === "success"
+                            ? `Projected: SUCCESS (strength ${preview.strength} vs ${preview.difficulty})`
+                            : preview.projectedOutcome === "lean"
+                              ? `Projected: LEAN RETURN (strength ${preview.strength} vs ${preview.difficulty}) — reduced rewards, nobody hurt`
+                              : `Projected: SETBACK RISK (strength ${preview.strength} vs ${preview.difficulty}) — the crew will come home wounded`}
+                        </strong>
+                        <br />
+                        Auto-equip: {preview.weapons > 0 ? `${preview.weapons} weapon${preview.weapons === 1 ? "" : "s"} (+${preview.gearStrength} strength)` : "no weapons"} · {preview.armor > 0 ? `${preview.armor} armor` : "no armor"}. Forge more in the Armory.
+                      </div>
+                    )}
                     <button
                       className="forecast-action"
                       type="button"
                       disabled={!access.available || !access.canAffordFlux || chosen.length < MIN_EXPEDITION_CREW}
-                      onClick={() => { onLaunchExpedition(expeditionSiteId, chosen); setExpeditionCrewIds([]); }}
+                      onClick={() => {
+                        if (needsConfirm && !confirmingSetback) {
+                          setConfirmingSetback(true);
+                          return;
+                        }
+                        setConfirmingSetback(false);
+                        onLaunchExpedition(expeditionSiteId, chosen);
+                        setExpeditionCrewIds([]);
+                      }}
                     >
-                      {chosen.length < MIN_EXPEDITION_CREW ? `Select ${MIN_EXPEDITION_CREW}-${MAX_EXPEDITION_CREW} crew` : !access.canAffordFlux ? `Needs ${access.fluxLabel}` : `Launch ${site.name} · ${access.fluxLabel}`}
+                      {chosen.length < MIN_EXPEDITION_CREW
+                        ? `Select ${MIN_EXPEDITION_CREW}-${MAX_EXPEDITION_CREW} crew`
+                        : !access.canAffordFlux
+                          ? `Needs ${access.fluxLabel}`
+                          : needsConfirm
+                            ? confirmingSetback
+                              ? "AXIOM objection logged — confirm launch"
+                              : `Launch anyway? Crew will be wounded · ${access.fluxLabel}`
+                            : `Launch ${site.name} · ${access.fluxLabel}`}
                     </button>
                   </>
                 );
@@ -363,8 +454,8 @@ function PopulationConsole({
                 const site = getExpeditionSite(entry.siteId);
                 return (
                   <li key={`${entry.resolvedAtSeconds}-${index}`}>
-                    <strong>{site.name} · {entry.outcome === "success" ? "SUCCESS" : "LEAN RETURN"} (strength {Math.round(entry.strength)} vs {entry.difficulty})</strong>
-                    <span>{entry.salvage > 0 ? `+${entry.salvage} Salvage · ` : ""}{entry.engineeringModels > 0 ? `+${entry.engineeringModels} Models · ` : ""}{entry.nullTraces > 0 ? `+${entry.nullTraces} Null Traces · ` : ""}{entry.surveyCredited ? "survey certified · " : ""}crew returned safely</span>
+                    <strong>{site.name} · {entry.outcome === "success" ? "SUCCESS" : entry.outcome === "lean" ? "LEAN RETURN" : "SETBACK"} (strength {Math.round(entry.strength)} vs {entry.difficulty})</strong>
+                    <span>{entry.salvage > 0 ? `+${entry.salvage} Salvage · ` : ""}{entry.engineeringModels > 0 ? `+${entry.engineeringModels} recovered schematics · ` : ""}{entry.nullTraces > 0 ? `+${entry.nullTraces} Null Traces · ` : ""}{entry.surveyCredited ? "survey certified · " : ""}{entry.outcome === "setback" ? `crew returned wounded (${entry.wounds.filter((wound) => wound.armorId).length}/${entry.wounds.length} hits absorbed by armor)` : "crew returned safely"}</span>
                   </li>
                 );
               })}
@@ -391,13 +482,16 @@ function PopulationConsole({
               {state.survivors.map((survivor) => {
                 const training = state.training.find((program) => program.survivorId === survivor.id);
                 const rarity = getSurvivorRarity(survivor);
-                const idle = !training && !survivor.assignedRole;
+                const wounded = isSurvivorWounded(survivor);
+                const idle = !training && !survivor.assignedRole && !wounded;
                 return (
                   <button className={`crew-rarity-${rarity.id} ${selectedCrew?.id === survivor.id ? "is-selected" : ""} ${idle ? "is-idle" : ""}`} type="button" key={survivor.id} onClick={() => setSelectedCrewId(survivor.id)}>
                     <span className="crew-avatar">{survivor.name.slice(0, 1)}</span>
-                    <span><strong>{survivor.callsign ? `“${survivor.callsign}” ${survivor.name}` : survivor.name}</strong><small>{training ? `Training ${titleCase(training.targetRole)} · ${Math.round((training.progressSeconds / training.durationSeconds) * 100)}%` : survivor.role === "civilian" ? `Civilian · ${titleCase(survivor.assignedRole ?? "untrained")}` : `${titleCase(survivor.role)} · Level ${getSurvivorSkillLevel(survivor, survivor.role)} · ${titleCase(survivor.assignedRole ?? "unassigned")}`}</small></span>
+                    <span><strong>{survivor.callsign ? `“${survivor.callsign}” ${survivor.name}` : survivor.name}</strong><small>{training ? `Training ${titleCase(training.targetRole)} · ${Math.round((training.progressSeconds / training.durationSeconds) * 100)}%` : survivor.role === "civilian" ? `Civilian · ${titleCase(survivor.assignedRole ?? "untrained")}` : `${titleCase(survivor.role)} · Level ${getSurvivorSkillLevel(survivor, survivor.role)} · ${titleCase(survivor.assignedRole ?? "unassigned")}`}</small>{(wounded || survivor.injury || survivor.health < MAX_SURVIVOR_HEALTH) && <HealthBar survivor={survivor} />}</span>
                     <span className="crew-roster-status">
                       <em className="crew-rarity-badge" title={rarity.description}>{rarity.label}</em>
+                      {wounded && <em className="crew-wounded-badge" title={`Health below ${WOUNDED_HEALTH_THRESHOLD}. Recovering aboard the Ark - no work, training, expeditions, or founding until healed.`}>RECOVERING</em>}
+                      {survivor.injury && !wounded && <em className="crew-injured-badge" title={`Permanent ${survivor.injury} injury caps health at ${getSurvivorHealthCap(survivor)}. Founding requires ${FOUNDER_HEALTH_THRESHOLD}+.`}>INJURED</em>}
                       {idle && <em className="crew-idle-badge" title="No working assignment. Assign a station to earn profession XP.">UNASSIGNED</em>}
                     </span>
                   </button>
@@ -442,6 +536,21 @@ function PopulationConsole({
                   </div>
                 )}
               </section>
+              <section className="crew-xp-readout" aria-label="Biometrics">
+                <div>
+                  <span>BIOMETRICS</span>
+                  <strong>
+                    {Math.round(selectedCrew.health)}/{getSurvivorHealthCap(selectedCrew)} HEALTH
+                    {isSurvivorWounded(selectedCrew) ? " · RECOVERING" : selectedCrew.injury ? ` · ${selectedCrew.injury.toUpperCase()} INJURY` : ""}
+                  </strong>
+                </div>
+                <HealthBar survivor={selectedCrew} />
+                {isSurvivorWounded(selectedCrew) ? (
+                  <small className="crew-rarity-note">Recovering: no work, training, expeditions, or founding until health passes {WOUNDED_HEALTH_THRESHOLD}. Recovery runs even while the game is closed; assigned Doctors speed it up.</small>
+                ) : selectedCrew.injury ? (
+                  <small className="crew-rarity-note">A permanent {selectedCrew.injury} injury caps health at {getSurvivorHealthCap(selectedCrew)}. Founding a colony requires {FOUNDER_HEALTH_THRESHOLD}+ health.</small>
+                ) : null}
+              </section>
               <form className="crew-callsign-form" onSubmit={submitCallsign}><label htmlFor="crew-callsign">Callsign</label><input id="crew-callsign" name="callsign" maxLength={18} defaultValue={selectedCrew.callsign} placeholder="Optional" /><button type="submit">Save</button></form>
               <div className="crew-trait-list">
                 {selectedCrew.traits.map((traitId) => {
@@ -480,6 +589,11 @@ function PopulationConsole({
 
               {selectedTraining ? (
                 <div className="active-training-card"><span>TRAINING IN PROGRESS</span><strong>{titleCase(selectedTraining.targetRole)}</strong><div><i style={{ width: `${Math.min(100, (selectedTraining.progressSeconds / selectedTraining.durationSeconds) * 100)}%` }} /></div><small>{formatTime((selectedTraining.durationSeconds - selectedTraining.progressSeconds) / crewGrowthMultiplier)} remaining · ×{(getSurvivorLearningMultiplier(selectedCrew) * crewGrowthMultiplier).toFixed(2)} total learning · continues offline</small><button type="button" onClick={() => onCancelTraining(selectedCrew.id)}>Cancel training</button></div>
+              ) : isSurvivorWounded(selectedCrew) ? (
+                <div className="crew-actions-grid">
+                  <label>Working assignment<select disabled value=""><option value="">{`Recovering — available again at ${WOUNDED_HEALTH_THRESHOLD} health`}</option></select></label>
+                  <label>Training program<select disabled value=""><option value="">Recovering crew cannot train</option></select></label>
+                </div>
               ) : (
                 <div className="crew-actions-grid">
                   <label>Working assignment<select value={selectedCrew.assignedRole ?? ""} onChange={(event) => onAssignRole(selectedCrew.id, event.target.value ? event.target.value as SurvivorRole : null)}><option value="">Unassigned</option>{selectedCrew.role === "civilian" && <option value="civilian">Civilian support</option>}{PROFESSIONAL_ROLES.filter((role) => selectedCrew.role === role || getSurvivorSkillLevel(selectedCrew, role) > 0).map((role) => <option key={role} value={role}>{titleCase(role)}</option>)}</select></label>

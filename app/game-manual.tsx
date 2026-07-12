@@ -10,6 +10,7 @@ export type ManualPageId =
   | "research"
   | "population"
   | "defense"
+  | "armory"
   | "settlement";
 
 export type ManualTopicId = ManualPageId | "salvage" | ResearchInputId;
@@ -41,6 +42,7 @@ export const MANUAL_PAGE_LABELS: Record<ManualPageId, string> = {
   research: "Research",
   population: "Crew",
   defense: "Defense",
+  armory: "Armory",
   settlement: "Continuity",
 };
 
@@ -144,6 +146,26 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
       { label: "Null Traces", detail: "The Observe doctrine is the active way to gather Null Traces from Cinder onward." },
     ],
     tip: "Storms never arrive unannounced faster than 15 minutes, and the first storm is always mild.",
+  },
+  armory: {
+    id: "armory",
+    label: "Armory",
+    category: "Page guide // expedition outfitting",
+    title: "Forge the gear, and expeditions equip themselves",
+    summary:
+      "Weapons and armor are shared Ark stock. Research a tier in the Threat Operations branch, forge pieces with Flux and Engineering Models, and every expedition auto-equips the best gear each member is leveled to use.",
+    steps: [
+      { title: "Research a tier", detail: "Each weapon and armor tier is a Threat Operations research project. Tier 3 gear also costs Null Traces to forge." },
+      { title: "Forge pieces", detail: "One piece outfits one expedition member. Four of each covers a full crew." },
+      { title: "Check wield levels", detail: "A survivor's best professional level decides what they can carry: Pike 2 / Carbine 4 / Lance 6, Weave 1 / Shell 3 / Frame 5." },
+      { title: "Repair after setbacks", detail: "Armor that absorbs a hit loses durability and eventually reads DAMAGED. Repairs cost 40% of the forge price." },
+    ],
+    sources: [
+      { label: "Weapons", detail: "Add group strength per equipped member (+2/+4/+6 by tier) and never break." },
+      { label: "Armor", detail: "Multiplies setback wound damage (×0.5/×0.35/×0.2 by tier) and limits the worst possible permanent injury." },
+      { label: "Health", detail: "Wounded crew (below 40 health) recover at +2/hour, faster with assigned Doctors. Only expedition setbacks ever deal damage." },
+    ],
+    tip: "The armory survives Recalibration and travels between worlds. Gear you forge now protects every future crew.",
   },
   settlement: {
     id: "settlement",

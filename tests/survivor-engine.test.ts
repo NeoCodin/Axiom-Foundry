@@ -4,7 +4,12 @@ import test from "node:test";
 import {
   BASE_BERTHS,
   BERTHS_PER_SECTION,
+  applySurvivorWound,
+  canSurvivorFound,
   getBerthCapacity,
+  getSurvivorHealthCap,
+  isSurvivorOnDuty,
+  isSurvivorWounded,
   startBerthSectionConstruction,
   MAX_OFFLINE_SURVIVOR_SECONDS,
   PROFESSIONAL_ROLES,
@@ -1157,4 +1162,150 @@ test("scans are fast on arrival, then follow each world's slower cadence", () =>
   assert.ok(state.activeSignal);
   state = rescueSurvivorSignal(state, 1_000_000).state;
   assert.equal(getScanDurationSeconds(state), SOS_SCAN_SECONDS_BY_WORLD.viridia);
+});
+
+test("health defaults to full, sanitizes under injury caps, and recovers with doctors", () => {
+  // additive migration: saves without health fields load at full health
+  const migrated = sanitizeSurvivorSystemState({
+    survivors: [{ id: "old-timer", name: "Old Timer", role: "engineer" }],
+  });
+  assert.equal(migrated.survivors[0]!.health, 100);
+  assert.equal(migrated.survivors[0]!.injury, null);
+
+  // injuries clamp stored health to their cap
+  const injured = sanitizeSurvivorSystemState({
+    survivors: [
+      { id: "capped", name: "Capped", role: "engineer", health: 95, injury: "minor" },
+      { id: "hurt", name: "Hurt", role: "doctor", health: 20, injury: "severe" },
+      { id: "junk", name: "Junk", role: "farmer", health: -5, injury: "not-a-tier" },
+    ],
+  });
+  assert.equal(injured.survivors[0]!.health, 70, "minor injury caps health at 70");
+  assert.equal(injured.survivors[1]!.health, 20);
+  assert.equal(getSurvivorHealthCap(injured.survivors[1]!), 40);
+  assert.equal(injured.survivors[2]!.injury, null);
+  assert.equal(injured.survivors[2]!.health, 0);
+
+  // base recovery: +2/hour, capped by the injury ceiling
+  let recovering = sanitizeSurvivorSystemState({
+    lifeSupport: { atmosphere: 50, water: 50, nutrition: 50, medical: 50 },
+    survivors: [
+      { id: "patient", name: "Patient", role: "farmer", health: 30 },
+      { id: "medic-1", name: "Medic One", role: "doctor", skillXp: { doctor: 500 }, assignedRole: "doctor" },
+      { id: "medic-2", name: "Medic Two", role: "doctor", skillXp: { doctor: 500 }, assignedRole: "doctor" },
+    ],
+  });
+  recovering = { ...recovering, berthSections: 2 };
+  const afterHour = advanceSurvivorSystem(recovering, 3_600);
+  // two on-duty doctors: 2 + 0.5 x 2 = 3/hour
+  assert.equal(Math.round(afterHour.survivors[0]!.health * 10) / 10, 33);
+
+  // overloaded medical capacity halves recovery but never stops it
+  const strained = advanceSurvivorSystem(recovering, 3_600, {
+    medicalOverCapacity: true,
+  });
+  assert.equal(Math.round(strained.survivors[0]!.health * 10) / 10, 31.5);
+
+  // recovery is chunk-size independent
+  let chunked = recovering;
+  for (let step = 0; step < 6; step += 1) {
+    chunked = advanceSurvivorSystem(chunked, 600);
+  }
+  const single = advanceSurvivorSystem(recovering, 3_600);
+  assert.ok(
+    Math.abs(chunked.survivors[0]!.health - single.survivors[0]!.health) < 1e-6,
+  );
+});
+
+test("wounded crew are suspended from duty, training, assignment, and demand more care", () => {
+  const state = sanitizeSurvivorSystemState({
+    lifeSupport: { atmosphere: 50, water: 50, nutrition: 50, medical: 50 },
+    survivors: [
+      {
+        id: "walking-wounded",
+        name: "Walking Wounded",
+        role: "engineer",
+        skillXp: { engineer: 500 },
+        assignedRole: "engineer",
+        health: 25,
+      },
+      {
+        id: "fit",
+        name: "Fit Crew",
+        role: "engineer",
+        skillXp: { engineer: 500 },
+        assignedRole: "engineer",
+        health: 100,
+      },
+    ],
+  });
+  assert.equal(isSurvivorWounded(state.survivors[0]!), true);
+  assert.equal(isSurvivorOnDuty(state.survivors[0]!, "engineer"), false);
+  assert.equal(isSurvivorOnDuty(state.survivors[1]!, "engineer"), true);
+  assert.equal(canSurvivorFound(state.survivors[0]!), false);
+  assert.equal(canSurvivorFound(state.survivors[1]!), true);
+
+  // no on-the-job XP while recovering; the fit crewmate keeps earning
+  const later = advanceSurvivorSystem(state, 3_600);
+  assert.equal(
+    later.survivors[0]!.skillXp.engineer,
+    state.survivors[0]!.skillXp.engineer,
+  );
+  assert.ok(later.survivors[1]!.skillXp.engineer > 500);
+
+  // cannot start training or take a new assignment until healed
+  assert.equal(startSurvivorTraining(state, "walking-wounded", "doctor"), state);
+  assert.equal(
+    assignSurvivorToRole(state, "walking-wounded", "engineer"),
+    state,
+  );
+  // standing down is always allowed
+  const stoodDown = assignSurvivorToRole(
+    { ...state, survivors: state.survivors.map((survivor) => ({ ...survivor })) },
+    "walking-wounded",
+    null,
+  );
+  assert.equal(
+    stoodDown.survivors.find((survivor) => survivor.id === "walking-wounded")!
+      .assignedRole,
+    null,
+  );
+
+  // each wounded crew member adds +0.5 medical demand
+  const calm = getLifeSupportStatus(
+    sanitizeSurvivorSystemState({
+      lifeSupport: { atmosphere: 50, water: 50, nutrition: 50, medical: 50 },
+      survivors: [
+        { id: "a", name: "A", role: "farmer", health: 100 },
+        { id: "b", name: "B", role: "farmer", health: 100 },
+      ],
+    }),
+  );
+  const hurting = getLifeSupportStatus(
+    sanitizeSurvivorSystemState({
+      lifeSupport: { atmosphere: 50, water: 50, nutrition: 50, medical: 50 },
+      survivors: [
+        { id: "a", name: "A", role: "farmer", health: 100 },
+        { id: "b", name: "B", role: "farmer", health: 20 },
+      ],
+    }),
+  );
+  assert.equal(
+    Math.round((hurting.demand.medical - calm.demand.medical) * 100) / 100,
+    0.5,
+  );
+
+  // wounds apply through the shared helper: floor 10, injury below 15
+  const casualty = sanitizeSurvivorSystemState({
+    survivors: [{ id: "c", name: "C", role: "farmer", health: 100 }],
+  }).survivors[0]!;
+  applySurvivorWound(casualty, 70, "minor");
+  assert.equal(casualty.health, 30);
+  assert.equal(casualty.injury, null, "30 health is above the injury line");
+  applySurvivorWound(casualty, 70, "minor");
+  assert.equal(casualty.health, 10, "health floors at 10 - always alive");
+  assert.equal(casualty.injury, "minor", "critical wounds leave a permanent injury");
+  assert.equal(getSurvivorHealthCap(casualty), 70);
+  applySurvivorWound(casualty, 20, "severe");
+  assert.equal(casualty.injury, "severe", "worse events upgrade the injury tier");
 });
