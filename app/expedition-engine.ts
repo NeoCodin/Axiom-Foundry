@@ -13,6 +13,7 @@ import {
 } from "./survivor-engine.ts";
 import {
   getEntryDamageMultiplier,
+  getEntryWorstInjury,
   getLoadoutStrengthBonus,
   type ArmoryArmorId,
   type ArmoryWeaponId,
@@ -27,7 +28,12 @@ export type ExpeditionSiteId =
   | "null-sounding"
   | "palimpsest-origin";
 
-export type ExpeditionOutcome = "success" | "lean" | "setback";
+export type ExpeditionOutcome =
+  | "success"
+  | "lean"
+  | "setback"
+  | "distress"
+  | "rescue";
 
 export type ExpeditionSiteDefinition = {
   id: ExpeditionSiteId;
@@ -58,15 +64,42 @@ export type ActiveExpedition = {
   durationSeconds: number;
   strength: number;
   loadout: ExpeditionLoadoutEntry[];
+  /** Rescue missions retrieve a stranded party instead of working a site. */
+  kind: "expedition" | "rescue";
+};
+
+/**
+ * A party lost to a distress outcome. Stranded crew are STABLE: their health
+ * never decays, online or offline, and the signal never expires. They come
+ * home through a rescue mission - or die only through the explicit Abandon
+ * action.
+ */
+export type StrandedParty = {
+  siteId: ExpeditionSiteId;
+  worldId: string | null;
+  crewIds: string[];
+  loadout: ExpeditionLoadoutEntry[];
+  strandedAtSeconds: number;
+};
+
+export type MemorialRecord = {
+  crewId: string;
+  name: string;
+  professions: string[];
+  siteId: ExpeditionSiteId;
+  worldId: string | null;
+  abandonedAtSeconds: number;
 };
 
 export type ExpeditionWound = {
   crewId: string;
-  /** Final damage after armor mitigation. */
+  /** Final damage after armor mitigation. Zero for distress events. */
   damage: number;
   /** Injury tier inflicted if the wound leaves the member critical. */
   injuryTier: SurvivorInjuryTier;
   armorId: ArmoryArmorId | null;
+  /** Distress only: the critical health the member is stranded at. */
+  strandedHealth?: number;
 };
 
 export type ExpeditionResult = {
@@ -83,26 +116,46 @@ export type ExpeditionResult = {
   surveyCredited: boolean;
   wounds: ExpeditionWound[];
   loadout: ExpeditionLoadoutEntry[];
+  /** Rescue results: the stranded crew brought home. */
+  rescuedCrewIds: string[];
+  /** Rescue results: the stranded party's gear, returning with them. */
+  strandedLoadout: ExpeditionLoadoutEntry[];
 };
 
 export type ExpeditionState = {
   schema: number;
   clockSeconds: number;
   active: ActiveExpedition | null;
+  stranded: StrandedParty | null;
   log: ExpeditionResult[];
   completedSiteIds: ExpeditionSiteId[];
-  stats: { launched: number; completed: number };
+  memorials: MemorialRecord[];
+  stats: { launched: number; completed: number; abandoned: number };
 };
 
-export const EXPEDITION_SCHEMA = 2;
+export const EXPEDITION_SCHEMA = 3;
 export const MIN_EXPEDITION_CREW = 2;
 export const MAX_EXPEDITION_CREW = 4;
 export const MAX_EXPEDITION_LOG = 10;
 
 // Outcome bands on margin = strength - difficulty (docs/expedition-e2-spec.md §2).
 export const LEAN_MARGIN = 8;
+export const DISTRESS_MARGIN = 16;
 export const SETBACK_DAMAGE_MIN = 30;
 export const SETBACK_DAMAGE_MAX = 70;
+export const MAX_MEMORIALS = 100;
+
+// Rescue missions (docs/expedition-e2-spec.md §4): they know the route, so
+// they fly faster and need less strength - and they can NEVER strand.
+export const RESCUE_DIFFICULTY_RELIEF = 4;
+export const RESCUE_FLUX_RATIO = 0.5;
+export const RESCUE_DURATION_RATIO = 0.6;
+export const RESCUE_XP_PER_MEMBER = 90;
+
+// Stranded crew hold at critical health; armor keeps them at the top band.
+export const STRANDED_HEALTH_ARMORED_MIN = 14;
+export const STRANDED_HEALTH_UNARMORED_MIN = 8;
+export const STRANDED_HEALTH_SPAN = 6;
 
 // Profession-dependent XP replaced E1's flat 90 per member.
 export const EXPEDITION_XP_BASE = 60;
@@ -112,11 +165,15 @@ const XP_OUTCOME_SCALE: Record<ExpeditionOutcome, number> = {
   success: 1,
   lean: 0.6,
   setback: 0.4,
+  distress: 0,
+  rescue: 0,
 };
 const REWARD_OUTCOME_SCALE: Record<ExpeditionOutcome, number> = {
   success: 1,
   lean: 0.45,
   setback: 0.25,
+  distress: 0,
+  rescue: 0,
 };
 
 export const EXPEDITION_SITE_DEFINITIONS: readonly ExpeditionSiteDefinition[] = [
@@ -238,9 +295,11 @@ export function createExpeditionState(): ExpeditionState {
     schema: EXPEDITION_SCHEMA,
     clockSeconds: 0,
     active: null,
+    stranded: null,
     log: [],
     completedSiteIds: [],
-    stats: { launched: 0, completed: 0 },
+    memorials: [],
+    stats: { launched: 0, completed: 0, abandoned: 0 },
   };
 }
 
@@ -254,13 +313,26 @@ export function cloneExpeditionState(state: ExpeditionState): ExpeditionState {
           loadout: state.active.loadout.map((entry) => ({ ...entry })),
         }
       : null,
+    stranded: state.stranded
+      ? {
+          ...state.stranded,
+          crewIds: [...state.stranded.crewIds],
+          loadout: state.stranded.loadout.map((entry) => ({ ...entry })),
+        }
+      : null,
     log: state.log.map((entry) => ({
       ...entry,
       crewIds: [...entry.crewIds],
       wounds: entry.wounds.map((wound) => ({ ...wound })),
       loadout: entry.loadout.map((gear) => ({ ...gear })),
+      rescuedCrewIds: [...entry.rescuedCrewIds],
+      strandedLoadout: entry.strandedLoadout.map((gear) => ({ ...gear })),
     })),
     completedSiteIds: [...state.completedSiteIds],
+    memorials: state.memorials.map((record) => ({
+      ...record,
+      professions: [...record.professions],
+    })),
     stats: { ...state.stats },
   };
 }
@@ -312,12 +384,18 @@ const sanitizeWounds = (
       (raw): raw is Record<string, unknown> & { crewId: string } =>
         typeof raw.crewId === "string" && known.has(raw.crewId),
     )
-    .map((raw) => ({
-      crewId: raw.crewId,
-      damage: finite(raw.damage, 0, 100),
-      injuryTier: isInjuryTier(raw.injuryTier) ? raw.injuryTier : "minor",
-      armorId: isArmorId(raw.armorId) ? raw.armorId : null,
-    }));
+    .map((raw) => {
+      const wound: ExpeditionWound = {
+        crewId: raw.crewId,
+        damage: finite(raw.damage, 0, 100),
+        injuryTier: isInjuryTier(raw.injuryTier) ? raw.injuryTier : "minor",
+        armorId: isArmorId(raw.armorId) ? raw.armorId : null,
+      };
+      if (typeof raw.strandedHealth === "number") {
+        wound.strandedHealth = finite(raw.strandedHealth, 5, 100);
+      }
+      return wound;
+    });
 };
 
 export function sanitizeExpeditionState(value: unknown): ExpeditionState {
@@ -336,8 +414,51 @@ export function sanitizeExpeditionState(value: unknown): ExpeditionState {
       completed: Math.floor(
         finite(isRecord(value.stats) ? value.stats.completed : 0, 0, 1e9),
       ),
+      abandoned: Math.floor(
+        finite(isRecord(value.stats) ? value.stats.abandoned : 0, 0, 1e9),
+      ),
     },
   };
+  if (isRecord(value.stranded) && isSiteId(value.stranded.siteId)) {
+    const crewIds = Array.isArray(value.stranded.crewIds)
+      ? value.stranded.crewIds
+          .filter((id): id is string => typeof id === "string")
+          .slice(0, MAX_EXPEDITION_CREW)
+      : [];
+    if (crewIds.length >= 1) {
+      state.stranded = {
+        siteId: value.stranded.siteId,
+        worldId:
+          typeof value.stranded.worldId === "string"
+            ? value.stranded.worldId
+            : null,
+        crewIds,
+        loadout: sanitizeLoadout(value.stranded.loadout, crewIds),
+        strandedAtSeconds: finite(value.stranded.strandedAtSeconds, 0, 1e15),
+      };
+    }
+  }
+  if (Array.isArray(value.memorials)) {
+    state.memorials = value.memorials
+      .filter(isRecord)
+      .filter(
+        (raw): raw is Record<string, unknown> & { name: string } =>
+          typeof raw.name === "string" && isSiteId(raw.siteId),
+      )
+      .slice(-MAX_MEMORIALS)
+      .map((raw) => ({
+        crewId: typeof raw.crewId === "string" ? raw.crewId : "",
+        name: raw.name.slice(0, 64),
+        professions: Array.isArray(raw.professions)
+          ? raw.professions
+              .filter((role): role is string => typeof role === "string")
+              .slice(0, 9)
+          : [],
+        siteId: raw.siteId as ExpeditionSiteId,
+        worldId: typeof raw.worldId === "string" ? raw.worldId : null,
+        abandonedAtSeconds: finite(raw.abandonedAtSeconds, 0, 1e15),
+      }));
+  }
   if (isRecord(value.active) && isSiteId(value.active.siteId)) {
     const site = getExpeditionSite(value.active.siteId);
     const crewIds = Array.isArray(value.active.crewIds)
@@ -360,6 +481,7 @@ export function sanitizeExpeditionState(value: unknown): ExpeditionState {
         durationSeconds: Math.max(60, duration),
         strength: finite(value.active.strength, 0, 10_000),
         loadout: sanitizeLoadout(value.active.loadout, crewIds),
+        kind: value.active.kind === "rescue" ? "rescue" : "expedition",
       };
     }
   }
@@ -372,14 +494,20 @@ export function sanitizeExpeditionState(value: unknown): ExpeditionState {
         const crewIds = Array.isArray(raw.crewIds)
           ? raw.crewIds.filter((id): id is string => typeof id === "string")
           : [];
+        const rescuedCrewIds = Array.isArray(raw.rescuedCrewIds)
+          ? raw.rescuedCrewIds.filter(
+              (id): id is string => typeof id === "string",
+            )
+          : [];
         return {
           siteId: raw.siteId as ExpeditionSiteId,
           outcome:
-            raw.outcome === "lean"
-              ? ("lean" as const)
-              : raw.outcome === "setback"
-                ? ("setback" as const)
-                : ("success" as const),
+            raw.outcome === "lean" ||
+            raw.outcome === "setback" ||
+            raw.outcome === "distress" ||
+            raw.outcome === "rescue"
+              ? raw.outcome
+              : ("success" as const),
           strength: finite(raw.strength, 0, 10_000),
           difficulty: finite(raw.difficulty, 0, 10_000),
           crewIds,
@@ -392,6 +520,8 @@ export function sanitizeExpeditionState(value: unknown): ExpeditionState {
           surveyCredited: raw.surveyCredited === true,
           wounds: sanitizeWounds(raw.wounds, crewIds),
           loadout: sanitizeLoadout(raw.loadout, crewIds),
+          rescuedCrewIds,
+          strandedLoadout: sanitizeLoadout(raw.strandedLoadout, rescuedCrewIds),
         };
       });
   }
@@ -465,7 +595,8 @@ export function getProjectedExpeditionOutcome(
   const margin = strength - difficulty;
   if (margin >= 0) return "success";
   if (margin > -LEAN_MARGIN) return "lean";
-  return "setback";
+  if (margin > -DISTRESS_MARGIN) return "setback";
+  return "distress";
 }
 
 /**
@@ -525,8 +656,58 @@ export function launchExpedition(
     strength:
       getExpeditionGroupStrength(crew) + getLoadoutStrengthBonus(loadout),
     loadout: loadout.map((entry) => ({ ...entry })),
+    kind: "expedition",
   };
   next.stats.launched += 1;
+  return next;
+}
+
+/** Launches a rescue mission to the stranded party's site. */
+export function launchRescueMission(
+  state: ExpeditionState,
+  crew: readonly Survivor[],
+  loadout: readonly ExpeditionLoadoutEntry[] = [],
+): ExpeditionState {
+  if (state.active || !state.stranded) return state;
+  if (crew.length < MIN_EXPEDITION_CREW || crew.length > MAX_EXPEDITION_CREW) {
+    return state;
+  }
+  const site = getExpeditionSite(state.stranded.siteId);
+  const next = cloneExpeditionState(state);
+  next.active = {
+    siteId: site.id,
+    worldId: state.stranded.worldId,
+    crewIds: crew.map((survivor) => survivor.id),
+    startedAtSeconds: next.clockSeconds,
+    durationSeconds: Math.max(
+      60,
+      Math.ceil(
+        getExpeditionDurationSeconds(site, crew) * RESCUE_DURATION_RATIO,
+      ),
+    ),
+    strength:
+      getExpeditionGroupStrength(crew) + getLoadoutStrengthBonus(loadout),
+    loadout: loadout.map((entry) => ({ ...entry })),
+    kind: "rescue",
+  };
+  next.stats.launched += 1;
+  return next;
+}
+
+/**
+ * The only death in the game: an explicit choice to leave a stranded party
+ * behind. Callers pass memorial records built from the live roster; the
+ * ledger is permanent.
+ */
+export function abandonStrandedParty(
+  state: ExpeditionState,
+  records: readonly MemorialRecord[],
+): ExpeditionState {
+  if (!state.stranded) return state;
+  const next = cloneExpeditionState(state);
+  next.memorials = [...next.memorials, ...records].slice(-MAX_MEMORIALS);
+  next.stats.abandoned += next.stranded!.crewIds.length;
+  next.stranded = null;
   return next;
 }
 
@@ -551,16 +732,71 @@ export function advanceExpeditions(
     return { state: next, completed: null };
   }
   const site = getExpeditionSite(next.active.siteId);
+  const active = next.active;
+
+  if (active.kind === "rescue") {
+    // A rescue ALWAYS retrieves everyone and can never strand itself. An
+    // under-strength rescue is a hard extraction: the rescuers take setback
+    // damage on the way out.
+    const rescueDifficulty = Math.max(
+      1,
+      site.difficulty - RESCUE_DIFFICULTY_RELIEF,
+    );
+    const hard = active.strength < rescueDifficulty;
+    const wounds: ExpeditionWound[] = hard
+      ? active.crewIds.map((crewId, index) => {
+          const entry = active.loadout.find(
+            (candidate) => candidate.crewId === crewId,
+          );
+          return {
+            crewId,
+            damage:
+              Math.round(
+                setbackDamageRoll(active, index) *
+                  getEntryDamageMultiplier(entry) *
+                  10,
+              ) / 10,
+            injuryTier: "minor",
+            armorId: entry?.armorId ?? null,
+          };
+        })
+      : [];
+    const result: ExpeditionResult = {
+      siteId: site.id,
+      outcome: "rescue",
+      strength: active.strength,
+      difficulty: rescueDifficulty,
+      crewIds: [...active.crewIds],
+      resolvedAtSeconds: next.clockSeconds,
+      salvage: 0,
+      engineeringModels: 0,
+      nullTraces: 0,
+      discoveryId: null,
+      surveyCredited: false,
+      wounds,
+      loadout: active.loadout.map((entry) => ({ ...entry })),
+      rescuedCrewIds: next.stranded ? [...next.stranded.crewIds] : [],
+      strandedLoadout: next.stranded
+        ? next.stranded.loadout.map((entry) => ({ ...entry }))
+        : [],
+    };
+    next.log = [...next.log, result].slice(-MAX_EXPEDITION_LOG);
+    next.stats.completed += 1;
+    next.active = null;
+    next.stranded = null;
+    return { state: next, completed: result };
+  }
+
   const outcome = getProjectedExpeditionOutcome(
-    next.active.strength,
+    active.strength,
     site.difficulty,
   );
   const scale = REWARD_OUTCOME_SCALE[outcome];
   const surveyCredited =
+    outcome !== "distress" &&
     site.countsAsSurvey &&
     currentWorldId !== null &&
-    currentWorldId === next.active.worldId;
-  const active = next.active;
+    currentWorldId === active.worldId;
   const wounds: ExpeditionWound[] =
     outcome === "setback"
       ? active.crewIds.map((crewId, index) => {
@@ -581,13 +817,32 @@ export function advanceExpeditions(
             armorId: entry?.armorId ?? null,
           };
         })
-      : [];
+      : outcome === "distress"
+        ? active.crewIds.map((crewId, index) => {
+            const entry = active.loadout.find(
+              (candidate) => candidate.crewId === crewId,
+            );
+            const armored = Boolean(entry?.armorId);
+            const roll = setbackDamageRoll(active, index);
+            return {
+              crewId,
+              damage: 0,
+              injuryTier: getEntryWorstInjury(entry),
+              armorId: entry?.armorId ?? null,
+              strandedHealth:
+                (armored
+                  ? STRANDED_HEALTH_ARMORED_MIN
+                  : STRANDED_HEALTH_UNARMORED_MIN) +
+                ((roll - SETBACK_DAMAGE_MIN) % (STRANDED_HEALTH_SPAN + 1)),
+            };
+          })
+        : [];
   const result: ExpeditionResult = {
     siteId: site.id,
     outcome,
-    strength: next.active.strength,
+    strength: active.strength,
     difficulty: site.difficulty,
-    crewIds: [...next.active.crewIds],
+    crewIds: [...active.crewIds],
     resolvedAtSeconds: next.clockSeconds,
     salvage: Math.round(site.rewards.salvage * scale),
     engineeringModels: Math.round(site.rewards.engineeringModels * scale),
@@ -595,8 +850,20 @@ export function advanceExpeditions(
     discoveryId: outcome === "success" ? site.rewards.discoveryId ?? null : null,
     surveyCredited,
     wounds,
-    loadout: next.active.loadout.map((entry) => ({ ...entry })),
+    loadout: active.loadout.map((entry) => ({ ...entry })),
+    rescuedCrewIds: [],
+    strandedLoadout: [],
   };
+  if (outcome === "distress") {
+    // The party shelters in place: stable forever, retrievable forever.
+    next.stranded = {
+      siteId: site.id,
+      worldId: active.worldId,
+      crewIds: [...active.crewIds],
+      loadout: active.loadout.map((entry) => ({ ...entry })),
+      strandedAtSeconds: next.clockSeconds,
+    };
+  }
   next.log = [...next.log, result].slice(-MAX_EXPEDITION_LOG);
   if (!site.repeatable && outcome === "success") {
     next.completedSiteIds = [...new Set([...next.completedSiteIds, site.id])];
@@ -607,5 +874,8 @@ export function advanceExpeditions(
 }
 
 export function getDeployedCrewIds(state: ExpeditionState): ReadonlySet<string> {
-  return new Set(state.active?.crewIds ?? []);
+  return new Set([
+    ...(state.active?.crewIds ?? []),
+    ...(state.stranded?.crewIds ?? []),
+  ]);
 }

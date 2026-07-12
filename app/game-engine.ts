@@ -10,6 +10,7 @@ import {
 } from "./living-foundry-engine.ts";
 import { syncAutomaticDiscoveries } from "./discovery-engine.ts";
 import {
+  abandonStrandedParty,
   advanceExpeditions,
   cloneExpeditionState,
   createExpeditionState,
@@ -20,12 +21,17 @@ import {
   getExpeditionSite,
   getProjectedExpeditionOutcome,
   launchExpedition,
+  launchRescueMission,
   MAX_EXPEDITION_CREW,
   MIN_EXPEDITION_CREW,
+  RESCUE_DIFFICULTY_RELIEF,
+  RESCUE_FLUX_RATIO,
+  RESCUE_XP_PER_MEMBER,
   sanitizeExpeditionState,
   type ExpeditionOutcome,
   type ExpeditionSiteId,
   type ExpeditionState,
+  type MemorialRecord,
 } from "./expedition-engine.ts";
 import {
   addArmoryItem,
@@ -59,6 +65,7 @@ import {
 } from "./defense-engine.ts";
 import {
   advanceSurvivorSystem,
+  applyStrandedCondition,
   applySurvivorWound,
   BERTH_CONSTRUCTION_BASE_SECONDS,
   BERTHS_PER_SECTION,
@@ -1526,6 +1533,151 @@ export function startExpedition(
   return next;
 }
 
+export type RescueMissionQuote = {
+  fluxCost: number;
+  canLaunch: boolean;
+  reason:
+    | "no-stranded"
+    | "busy"
+    | "crew-count"
+    | "crew-unavailable"
+    | "crew-wounded"
+    | "flux"
+    | null;
+  strength: number;
+  gearStrength: number;
+  rescueDifficulty: number;
+  /** Clean extractions bring everyone home unharmed; hard ones wound rescuers. */
+  projectedExtraction: "clean" | "hard" | null;
+  loadout: ExpeditionLoadoutEntry[];
+};
+
+export function getRescueMissionQuote(
+  state: GameState,
+  crewIds: readonly string[],
+): RescueMissionQuote {
+  const stranded = state.expeditions.stranded;
+  const site = stranded ? getExpeditionSite(stranded.siteId) : null;
+  const fluxCost = site
+    ? bounded(site.fluxCostBase * RESCUE_FLUX_RATIO * continuityScale(state))
+    : 0;
+  const rescueDifficulty = site
+    ? Math.max(1, site.difficulty - RESCUE_DIFFICULTY_RELIEF)
+    : 0;
+  const blocked = (reason: RescueMissionQuote["reason"]) => ({
+    fluxCost,
+    canLaunch: false,
+    reason,
+    strength: 0,
+    gearStrength: 0,
+    rescueDifficulty,
+    projectedExtraction: null,
+    loadout: [],
+  });
+  if (!stranded || !site) return blocked("no-stranded");
+  if (state.expeditions.active) return blocked("busy");
+  const unique = [...new Set(crewIds)];
+  if (unique.length < MIN_EXPEDITION_CREW || unique.length > MAX_EXPEDITION_CREW) {
+    return blocked("crew-count");
+  }
+  const trainingIds = new Set(
+    state.survivors.training.map((program) => program.survivorId),
+  );
+  const strandedIds = new Set(stranded.crewIds);
+  const crew = unique.map((id) =>
+    state.survivors.survivors.find((survivor) => survivor.id === id),
+  );
+  if (
+    crew.some(
+      (member) =>
+        !member || trainingIds.has(member.id) || strandedIds.has(member.id),
+    )
+  ) {
+    return blocked("crew-unavailable");
+  }
+  const roster = crew as NonNullable<(typeof crew)[number]>[];
+  if (roster.some((member) => isSurvivorWounded(member))) {
+    return blocked("crew-wounded");
+  }
+  const plan = planExpeditionLoadout(state.armory, roster);
+  const strength =
+    getExpeditionGroupStrength(roster) + getLoadoutStrengthBonus(plan.loadout);
+  const projectedExtraction = strength >= rescueDifficulty ? "clean" : "hard";
+  if (state.flux < fluxCost) {
+    return {
+      ...blocked("flux"),
+      strength,
+      gearStrength: plan.strengthBonus,
+      projectedExtraction,
+      loadout: plan.loadout,
+    };
+  }
+  return {
+    fluxCost,
+    canLaunch: true,
+    reason: null,
+    strength,
+    gearStrength: plan.strengthBonus,
+    rescueDifficulty,
+    projectedExtraction,
+    loadout: plan.loadout,
+  };
+}
+
+export function startRescueMission(
+  state: GameState,
+  crewIds: readonly string[],
+): GameState {
+  const quote = getRescueMissionQuote(state, crewIds);
+  if (!quote.canLaunch) return state;
+  const unique = [...new Set(crewIds)];
+  const crew = unique.map(
+    (id) => state.survivors.survivors.find((survivor) => survivor.id === id)!,
+  );
+  const plan = planExpeditionLoadout(state.armory, crew);
+  const expeditions = launchRescueMission(state.expeditions, crew, plan.loadout);
+  if (expeditions === state.expeditions) return state;
+  const next = cloneGameState(state);
+  next.flux = Math.max(0, next.flux - quote.fluxCost);
+  next.expeditions = expeditions;
+  next.armory = plan.state;
+  for (const survivor of next.survivors.survivors) {
+    if (unique.includes(survivor.id)) survivor.assignedRole = null;
+  }
+  return next;
+}
+
+/**
+ * The only death in the game. Removes the stranded party permanently and
+ * records them in the memorial ledger; their gear is lost with them. Never
+ * called automatically - the UI requires an explicit double confirm.
+ */
+export function abandonStrandedCrew(state: GameState): GameState {
+  const stranded = state.expeditions.stranded;
+  if (!stranded) return state;
+  const next = cloneGameState(state);
+  const records: MemorialRecord[] = stranded.crewIds.map((crewId) => {
+    const survivor = next.survivors.survivors.find(
+      (candidate) => candidate.id === crewId,
+    );
+    return {
+      crewId,
+      name: survivor
+        ? survivor.callsign
+          ? `${survivor.name} “${survivor.callsign}”`
+          : survivor.name
+        : "Unknown crew",
+      professions: survivor ? [...getQualifiedSurvivorRoles(survivor)] : [],
+      siteId: stranded.siteId,
+      worldId: stranded.worldId,
+      abandonedAtSeconds: next.expeditions.clockSeconds,
+    };
+  });
+  next.expeditions = abandonStrandedParty(next.expeditions, records);
+  next.survivors = transferSurvivorsToSettlement(next.survivors, stranded.crewIds);
+  return next;
+}
+
 export function getAssignedEngineerCount(state: GameState) {
   return state.survivors.survivors.filter((survivor) =>
     isSurvivorOnDuty(survivor, "engineer"),
@@ -2582,6 +2734,8 @@ export function simulateGame(
         [],
         survivorBonuses.habitationCapacityMultiplier,
       ).shortages.medical > 0,
+    // Stranded crew shelter off-ship: health frozen, never decaying.
+    recoveryExemptIds: next.expeditions.stranded?.crewIds ?? [],
     reservedNames: next.settlement.colonies.flatMap((colony) =>
       colony.founders.map((founder) => founder.name.replace(/\s*“.*$/u, "")),
     ),
@@ -2685,29 +2839,69 @@ export function simulateGame(
         surveysCompleted: next.worldProgress.surveysCompleted + 1,
       };
     }
-    for (const wound of completed.wounds) {
-      const survivor = next.survivors.survivors.find(
-        (candidate) => candidate.id === wound.crewId,
+    if (completed.outcome === "distress") {
+      // The party is stranded at critical health with a permanent injury;
+      // their gear stays with them (returned by rescue, lost by abandonment).
+      for (const wound of completed.wounds) {
+        const survivor = next.survivors.survivors.find(
+          (candidate) => candidate.id === wound.crewId,
+        );
+        if (!survivor) continue;
+        applyStrandedCondition(
+          survivor,
+          wound.strandedHealth ?? 10,
+          wound.injuryTier,
+        );
+      }
+    } else {
+      for (const wound of completed.wounds) {
+        const survivor = next.survivors.survivors.find(
+          (candidate) => candidate.id === wound.crewId,
+        );
+        if (!survivor) continue;
+        applySurvivorWound(survivor, wound.damage, wound.injuryTier);
+      }
+      // Armor that absorbed a setback hit returns one durability lower.
+      next.armory = returnExpeditionGear(
+        next.armory,
+        completed.loadout,
+        new Set(completed.wounds.map((wound) => wound.crewId)),
       );
-      if (!survivor) continue;
-      applySurvivorWound(survivor, wound.damage, wound.injuryTier);
-    }
-    // Armor that absorbed a setback hit returns one durability lower.
-    next.armory = returnExpeditionGear(
-      next.armory,
-      completed.loadout,
-      new Set(completed.wounds.map((wound) => wound.crewId)),
-    );
-    for (const crewId of completed.crewIds) {
-      const survivor = next.survivors.survivors.find(
-        (candidate) => candidate.id === crewId,
-      );
-      if (!survivor || survivor.role === "civilian") continue;
-      survivor.skillXp[survivor.role] = Math.min(
-        1_000_000_000,
-        survivor.skillXp[survivor.role] +
-          getExpeditionMemberXp(completedSite, survivor.role, completed.outcome),
-      );
+      if (completed.outcome === "rescue") {
+        // The stranded party's gear comes home with them; every piece of
+        // their armor absorbed the distress hit.
+        next.armory = returnExpeditionGear(
+          next.armory,
+          completed.strandedLoadout,
+          new Set(completed.rescuedCrewIds),
+        );
+        for (const crewId of completed.crewIds) {
+          const survivor = next.survivors.survivors.find(
+            (candidate) => candidate.id === crewId,
+          );
+          if (!survivor || survivor.role === "civilian") continue;
+          survivor.skillXp[survivor.role] = Math.min(
+            1_000_000_000,
+            survivor.skillXp[survivor.role] + RESCUE_XP_PER_MEMBER,
+          );
+        }
+      } else {
+        for (const crewId of completed.crewIds) {
+          const survivor = next.survivors.survivors.find(
+            (candidate) => candidate.id === crewId,
+          );
+          if (!survivor || survivor.role === "civilian") continue;
+          survivor.skillXp[survivor.role] = Math.min(
+            1_000_000_000,
+            survivor.skillXp[survivor.role] +
+              getExpeditionMemberXp(
+                completedSite,
+                survivor.role,
+                completed.outcome,
+              ),
+          );
+        }
+      }
     }
   }
 

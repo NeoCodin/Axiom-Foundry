@@ -36,12 +36,15 @@ import {
   chooseDefenseDoctrine,
   craftArmoryItem,
   repairArmoryItem,
+  abandonStrandedCrew,
   getArkRescueQuote,
   getArmoryCraftQuote,
   getArmoryRepairQuote,
   getAutoTransferStatus,
   getExpeditionLaunchQuote,
+  getRescueMissionQuote,
   startExpedition,
+  startRescueMission,
   getBerthConstructionQuote,
   hasRescueDetail,
   performArkRescue,
@@ -922,6 +925,24 @@ export default function Home() {
     commitGameState(next, `${DEFENSE_INSTALLATION_DEFINITIONS[id].name} upgraded to level ${next.defense.installations[id]}.`);
   };
 
+  const handleLaunchRescue = (crewIds: readonly string[]) => {
+    const current = gameRef.current;
+    const next = startRescueMission(current, crewIds);
+    if (next === current) {
+      setAnnouncement("The rescue cannot launch yet - check crew availability and the Flux cost.");
+      return;
+    }
+    commitGameState(next, "Rescue mission away. It always brings everyone home - even while the game is closed.");
+  };
+
+  const handleAbandonStranded = () => {
+    const current = gameRef.current;
+    const count = current.expeditions.stranded?.crewIds.length ?? 0;
+    const next = abandonStrandedCrew(current);
+    if (next === current) return;
+    commitGameState(next, `${count} crew abandoned. Their names are recorded on the memorial wall.`);
+  };
+
   const handleCraftArmoryItem = (itemId: ArmoryItemId) => {
     const current = gameRef.current;
     const next = craftArmoryItem(current, itemId);
@@ -1668,6 +1689,19 @@ export default function Home() {
             };
           }}
           onLaunchExpedition={handleLaunchExpedition}
+          getRescuePreview={(crewIds) => {
+            const quote = getRescueMissionQuote(game, crewIds);
+            return {
+              canLaunch: quote.canLaunch,
+              reason: quote.reason,
+              strength: quote.strength,
+              rescueDifficulty: quote.rescueDifficulty,
+              projectedExtraction: quote.projectedExtraction,
+              fluxLabel: `${formatNumber(quote.fluxCost)} Flux`,
+            };
+          }}
+          onLaunchRescue={handleLaunchRescue}
+          onAbandonStranded={handleAbandonStranded}
           berthQuote={berthPanelQuote}
           onStartBerthConstruction={handleStartBerthConstruction}
           onUpgradeSupport={handleUpgradeSupport}

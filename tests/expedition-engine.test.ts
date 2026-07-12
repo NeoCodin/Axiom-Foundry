@@ -2,15 +2,18 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  abandonStrandedCrew,
   craftArmoryItem,
   createInitialState,
   getCampaignCrewSummaries,
   getCurrentViabilityForecast,
   getExpeditionLaunchQuote,
+  getRescueMissionQuote,
   repairArmoryItem,
   setTutorialComplete,
   simulateGame,
   startExpedition,
+  startRescueMission,
 } from "../app/game-engine.ts";
 import {
   assignSurvivorToRole,
@@ -253,4 +256,150 @@ test("weapons and armor are research-gated, add strength, and armor breaks absor
   const repairedOnce = repairArmoryItem(done, "composite-weave");
   assert.equal(getArmoryDamagedCount(repairedOnce.armory, "composite-weave"), 1);
   assert.equal(getArmoryReadyCount(repairedOnce.armory, "composite-weave"), 1);
+});
+
+test("distress strands the party stable forever; rescue brings everyone home", () => {
+  const state = cinderStateWithCrew();
+  // two level-1 crew vs Palimpsest-difficulty sites would distress; use
+  // kestrel-relay with a doctored difficulty via strength math instead:
+  // 2 crew at level 1 = strength 2 vs difficulty 20 site is only available
+  // post-campaign, so drive distress through the lantern site at Nox.
+  state.missions.currentIndex = 4;
+  state.settlement.completedWorldIds = ["cold-wake", "pelagos", "viridia", "cinder"];
+  state.settlement.currentWorldId = "nox";
+  state.survivors = sanitizeSurvivorSystemState({
+    ...JSON.parse(JSON.stringify(state.survivors)),
+    survivors: state.survivors.survivors.map((survivor) => ({
+      ...JSON.parse(JSON.stringify(survivor)),
+      skillXp: { navigator: 25 },
+    })),
+  });
+  // strength 2 vs lantern difficulty 16: margin -14 is a setback, not
+  // distress; drop to the null-sounding at 14? -12. Distress needs <= -16,
+  // so use palimpsest via campaign-complete state.
+  state.settlement.currentWorldId = null as never;
+  state.settlement.completedWorldIds = [
+    "cold-wake", "pelagos", "viridia", "cinder", "nox", "vesper",
+  ] as never;
+  state.missions.currentIndex = 5;
+
+  state.flux = 1e18;
+  const quote = getExpeditionLaunchQuote(state, "palimpsest-origin", ["scout-1", "scout-2"]);
+  assert.equal(quote.projectedOutcome, "distress", "stranding is projected before launch");
+  assert.equal(quote.canLaunch, true);
+  const launched = startExpedition(state, "palimpsest-origin", ["scout-1", "scout-2"]);
+  assert.ok(launched.expeditions.active);
+  const done = simulateGame(launched, 8 * 3_600, 240, false);
+  assert.equal(done.expeditions.log.at(-1)!.outcome, "distress");
+  assert.ok(done.expeditions.stranded, "the party is stranded, not lost");
+  assert.equal(done.expeditions.stranded!.crewIds.length, 2);
+  assert.equal(done.survivors.survivors.length, 4, "stranded crew stay on the roster");
+  const strandedCrew = done.survivors.survivors.filter((survivor) =>
+    done.expeditions.stranded!.crewIds.includes(survivor.id),
+  );
+  assert.ok(
+    strandedCrew.every((survivor) => survivor.health >= 8 && survivor.health <= 20),
+    "stranded crew hold at critical health",
+  );
+  assert.ok(
+    strandedCrew.every((survivor) => survivor.injury === "severe"),
+    "unarmored distress leaves a severe permanent injury",
+  );
+
+  // stranded crew are frozen: no decay AND no recovery while off-ship
+  const later = simulateGame(done, 6 * 3_600, 240, false);
+  const laterStranded = later.survivors.survivors.filter((survivor) =>
+    later.expeditions.stranded!.crewIds.includes(survivor.id),
+  );
+  assert.deepEqual(
+    laterStranded.map((survivor) => survivor.health),
+    strandedCrew.map((survivor) => survivor.health),
+    "stranded health never changes, online or offline",
+  );
+  // ...and they are unavailable everywhere
+  const summaries = getCampaignCrewSummaries(later);
+  for (const id of later.expeditions.stranded!.crewIds) {
+    assert.equal(summaries.find((summary) => summary.id === id)!.available, false);
+  }
+
+  // a strong rescue extracts everyone cleanly
+  const strongRescue = sanitizeSurvivorSystemState({
+    ...JSON.parse(JSON.stringify(later.survivors)),
+    survivors: later.survivors.survivors.map((survivor) => ({
+      ...JSON.parse(JSON.stringify(survivor)),
+      skillXp:
+        survivor.id === "scout-3" || survivor.id === "scout-4"
+          ? { navigator: 120 * 81 + 5, security: 120 * 81 + 5 }
+          : survivor.skillXp,
+    })),
+  });
+  const readyState = { ...later, survivors: strongRescue };
+  const rescueQuote = getRescueMissionQuote(readyState, ["scout-3", "scout-4"]);
+  assert.equal(rescueQuote.canLaunch, true);
+  assert.equal(rescueQuote.projectedExtraction, "clean");
+  const rescueLaunched = startRescueMission(readyState, ["scout-3", "scout-4"]);
+  assert.notEqual(rescueLaunched, readyState);
+  assert.equal(rescueLaunched.expeditions.active!.kind, "rescue");
+  const rescued = simulateGame(rescueLaunched, 6 * 3_600, 240, false);
+  assert.equal(rescued.expeditions.stranded, null, "the party is home");
+  assert.equal(rescued.expeditions.log.at(-1)!.outcome, "rescue");
+  assert.equal(rescued.expeditions.log.at(-1)!.rescuedCrewIds.length, 2);
+  assert.ok(
+    rescued.survivors.survivors
+      .filter((survivor) => survivor.id === "scout-3" || survivor.id === "scout-4")
+      .every((survivor) => survivor.health === 100),
+    "clean extraction leaves rescuers unharmed",
+  );
+  // rescued crew resume recovery once aboard
+  let healing = rescued;
+  for (let session = 0; session < 4; session += 1) {
+    healing = simulateGame(healing, 6 * 3_600, 240, false);
+  }
+  const survivorsBack = healing.survivors.survivors.filter(
+    (survivor) => survivor.id === "scout-1" || survivor.id === "scout-2",
+  );
+  assert.ok(
+    survivorsBack.every((survivor) => survivor.health > 20),
+    "recovery resumes aboard the Ark",
+  );
+  assert.ok(
+    survivorsBack.every((survivor) => survivor.health <= 40),
+    "severe injuries cap health at 40 until repaired",
+  );
+});
+
+test("abandonment is the only death: explicit, permanent, and memorialized", () => {
+  const state = cinderStateWithCrew();
+  state.settlement.currentWorldId = null as never;
+  state.settlement.completedWorldIds = [
+    "cold-wake", "pelagos", "viridia", "cinder", "nox", "vesper",
+  ] as never;
+  state.missions.currentIndex = 5;
+  state.survivors = sanitizeSurvivorSystemState({
+    ...JSON.parse(JSON.stringify(state.survivors)),
+    survivors: state.survivors.survivors.map((survivor) => ({
+      ...JSON.parse(JSON.stringify(survivor)),
+      skillXp: { navigator: 25 },
+    })),
+  });
+  state.flux = 1e18;
+  const launched = startExpedition(state, "palimpsest-origin", ["scout-1", "scout-2"]);
+  const done = simulateGame(launched, 8 * 3_600, 240, false);
+  assert.ok(done.expeditions.stranded);
+
+  // abandoning nothing is a no-op; abandoning the party is permanent
+  const abandoned = abandonStrandedCrew(done);
+  assert.equal(abandoned.expeditions.stranded, null);
+  assert.equal(abandoned.survivors.survivors.length, 2, "the abandoned are gone");
+  assert.equal(abandoned.expeditions.memorials.length, 2);
+  assert.equal(abandoned.expeditions.stats.abandoned, 2);
+  assert.ok(abandoned.expeditions.memorials[0]!.name.startsWith("Scout"));
+  assert.equal(abandonStrandedCrew(abandoned), abandoned);
+
+  // memorials survive the save round-trip
+  const reloaded = sanitizeExpeditionState(
+    JSON.parse(JSON.stringify(abandoned.expeditions)),
+  );
+  assert.equal(reloaded.memorials.length, 2);
+  assert.equal(reloaded.stats.abandoned, 2);
 });

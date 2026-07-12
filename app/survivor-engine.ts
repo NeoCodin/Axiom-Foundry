@@ -182,6 +182,11 @@ export type SurvivorAdvanceModifiers = {
   reservedNames?: readonly string[];
   /** Overloaded medical life support halves health recovery (never reverses it). */
   medicalOverCapacity?: boolean;
+  /**
+   * Crew who neither recover nor decay this tick - stranded expedition
+   * parties sheltering off-ship. Their health is frozen, never lowered.
+   */
+  recoveryExemptIds?: readonly string[];
 };
 
 export type SurvivorSystemState = {
@@ -747,6 +752,28 @@ export function applySurvivorWound(
     injuryApplied = true;
   }
   return { healthAfter: survivor.health, injuryApplied };
+}
+
+/**
+ * Applies a distress event in place: health drops to the stranded band and
+ * the injury tier ALWAYS applies (distress is the one event severe enough to
+ * guarantee permanent harm - armor tier decides how bad, per E2 spec §3).
+ */
+export function applyStrandedCondition(
+  survivor: Survivor,
+  strandedHealth: number,
+  injuryTier: SurvivorInjuryTier,
+) {
+  if (
+    survivor.injury === null ||
+    INJURY_RANK[injuryTier] > INJURY_RANK[survivor.injury]
+  ) {
+    survivor.injury = injuryTier;
+  }
+  survivor.health = Math.max(
+    5,
+    Math.min(getSurvivorHealthCap(survivor), finite(strandedHealth, 8, 100)),
+  );
 }
 
 const supportDemandForSurvivors = (
@@ -1666,7 +1693,9 @@ function advanceHealthRecoveryMutable(
   state: SurvivorSystemState,
   elapsedSeconds: number,
   medicalOverCapacity: boolean,
+  recoveryExemptIds: readonly string[] = [],
 ) {
+  const exempt = new Set(recoveryExemptIds);
   const doctors = state.survivors.filter((survivor) =>
     isSurvivorOnDuty(survivor, "doctor"),
   ).length;
@@ -1677,6 +1706,7 @@ function advanceHealthRecoveryMutable(
     (medicalOverCapacity ? 0.5 : 1);
   const gain = (elapsedSeconds / 3_600) * perHour;
   for (const survivor of state.survivors) {
+    if (exempt.has(survivor.id)) continue;
     const cap = getSurvivorHealthCap(survivor);
     if (survivor.health < cap) {
       survivor.health = Math.min(cap, survivor.health + gain);
@@ -1726,6 +1756,7 @@ export function advanceSurvivorSystem(
     next,
     elapsed,
     modifiers.medicalOverCapacity === true,
+    modifiers.recoveryExemptIds ?? [],
   );
   if (next.berthConstruction) {
     const constructionSpeed = Math.min(

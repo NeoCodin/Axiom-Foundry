@@ -316,6 +316,14 @@
 .expedition-biometrics small { color: #718797; font-size: 8px; }
 .expedition-projection { margin-top: 8px; padding: 8px 10px; border: 1px solid #243a4b; background: #08131c; color: #a8bdca; font-size: 9px; line-height: 1.5; }
 .expedition-projection.is-warning { border-color: rgb(242 145 107 / 0.5); color: #f2b08a; background: rgb(242 145 107 / 0.06); }
+.expedition-distress-panel { display: grid; gap: 8px; margin-bottom: 12px; padding: 12px; border: 1px solid rgb(232 106 85 / 0.5); background: rgb(232 106 85 / 0.05); }
+.expedition-distress-panel > strong { color: #f2916b; font-size: 10px; line-height: 1.5; }
+.expedition-abandon-action { border-color: rgb(232 106 85 / 0.55) !important; color: #f2916b !important; background: rgb(232 106 85 / 0.08) !important; }
+.expedition-memorial-wall { margin-top: 12px; padding: 10px 12px; border: 1px solid #2a3a4a; background: #060d14; }
+.expedition-memorial-wall > strong { display: block; color: #8fa4b5; font-family: var(--font-mono, monospace); font-size: 8px; font-weight: 800; letter-spacing: 0.14em; }
+.expedition-memorial-wall ul { display: grid; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; }
+.expedition-memorial-wall li span { display: block; color: #dce7ee; font-size: 10px; }
+.expedition-memorial-wall li small { color: #718797; font-size: 8px; line-height: 1.5; }
 
 /* Armory console */
 .armory-item-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }

@@ -125,6 +125,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
       { label: "Training slots", detail: "One program can run per slot. Slots grow with population (+1 per 20 people) and the Adaptive Instruction and Clinical Commons research projects, up to 12." },
       { label: "Civilians", detail: "Highly adaptable recruits who can be trained around the exact needs of a future settlement." },
       { label: "Specialists", detail: "Arrive ready for a profession and improve through assigned work. Notable-or-better specialists can cross-train additional professions." },
+      { label: "Expeditions & health", detail: "The Expedition Bay always projects the outcome before launch. Setbacks send crew home wounded (below 40 health = RECOVERING); a projected DISTRESS would strand them at the site. Stranded crews are stable forever - send a rescue party (it can never strand itself) or, only by explicit choice, abandon them to the memorial wall. Nothing in the game kills crew automatically." },
     ],
     tip: "Roster order stays chronological. Color and visible labels identify rare profiles without hiding anyone or changing rescue priority.",
   },
