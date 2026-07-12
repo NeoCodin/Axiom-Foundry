@@ -810,12 +810,12 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
       },
     ],
     expertiseRequirements: [
-      { id: "research", label: "Research expertise", total: 58 },
-      { id: "null-studies", label: "Null Studies expertise", total: 42 },
-      { id: "engineering", label: "Engineering expertise", total: 48 },
-      { id: "medicine", label: "Medical expertise", total: 24 },
-      { id: "education", label: "Education expertise", total: 28 },
-      { id: "leadership", label: "Leadership expertise", total: 20 },
+      { id: "research", label: "Research expertise", total: 70 },
+      { id: "null-studies", label: "Null Studies expertise", total: 50 },
+      { id: "engineering", label: "Engineering expertise", total: 57 },
+      { id: "medicine", label: "Medical expertise", total: 28 },
+      { id: "education", label: "Education expertise", total: 34 },
+      { id: "leadership", label: "Leadership expertise", total: 23 },
     ],
     profileRequirements: [
       {
