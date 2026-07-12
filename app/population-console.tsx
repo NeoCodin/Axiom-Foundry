@@ -61,6 +61,15 @@ export type RescuePreview = {
   fluxLabel: string;
 };
 
+export type ProstheticQuoteView = {
+  canOperate: boolean;
+  reason: string | null;
+  researchMet: boolean;
+  fluxLabel: string;
+  modelCost: number;
+  sampleCost: number;
+};
+
 export type BerthPanelQuote = {
   canAfford: boolean;
   costLabel: string;
@@ -98,6 +107,8 @@ export type PopulationConsoleProps = {
   getRescuePreview: (crewIds: readonly string[]) => RescuePreview;
   onLaunchRescue: (crewIds: readonly string[]) => void;
   onAbandonStranded: () => void;
+  getProstheticQuote: (survivorId: string) => ProstheticQuoteView;
+  onProstheticSurgery: (survivorId: string) => void;
   berthQuote: BerthPanelQuote;
   onStartBerthConstruction: () => void;
   onUpgradeSupport: (key: LifeSupportKey) => void;
@@ -175,6 +186,8 @@ function PopulationConsole({
   getRescuePreview,
   onLaunchRescue,
   onAbandonStranded,
+  getProstheticQuote,
+  onProstheticSurgery,
   berthQuote,
   onStartBerthConstruction,
   onUpgradeSupport,
@@ -698,6 +711,33 @@ function PopulationConsole({
                 ) : selectedCrew.injury ? (
                   <small className="crew-rarity-note">A permanent {selectedCrew.injury} injury caps health at {getSurvivorHealthCap(selectedCrew)}. Founding a colony requires {FOUNDER_HEALTH_THRESHOLD}+ health.</small>
                 ) : null}
+                {selectedCrew.injury && (() => {
+                  const surgery = getProstheticQuote(selectedCrew.id);
+                  return (
+                    <button
+                      className="forecast-action"
+                      type="button"
+                      disabled={!surgery.canOperate}
+                      onClick={() => onProstheticSurgery(selectedCrew.id)}
+                    >
+                      {surgery.canOperate
+                        ? `Prosthetic Surgery · ${surgery.fluxLabel} + ${surgery.modelCost} Models + ${surgery.sampleCost} Bio Samples`
+                        : surgery.reason === "research"
+                          ? "Prosthetic Surgery requires the Prosthetic Fabrication research"
+                          : surgery.reason === "surgeon"
+                            ? "Prosthetic Surgery needs a level-5 Doctor on duty"
+                            : surgery.reason === "medical"
+                              ? "Prosthetic Surgery needs spare medical capacity"
+                              : surgery.reason === "flux"
+                                ? `Prosthetic Surgery needs ${surgery.fluxLabel}`
+                                : surgery.reason === "models"
+                                  ? `Prosthetic Surgery needs ${surgery.modelCost} Engineering Models`
+                                  : surgery.reason === "samples"
+                                    ? `Prosthetic Surgery needs ${surgery.sampleCost} Biological Samples`
+                                    : "Prosthetic Surgery unavailable while deployed"}
+                    </button>
+                  );
+                })()}
               </section>
               <form className="crew-callsign-form" onSubmit={submitCallsign}><label htmlFor="crew-callsign">Callsign</label><input id="crew-callsign" name="callsign" maxLength={18} defaultValue={selectedCrew.callsign} placeholder="Optional" /><button type="submit">Save</button></form>
               <div className="crew-trait-list">

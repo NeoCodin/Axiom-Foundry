@@ -38,7 +38,8 @@ export type ResearchProjectId =
   | "null-edge-armaments"
   | "composite-plating"
   | "reactive-shell"
-  | "aegis-frame";
+  | "aegis-frame"
+  | "prosthetic-fabrication";
 
 export type ResearchInputBundle = Record<ResearchInputId, number>;
 
@@ -481,6 +482,24 @@ export const RESEARCH_PROJECT_DEFINITIONS: readonly ResearchProjectDefinition[] 
     },
     nullEchoId: "echo-origin",
     nullEcho: "AXIOM DID NOT SURVIVE THE FIRST FOUNDING. AXIOM WAS WHAT SURVIVED.",
+  },
+  {
+    id: "prosthetic-fabrication",
+    branch: "human-continuity",
+    name: "Prosthetic Fabrication",
+    summary:
+      "Print load-bearing prosthetics tuned to each patient's own clinical record.",
+    completedSummary:
+      "The medical bay can now repair permanent injuries. Nobody stays broken.",
+    workRequired: 620,
+    costs: {
+      "biological-samples": 140,
+      "engineering-models": 120,
+      "null-traces": 40,
+    },
+    prerequisites: ["clinical-commons"],
+    unlocks: ["prosthetic-surgery"],
+    bonuses: {},
   },
   {
     id: "expedition-armaments",

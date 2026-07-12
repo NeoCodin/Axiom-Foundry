@@ -1,10 +1,14 @@
 # Expedition E2 — Health, Rescue, Mortality, and Prosthetics (Specification v2)
 
-Status: **owner-directed scope, July 12, 2026**. This version supersedes the
-v1 draft and absorbs what was planned as Phase E3: the owner directed that
-crew can die on expeditions, that rescue parties can be sent to save
-stranded crews, and that permanent injuries exist with a prosthetics
-research path. The idle contract survives intact — see §7.
+Status: **IMPLEMENTED July 12, 2026** — all three milestones shipped
+(A: health + tiered armory, commit d885cd7; B: distress/rescue/abandonment;
+C: prosthetics). This version supersedes the v1 draft and absorbs what was
+planned as Phase E3: the owner directed that crew can die on expeditions,
+that rescue parties can be sent to save stranded crews, and that permanent
+injuries exist with a prosthetics research path. The idle contract survives
+intact — see §7. Implementation deltas: wounded threshold is 40 (owner);
+founders need 80+ health (owner); stranded health band is 8–20; armor is
+tiered (see §5) with per-tier durability instead of a single armor type.
 
 Owner decisions folded in (answers to v1's open questions and more):
 

@@ -1533,6 +1533,113 @@ export function startExpedition(
   return next;
 }
 
+export const PROSTHETIC_SURGEON_LEVEL = 5;
+export const PROSTHETIC_SURGERY_FLUX_BASE = 1_200;
+export const PROSTHETIC_SURGERY_MODEL_COST = 30;
+export const PROSTHETIC_SURGERY_SAMPLE_COST = 20;
+
+export type ProstheticSurgeryQuote = {
+  fluxCost: number;
+  modelCost: number;
+  sampleCost: number;
+  researchMet: boolean;
+  hasSurgeon: boolean;
+  medicalReady: boolean;
+  canOperate: boolean;
+  reason:
+    | "research"
+    | "no-injury"
+    | "unavailable"
+    | "surgeon"
+    | "medical"
+    | "flux"
+    | "models"
+    | "samples"
+    | null;
+};
+
+/**
+ * Prosthetic Surgery removes a permanent injury: it needs the Prosthetic
+ * Fabrication research, a level-5 Doctor on duty (other than the patient),
+ * and a medical envelope that is not over capacity.
+ */
+export function getProstheticSurgeryQuote(
+  state: GameState,
+  survivorId: string,
+): ProstheticSurgeryQuote {
+  const fluxCost = bounded(PROSTHETIC_SURGERY_FLUX_BASE * continuityScale(state));
+  const researchMet =
+    state.research.completedProjectIds.includes("prosthetic-fabrication");
+  const patient = state.survivors.survivors.find(
+    (survivor) => survivor.id === survivorId,
+  );
+  const surgeon = state.survivors.survivors.some(
+    (survivor) =>
+      survivor.id !== survivorId &&
+      isSurvivorOnDuty(survivor, "doctor") &&
+      getSurvivorSkillLevel(survivor, "doctor") >= PROSTHETIC_SURGEON_LEVEL,
+  );
+  const medicalReady =
+    getLifeSupportStatus(
+      state.survivors,
+      [],
+      getResearchBonuses(state.research).habitationCapacityMultiplier,
+    ).shortages.medical <= 0;
+  const reason = !researchMet
+    ? ("research" as const)
+    : !patient?.injury
+      ? ("no-injury" as const)
+      : getDeployedCrewIds(state.expeditions).has(survivorId)
+        ? ("unavailable" as const)
+        : !surgeon
+          ? ("surgeon" as const)
+          : !medicalReady
+            ? ("medical" as const)
+            : state.flux < fluxCost
+              ? ("flux" as const)
+              : state.researchStock["engineering-models"] <
+                  PROSTHETIC_SURGERY_MODEL_COST
+                ? ("models" as const)
+                : state.researchStock["biological-samples"] <
+                    PROSTHETIC_SURGERY_SAMPLE_COST
+                  ? ("samples" as const)
+                  : null;
+  return {
+    fluxCost,
+    modelCost: PROSTHETIC_SURGERY_MODEL_COST,
+    sampleCost: PROSTHETIC_SURGERY_SAMPLE_COST,
+    researchMet,
+    hasSurgeon: surgeon,
+    medicalReady,
+    canOperate: reason === null,
+    reason,
+  };
+}
+
+export function performProstheticSurgery(
+  state: GameState,
+  survivorId: string,
+): GameState {
+  const quote = getProstheticSurgeryQuote(state, survivorId);
+  if (!quote.canOperate) return state;
+  const next = cloneGameState(state);
+  const patient = next.survivors.survivors.find(
+    (survivor) => survivor.id === survivorId,
+  )!;
+  patient.injury = null;
+  patient.health = Math.max(patient.health, 50);
+  next.flux = Math.max(0, next.flux - quote.fluxCost);
+  next.researchStock["engineering-models"] = Math.max(
+    0,
+    next.researchStock["engineering-models"] - quote.modelCost,
+  );
+  next.researchStock["biological-samples"] = Math.max(
+    0,
+    next.researchStock["biological-samples"] - quote.sampleCost,
+  );
+  return next;
+}
+
 export type RescueMissionQuote = {
   fluxCost: number;
   canLaunch: boolean;

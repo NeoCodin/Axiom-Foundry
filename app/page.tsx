@@ -1,7 +1,5 @@
 "use client";
 
-/* eslint-disable react-hooks/set-state-in-effect */
-
 import {
   useCallback,
   useEffect,
@@ -37,6 +35,8 @@ import {
   craftArmoryItem,
   repairArmoryItem,
   abandonStrandedCrew,
+  getProstheticSurgeryQuote,
+  performProstheticSurgery,
   getArkRescueQuote,
   getArmoryCraftQuote,
   getArmoryRepairQuote,
@@ -943,6 +943,14 @@ export default function Home() {
     commitGameState(next, `${count} crew abandoned. Their names are recorded on the memorial wall.`);
   };
 
+  const handleProstheticSurgery = (survivorId: string) => {
+    const current = gameRef.current;
+    const next = performProstheticSurgery(current, survivorId);
+    if (next === current) return;
+    const patient = next.survivors.survivors.find((survivor) => survivor.id === survivorId);
+    commitGameState(next, `${patient?.callsign || patient?.name || "The patient"} received a prosthetic. Their injury is repaired and full recovery is underway.`);
+  };
+
   const handleCraftArmoryItem = (itemId: ArmoryItemId) => {
     const current = gameRef.current;
     const next = craftArmoryItem(current, itemId);
@@ -1702,6 +1710,18 @@ export default function Home() {
           }}
           onLaunchRescue={handleLaunchRescue}
           onAbandonStranded={handleAbandonStranded}
+          getProstheticQuote={(survivorId) => {
+            const quote = getProstheticSurgeryQuote(game, survivorId);
+            return {
+              canOperate: quote.canOperate,
+              reason: quote.reason,
+              researchMet: quote.researchMet,
+              fluxLabel: `${formatNumber(quote.fluxCost)} Flux`,
+              modelCost: quote.modelCost,
+              sampleCost: quote.sampleCost,
+            };
+          }}
+          onProstheticSurgery={handleProstheticSurgery}
           berthQuote={berthPanelQuote}
           onStartBerthConstruction={handleStartBerthConstruction}
           onUpgradeSupport={handleUpgradeSupport}

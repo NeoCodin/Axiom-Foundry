@@ -8,7 +8,9 @@ import {
   getCampaignCrewSummaries,
   getCurrentViabilityForecast,
   getExpeditionLaunchQuote,
+  getProstheticSurgeryQuote,
   getRescueMissionQuote,
+  performProstheticSurgery,
   repairArmoryItem,
   setTutorialComplete,
   simulateGame,
@@ -17,6 +19,7 @@ import {
 } from "../app/game-engine.ts";
 import {
   assignSurvivorToRole,
+  getSurvivorHealthCap,
   sanitizeSurvivorSystemState,
   startSurvivorTraining,
 } from "../app/survivor-engine.ts";
@@ -402,4 +405,74 @@ test("abandonment is the only death: explicit, permanent, and memorialized", () 
   );
   assert.equal(reloaded.memorials.length, 2);
   assert.equal(reloaded.stats.abandoned, 2);
+});
+
+test("prosthetic surgery repairs permanent injuries behind research, surgeon, and medical gates", () => {
+  const state = cinderStateWithCrew();
+  state.survivors = sanitizeSurvivorSystemState({
+    ...JSON.parse(JSON.stringify(state.survivors)),
+    survivors: state.survivors.survivors.map((survivor) => ({
+      ...JSON.parse(JSON.stringify(survivor)),
+      // scout-1 carries a severe injury; scout-2 is a level-9 surgeon
+      health: survivor.id === "scout-1" ? 40 : 100,
+      injury: survivor.id === "scout-1" ? "severe" : null,
+      skillXp:
+        survivor.id === "scout-2"
+          ? { doctor: 120 * 81 + 5 }
+          : JSON.parse(JSON.stringify(survivor.skillXp)),
+      role: survivor.id === "scout-2" ? "doctor" : survivor.role,
+      assignedRole: survivor.id === "scout-2" ? "doctor" : survivor.assignedRole,
+    })),
+  });
+  state.researchStock["engineering-models"] = 500;
+  state.researchStock["biological-samples"] = 500;
+
+  // research gate first
+  let quote = getProstheticSurgeryQuote(state, "scout-1");
+  assert.equal(quote.canOperate, false);
+  assert.equal(quote.reason, "research");
+  assert.equal(performProstheticSurgery(state, "scout-1"), state);
+
+  state.research.completedProjectIds = [
+    ...state.research.completedProjectIds,
+    "prosthetic-fabrication",
+  ];
+  quote = getProstheticSurgeryQuote(state, "scout-1");
+  assert.equal(quote.canOperate, true);
+
+  // healthy crew have nothing to repair
+  assert.equal(getProstheticSurgeryQuote(state, "scout-3").reason, "no-injury");
+
+  const repaired = performProstheticSurgery(state, "scout-1");
+  assert.notEqual(repaired, state);
+  const patient = repaired.survivors.survivors.find(
+    (survivor) => survivor.id === "scout-1",
+  )!;
+  assert.equal(patient.injury, null, "the injury is repaired");
+  assert.equal(patient.health, 50, "surgery stabilizes the patient at 50");
+  assert.equal(getSurvivorHealthCap(patient), 100, "the cap is fully restored");
+  assert.ok(repaired.flux < state.flux);
+  assert.equal(repaired.researchStock["engineering-models"], 470);
+  assert.equal(repaired.researchStock["biological-samples"], 480);
+  // healed past 80, they can found colonies again
+  let recovered = repaired;
+  for (let session = 0; session < 6; session += 1) {
+    recovered = simulateGame(recovered, 6 * 3_600, 240, false);
+  }
+  const summaries = getCampaignCrewSummaries(recovered);
+  assert.equal(summaries.find((summary) => summary.id === "scout-1")!.canSettle, true);
+
+  // without a level-5 doctor on duty, surgery is blocked
+  const noSurgeon = sanitizeSurvivorSystemState({
+    ...JSON.parse(JSON.stringify(state.survivors)),
+    survivors: state.survivors.survivors.map((survivor) => ({
+      ...JSON.parse(JSON.stringify(survivor)),
+      assignedRole: survivor.id === "scout-2" ? null : survivor.assignedRole,
+    })),
+  });
+  const noSurgeonQuote = getProstheticSurgeryQuote(
+    { ...state, survivors: noSurgeon },
+    "scout-1",
+  );
+  assert.equal(noSurgeonQuote.reason, "surgeon");
 });
