@@ -29,11 +29,15 @@ export const SURVIVOR_ROLES = [
 export type SkillMap = Record<ProfessionalRole, number>;
 
 export type LifeSupportCapacity = {
-  habitation: number;
   atmosphere: number;
   water: number;
   nutrition: number;
   medical: number;
+};
+
+export type BerthConstruction = {
+  progressSeconds: number;
+  durationSeconds: number;
 };
 
 export type LifeSupportKey = keyof LifeSupportCapacity;
@@ -147,6 +151,7 @@ export type SurvivorAdvanceModifiers = {
   trainingSpeedMultiplier?: number;
   beaconSpeedMultiplier?: number;
   onJobXpMultiplier?: number;
+  constructionSpeedMultiplier?: number;
   reservedNames?: readonly string[];
 };
 
@@ -170,6 +175,8 @@ export type SurvivorSystemState = {
   qualityPity: number;
   rolePity: Record<ProfessionalRole, number>;
   rescuedHookIds: RareSurvivorHookId[];
+  berthSections: number;
+  berthConstruction: BerthConstruction | null;
 };
 
 export type BackgroundDefinition = {
@@ -410,6 +417,10 @@ export const MAX_SIGNAL_SURVIVORS = 8;
 export const MAX_TRAINING_SLOTS = 12;
 export const RARE_PITY_LIMIT = 11;
 export const QUALITY_PITY_LIMIT = 5;
+export const BASE_BERTHS = 4;
+export const BERTHS_PER_SECTION = 8;
+export const MAX_BERTH_SECTIONS = 62;
+export const BERTH_CONSTRUCTION_BASE_SECONDS = 3 * 60 * 60;
 
 const DEFAULT_RNG_SEED = 0x41c6ce57;
 const MAX_COUNTER = 1_000_000_000;
@@ -421,7 +432,6 @@ const STARTING_PROFESSIONAL_XP = 25;
 const ON_JOB_XP_PER_HOUR = 12;
 
 const ZERO_LIFE_SUPPORT: LifeSupportCapacity = {
-  habitation: 0,
   atmosphere: 0,
   water: 0,
   nutrition: 0,
@@ -621,7 +631,6 @@ const makeRolePity = (value = 0): Record<ProfessionalRole, number> =>
 const sanitizeLifeSupport = (value: unknown): LifeSupportCapacity => {
   const source = isRecord(value) ? value : {};
   return {
-    habitation: finite(source.habitation, 0, 100_000),
     atmosphere: finite(source.atmosphere, 0, 100_000),
     water: finite(source.water, 0, 100_000),
     nutrition: finite(source.nutrition, 0, 100_000),
@@ -638,7 +647,6 @@ const supportDemandForSurvivors = (
     return sum + Math.max(0.16, 0.25 - doctorRelief);
   }, 0);
   return {
-    habitation: population,
     atmosphere: population,
     water: population,
     nutrition: population,
@@ -694,6 +702,9 @@ export function cloneSurvivorSystemState(
     training: state.training.map((program) => ({ ...program })),
     rolePity: { ...state.rolePity },
     rescuedHookIds: [...state.rescuedHookIds],
+    berthConstruction: state.berthConstruction
+      ? { ...state.berthConstruction }
+      : null,
   };
 }
 
@@ -721,7 +732,34 @@ export function createSurvivorSystemState(
     qualityPity: 0,
     rolePity: makeRolePity(),
     rescuedHookIds: [],
+    berthSections: 0,
+    berthConstruction: null,
   };
+}
+
+export function getBerthCapacity(
+  state: Pick<SurvivorSystemState, "berthSections">,
+  capacityMultiplier = 1,
+) {
+  const multiplier = Math.min(10, Math.max(1, finite(capacityMultiplier, 1, 10)));
+  return Math.floor(
+    (BASE_BERTHS + state.berthSections * BERTHS_PER_SECTION) * multiplier,
+  );
+}
+
+export function startBerthSectionConstruction(
+  state: SurvivorSystemState,
+  durationSeconds = BERTH_CONSTRUCTION_BASE_SECONDS,
+) {
+  if (state.berthConstruction || state.berthSections >= MAX_BERTH_SECTIONS) {
+    return state;
+  }
+  const next = cloneSurvivorSystemState(state);
+  next.berthConstruction = {
+    progressSeconds: 0,
+    durationSeconds: Math.max(60, finite(durationSeconds, BERTH_CONSTRUCTION_BASE_SECONDS, 48 * 3_600)),
+  };
+  return next;
 }
 
 const NAME_REROLL_ATTEMPTS = 24;
@@ -1023,6 +1061,7 @@ export function getLifeSupportStatus(
 export type RescueFailureReason =
   | "no-signal"
   | "roster-full"
+  | "berths"
   | "life-support"
   | "salvage";
 
@@ -1052,6 +1091,17 @@ export function getRescueReadiness(
       canRescue: false,
       cost: signal.rescueCost,
       reason: "roster-full",
+      lifeSupport,
+    };
+  }
+  if (
+    state.survivors.length + signal.survivors.length >
+    getBerthCapacity(state, capacityMultiplier)
+  ) {
+    return {
+      canRescue: false,
+      cost: signal.rescueCost,
+      reason: "berths",
       lifeSupport,
     };
   }
@@ -1486,6 +1536,26 @@ export function advanceSurvivorSystem(
     traineeIds,
     onJobXpMultiplier,
   );
+  if (next.berthConstruction) {
+    const constructionSpeed = Math.min(
+      10,
+      Math.max(1, finite(modifiers.constructionSpeedMultiplier, 1, 10)),
+    );
+    next.berthConstruction.progressSeconds = Math.min(
+      next.berthConstruction.durationSeconds,
+      next.berthConstruction.progressSeconds + elapsed * constructionSpeed,
+    );
+    if (
+      next.berthConstruction.progressSeconds >=
+      next.berthConstruction.durationSeconds
+    ) {
+      next.berthSections = Math.min(
+        MAX_BERTH_SECTIONS,
+        next.berthSections + 1,
+      );
+      next.berthConstruction = null;
+    }
+  }
   if (next.beaconOnline && !next.activeSignal) {
     next.beaconProgressSeconds = Math.min(
       SOS_SCAN_SECONDS,
@@ -1638,6 +1708,38 @@ export function sanitizeSurvivorSystemState(value: unknown): SurvivorSystemState
     : [];
   state.rescuedHookIds = [...new Set(rawHookIds.filter(isRareHookId))];
 
+  // Berth migration: saves recorded before the structural berth system kept
+  // crew capacity inside lifeSupport.habitation. Convert that capacity into
+  // completed berth sections so nobody loses room they already built.
+  const legacyHabitation = isRecord(value.lifeSupport)
+    ? finite((value.lifeSupport as Record<string, unknown>).habitation, 0, 100_000)
+    : 0;
+  const savedSections = whole(value.berthSections, -1, MAX_BERTH_SECTIONS);
+  state.berthSections =
+    savedSections >= 0
+      ? savedSections
+      : Math.min(
+          MAX_BERTH_SECTIONS,
+          Math.ceil(
+            Math.max(0, legacyHabitation - BASE_BERTHS) / BERTHS_PER_SECTION,
+          ),
+        );
+  if (isRecord(value.berthConstruction)) {
+    const duration = finite(
+      value.berthConstruction.durationSeconds,
+      BERTH_CONSTRUCTION_BASE_SECONDS,
+      48 * 3_600,
+    );
+    state.berthConstruction = {
+      durationSeconds: Math.max(60, duration),
+      progressSeconds: finite(
+        value.berthConstruction.progressSeconds,
+        0,
+        Math.max(60, duration),
+      ),
+    };
+  }
+
   const survivorIds = new Set<string>();
   const rawSurvivors = Array.isArray(value.survivors) ? value.survivors : [];
   for (const [index, raw] of rawSurvivors.slice(0, MAX_SURVIVORS).entries()) {
@@ -1762,5 +1864,12 @@ export function sanitizeSurvivorSystemState(value: unknown): SurvivorSystemState
       (state.activeSignal?.survivors.length ?? 0) +
       1,
   );
+  // Nobody already aboard ever loses their berth.
+  while (
+    getBerthCapacity(state) < state.survivors.length &&
+    state.berthSections < MAX_BERTH_SECTIONS
+  ) {
+    state.berthSections += 1;
+  }
   return state;
 }

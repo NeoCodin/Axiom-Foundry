@@ -687,6 +687,40 @@
 .ark-room-people i { position: relative; display: block; width: 3px; height: 8px; border-radius: 2px 2px 0 0; background: #b7d5df; box-shadow: 0 0 5px rgb(var(--world-accent-rgb, 88 229 244) / 0.35); }
 .ark-room-people i::before { position: absolute; top: -3px; left: 0; width: 3px; height: 3px; content: ""; border-radius: 50%; background: #effcff; }
 
+.ark-berth-pods {
+  position: absolute;
+  z-index: 5;
+  right: 12px;
+  bottom: 7px;
+  display: flex;
+  gap: 3px;
+}
+.ark-berth-pods i {
+  display: block;
+  width: 7px;
+  height: 10px;
+  border: 1px solid rgb(var(--world-accent-rgb, 88 229 244) / 0.55);
+  border-radius: 2px 2px 4px 4px;
+  background: linear-gradient(180deg, rgb(var(--world-accent-rgb, 88 229 244) / 0.32), #08131c);
+  box-shadow: 0 0 5px rgb(var(--world-accent-rgb, 88 229 244) / 0.28);
+}
+.ark-berth-pods i.is-under-construction {
+  border-style: dashed;
+  background: linear-gradient(
+    0deg,
+    rgb(var(--world-accent-rgb, 88 229 244) / 0.4) calc(var(--berth-progress, 0) * 100%),
+    transparent calc(var(--berth-progress, 0) * 100%)
+  );
+  animation: ark-berth-scaffold 1.8s ease-in-out infinite;
+}
+@keyframes ark-berth-scaffold {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ark-berth-pods i.is-under-construction { animation: none; opacity: 0.8; }
+}
+
 .ark-mini-lattice { position: absolute; z-index: 4; right: 12px; bottom: 12px; width: 76px; height: 48px; opacity: 0.32; }
 .ark-room.is-online .ark-mini-lattice { opacity: 0.9; }
 .ark-mini-lattice i { position: absolute; width: 6px; height: 6px; border: 1px solid var(--ark-cyan); border-radius: 50%; background: #06121a; box-shadow: 0 0 6px rgb(var(--world-accent-rgb, 88 229 244) / 0.4); }

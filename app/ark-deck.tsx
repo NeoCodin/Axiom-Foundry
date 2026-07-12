@@ -52,6 +52,9 @@ export type ArkDeckProps = {
   manualGainLabel: string;
   population: number;
   populationCapacity: number;
+  berthCapacity: number;
+  berthSections: number;
+  berthConstructionProgress: number | null;
   cohesion: number;
   salvageLabel: string;
   support: readonly ArkSupportReadout[];
@@ -112,6 +115,9 @@ function ArkDeck({
   manualGainLabel,
   population,
   populationCapacity,
+  berthCapacity,
+  berthSections,
+  berthConstructionProgress,
   cohesion,
   salvageLabel,
   support,
@@ -152,7 +158,8 @@ function ArkDeck({
 
   const fabricationOnline = engineeringUnlocked;
   const supportOnline = populationUnlocked;
-  const habitationOnline = populationUnlocked && population > 0;
+  const habitationOnline = populationUnlocked;
+  const berthPodCount = Math.min(10, 1 + berthSections);
   const researchOnline = researchUnlocked;
   const educationOnline = populationUnlocked && crew.length > 0;
   const beaconRelevant = populationUnlocked && (beaconAvailable || beaconOnline || Boolean(pendingSignal));
@@ -191,8 +198,12 @@ function ArkDeck({
     {
       id: "population",
       code: "04",
-      label: "Habitation",
-      sublabel: habitationOnline ? `${population} lives aboard` : "Empty bunks, cold glass",
+      label: "Habitation Ring",
+      sublabel: habitationOnline
+        ? berthConstructionProgress !== null
+          ? `${population}/${berthCapacity} berths · section ${Math.round(berthConstructionProgress * 100)}% built`
+          : `${population}/${berthCapacity} berths across ${berthSections + 1} sections`
+        : "Empty bunks, cold glass",
       kind: "habitation",
       online: habitationOnline,
     },
@@ -327,6 +338,15 @@ function ArkDeck({
                   {(room.kind === "habitation" || room.kind === "education") && room.online && (
                     <span className="ark-room-people" aria-hidden="true">
                       {Array.from({ length: Math.min(6, occupiedDots) }, (_, index) => <i key={index} />)}
+                    </span>
+                  )}
+
+                  {room.kind === "habitation" && room.online && (
+                    <span className="ark-berth-pods" aria-hidden="true">
+                      {Array.from({ length: berthPodCount }, (_, index) => <i key={index} />)}
+                      {berthConstructionProgress !== null && berthPodCount < 10 && (
+                        <i className="is-under-construction" style={{ "--berth-progress": berthConstructionProgress } as CSSProperties} />
+                      )}
                     </span>
                   )}
                 </button>

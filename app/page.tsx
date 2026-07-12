@@ -32,11 +32,13 @@ import {
   getCampaignCrewSummaries,
   getCampaignWorldIndex,
   getColonyLegacyEffects,
+  getBerthConstructionQuote,
   getCrisisReadiness,
   getCurrentViabilityForecast,
   getEffectiveCohesion,
   getEquipmentFabricationQuote,
   getInfrastructureFluxCost,
+  startArkBerthConstruction,
   getLegacyUpgradeCost,
   getManualGain,
   getMissionProgress,
@@ -94,6 +96,7 @@ import {
 } from "./living-foundry-engine";
 import {
   assignSurvivorToRole,
+  getBerthCapacity,
   getLifeSupportStatus,
   getRescueReadiness,
   getSurvivorRarity,
@@ -496,6 +499,42 @@ export default function Home() {
       ),
     [game.survivors, lifeSupportCapacityMultiplier],
   );
+  const berthCapacity = getBerthCapacity(
+    game.survivors,
+    lifeSupportCapacityMultiplier,
+  );
+  const berthConstructionQuote = useMemo(
+    () => getBerthConstructionQuote(game),
+    [game],
+  );
+  const berthConstruction = game.survivors.berthConstruction;
+  const berthPanelQuote = {
+    canAfford: game.flux >= berthConstructionQuote.cost,
+    costLabel: `${formatNumber(berthConstructionQuote.cost)} Flux`,
+    capacity: berthCapacity,
+    berthsPerSection: berthConstructionQuote.berthsPerSection,
+    maxed: berthConstructionQuote.maxed,
+    inProgress: berthConstructionQuote.inProgress,
+    engineerCount: berthConstructionQuote.engineerCount,
+    speedMultiplier: berthConstructionQuote.speedMultiplier,
+    remainingLabel: berthConstruction
+      ? `${formatDuration(
+          Math.max(
+            0,
+            (berthConstruction.durationSeconds -
+              berthConstruction.progressSeconds) /
+              berthConstructionQuote.speedMultiplier,
+          ),
+        )} remaining`
+      : null,
+    progressRatio: berthConstruction
+      ? Math.min(
+          1,
+          berthConstruction.progressSeconds /
+            Math.max(1, berthConstruction.durationSeconds),
+        )
+      : 0,
+  };
   const rescueReadiness = useMemo(
     () =>
       getRescueReadiness(
@@ -759,6 +798,19 @@ export default function Home() {
     if (view === "engineering") setMobileTab("machines");
   };
 
+  const handleStartBerthConstruction = () => {
+    const current = gameRef.current;
+    const next = startArkBerthConstruction(current);
+    if (next === current) {
+      setAnnouncement("Berth construction needs more Flux, or a section is already underway.");
+      return;
+    }
+    commitGameState(
+      next,
+      "Habitation ring section under construction. Assigned engineers will accelerate it, even while you are away.",
+    );
+  };
+
   const handleUpgradeSupport = (key: LifeSupportKey) => {
     const current = gameRef.current;
     const cost =
@@ -806,9 +858,11 @@ export default function Home() {
     );
     if (!result.rescued) {
       setAnnouncement(
-        result.reason === "life-support"
-          ? "The signal is holding. Expand every life-support category before dispatching the shuttle."
-          : "The signal is holding until the Ark has enough Salvage and capacity.",
+        result.reason === "berths"
+          ? "The signal is holding. Build another habitation ring section before dispatching the shuttle."
+          : result.reason === "life-support"
+            ? "The signal is holding. Expand every life-support category before dispatching the shuttle."
+            : "The signal is holding until the Ark has enough Salvage and capacity.",
       );
       return;
     }
@@ -1309,7 +1363,10 @@ export default function Home() {
           fluxPerSecondLabel={formatNumber(production.fluxPerSecond)}
           manualGainLabel={formatNumber(manualGain)}
           population={game.survivors.survivors.length}
-          populationCapacity={Math.min(...Object.values(lifeSupport.capacity))}
+          populationCapacity={Math.min(berthCapacity, ...Object.values(lifeSupport.capacity))}
+          berthCapacity={berthCapacity}
+          berthSections={game.survivors.berthSections}
+          berthConstructionProgress={berthConstruction ? berthPanelQuote.progressRatio : null}
           cohesion={getEffectiveCohesion(game)}
           salvageLabel={formatNumber(game.living.salvage)}
           support={(Object.keys(game.survivors.lifeSupport) as LifeSupportKey[]).map((key) => ({
@@ -1343,7 +1400,7 @@ export default function Home() {
           })}
           beaconAvailable={
             campaignWorld.kind === "planet" &&
-            Math.min(...Object.values(lifeSupport.capacity)) >= 2
+            Math.min(berthCapacity, ...Object.values(lifeSupport.capacity)) >= 2
           }
           beaconOnline={game.survivors.beaconOnline}
           pendingSignal={game.survivors.activeSignal ? {
@@ -1355,11 +1412,13 @@ export default function Home() {
             rescueCost: game.survivors.activeSignal.rescueCost,
             canRescue: rescueReadiness.canRescue,
             blockedReason:
-              rescueReadiness.reason === "life-support"
-                ? "Expand life-support capacity first."
-                : rescueReadiness.reason === "salvage"
-                  ? "More Salvage is required."
-                  : null,
+              rescueReadiness.reason === "berths"
+                ? "Build another habitation ring section first."
+                : rescueReadiness.reason === "life-support"
+                  ? "Expand life-support capacity first."
+                  : rescueReadiness.reason === "salvage"
+                    ? "More Salvage is required."
+                    : null,
             rare: game.survivors.activeSignal.survivors.some((survivor) => survivor.storyHookId),
           } : null}
           researchProject={activeResearchDefinition?.name ?? null}
@@ -1384,7 +1443,7 @@ export default function Home() {
           currentWorldName={campaignWorld.name}
           beaconAvailable={
             campaignWorld.kind === "planet" &&
-            Math.min(...Object.values(lifeSupport.capacity)) >= 2
+            Math.min(berthCapacity, ...Object.values(lifeSupport.capacity)) >= 2
           }
           capacityMultiplier={lifeSupportCapacityMultiplier}
           crewGrowthMultiplier={
@@ -1395,6 +1454,8 @@ export default function Home() {
             (requirement) => requirement.id,
           )}
           supportUpgradeCosts={supportUpgradeCosts}
+          berthQuote={berthPanelQuote}
+          onStartBerthConstruction={handleStartBerthConstruction}
           onUpgradeSupport={handleUpgradeSupport}
           onActivateBeacon={handleActivateBeacon}
           onRescueSignal={handleRescueSurvivors}

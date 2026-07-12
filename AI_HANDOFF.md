@@ -101,7 +101,7 @@ Do not add endless procedural planets yet. More planets can be authored later, b
 
 ### Crew page
 
-- Owns life-support expansion, SOS signals, survivor roster, Personnel Files, training, assignments, callsigns, rarity explanations, levels, XP, and individual Continuity contributions.
+- Owns Habitation Ring berth construction, life-support expansion, SOS signals, survivor roster, Personnel Files, training, assignments, callsigns, rarity explanations, levels, XP, and individual Continuity contributions.
 
 ### Research page
 
@@ -192,7 +192,8 @@ Important balance decisions:
 - Null Studies is attainable through ordinary Researchers; Null Dreamers provide a bonus instead of being mandatory.
 - Later SOS groups grow in size to make large founder requirements less tedious.
 - Research speed bonuses are applied once, not squared.
-- Habitation research now increases effective life-support capacity.
+- Crew capacity is structural: the Habitation Ring provides berths (4 base + 8 per section). Sections are purchased with Flux (priced like equipment, ~45 minutes of live production with a per-section floor), take 3 base hours to build, and assigned Engineers accelerate construction (+35% each, ×5 cap). Construction continues offline and never fails. Habitation is no longer a life-support category; atmosphere, water, nutrition, and medical remain the Salvage-built envelope that sustains the people berths house. Old saves convert habitation capacity into completed sections and population is always grandfathered — nobody aboard ever loses a berth.
+- Habitation research now increases effective berth and life-support capacity.
 - Colony legacy bonuses are wired into their named systems.
 - Hazard shielding and relay progression provide modest real effects.
 

@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  BASE_BERTHS,
+  BERTHS_PER_SECTION,
+  getBerthCapacity,
+  startBerthSectionConstruction,
   MAX_OFFLINE_SURVIVOR_SECONDS,
   PROFESSIONAL_ROLES,
   QUALITY_PITY_LIMIT,
@@ -45,13 +49,19 @@ function detectSignal(seed = 123_456) {
 }
 
 function supportPopulation(state: SurvivorSystemState, population = 100) {
-  return setLifeSupportCapacity(state, {
-    habitation: population,
+  const supported = setLifeSupportCapacity(state, {
     atmosphere: population,
     water: population,
     nutrition: population,
     medical: population,
   });
+  return {
+    ...supported,
+    berthSections: Math.max(
+      supported.berthSections,
+      Math.ceil(Math.max(0, population - 4) / 8),
+    ),
+  };
 }
 
 function stateWithCivilian() {
@@ -115,12 +125,13 @@ test("a new Ark contains no humans and its persisted seed is deterministic", () 
   assert.equal(first.activeSignal, null);
   assert.equal(first.beaconOnline, false);
   assert.deepEqual(first.lifeSupport, {
-    habitation: 0,
     atmosphere: 0,
     water: 0,
     nutrition: 0,
     medical: 0,
   });
+  assert.equal(first.berthSections, 0);
+  assert.equal(first.berthConstruction, null);
   assert.deepEqual(first, second);
 });
 
@@ -267,8 +278,8 @@ test("rescue requires both stable Ark capacity and enough external Salvage", () 
   const groupSize = state.activeSignal!.survivors.length;
   let readiness = getRescueReadiness(state, Number.MAX_SAFE_INTEGER);
   assert.equal(readiness.canRescue, false);
-  assert.equal(readiness.reason, "life-support");
-  assert.ok(readiness.lifeSupport.shortages.habitation >= groupSize);
+  assert.ok(readiness.reason === "life-support" || readiness.reason === "berths");
+  assert.ok(readiness.lifeSupport.shortages.atmosphere >= groupSize);
 
   state = supportPopulation(state, groupSize);
   readiness = getRescueReadiness(state, 0);
@@ -328,7 +339,6 @@ test("insufficient support pauses recruitment but never harms an existing popula
   const populationBefore = structuredClone(state.survivors);
 
   state = setLifeSupportCapacity(state, {
-    habitation: 0,
     atmosphere: 0,
     water: 0,
     nutrition: 0,
@@ -645,7 +655,6 @@ test("sanitization repairs malformed population, support, assignments, and count
   assert.equal(state.rolePity.engineer, 0);
   assert.equal(state.rolePity.doctor, 100);
   assert.deepEqual(state.lifeSupport, {
-    habitation: 0,
     atmosphere: 0,
     water: 12,
     nutrition: 0,
@@ -992,4 +1001,84 @@ test("crew already beyond the new capacity keep every profession they learned", 
     startSurvivorTraining(state, veteran.id, "teacher"),
     state,
   );
+});
+
+test("berth sections build over time and engineers accelerate construction", () => {
+  let state = createSurvivorSystemState(11_311);
+  assert.equal(getBerthCapacity(state), BASE_BERTHS);
+
+  state = startBerthSectionConstruction(state, 3_600);
+  assert.ok(state.berthConstruction);
+  // a second start is ignored while one is underway
+  assert.equal(startBerthSectionConstruction(state, 3_600), state);
+
+  const unassisted = advanceSurvivorSystem(state, 1_800);
+  assert.ok(unassisted.berthConstruction);
+  assert.equal(unassisted.berthSections, 0);
+
+  const assisted = advanceSurvivorSystem(state, 1_800, {
+    constructionSpeedMultiplier: 2,
+  });
+  assert.equal(assisted.berthConstruction, null);
+  assert.equal(assisted.berthSections, 1);
+  assert.equal(getBerthCapacity(assisted), BASE_BERTHS + BERTHS_PER_SECTION);
+
+  const finished = advanceSurvivorSystem(unassisted, 1_800);
+  assert.equal(finished.berthSections, 1);
+});
+
+test("rescue is blocked by missing berths before life support is consulted", () => {
+  let state = detectSignal(6_161);
+  // plenty of life support, no berths beyond the base four
+  state = setLifeSupportCapacity(state, {
+    atmosphere: 100,
+    water: 100,
+    nutrition: 100,
+    medical: 100,
+  });
+  const groupSize = state.activeSignal!.survivors.length;
+  if (groupSize > BASE_BERTHS) {
+    const readiness = getRescueReadiness(state, 1_000_000);
+    assert.equal(readiness.canRescue, false);
+    assert.equal(readiness.reason, "berths");
+  }
+  state = { ...state, berthSections: 3 };
+  const readiness = getRescueReadiness(state, 1_000_000);
+  assert.equal(readiness.canRescue, true);
+});
+
+test("old saves convert habitation capacity into berth sections without loss", () => {
+  const migrated = sanitizeSurvivorSystemState({
+    lifeSupport: {
+      habitation: 40,
+      atmosphere: 40,
+      water: 40,
+      nutrition: 40,
+      medical: 40,
+    },
+  });
+  assert.ok(getBerthCapacity(migrated) >= 40);
+  assert.equal("habitation" in migrated.lifeSupport, false);
+
+  // population always keeps its berths even if the save recorded none
+  const crowded = sanitizeSurvivorSystemState({
+    survivors: Array.from({ length: 30 }, (_, index) => ({
+      id: `crew-${index}`,
+      name: `Crew ${index}`,
+      role: "civilian",
+      backgroundId: "civic-volunteer",
+      aptitudes: {},
+      skillXp: {},
+    })),
+    berthSections: 0,
+  });
+  assert.ok(getBerthCapacity(crowded) >= 30);
+
+  // in-progress construction survives a reload
+  const midBuild = sanitizeSurvivorSystemState({
+    berthSections: 2,
+    berthConstruction: { progressSeconds: 500, durationSeconds: 3_600 },
+  });
+  assert.equal(midBuild.berthSections, 2);
+  assert.equal(midBuild.berthConstruction?.progressSeconds, 500);
 });

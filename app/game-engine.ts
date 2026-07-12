@@ -11,14 +11,19 @@ import {
 import { syncAutomaticDiscoveries } from "./discovery-engine.ts";
 import {
   advanceSurvivorSystem,
+  BERTH_CONSTRUCTION_BASE_SECONDS,
+  BERTHS_PER_SECTION,
   cloneSurvivorSystemState,
   createSurvivorSystemState,
+  getBerthCapacity,
   getSurvivorRarity,
   getSurvivorSkillLevel,
+  MAX_BERTH_SECTIONS,
   RARE_SURVIVOR_HOOKS,
   sanitizeSurvivorSystemState,
   setSosBeaconOnline,
   setTrainingSlots,
+  startBerthSectionConstruction,
   transferSurvivorsToSettlement,
   type RareSurvivorHookId,
   type SurvivorSystemState,
@@ -1100,6 +1105,69 @@ export function getEquipmentFabricationQuote(
   };
 }
 
+export function getAssignedEngineerCount(state: GameState) {
+  return state.survivors.survivors.filter(
+    (survivor) => survivor.assignedRole === "engineer",
+  ).length;
+}
+
+export function getBerthConstructionSpeed(state: GameState) {
+  return Math.min(5, 1 + getAssignedEngineerCount(state) * 0.35);
+}
+
+export type BerthConstructionQuote = {
+  cost: number;
+  sections: number;
+  capacity: number;
+  berthsPerSection: number;
+  maxed: boolean;
+  inProgress: boolean;
+  baseDurationSeconds: number;
+  engineerCount: number;
+  speedMultiplier: number;
+};
+
+export function getBerthConstructionQuote(
+  state: GameState,
+): BerthConstructionQuote {
+  const sections = state.survivors.berthSections;
+  // Priced against live output like equipment (~45 minutes of production)
+  // with a floor that grows per section. The floor exponent is capped so a
+  // freshly landed Ark with a rebuilt economy is never priced out of its
+  // first sections on a new world; the production term carries the late game.
+  const production = getProductionSnapshot(state).fluxPerSecond;
+  const cost = bounded(
+    Math.max(750 * safePower(1.5, Math.min(12, sections)), production * 2_700) *
+      getColonyLegacyEffects(state).fabricationCostMultiplier,
+  );
+  return {
+    cost,
+    sections,
+    capacity: getBerthCapacity(state.survivors),
+    berthsPerSection: BERTHS_PER_SECTION,
+    maxed: sections >= MAX_BERTH_SECTIONS,
+    inProgress: state.survivors.berthConstruction !== null,
+    baseDurationSeconds: BERTH_CONSTRUCTION_BASE_SECONDS,
+    engineerCount: getAssignedEngineerCount(state),
+    speedMultiplier: getBerthConstructionSpeed(state),
+  };
+}
+
+export function startArkBerthConstruction(state: GameState) {
+  const quote = getBerthConstructionQuote(state);
+  if (quote.maxed || quote.inProgress || state.flux < quote.cost) return state;
+  const survivors = startBerthSectionConstruction(state.survivors);
+  if (survivors === state.survivors) return state;
+  const next = cloneGameState(state);
+  next.flux = Math.max(0, next.flux - quote.cost);
+  next.survivors = survivors;
+  next.researchStock["engineering-models"] = Math.min(
+    1e12,
+    next.researchStock["engineering-models"] + 10,
+  );
+  return next;
+}
+
 export function fabricateWorldEquipment(state: GameState, equipmentId: string) {
   const quote = getEquipmentFabricationQuote(state, equipmentId);
   if (
@@ -2036,6 +2104,7 @@ export function simulateGame(
     onJobXpMultiplier:
       survivorBonuses.trainingSpeedMultiplier *
       colonyBonuses.trainingSpeedMultiplier,
+    constructionSpeedMultiplier: getBerthConstructionSpeed(next),
     reservedNames: next.settlement.colonies.flatMap((colony) =>
       colony.founders.map((founder) => founder.name.replace(/\s*“.*$/u, "")),
     ),

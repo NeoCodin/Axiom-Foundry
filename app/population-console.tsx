@@ -30,6 +30,19 @@ import {
   type SurvivorSystemState,
 } from "./survivor-engine";
 
+export type BerthPanelQuote = {
+  canAfford: boolean;
+  costLabel: string;
+  capacity: number;
+  berthsPerSection: number;
+  maxed: boolean;
+  inProgress: boolean;
+  engineerCount: number;
+  speedMultiplier: number;
+  remainingLabel: string | null;
+  progressRatio: number;
+};
+
 export type PopulationConsoleProps = {
   state: SurvivorSystemState;
   salvage: number;
@@ -39,6 +52,8 @@ export type PopulationConsoleProps = {
   crewGrowthMultiplier: number;
   requiredExpertiseIds: readonly ExpertiseId[];
   supportUpgradeCosts: Record<LifeSupportKey, number>;
+  berthQuote: BerthPanelQuote;
+  onStartBerthConstruction: () => void;
   onUpgradeSupport: (key: LifeSupportKey) => void;
   onActivateBeacon: () => void;
   onRescueSignal: () => void;
@@ -51,7 +66,6 @@ export type PopulationConsoleProps = {
 };
 
 const SUPPORT_LABELS: Record<LifeSupportKey, string> = {
-  habitation: "Habitation",
   atmosphere: "Atmosphere",
   water: "Water",
   nutrition: "Nutrition",
@@ -81,6 +95,8 @@ function PopulationConsole({
   crewGrowthMultiplier,
   requiredExpertiseIds,
   supportUpgradeCosts,
+  berthQuote,
+  onStartBerthConstruction,
   onUpgradeSupport,
   onActivateBeacon,
   onRescueSignal,
@@ -142,11 +158,41 @@ function PopulationConsole({
 
       <div className="continuity-summary-band">
         <div><span>People aboard</span><strong>{state.survivors.length}</strong></div>
-        <div><span>Stable capacity</span><strong>{Math.min(...Object.values(lifeSupport.capacity))}</strong></div>
+        <div><span>Crew berths</span><strong>{state.survivors.length}/{berthQuote.capacity}</strong></div>
+        <div><span>Stable capacity</span><strong>{Math.min(berthQuote.capacity, ...Object.values(lifeSupport.capacity))}</strong></div>
         <div><span>Training</span><strong>{state.training.length}/{state.trainingSlots}</strong></div>
         <div><span>Signals answered</span><strong>{state.signalsResolved}</strong></div>
         <div className="continuity-summary-help"><span>Available Salvage <HelpTrigger label="How do I get Salvage?" onClick={() => onOpenHelp("salvage")} /></span><strong>{Math.floor(salvage)}</strong></div>
       </div>
+
+      <section className="continuity-panel support-capacity-panel">
+        <header><div><span>ARK STRUCTURE</span><h3>Habitation ring</h3></div><small>{berthQuote.inProgress ? "Section under construction" : berthQuote.capacity <= state.survivors.length ? "Every berth is occupied" : "Berths available"}</small></header>
+        <div className="support-upgrade-grid">
+          <article>
+            <span>Crew berths</span>
+            <strong>{state.survivors.length} / {berthQuote.capacity}</strong>
+            <div role="progressbar" aria-label="Berth occupancy" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.min(1, state.survivors.length / Math.max(1, berthQuote.capacity)) * 100)}><i style={{ width: `${Math.min(1, state.survivors.length / Math.max(1, berthQuote.capacity)) * 100}%` }} /></div>
+            <small>Structural capacity built by the Foundry. Life support sustains the people berths house.</small>
+          </article>
+          <article>
+            {berthQuote.inProgress ? (
+              <>
+                <span>Section under construction</span>
+                <strong>+{berthQuote.berthsPerSection} berths</strong>
+                <div role="progressbar" aria-label="Berth section construction" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(berthQuote.progressRatio * 100)}><i style={{ width: `${berthQuote.progressRatio * 100}%` }} /></div>
+                <small>{berthQuote.remainingLabel ?? "Under construction"} · {berthQuote.engineerCount} assigned engineer{berthQuote.engineerCount === 1 ? "" : "s"} · ×{berthQuote.speedMultiplier.toFixed(2)} build speed · continues offline</small>
+              </>
+            ) : (
+              <>
+                <span>Extend the habitation ring</span>
+                <strong>+{berthQuote.berthsPerSection} berths</strong>
+                <button type="button" disabled={berthQuote.maxed || !berthQuote.canAfford} onClick={onStartBerthConstruction}>{berthQuote.maxed ? "Ring complete" : `Begin section · ${berthQuote.costLabel}`}</button>
+                <small>Assigned engineers accelerate construction (currently {berthQuote.engineerCount}, ×{berthQuote.speedMultiplier.toFixed(2)} speed).</small>
+              </>
+            )}
+          </article>
+        </div>
+      </section>
 
       <section className="continuity-panel support-capacity-panel">
         <header><div><span>STABLE CAPACITY</span><h3>Life-support envelope</h3></div><small>{lifeSupport.stable ? "All current demand covered" : "Increase capacity before the next rescue"}</small></header>
