@@ -191,7 +191,7 @@ function ArkDeck({
       id: "population",
       code: "03",
       label: "Life Support",
-      sublabel: supportOnline ? `${population}/${populationCapacity} safe berths` : "Atmosphere absent",
+      sublabel: supportOnline ? `${population}/${populationCapacity} safely supported` : "Atmosphere absent",
       kind: "support",
       online: supportOnline,
     },
@@ -201,8 +201,8 @@ function ArkDeck({
       label: "Habitation Ring",
       sublabel: habitationOnline
         ? berthConstructionProgress !== null
-          ? `${population}/${berthCapacity} berths · section ${Math.round(berthConstructionProgress * 100)}% built`
-          : `${population}/${berthCapacity} berths across ${berthSections + 1} sections`
+          ? `${population}/${berthCapacity} quarters · section ${Math.round(berthConstructionProgress * 100)}% built`
+          : `${population}/${berthCapacity} quarters across ${berthSections + 1} sections`
         : "Empty bunks, cold glass",
       kind: "habitation",
       online: habitationOnline,
@@ -433,7 +433,7 @@ function ArkDeck({
                 {!beaconOnline ? (
                   <>
                     <h3>No one can hear the Ark yet</h3>
-                    <p>{beaconAvailable ? "Habitation is stable enough to invite the first survivors aboard." : "Reach orbit and restore safe berths before asking anyone to trust the Ark."}</p>
+                    <p>{beaconAvailable ? "Habitation is stable enough to invite the first survivors aboard." : "Reach orbit and build safe quarters before asking anyone to trust the Ark."}</p>
                     <button type="button" disabled={!beaconAvailable} onClick={onActivateBeacon}>Activate SOS beacon</button>
                   </>
                 ) : pendingSignal ? (

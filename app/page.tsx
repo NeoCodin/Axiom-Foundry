@@ -859,7 +859,7 @@ export default function Home() {
     if (!result.rescued) {
       setAnnouncement(
         result.reason === "berths"
-          ? "The signal is holding. Build another habitation ring section before dispatching the shuttle."
+          ? "The signal is holding. Build another quarters section before dispatching the shuttle."
           : result.reason === "life-support"
             ? "The signal is holding. Expand every life-support category before dispatching the shuttle."
             : "The signal is holding until the Ark has enough Salvage and capacity.",
@@ -1424,7 +1424,7 @@ export default function Home() {
             canRescue: rescueReadiness.canRescue,
             blockedReason:
               rescueReadiness.reason === "berths"
-                ? "Build another habitation ring section first."
+                ? "Build another quarters section first."
                 : rescueReadiness.reason === "life-support"
                   ? "Expand life-support capacity first."
                   : rescueReadiness.reason === "salvage"
@@ -1830,7 +1830,7 @@ export default function Home() {
               <span className="axiom-symbol" aria-hidden="true">A</span>
             </div>
             <p className="panel-copy">
-              Collapse the fabrication chain into a portable law of physics. Machines, run protocols, and <strong>all unspent Flux</strong> reset; proven Axioms and Legacy upgrades survive. Spend Flux on berths, equipment, and supplies before you begin.
+              Collapse the fabrication chain into a portable law of physics. Machines, run protocols, and <strong>all unspent Flux</strong> reset; proven Axioms and Legacy upgrades survive. Spend Flux on quarters, equipment, and supplies before you begin.
             </p>
             <div className="prestige-preview">
               <span>Projected yield</span>

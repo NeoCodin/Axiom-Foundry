@@ -110,7 +110,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
     summary:
       "Rescue groups never expire. Build safe capacity with Salvage, answer the SOS signal when ready, then assign specialists or train adaptable civilians.",
     steps: [
-      { title: "Build berths and expand life support", detail: "Crew berths come from Habitation Ring sections built with Flux (assigned engineers speed construction). Atmosphere, water, nutrition, and medical capacity expand with Salvage. Both must cover the incoming group." },
+      { title: "Build quarters and expand life support", detail: "Crew quarters come from Habitation Ring sections built with Flux (assigned engineers speed construction). Atmosphere, water, nutrition, and medical capacity expand with Salvage. Both must cover the incoming group." },
       { title: "Activate the SOS beacon", detail: "Once the Ark reaches a planetary orbit, the beacon finds a persistent group after 90 seconds." },
       { title: "Dispatch the rescue shuttle", detail: "Spend the listed Salvage to bring the entire group aboard. Each person also brings Biological Samples and Cultural Records." },
       { title: "Assign or train", detail: "Assigned specialists earn profession XP offline. Standard profiles learn at ×1.00, Notable ×1.25, Exceptional ×1.60, and Anomalous ×2.00." },

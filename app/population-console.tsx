@@ -158,7 +158,7 @@ function PopulationConsole({
 
       <div className="continuity-summary-band">
         <div><span>People aboard</span><strong>{state.survivors.length}</strong></div>
-        <div><span>Crew berths</span><strong>{state.survivors.length}/{berthQuote.capacity}</strong></div>
+        <div><span>Crew quarters</span><strong>{state.survivors.length}/{berthQuote.capacity}</strong></div>
         <div><span>Stable capacity</span><strong>{Math.min(berthQuote.capacity, ...Object.values(lifeSupport.capacity))}</strong></div>
         <div title="Concurrent training programs. Slots grow with population (+1 per 20 people) and the Adaptive Instruction and Clinical Commons research projects, up to 12."><span>Training slots</span><strong>{state.training.length}/{state.trainingSlots}</strong></div>
         <div><span>Signals answered</span><strong>{state.signalsResolved}</strong></div>
@@ -166,37 +166,24 @@ function PopulationConsole({
       </div>
 
       <section className="continuity-panel support-capacity-panel">
-        <header><div><span>ARK STRUCTURE</span><h3>Habitation ring</h3></div><small>{berthQuote.inProgress ? "Section under construction" : berthQuote.capacity <= state.survivors.length ? "Every berth is occupied" : "Berths available"}</small></header>
+        <header><div><span>ARK CAPACITY</span><h3>Quarters and life support</h3></div><small>{berthQuote.inProgress ? "Quarters section under construction" : !lifeSupport.stable ? "Increase capacity before the next rescue" : "All current demand covered"}</small></header>
         <div className="support-upgrade-grid">
-          <article>
-            <span>Crew berths</span>
+          <article className="quarters-card">
+            <span>Crew quarters</span>
             <strong>{state.survivors.length} / {berthQuote.capacity}</strong>
-            <div role="progressbar" aria-label="Berth occupancy" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.min(1, state.survivors.length / Math.max(1, berthQuote.capacity)) * 100)}><i style={{ width: `${Math.min(1, state.survivors.length / Math.max(1, berthQuote.capacity)) * 100}%` }} /></div>
-            <small>Structural capacity built by the Foundry. Life support sustains the people berths house.</small>
-          </article>
-          <article>
             {berthQuote.inProgress ? (
               <>
-                <span>Section under construction</span>
-                <strong>+{berthQuote.berthsPerSection} berths</strong>
-                <div role="progressbar" aria-label="Berth section construction" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(berthQuote.progressRatio * 100)}><i style={{ width: `${berthQuote.progressRatio * 100}%` }} /></div>
-                <small>{berthQuote.remainingLabel ?? "Under construction"} · {berthQuote.engineerCount} assigned engineer{berthQuote.engineerCount === 1 ? "" : "s"} · ×{berthQuote.speedMultiplier.toFixed(2)} build speed · continues offline</small>
+                <div role="progressbar" aria-label="Quarters section construction" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(berthQuote.progressRatio * 100)}><i style={{ width: `${berthQuote.progressRatio * 100}%` }} /></div>
+                <small>+{berthQuote.berthsPerSection} building · {berthQuote.remainingLabel ?? "in progress"} · {berthQuote.engineerCount} engineer{berthQuote.engineerCount === 1 ? "" : "s"} ×{berthQuote.speedMultiplier.toFixed(2)} · continues offline</small>
               </>
             ) : (
               <>
-                <span>Extend the habitation ring</span>
-                <strong>+{berthQuote.berthsPerSection} berths</strong>
-                <button type="button" disabled={berthQuote.maxed || !berthQuote.canAfford} onClick={onStartBerthConstruction}>{berthQuote.maxed ? "Ring complete" : `Begin section · ${berthQuote.costLabel}`}</button>
-                <small>Assigned engineers accelerate construction (currently {berthQuote.engineerCount}, ×{berthQuote.speedMultiplier.toFixed(2)} speed).</small>
+                <div role="progressbar" aria-label="Quarters occupancy" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.min(1, state.survivors.length / Math.max(1, berthQuote.capacity)) * 100)}><i style={{ width: `${Math.min(1, state.survivors.length / Math.max(1, berthQuote.capacity)) * 100}%` }} /></div>
+                <button type="button" disabled={berthQuote.maxed || !berthQuote.canAfford} onClick={onStartBerthConstruction}>{berthQuote.maxed ? "Ring complete" : `Build +${berthQuote.berthsPerSection} · ${berthQuote.costLabel}`}</button>
+                <small>Foundry-built structure; assigned engineers speed construction (now {berthQuote.engineerCount}, ×{berthQuote.speedMultiplier.toFixed(2)}).</small>
               </>
             )}
           </article>
-        </div>
-      </section>
-
-      <section className="continuity-panel support-capacity-panel">
-        <header><div><span>STABLE CAPACITY</span><h3>Life-support envelope</h3></div><small>{lifeSupport.stable ? "All current demand covered" : "Increase capacity before the next rescue"}</small></header>
-        <div className="support-upgrade-grid">
           {(Object.keys(SUPPORT_LABELS) as LifeSupportKey[]).map((key) => {
             const capacity = lifeSupport.capacity[key];
             const demand = lifeSupport.demand[key];
