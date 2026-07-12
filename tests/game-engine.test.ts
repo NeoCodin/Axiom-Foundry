@@ -800,7 +800,7 @@ test("rescues cost Flux and Survivor Duty automates them when qualified", () => 
     lifeSupport: { atmosphere: 90, water: 90, nutrition: 90, medical: 90 },
   });
   state.living.salvage = 1_000_000;
-  let sim = simulateGame(state, 120, 240, false);
+  const sim = simulateGame(state, 120, 240, false);
   assert.ok(sim.survivors.activeSignal, "first scan fires fast");
 
   // Flux gate blocks the launch even when Salvage is plentiful.

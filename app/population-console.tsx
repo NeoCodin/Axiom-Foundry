@@ -1,6 +1,13 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
+import type { ExpeditionSiteId, ExpeditionState } from "./expedition-engine";
+import {
+  EXPEDITION_SITE_DEFINITIONS,
+  MAX_EXPEDITION_CREW,
+  MIN_EXPEDITION_CREW,
+  getExpeditionSite,
+} from "./expedition-engine";
 import { HelpTrigger, type ManualTopicId } from "./game-manual";
 import {
   CONTINUITY_EXPERTISE_PRESENTATION,
@@ -56,6 +63,10 @@ export type PopulationConsoleProps = {
   rescueFlux: { cost: number; label: string; affordable: boolean };
   rescueDetail: { active: boolean; enabled: boolean };
   onToggleAutoRescue: (enabled: boolean) => void;
+  expeditions: ExpeditionState;
+  expeditionAccess: Readonly<Record<ExpeditionSiteId, { available: boolean; reason: string | null; fluxLabel: string; canAffordFlux: boolean }>>;
+  surveyStatus: { completed: number; required: number };
+  onLaunchExpedition: (siteId: ExpeditionSiteId, crewIds: readonly string[]) => void;
   berthQuote: BerthPanelQuote;
   onStartBerthConstruction: () => void;
   onUpgradeSupport: (key: LifeSupportKey) => void;
@@ -105,6 +116,10 @@ function PopulationConsole({
   rescueFlux,
   rescueDetail,
   onToggleAutoRescue,
+  expeditions,
+  expeditionAccess,
+  surveyStatus,
+  onLaunchExpedition,
   berthQuote,
   onStartBerthConstruction,
   onUpgradeSupport,
@@ -118,6 +133,8 @@ function PopulationConsole({
   onBack,
 }: PopulationConsoleProps) {
   const [selectedCrewId, setSelectedCrewId] = useState<string | null>(null);
+  const [expeditionSiteId, setExpeditionSiteId] = useState<ExpeditionSiteId>("planetary-survey");
+  const [expeditionCrewIds, setExpeditionCrewIds] = useState<string[]>([]);
   const lifeSupport = useMemo(
     () => getLifeSupportStatus(state, [], capacityMultiplier),
     [capacityMultiplier, state],
@@ -275,6 +292,86 @@ function PopulationConsole({
           <small className="crew-rarity-note">Color measures how scarce a profile&apos;s aptitudes and traits are—never the worth of a person. Rarity speeds training and job XP and sets profession capacity (Standard 1 · Notable 2 · Exceptional 3 · Anomalous unlimited); it never multiplies Continuity expertise directly.</small>
         </section>
       </div>
+
+      {(Object.values(expeditionAccess).some((entry) => entry.available || entry.reason === "busy") || expeditions.active) && (
+        <section className="continuity-panel expedition-bay-panel">
+          <header><div><span>EXPEDITION BAY</span><h3>{expeditions.active ? "Expedition underway" : "Ready to launch"}</h3></div><small>{surveyStatus.required > 0 ? `Planetary surveys ${Math.min(surveyStatus.completed, surveyStatus.required)}/${surveyStatus.required} certified` : "Crews always return"}</small></header>
+          {expeditions.active ? (() => {
+            const site = getExpeditionSite(expeditions.active!.siteId);
+            const progress = Math.min(1, (expeditions.clockSeconds - expeditions.active!.startedAtSeconds) / Math.max(1, expeditions.active!.durationSeconds));
+            const remaining = Math.max(0, expeditions.active!.startedAtSeconds + expeditions.active!.durationSeconds - expeditions.clockSeconds);
+            const crewNames = expeditions.active!.crewIds
+              .map((id) => state.survivors.find((survivor) => survivor.id === id))
+              .map((survivor, index) => survivor ? (survivor.callsign || survivor.name) : `Crew ${index + 1}`);
+            return (
+              <div className="continuity-empty-state">
+                <strong>{site.name} · {Math.round(progress * 100)}% · {formatTime(remaining)} remaining</strong>
+                <div role="progressbar" aria-label={`${site.name} progress`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)} className="crew-xp-track"><i style={{ width: `${progress * 100}%` }} /></div>
+                <p>{crewNames.join(", ")} · group strength {expeditions.active!.strength} vs difficulty {site.difficulty}. The crew always returns; a strong group returns with more.</p>
+              </div>
+            );
+          })() : (
+            <>
+              <div className="crew-actions-grid">
+                <label>Destination<select value={expeditionSiteId} onChange={(event) => setExpeditionSiteId(event.target.value as ExpeditionSiteId)}>
+                  {EXPEDITION_SITE_DEFINITIONS.map((site) => {
+                    const access = expeditionAccess[site.id];
+                    return <option key={site.id} value={site.id} disabled={!access.available}>{site.name}{access.available ? ` · ${access.fluxLabel}` : access.reason === "locked-world" ? " · later worlds" : access.reason === "already-completed" ? " · completed" : access.reason === "campaign-incomplete" ? " · after the campaign" : ""}</option>;
+                  })}
+                </select></label>
+              </div>
+              {(() => {
+                const site = getExpeditionSite(expeditionSiteId);
+                const access = expeditionAccess[expeditionSiteId];
+                const trainingIds = new Set(state.training.map((program) => program.survivorId));
+                const eligible = state.survivors.filter((survivor) => !trainingIds.has(survivor.id));
+                const chosen = expeditionCrewIds.filter((id) => eligible.some((survivor) => survivor.id === id));
+                const toggle = (id: string) => setExpeditionCrewIds((current) => current.includes(id) ? current.filter((existing) => existing !== id) : current.length >= MAX_EXPEDITION_CREW ? current : [...current, id]);
+                return (
+                  <>
+                    <p className="crew-rarity-note">{site.description} Difficulty {site.difficulty} · {formatTime(site.durationSeconds)} base (Navigators level 3+ shorten it) · {access.fluxLabel}{site.countsAsSurvey ? " · counts toward planetary certification" : ""}</p>
+                    <div className="settler-selection-list expedition-crew-list">
+                      {eligible.map((survivor) => {
+                        const rarity = getSurvivorRarity(survivor);
+                        const picked = chosen.includes(survivor.id);
+                        return (
+                          <label className={`crew-rarity-${rarity.id} ${picked ? "is-selected" : ""}`} key={survivor.id}>
+                            <input type="checkbox" checked={picked} onChange={() => toggle(survivor.id)} />
+                            <span className="crew-avatar">{survivor.name.slice(0, 1)}</span>
+                            <span><strong>{survivor.callsign || survivor.name}</strong><small>{survivor.role === "civilian" ? "Civilian" : `${titleCase(survivor.role)} · Level ${getSurvivorSkillLevel(survivor, survivor.role)}`}</small></span>
+                            <span className="settler-row-status"><b>{picked ? "CREW" : ""}</b></span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    <button
+                      className="forecast-action"
+                      type="button"
+                      disabled={!access.available || !access.canAffordFlux || chosen.length < MIN_EXPEDITION_CREW}
+                      onClick={() => { onLaunchExpedition(expeditionSiteId, chosen); setExpeditionCrewIds([]); }}
+                    >
+                      {chosen.length < MIN_EXPEDITION_CREW ? `Select ${MIN_EXPEDITION_CREW}-${MAX_EXPEDITION_CREW} crew` : !access.canAffordFlux ? `Needs ${access.fluxLabel}` : `Launch ${site.name} · ${access.fluxLabel}`}
+                    </button>
+                  </>
+                );
+              })()}
+            </>
+          )}
+          {expeditions.log.length > 0 && (
+            <ul className="deficit-list">
+              {[...expeditions.log].slice(-3).reverse().map((entry, index) => {
+                const site = getExpeditionSite(entry.siteId);
+                return (
+                  <li key={`${entry.resolvedAtSeconds}-${index}`}>
+                    <strong>{site.name} · {entry.outcome === "success" ? "SUCCESS" : "LEAN RETURN"} (strength {Math.round(entry.strength)} vs {entry.difficulty})</strong>
+                    <span>{entry.salvage > 0 ? `+${entry.salvage} Salvage · ` : ""}{entry.engineeringModels > 0 ? `+${entry.engineeringModels} Models · ` : ""}{entry.nullTraces > 0 ? `+${entry.nullTraces} Null Traces · ` : ""}{entry.surveyCredited ? "survey certified · " : ""}crew returned safely</span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+      )}
 
       <div className="crew-management-grid">
         <section className="continuity-panel crew-roster-panel">

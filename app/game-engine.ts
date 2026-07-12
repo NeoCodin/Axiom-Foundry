@@ -10,6 +10,21 @@ import {
 } from "./living-foundry-engine.ts";
 import { syncAutomaticDiscoveries } from "./discovery-engine.ts";
 import {
+  advanceExpeditions,
+  cloneExpeditionState,
+  createExpeditionState,
+  getDeployedCrewIds,
+  getExpeditionAvailability,
+  getExpeditionSite,
+  launchExpedition,
+  MAX_EXPEDITION_CREW,
+  MIN_EXPEDITION_CREW,
+  EXPEDITION_XP_PER_MEMBER,
+  sanitizeExpeditionState,
+  type ExpeditionSiteId,
+  type ExpeditionState,
+} from "./expedition-engine.ts";
+import {
   advanceDefense,
   cloneDefenseState,
   createDefenseState,
@@ -153,6 +168,7 @@ export type GameState = {
   settlement: SettlementState;
   worldProgress: WorldProgressSummary;
   defense: DefenseState;
+  expeditions: ExpeditionState;
   settings: GameSettings;
   manualPulses: number;
   playTime: number;
@@ -618,6 +634,7 @@ const emptyWorldProgress = (): WorldProgressSummary => ({
   resolvedCrisisIds: [],
   supplies: {},
   equipment: {},
+  surveysCompleted: 0,
 });
 
 const sanitizeResearchStock = (value: unknown): ResearchInputBundle => {
@@ -670,6 +687,7 @@ export function createInitialState(now = Date.now()): GameState {
     settlement: createSettlementState(),
     worldProgress: emptyWorldProgress(),
     defense: createDefenseState(),
+    expeditions: createExpeditionState(),
     settings: {
       buyMode: "1",
       autoEnabled: false,
@@ -882,6 +900,7 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
     settlement,
     worldProgress,
     defense: sanitizeDefenseState(value.defense),
+    expeditions: sanitizeExpeditionState(value.expeditions),
     settings: {
       buyMode:
         rawSettings.buyMode === "10" || rawSettings.buyMode === "max"
@@ -928,8 +947,10 @@ export function cloneGameState(state: GameState): GameState {
       resolvedCrisisIds: [...state.worldProgress.resolvedCrisisIds],
       supplies: { ...state.worldProgress.supplies },
       equipment: { ...state.worldProgress.equipment },
+      surveysCompleted: state.worldProgress.surveysCompleted,
     },
     defense: cloneDefenseState(state.defense),
+    expeditions: cloneExpeditionState(state.expeditions),
     settings: {
       ...state.settings,
       autoTiers: [...state.settings.autoTiers],
@@ -951,8 +972,10 @@ export function getCampaignCrewSummaries(
   const trainingIds = new Set(
     state.survivors.training.map((program) => program.survivorId),
   );
+  const deployedIds = getDeployedCrewIds(state.expeditions);
   return state.survivors.survivors.map((survivor) => {
     const rarity = getSurvivorRarity(survivor);
+    const busy = trainingIds.has(survivor.id) || deployedIds.has(survivor.id);
     return {
       id: survivor.id,
       name: survivor.callsign
@@ -961,8 +984,8 @@ export function getCampaignCrewSummaries(
       role: survivor.role,
       roles: getQualifiedSurvivorRoles(survivor),
       expertise: getSurvivorContinuityExpertise(survivor),
-      available: !trainingIds.has(survivor.id),
-      canSettle: !trainingIds.has(survivor.id),
+      available: !busy,
+      canSettle: !busy,
       rarity: rarity.id,
       rarityLabel: rarity.label,
       rarityDescription: rarity.description,
@@ -1251,6 +1274,84 @@ export function hasRescueDetail(state: GameState) {
       getSurvivorSkillLevel(survivor, "security") >= 3,
   );
   return navigator && soldier;
+}
+
+export type ExpeditionLaunchQuote = {
+  fluxCost: number;
+  canLaunch: boolean;
+  reason:
+    | "unavailable"
+    | "busy"
+    | "crew-count"
+    | "crew-unavailable"
+    | "flux"
+    | null;
+};
+
+export function getExpeditionLaunchQuote(
+  state: GameState,
+  siteId: ExpeditionSiteId,
+  crewIds: readonly string[],
+): ExpeditionLaunchQuote {
+  const site = getExpeditionSite(siteId);
+  const fluxCost = bounded(site.fluxCostBase * continuityScale(state));
+  const availability = getExpeditionAvailability(
+    state.expeditions,
+    getCampaignWorldIndex(state),
+    state.settlement.currentWorldId === null,
+  ).find((entry) => entry.site.id === siteId);
+  if (!availability?.available) {
+    return {
+      fluxCost,
+      canLaunch: false,
+      reason: availability?.reason === "busy" ? "busy" : "unavailable",
+    };
+  }
+  const unique = [...new Set(crewIds)];
+  if (unique.length < MIN_EXPEDITION_CREW || unique.length > MAX_EXPEDITION_CREW) {
+    return { fluxCost, canLaunch: false, reason: "crew-count" };
+  }
+  const trainingIds = new Set(
+    state.survivors.training.map((program) => program.survivorId),
+  );
+  const crew = unique.map((id) =>
+    state.survivors.survivors.find((survivor) => survivor.id === id),
+  );
+  if (crew.some((member) => !member || trainingIds.has(member.id))) {
+    return { fluxCost, canLaunch: false, reason: "crew-unavailable" };
+  }
+  if (state.flux < fluxCost) {
+    return { fluxCost, canLaunch: false, reason: "flux" };
+  }
+  return { fluxCost, canLaunch: true, reason: null };
+}
+
+export function startExpedition(
+  state: GameState,
+  siteId: ExpeditionSiteId,
+  crewIds: readonly string[],
+): GameState {
+  const quote = getExpeditionLaunchQuote(state, siteId, crewIds);
+  if (!quote.canLaunch) return state;
+  const unique = [...new Set(crewIds)];
+  const crew = unique.map(
+    (id) => state.survivors.survivors.find((survivor) => survivor.id === id)!,
+  );
+  const expeditions = launchExpedition(
+    state.expeditions,
+    getExpeditionSite(siteId),
+    crew,
+    state.settlement.currentWorldId,
+  );
+  if (expeditions === state.expeditions) return state;
+  const next = cloneGameState(state);
+  next.flux = Math.max(0, next.flux - quote.fluxCost);
+  next.expeditions = expeditions;
+  // deployed crew stand down from their stations for the duration
+  for (const survivor of next.survivors.survivors) {
+    if (unique.includes(survivor.id)) survivor.assignedRole = null;
+  }
+  return next;
 }
 
 export function getAssignedEngineerCount(state: GameState) {
@@ -2171,12 +2272,14 @@ export function recalibrate(state: GameState, now = Date.now()) {
   );
   fresh.settlement = cloneSettlementState(state.settlement);
   fresh.defense = cloneDefenseState(state.defense);
+  fresh.expeditions = cloneExpeditionState(state.expeditions);
   fresh.worldProgress = {
     completedInfrastructureIds: [...state.worldProgress.completedInfrastructureIds],
     completedResearchIds: [...state.worldProgress.completedResearchIds],
     resolvedCrisisIds: [...state.worldProgress.resolvedCrisisIds],
     supplies: { ...state.worldProgress.supplies },
     equipment: { ...state.worldProgress.equipment },
+    surveysCompleted: state.worldProgress.surveysCompleted,
   };
   fresh.missions = {
     ...state.missions,
@@ -2373,6 +2476,44 @@ export function simulateGame(
   ) {
     const autoRescued = performArkRescue(next);
     if (autoRescued !== next) next = autoRescued;
+  }
+
+  const expeditionAdvance = advanceExpeditions(
+    next.expeditions,
+    seconds,
+    next.settlement.currentWorldId,
+  );
+  next.expeditions = expeditionAdvance.state;
+  if (expeditionAdvance.completed) {
+    const completed = expeditionAdvance.completed;
+    next.living = grantLivingFoundryRewards(next.living, {
+      salvage: completed.salvage,
+      loreIds: completed.discoveryId ? [completed.discoveryId] : [],
+    });
+    next.researchStock["engineering-models"] = Math.min(
+      1e12,
+      next.researchStock["engineering-models"] + completed.engineeringModels,
+    );
+    next.researchStock["null-traces"] = Math.min(
+      1e12,
+      next.researchStock["null-traces"] + completed.nullTraces,
+    );
+    if (completed.surveyCredited) {
+      next.worldProgress = {
+        ...next.worldProgress,
+        surveysCompleted: next.worldProgress.surveysCompleted + 1,
+      };
+    }
+    for (const crewId of completed.crewIds) {
+      const survivor = next.survivors.survivors.find(
+        (candidate) => candidate.id === crewId,
+      );
+      if (!survivor || survivor.role === "civilian") continue;
+      survivor.skillXp[survivor.role] = Math.min(
+        1_000_000_000,
+        survivor.skillXp[survivor.role] + EXPEDITION_XP_PER_MEMBER,
+      );
+    }
   }
 
   for (let step = 0; step < steps; step += 1) {

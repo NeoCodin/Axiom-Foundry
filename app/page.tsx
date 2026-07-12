@@ -36,6 +36,8 @@ import {
   chooseDefenseDoctrine,
   getArkRescueQuote,
   getAutoTransferStatus,
+  getExpeditionLaunchQuote,
+  startExpedition,
   getBerthConstructionQuote,
   hasRescueDetail,
   performArkRescue,
@@ -135,6 +137,11 @@ import {
   toggleSettlerSelection,
 } from "./settlement-engine";
 import { getCampaignWorld } from "./campaign-content";
+import {
+  EXPEDITION_SITE_DEFINITIONS,
+  getExpeditionAvailability,
+  type ExpeditionSiteId,
+} from "./expedition-engine";
 import {
   DEFENSE_INSTALLATION_DEFINITIONS,
   type DefenseDoctrine,
@@ -550,6 +557,27 @@ export default function Home() {
   };
 
   const rescueQuote = getArkRescueQuote(game);
+  const expeditionAccess = Object.fromEntries(
+    getExpeditionAvailability(
+      game.expeditions,
+      campaignWorldIndex,
+      game.settlement.currentWorldId === null,
+    ).map((entry) => {
+      const quote = getExpeditionLaunchQuote(game, entry.site.id, [
+        "placeholder-a",
+        "placeholder-b",
+      ]);
+      return [
+        entry.site.id,
+        {
+          available: entry.available,
+          reason: entry.reason,
+          fluxLabel: `${formatNumber(quote.fluxCost)} Flux`,
+          canAffordFlux: game.flux >= quote.fluxCost,
+        },
+      ];
+    }),
+  ) as Record<ExpeditionSiteId, { available: boolean; reason: string | null; fluxLabel: string; canAffordFlux: boolean }>;
   const rescueDetailActive = hasRescueDetail(game);
   const scanDurationSeconds = getScanDurationSeconds(game.survivors);
   const viabilityForecast = getCurrentViabilityForecast(game);
@@ -914,6 +942,22 @@ export default function Home() {
     commitGameState(
       next,
       `${rescued} survivors are safely aboard. Their names, aptitudes, and histories are now part of the Ark.`,
+    );
+  };
+
+  const handleLaunchExpedition = (
+    siteId: ExpeditionSiteId,
+    crewIds: readonly string[],
+  ) => {
+    const current = gameRef.current;
+    const next = startExpedition(current, siteId, crewIds);
+    if (next === current) {
+      setAnnouncement("The expedition cannot launch yet - check crew availability and the Flux cost.");
+      return;
+    }
+    commitGameState(
+      next,
+      `${EXPEDITION_SITE_DEFINITIONS.find((site) => site.id === siteId)?.name ?? "Expedition"} away. The crew returns automatically - even while the game is closed.`,
     );
   };
 
@@ -1531,6 +1575,13 @@ export default function Home() {
             enabled: game.survivors.autoRescueEnabled,
           }}
           onToggleAutoRescue={handleToggleAutoRescue}
+          expeditions={game.expeditions}
+          expeditionAccess={expeditionAccess}
+          surveyStatus={{
+            completed: game.worldProgress.surveysCompleted,
+            required: campaignWorld.surveysRequired,
+          }}
+          onLaunchExpedition={handleLaunchExpedition}
           berthQuote={berthPanelQuote}
           onStartBerthConstruction={handleStartBerthConstruction}
           onUpgradeSupport={handleUpgradeSupport}

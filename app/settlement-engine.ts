@@ -31,6 +31,7 @@ export type WorldProgressSummary = {
   resolvedCrisisIds: readonly string[];
   supplies: Readonly<Record<string, number>>;
   equipment: Readonly<Record<string, number>>;
+  surveysCompleted: number;
 };
 
 export type FounderSnapshot = {
@@ -69,6 +70,7 @@ export type ForecastLine = {
     | "infrastructure"
     | "supplies"
     | "research"
+    | "survey"
     | "crisis";
   id: string;
   label: string;
@@ -346,6 +348,7 @@ export function sanitizeWorldProgress(value: unknown): WorldProgressSummary {
       resolvedCrisisIds: [],
       supplies: {},
       equipment: {},
+      surveysCompleted: 0,
     };
   }
   return {
@@ -354,6 +357,7 @@ export function sanitizeWorldProgress(value: unknown): WorldProgressSummary {
     resolvedCrisisIds: uniqueIds(value.resolvedCrisisIds, 100),
     supplies: cleanValueRecord(value.supplies),
     equipment: cleanValueRecord(value.equipment),
+    surveysCompleted: finiteInteger(value.surveysCompleted, 0, 1_000),
   };
 }
 
@@ -531,6 +535,11 @@ function deficitFor(
     message = objective?.description ?? message;
   } else if (requirement.kind === "supplies") {
     message = `Reserve ${missing} more ${requirement.label.toLocaleLowerCase("en-US")}.`;
+  } else if (requirement.kind === "survey") {
+    message = `Run ${missing} more Planetary Survey expedition${missing === 1 ? "" : "s"} from the Crew page.`;
+    alternatives = [
+      "Send 2-4 available crew on the Planetary Survey site in the Expedition Bay.",
+    ];
   } else if (requirement.kind === "research") {
     message = `Complete research: ${requirement.label}.`;
   } else if (requirement.kind === "crisis") {
@@ -570,6 +579,7 @@ function viabilityScore(lines: readonly ForecastLine[]) {
     infrastructure: 15,
     supplies: 8,
     research: 7,
+    survey: 7,
     crisis: 5,
   };
   let weightedTotal = 0;
@@ -738,6 +748,20 @@ export function getViabilityForecast(
         progress.completedResearchIds.includes(researchId) ? 1 : 0,
         0,
         1,
+      ),
+    );
+  }
+
+  if (world.surveysRequired > 0) {
+    lines.push(
+      line(
+        "survey",
+        "planetary-surveys",
+        "Planetary surveys",
+        progress.surveysCompleted,
+        0,
+        world.surveysRequired,
+        "AXIOM certifies a world safe only after crews have physically surveyed it.",
       ),
     );
   }

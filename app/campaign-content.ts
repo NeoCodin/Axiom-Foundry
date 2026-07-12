@@ -108,6 +108,7 @@ export type CampaignWorldDefinition = {
   theme: CampaignTheme;
   settlementRequired: boolean;
   minimumPopulation: number;
+  surveysRequired: number;
   infrastructure: readonly InfrastructureObjective[];
   roleRequirements: readonly RoleRequirement[];
   expertiseRequirements: readonly ExpertiseRequirement[];
@@ -143,6 +144,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     },
     settlementRequired: false,
     minimumPopulation: 0,
+    surveysRequired: 0,
     infrastructure: [
       {
         id: "wake-axiom-chamber",
@@ -196,6 +198,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     },
     settlementRequired: true,
     minimumPopulation: 18,
+    surveysRequired: 0,
     infrastructure: [
       {
         id: "pelagos-tidal-grid",
@@ -345,6 +348,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     },
     settlementRequired: true,
     minimumPopulation: 26,
+    surveysRequired: 0,
     infrastructure: [
       {
         id: "viridia-seed-vault",
@@ -472,6 +476,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     },
     settlementRequired: true,
     minimumPopulation: 34,
+    surveysRequired: 2,
     infrastructure: [
       {
         id: "cinder-mantle-grid",
@@ -606,6 +611,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     },
     settlementRequired: true,
     minimumPopulation: 42,
+    surveysRequired: 3,
     infrastructure: [
       {
         id: "nox-relay",
@@ -759,6 +765,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     },
     settlementRequired: true,
     minimumPopulation: 50,
+    surveysRequired: 3,
     infrastructure: [
       {
         id: "vesper-observatory",
