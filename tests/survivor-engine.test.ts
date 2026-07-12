@@ -102,13 +102,14 @@ function survivorWithRarity(
   survivor.adaptability = 1;
   survivor.traits = ["adaptable"];
   survivor.storyHookId = null;
+  survivor.rarityFloor = null;
 
   if (rarity === "notable") {
-    survivor.aptitudes.doctor = 4;
+    survivor.aptitudes.doctor = 5;
     survivor.aptitudes.researcher = 2;
   } else if (rarity === "exceptional") {
     survivor.aptitudes.doctor = 5;
-    survivor.aptitudes.researcher = 3;
+    survivor.aptitudes.researcher = 4;
   } else if (rarity === "anomalous") {
     survivor.storyHookId = "pelagos-cartographer";
   }
@@ -206,6 +207,7 @@ test("profile rarity is deterministic, readable, and independent of training pro
   survivor.adaptability = 1;
   survivor.traits = ["adaptable"];
   survivor.storyHookId = null;
+  survivor.rarityFloor = null;
 
   assert.equal(getSurvivorRarityScore(survivor), 6);
   assert.equal(getSurvivorRarity(survivor).id, "standard");
@@ -214,12 +216,22 @@ test("profile rarity is deterministic, readable, and independent of training pro
   survivor.aptitudes.doctor = 4;
   survivor.aptitudes.researcher = 2;
   assert.equal(getSurvivorRarityScore(survivor), 25);
-  assert.equal(getSurvivorRarity(survivor).id, "notable");
+  assert.equal(getSurvivorRarity(survivor).id, "standard");
 
   survivor.aptitudes.doctor = 5;
-  survivor.aptitudes.researcher = 3;
-  assert.equal(getSurvivorRarityScore(survivor), 28);
+  assert.equal(getSurvivorRarityScore(survivor), 27);
+  assert.equal(getSurvivorRarity(survivor).id, "notable");
+
+  survivor.aptitudes.researcher = 4;
+  assert.equal(getSurvivorRarityScore(survivor), 29);
   assert.equal(getSurvivorRarity(survivor).id, "exceptional");
+
+  // crew recorded before the threshold retune keep their classification
+  survivor.aptitudes.researcher = 2;
+  survivor.rarityFloor = "exceptional";
+  assert.equal(getSurvivorRarity(survivor).id, "exceptional");
+  survivor.rarityFloor = null;
+  survivor.aptitudes.researcher = 4;
 
   const beforeTraining = getSurvivorRarity(survivor);
   survivor.role = "engineer";
@@ -1081,4 +1093,39 @@ test("old saves convert habitation capacity into berth sections without loss", (
   });
   assert.equal(midBuild.berthSections, 2);
   assert.equal(midBuild.berthConstruction?.progressSeconds, 500);
+});
+
+test("the rarity retune never downgrades crew from earlier saves", () => {
+  const veteranAptitudes = {
+    engineer: 5, doctor: 4, researcher: 2, navigator: 1, technician: 1,
+    fabricator: 1, farmer: 1, teacher: 1, security: 1,
+  };
+  // schema-2 save: score 25 was Notable under the old thresholds
+  const legacy = sanitizeSurvivorSystemState({
+    schema: 2,
+    survivors: [{
+      id: "legacy-notable",
+      name: "Legacy Notable",
+      role: "engineer",
+      backgroundId: "tidal-grid",
+      aptitudes: veteranAptitudes,
+      skillXp: { engineer: 25 },
+      adaptability: 1,
+      traits: ["calm-presence"],
+    }],
+  });
+  assert.equal(legacy.survivors[0]?.rarityFloor, "notable");
+  assert.equal(getSurvivorRarity(legacy.survivors[0]!).id, "notable");
+
+  // the same profile in a post-retune save is Standard
+  const modern = sanitizeSurvivorSystemState({
+    ...JSON.parse(JSON.stringify(legacy)),
+    survivors: legacy.survivors.map((survivor) => ({
+      ...survivor,
+      id: "modern-standard",
+      rarityFloor: null,
+    })),
+  });
+  assert.equal(modern.survivors[0]?.rarityFloor, null);
+  assert.equal(getSurvivorRarity(modern.survivors[0]!).id, "standard");
 });

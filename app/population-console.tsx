@@ -271,7 +271,15 @@ function PopulationConsole({
 
       <div className="crew-management-grid">
         <section className="continuity-panel crew-roster-panel">
-          <header><div><span>CREW ROSTER</span><h3>{state.survivors.length > 0 ? `${state.survivors.length} people aboard` : "The Ark is empty"}</h3></div><small>Canonical identity is never rerolled</small></header>
+          {(() => {
+            const trainingIds = new Set(state.training.map((program) => program.survivorId));
+            const idleCount = state.survivors.filter(
+              (survivor) => !survivor.assignedRole && !trainingIds.has(survivor.id),
+            ).length;
+            return (
+              <header><div><span>CREW ROSTER</span><h3>{state.survivors.length > 0 ? `${state.survivors.length} people aboard` : "The Ark is empty"}</h3></div><small className={idleCount > 0 ? "crew-idle-alert" : ""}>{idleCount > 0 ? `${idleCount} awaiting assignment` : "Everyone has a station"}</small></header>
+            );
+          })()}
           {state.survivors.length === 0 ? (
             <div className="continuity-empty-state"><strong>No humans aboard.</strong><p>Restore life support, reach Pelagos, and activate the SOS beacon.</p></div>
           ) : (
@@ -279,11 +287,15 @@ function PopulationConsole({
               {state.survivors.map((survivor) => {
                 const training = state.training.find((program) => program.survivorId === survivor.id);
                 const rarity = getSurvivorRarity(survivor);
+                const idle = !training && !survivor.assignedRole;
                 return (
-                  <button className={`crew-rarity-${rarity.id} ${selectedCrew?.id === survivor.id ? "is-selected" : ""}`} type="button" key={survivor.id} onClick={() => setSelectedCrewId(survivor.id)}>
+                  <button className={`crew-rarity-${rarity.id} ${selectedCrew?.id === survivor.id ? "is-selected" : ""} ${idle ? "is-idle" : ""}`} type="button" key={survivor.id} onClick={() => setSelectedCrewId(survivor.id)}>
                     <span className="crew-avatar">{survivor.name.slice(0, 1)}</span>
                     <span><strong>{survivor.callsign ? `“${survivor.callsign}” ${survivor.name}` : survivor.name}</strong><small>{training ? `Training ${titleCase(training.targetRole)} · ${Math.round((training.progressSeconds / training.durationSeconds) * 100)}%` : survivor.role === "civilian" ? `Civilian · ${titleCase(survivor.assignedRole ?? "untrained")}` : `${titleCase(survivor.role)} · Level ${getSurvivorSkillLevel(survivor, survivor.role)} · ${titleCase(survivor.assignedRole ?? "unassigned")}`}</small></span>
-                    <em className="crew-rarity-badge" title={rarity.description}>{rarity.label}</em>
+                    <span className="crew-roster-status">
+                      <em className="crew-rarity-badge" title={rarity.description}>{rarity.label}</em>
+                      {idle && <em className="crew-idle-badge" title="No working assignment. Assign a station to earn profession XP.">UNASSIGNED</em>}
+                    </span>
                   </button>
                 );
               })}

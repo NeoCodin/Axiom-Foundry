@@ -58,6 +58,11 @@ export type Survivor = {
   serviceSeconds: number;
   joinedAt: number;
   storyHookId: RareSurvivorHookId | null;
+  /**
+   * Rarity classification floor for crew rescued before a threshold retune.
+   * A survivor's displayed rarity never drops below this recorded value.
+   */
+  rarityFloor: "notable" | "exceptional" | null;
 };
 
 export const SURVIVOR_RARITY_DEFINITIONS = [
@@ -112,15 +117,31 @@ export function getSurvivorRarityScore(survivor: Survivor) {
   );
 }
 
+const RARITY_RANK: Record<SurvivorRarityId, number> = {
+  standard: 0,
+  notable: 1,
+  exceptional: 2,
+  anomalous: 3,
+};
+
+export const NOTABLE_SCORE_THRESHOLD = 27;
+export const EXCEPTIONAL_SCORE_THRESHOLD = 29;
+
 export function getSurvivorRarity(survivor: Survivor): SurvivorRarity {
   const score = getSurvivorRarityScore(survivor);
-  const rarityId: SurvivorRarityId = survivor.storyHookId
+  let rarityId: SurvivorRarityId = survivor.storyHookId
     ? "anomalous"
-    : score >= 28
+    : score >= EXCEPTIONAL_SCORE_THRESHOLD
       ? "exceptional"
-      : score >= 25
+      : score >= NOTABLE_SCORE_THRESHOLD
         ? "notable"
         : "standard";
+  if (
+    survivor.rarityFloor &&
+    RARITY_RANK[survivor.rarityFloor] > RARITY_RANK[rarityId]
+  ) {
+    rarityId = survivor.rarityFloor;
+  }
   const definition = SURVIVOR_RARITY_DEFINITIONS.find(
     (candidate) => candidate.id === rarityId,
   )!;
@@ -401,7 +422,7 @@ export const TRAINING_DURATIONS_SECONDS: Record<ProfessionalRole, number> = {
   security: 25 * 60,
 };
 
-export const SURVIVOR_SCHEMA = 2;
+export const SURVIVOR_SCHEMA = 3;
 export const SOS_WORLD_ID = "pelagos";
 export const SOS_WORLD_IDS = [
   "pelagos",
@@ -838,6 +859,7 @@ function createProceduralSurvivor(
     serviceSeconds: 0,
     joinedAt: 0,
     storyHookId: null,
+    rarityFloor: null,
   };
 }
 
@@ -882,7 +904,8 @@ function elevateSurvivorToExceptional(survivor: Survivor) {
   )!;
   survivor.aptitudes[primary] = 5;
   survivor.aptitudes[secondary] = 5;
-  survivor.aptitudes[tertiary] = Math.max(3, survivor.aptitudes[tertiary]);
+  // 5 + 5 + 4 scores 29, meeting the Exceptional threshold on its own.
+  survivor.aptitudes[tertiary] = Math.max(4, survivor.aptitudes[tertiary]);
 }
 
 function generateSurvivorSignalMutable(
@@ -1593,6 +1616,7 @@ function sanitizeSurvivor(
   value: unknown,
   fallbackId: string,
   joinedFallback: number,
+  backfillRarityFloor = false,
 ): Survivor | null {
   if (!isRecord(value)) return null;
   const id = textValue(value.id, fallbackId, 48).replace(/[^a-zA-Z0-9_-]/g, "-");
@@ -1638,7 +1662,7 @@ function sanitizeSurvivor(
     SOS_WORLD_IDS.includes(value.origin as (typeof SOS_WORLD_IDS)[number])
       ? (value.origin as SurvivorOrigin)
       : "unknown";
-  return {
+  const survivor: Survivor = {
     id,
     name: hook ? hook.name : textValue(value.name, "Unknown Survivor", 36),
     callsign: optionalText(value.callsign, 18),
@@ -1654,12 +1678,25 @@ function sanitizeSurvivor(
     serviceSeconds: finite(value.serviceSeconds, 0, MAX_OPERATIONAL_SECONDS),
     joinedAt: finite(value.joinedAt, joinedFallback, MAX_OPERATIONAL_SECONDS),
     storyHookId,
+    rarityFloor:
+      value.rarityFloor === "notable" || value.rarityFloor === "exceptional"
+        ? value.rarityFloor
+        : null,
   };
+  if (backfillRarityFloor && !survivor.rarityFloor && !survivor.storyHookId) {
+    // Crew recorded before the threshold retune keep the classification they
+    // were rescued under (old thresholds: notable 25, exceptional 28).
+    const score = getSurvivorRarityScore(survivor);
+    survivor.rarityFloor =
+      score >= 28 ? "exceptional" : score >= 25 ? "notable" : null;
+  }
+  return survivor;
 }
 
 export function sanitizeSurvivorSystemState(value: unknown): SurvivorSystemState {
   const base = createSurvivorSystemState();
   if (!isRecord(value)) return base;
+  const legacyRaritySave = whole(value.schema, 0, 100) < 3;
   const seed = whole(value.rngState, DEFAULT_RNG_SEED, 0xffff_ffff) >>> 0;
   const beaconWorldId = SOS_WORLD_IDS.includes(
     value.beaconWorldId as (typeof SOS_WORLD_IDS)[number],
@@ -1743,7 +1780,12 @@ export function sanitizeSurvivorSystemState(value: unknown): SurvivorSystemState
   const survivorIds = new Set<string>();
   const rawSurvivors = Array.isArray(value.survivors) ? value.survivors : [];
   for (const [index, raw] of rawSurvivors.slice(0, MAX_SURVIVORS).entries()) {
-    const survivor = sanitizeSurvivor(raw, `survivor-recovered-${index + 1}`, 0);
+    const survivor = sanitizeSurvivor(
+      raw,
+      `survivor-recovered-${index + 1}`,
+      0,
+      legacyRaritySave,
+    );
     if (!survivor || survivorIds.has(survivor.id)) continue;
     survivorIds.add(survivor.id);
     state.survivors.push(survivor);
@@ -1777,6 +1819,7 @@ export function sanitizeSurvivorSystemState(value: unknown): SurvivorSystemState
         raw,
         `signal-${sequence}-survivor-${index + 1}`,
         0,
+        legacyRaritySave,
       );
       if (
         !survivor ||

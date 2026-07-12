@@ -1082,13 +1082,13 @@ export function getEquipmentFabricationQuote(
   const researchMet = state.research.completedProjectIds.includes(
     definition.requiredResearchId as ResearchProjectId,
   );
-  // Priced against live output so equipment stays a real decision at any
-  // economy size: roughly 40 minutes of current production, never below the
-  // world's continuity floor. Fabrication also consumes Engineering Models
-  // from the Ark supply so the research-input economy feeds equipment.
-  const production = getProductionSnapshot(state).fluxPerSecond;
+  // Flat continuity pricing per world (see berth pricing note): a real
+  // decision when the world begins, never a runaway target. Fabrication
+  // also consumes Engineering Models from the Ark supply so the
+  // research-input economy feeds equipment.
   const cost = bounded(
-    Math.max(4_000 * continuityScale(state), production * 2_400) *
+    4_000 *
+      continuityScale(state) *
       getColonyLegacyEffects(state).fabricationCostMultiplier,
   );
   return {
@@ -1131,13 +1131,14 @@ export function getBerthConstructionQuote(
   state: GameState,
 ): BerthConstructionQuote {
   const sections = state.survivors.berthSections;
-  // Priced against live output like equipment (~45 minutes of production)
-  // with a floor that grows per section. The floor exponent is capped so a
-  // freshly landed Ark with a rebuilt economy is never priced out of its
-  // first sections on a new world; the production term carries the late game.
-  const production = getProductionSnapshot(state).fluxPerSecond;
+  // Flat continuity pricing per world (like infrastructure and crises):
+  // meaningful when the Ark arrives, affordable soon after, and never a
+  // moving target. Production-relative pricing was tried and rejected — it
+  // outruns any wallet while the fabrication chain is compounding.
   const cost = bounded(
-    Math.max(750 * safePower(1.5, Math.min(12, sections)), production * 2_700) *
+    600 *
+      continuityScale(state) *
+      (1 + 0.08 * sections) *
       getColonyLegacyEffects(state).fabricationCostMultiplier,
   );
   return {

@@ -52,6 +52,67 @@ function titleCase(value: string) {
   return value.replaceAll("-", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+const RARITY_RANKS: Record<string, number> = {
+  standard: 0,
+  notable: 1,
+  exceptional: 2,
+  anomalous: 3,
+};
+
+type DeficitCandidate = {
+  id: string;
+  name: string;
+  value: number;
+  rarity: string;
+};
+
+function candidatesForDeficit(
+  deficit: ViabilityForecast["deficits"][number],
+  world: CampaignWorldDefinition,
+  crew: readonly CampaignCrewSummary[],
+  selected: ReadonlySet<string>,
+): DeficitCandidate[] | null {
+  if (
+    deficit.kind !== "population" &&
+    deficit.kind !== "role" &&
+    deficit.kind !== "expertise" &&
+    deficit.kind !== "profile"
+  ) {
+    return null;
+  }
+  const available = crew.filter(
+    (member) =>
+      member.available !== false &&
+      member.canSettle !== false &&
+      !selected.has(member.id),
+  );
+  const scored = available
+    .map((member) => {
+      let value = 0;
+      if (deficit.kind === "population") {
+        value = 1;
+      } else if (deficit.kind === "role") {
+        const requirement = world.roleRequirements.find(
+          (candidate) => candidate.id === deficit.id,
+        );
+        const accepted = new Set(requirement?.acceptedRoles ?? []);
+        value = (member.roles ?? []).some((role) => accepted.has(role)) ? 1 : 0;
+      } else if (deficit.kind === "expertise") {
+        value = member.expertise?.[deficit.id] ?? 0;
+      } else if (deficit.kind === "profile") {
+        const requirement = world.profileRequirements.find(
+          (candidate) => candidate.id === deficit.id,
+        );
+        const needed = RARITY_RANKS[requirement?.minimumRarity ?? "notable"] ?? 1;
+        value = (RARITY_RANKS[member.rarity ?? "standard"] ?? 0) >= needed ? 1 : 0;
+      }
+      return { id: member.id, name: member.name, value, rarity: member.rarity ?? "standard" };
+    })
+    .filter((candidate) => candidate.value > 0)
+    .sort((left, right) => right.value - left.value);
+  return scored.slice(0, 6);
+}
+
 function SettlementConsole({
   world,
   forecast,
@@ -133,7 +194,35 @@ function SettlementConsole({
           <header><div><span>EXPLICIT DEFICITS</span><h3>What this world still needs</h3></div><small>Profile gates are visible · quality safety net active</small></header>
           {forecast.deficits.length > 0 ? (
             <ul className="deficit-list">
-              {forecast.deficits.map((deficit) => <li key={`${deficit.kind}-${deficit.id}`}><strong>{deficit.message}</strong>{deficit.alternatives.map((alternative) => <span key={alternative}>{alternative}</span>)}</li>)}
+              {forecast.deficits.map((deficit) => {
+                const candidates = candidatesForDeficit(deficit, world, crew, selected);
+                return (
+                  <li key={`${deficit.kind}-${deficit.id}`}>
+                    <strong>{deficit.message}</strong>
+                    {deficit.alternatives.map((alternative) => <span key={alternative}>{alternative}</span>)}
+                    {candidates !== null && (
+                      candidates.length > 0 ? (
+                        <div className="deficit-candidates" aria-label={`Available crew for ${deficit.label}`}>
+                          <small>Add to founders:</small>
+                          {candidates.map((candidate) => (
+                            <button
+                              className={`deficit-candidate crew-rarity-${candidate.rarity}`}
+                              type="button"
+                              key={candidate.id}
+                              onClick={() => onToggleSettler(candidate.id)}
+                            >
+                              {candidate.name}
+                              <b>+{candidate.value}</b>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="deficit-candidates-empty">No unselected crew can cover this yet — rescue, train, or fabricate equipment.</span>
+                      )
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <div className="continuity-empty-state"><strong>{world.name} can continue independently.</strong><p>Review the founders and make the departure decision when you are ready.</p></div>

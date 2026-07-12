@@ -15,6 +15,7 @@ import {
   getCampaignWorldIndex,
   getColonyLegacyEffects,
   fabricateWorldEquipment,
+  getBerthConstructionQuote,
   getCrisisFluxCost,
   getCrisisReadiness,
   getEquipmentFabricationQuote,
@@ -742,12 +743,14 @@ test("continuity equipment is fabricated with Flux and feeds substitutions", () 
   assert.equal(fabricateWorldEquipment(bought, "mobile-field-clinic"), bought);
 });
 
-test("equipment prices scale with live production so Flux stays relevant", () => {
-  const idle = setTutorialComplete(createInitialState(0), true);
-  idle.settlement.completedWorldIds = ["cold-wake"];
-  idle.settlement.currentWorldId = "pelagos";
-  const idleQuote = getEquipmentFabricationQuote(idle, "mobile-field-clinic");
+test("equipment and berth prices scale with campaign progression, never with live production", () => {
+  const early = setTutorialComplete(createInitialState(0), true);
+  early.settlement.completedWorldIds = ["cold-wake"];
+  early.settlement.currentWorldId = "pelagos";
+  const earlyQuote = getEquipmentFabricationQuote(early, "mobile-field-clinic");
 
+  // A compounding economy must never move the price target: pricing that
+  // tracks live production outruns any wallet during hypergrowth.
   const industrial = setTutorialComplete(createInitialState(0), true);
   industrial.settlement.completedWorldIds = ["cold-wake"];
   industrial.settlement.currentWorldId = "pelagos";
@@ -758,6 +761,19 @@ test("equipment prices scale with live production so Flux stays relevant", () =>
     industrial,
     "mobile-field-clinic",
   );
+  assert.equal(industrialQuote.cost, earlyQuote.cost);
+  assert.equal(
+    getBerthConstructionQuote(industrial).cost,
+    getBerthConstructionQuote(early).cost,
+  );
 
-  assert.ok(industrialQuote.cost > idleQuote.cost);
+  // Later worlds cost more, and each berth section costs more than the last.
+  const late = setTutorialComplete(createInitialState(0), true);
+  late.settlement.completedWorldIds = ["cold-wake", "pelagos", "viridia"];
+  late.settlement.currentWorldId = "cinder";
+  const lateQuote = getEquipmentFabricationQuote(late, "automated-fabricator-rig");
+  assert.ok(lateQuote.cost > earlyQuote.cost);
+  const before = getBerthConstructionQuote(late).cost;
+  late.survivors.berthSections = 10;
+  assert.ok(getBerthConstructionQuote(late).cost > before);
 });

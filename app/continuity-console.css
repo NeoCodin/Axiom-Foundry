@@ -148,6 +148,10 @@
 .crew-roster-list strong { color: #dce8ef; font-size: 10px; }
 .crew-roster-list small { margin-top: 3px; color: #6c8294; font-size: 8px; }
 .crew-roster-list em { font-style: normal; }
+.crew-roster-status { display: flex; flex-direction: column; gap: 3px; align-items: flex-end; }
+.crew-idle-badge { display: inline-flex; align-items: center; min-height: 15px; padding: 2px 6px; color: #f2c063; border: 1px solid rgb(242 192 99 / 0.5); border-radius: 999px; background: rgb(242 192 99 / 0.1); font-family: var(--font-mono, monospace); font-size: 7px; font-style: normal; font-weight: 800; letter-spacing: 0.08em; line-height: 1; text-transform: uppercase; white-space: nowrap; }
+.crew-roster-list > button.is-idle { border-right: 2px solid rgb(242 192 99 / 0.55); }
+.crew-idle-alert { color: #f2c063; }
 .crew-detail-panel[class*="crew-rarity-"] { border-top-color: var(--crew-rarity, #a7b6c2); box-shadow: inset 0 2px 0 rgb(var(--crew-rarity-rgb, 167 182 194) / 0.2); }
 .crew-file-classification { display: grid; justify-items: end; gap: 5px; }
 .crew-detail-identity { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid rgb(var(--crew-rarity-rgb, 167 182 194) / 0.32); background: linear-gradient(90deg, rgb(var(--crew-rarity-rgb, 167 182 194) / 0.08), transparent 45%), #071019; }
@@ -243,6 +247,12 @@
 .deficit-list li { padding: 9px; border-left: 2px solid #9a6471; background: #110c13; }
 .deficit-list strong { display: block; color: #cbb7bd; font-size: 9px; }
 .deficit-list span { display: block; margin-top: 4px; color: #806d76; font-size: 8px; }
+.deficit-candidates { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 7px; }
+.deficit-candidates > small { color: #8fa4b3; font-size: 8px; letter-spacing: 0.05em; text-transform: uppercase; }
+.deficit-candidate { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; color: #d5e3ea; border: 1px solid rgb(var(--crew-rarity-rgb, 167 182 194) / 0.5); border-radius: 999px; background: rgb(var(--crew-rarity-rgb, 167 182 194) / 0.08); font-size: 8px; cursor: pointer; }
+.deficit-candidate:hover { background: rgb(var(--crew-rarity-rgb, 167 182 194) / 0.2); }
+.deficit-candidate b { color: var(--crew-rarity, #a7b6c2); font-family: var(--font-mono, monospace); font-size: 8px; }
+.deficit-candidates-empty { display: block; margin-top: 6px; color: #6c8294; font-size: 8px; font-style: italic; }
 .settler-selection-list { display: grid; gap: 6px; max-height: 620px; overflow: auto; }
 .settler-selection-list label { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: 9px; padding: 8px; border: 1px solid #192b38; border-left: 3px solid var(--crew-rarity, #a7b6c2); background: linear-gradient(90deg, rgb(var(--crew-rarity-rgb, 167 182 194) / 0.055), transparent 30%), #071019; cursor: pointer; }
 .settler-selection-list label.is-selected { border-color: rgb(var(--crew-rarity-rgb, 167 182 194) / 0.6); background: rgb(var(--crew-rarity-rgb, 167 182 194) / 0.09); }

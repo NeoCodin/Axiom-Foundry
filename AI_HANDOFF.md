@@ -140,6 +140,7 @@ Rarity colors, learning multipliers, and profession capacity are intentional and
 Rules:
 
 - Rarity accelerates initial training and assigned-work XP.
+- Rarity thresholds (score ≥ 27 Notable, ≥ 29 Exceptional) target roughly 74% Standard / 14% Notable / 11% Exceptional among rescued survivors; the quality-pity guarantee keeps Exceptional above its raw roll rate by design. Crew recorded before this retune carry a persisted `rarityFloor` and are never downgraded.
 - Rarity sets profession capacity: the total number of professions a survivor may hold, counting the profession they arrived with. Standard specialists keep the profession they arrived with; Standard civilians choose one. Survivors from older saves who already exceed their capacity keep everything they learned — the cap only limits future training.
 - Rarity does not directly multiply Continuity Expertise. This avoids unreadable double-dipping.
 - Anomalous counts as Exceptional and Notable for requirements.
@@ -184,7 +185,7 @@ Important balance decisions:
 - Pelagos keeps its established Continuity cost scale.
 - Every later world's Continuity scale grows by approximately ×60 rather than ×100.
 - Directive Flux-contribution gates were raised (Cold Wake 15K, Pelagos 500K, Viridia 250M, Cinder 50B, Nox 25T, Vesper 2Qa) after simulation showed the old gates fell in minutes against late-game production.
-- Continuity equipment (field clinics, growbeds, fabricator rigs, relay agents, analysis clusters) is fabricated with Flux on the Continuity page. Prices scale with live production (~40 minutes of current output, with a per-world floor) so Flux remains a meaningful decision at any economy size. Equipment feeds the substitution system, giving Flux a direct path to relieve crew bottlenecks.
+- Continuity equipment (field clinics, growbeds, fabricator rigs, relay agents, analysis clusters) is fabricated with Flux on the Continuity page using flat per-world continuity pricing (4,000 × continuity scale). Production-relative pricing was tried and rejected: while the fabrication chain is compounding, a price pegged to live output outruns any wallet and can never be saved for. Equipment feeds the substitution system, giving Flux a direct path to relieve crew bottlenecks.
 - Each equipment item is gated behind a Research Lattice project (clinic ← Clinical Commons, growbed/rig ← Predictive Fabrication, relay agent ← Discarded Spectrum, analysis cluster ← Observer Recursion) and additionally consumes Engineering Models from the Ark supply (60 × (chapter + 1) per unit), so the research economy feeds the equipment economy.
 - When the Analysis Core stalls awaiting inputs, the lattice names each exhausted input and its source (e.g. Axiom Proofs come from Recalibration) so players are never blocked without an explanation.
 - Research-based substitutions now reference real Research Lattice project IDs (they previously pointed at projects that did not exist and could never trigger).
@@ -192,7 +193,7 @@ Important balance decisions:
 - Null Studies is attainable through ordinary Researchers; Null Dreamers provide a bonus instead of being mandatory.
 - Later SOS groups grow in size to make large founder requirements less tedious.
 - Research speed bonuses are applied once, not squared.
-- Crew capacity is structural: the Habitation Ring provides berths (4 base + 8 per section). Sections are purchased with Flux (priced like equipment, ~45 minutes of live production with a per-section floor), take 3 base hours to build, and assigned Engineers accelerate construction (+35% each, ×5 cap). Construction continues offline and never fails. Habitation is no longer a life-support category; atmosphere, water, nutrition, and medical remain the Salvage-built envelope that sustains the people berths house. Old saves convert habitation capacity into completed sections and population is always grandfathered — nobody aboard ever loses a berth.
+- Crew capacity is structural: the Habitation Ring provides berths (4 base + 8 per section). Sections are purchased with Flux at flat per-world continuity pricing (600 × continuity scale × (1 + 0.08 per lifetime section)), take 3 base hours to build, and assigned Engineers accelerate construction (+35% each, ×5 cap). Construction continues offline and never fails. Habitation is no longer a life-support category; atmosphere, water, nutrition, and medical remain the Salvage-built envelope that sustains the people berths house. Old saves convert habitation capacity into completed sections and population is always grandfathered — nobody aboard ever loses a berth.
 - Habitation research now increases effective berth and life-support capacity.
 - Colony legacy bonuses are wired into their named systems.
 - Hazard shielding and relay progression provide modest real effects.
