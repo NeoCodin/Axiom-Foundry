@@ -500,6 +500,13 @@ Recommended order, subject to owner approval:
 6. Add persistent planetary defense networks around restored world cores.
 7. Expand post-Vesper worlds only after the current campaign pacing is observed in real play.
 
+Approved research expansion direction (owner, July 12, 2026), sequenced:
+
+1. Lattice auto-transfer QoL: staffed Analysis Core auto-moves common inputs from Ark Supply; Null Traces require a level-5 Exceptional-or-better Researcher to automate (earned automation, mirrors the prestige auto-buyer).
+2. Threat Operations research branch with Phase 2: weapons/countermeasures, threat analysis, and repeatable Field Study projects so the Lattice never idles late-game. Weapons research should draw visible Continuity Protocol objections (lore: weaponized Axioms cause the future catastrophe).
+3. Robotics branch (~Phase 2.5): upgrades equipment effectiveness and repair drones; research tree UI becomes necessary at this point (current list UI fits ~12 projects only).
+4. Bioadaptation branch (Vesper era): opt-in survivor enhancement that plays the game's central moral question; never a continuity requirement, never touches rarity/expertise invariants, always generates contradiction lore, feeds the ending doctrines.
+
 Smaller queued items:
 
 - The Living Foundry expedition/legacy-crew subsystem is fully dormant: `launchExpedition`/`claimExpedition` are never called from any UI, `foundry-deck.tsx` is not imported, and the nine named legacy crew are permanently locked (`unlocked: false` on every sync). Decide whether to resurrect it (expeditions awarding Null Traces would fit) or remove it. Until then, Archive cross-indexing awards Null Traces as the active source, and the Phase 2 Observe doctrine becomes the main one.
