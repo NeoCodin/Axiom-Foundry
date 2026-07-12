@@ -505,7 +505,7 @@ function deficitFor(
     const role = world.roleRequirements.find((candidate) => candidate.id === requirement.id);
     alternatives = [
       ...(role
-        ? [`Train or recruit: ${role.acceptedRoles.join(", ")}.`]
+        ? [`Train or recruit: ${role.acceptedRoles.map((accepted) => (accepted === "security" ? "soldier" : accepted)).join(", ")}.`]
         : []),
       "Any crew member with an open profession slot can cross-train (Notable 2 · Exceptional 3 · Anomalous unlimited).",
       ...matchingSubstitutions(world, "role", requirement.id),
@@ -632,7 +632,7 @@ export function getViabilityForecast(
         matchingCrew.length,
         assisted,
         requirement.count,
-        `Accepted professions: ${requirement.acceptedRoles.join(", ")}. Cross-trained qualifications count.`,
+        `Accepted professions: ${requirement.acceptedRoles.map((role) => (role === "security" ? "soldier" : role)).join(", ")}. Cross-trained qualifications count.`,
         matchingCrew.map((settler) => ({
           id: settler.crewId,
           label: settler.name,

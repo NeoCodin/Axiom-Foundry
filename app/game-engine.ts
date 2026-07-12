@@ -33,6 +33,8 @@ import {
   getSurvivorSkillLevel,
   MAX_BERTH_SECTIONS,
   RARE_SURVIVOR_HOOKS,
+  getRescueReadiness,
+  rescueSurvivorSignal,
   sanitizeSurvivorSystemState,
   setSosBeaconOnline,
   setTrainingSlots,
@@ -1120,6 +1122,82 @@ export function getEquipmentFabricationQuote(
       definition.requiredResearchId.replaceAll("-", " "),
     researchMet,
   };
+}
+
+export function getRescueFluxCost(state: GameState) {
+  return bounded(150 * continuityScale(state));
+}
+
+export type ArkRescueQuote = {
+  canRescue: boolean;
+  salvageCost: number;
+  fluxCost: number;
+  reason: "no-signal" | "roster-full" | "berths" | "life-support" | "salvage" | "flux" | null;
+};
+
+export function getArkRescueQuote(state: GameState): ArkRescueQuote {
+  const readiness = getRescueReadiness(
+    state.survivors,
+    state.living.salvage,
+    getResearchBonuses(state.research).habitationCapacityMultiplier,
+  );
+  const fluxCost = getRescueFluxCost(state);
+  if (!readiness.canRescue) {
+    return {
+      canRescue: false,
+      salvageCost: readiness.cost,
+      fluxCost,
+      reason: readiness.reason,
+    };
+  }
+  if (state.flux < fluxCost) {
+    return { canRescue: false, salvageCost: readiness.cost, fluxCost, reason: "flux" };
+  }
+  return { canRescue: true, salvageCost: readiness.cost, fluxCost, reason: null };
+}
+
+export function performArkRescue(state: GameState): GameState {
+  const quote = getArkRescueQuote(state);
+  if (!quote.canRescue) return state;
+  const result = rescueSurvivorSignal(
+    state.survivors,
+    state.living.salvage,
+    getResearchBonuses(state.research).habitationCapacityMultiplier,
+  );
+  if (!result.rescued) return state;
+  const next = cloneGameState(state);
+  const rescued = result.survivorIds.length;
+  next.survivors = result.state;
+  next.flux = Math.max(0, next.flux - quote.fluxCost);
+  next.living.salvage = Math.max(0, next.living.salvage - result.salvageSpent);
+  next.researchStock["biological-samples"] = Math.min(
+    1e12,
+    next.researchStock["biological-samples"] + rescued * 18,
+  );
+  next.researchStock["cultural-records"] = Math.min(
+    1e12,
+    next.researchStock["cultural-records"] + rescued * 22,
+  );
+  return next;
+}
+
+/**
+ * Survivor Duty: with a level-5 Navigator and a level-3 Soldier assigned to
+ * their stations, rescues dispatch automatically whenever every requirement
+ * (quarters, life support, Salvage, Flux) is already met.
+ */
+export function hasRescueDetail(state: GameState) {
+  const navigator = state.survivors.survivors.some(
+    (survivor) =>
+      survivor.assignedRole === "navigator" &&
+      getSurvivorSkillLevel(survivor, "navigator") >= 5,
+  );
+  const soldier = state.survivors.survivors.some(
+    (survivor) =>
+      survivor.assignedRole === "security" &&
+      getSurvivorSkillLevel(survivor, "security") >= 3,
+  );
+  return navigator && soldier;
 }
 
 export function getAssignedEngineerCount(state: GameState) {
@@ -2233,6 +2311,15 @@ export function simulateGame(
     1e12,
     next.researchStock["null-traces"] + defenseAdvance.nullTraces,
   );
+
+  if (
+    next.survivors.activeSignal &&
+    next.survivors.autoRescueEnabled &&
+    hasRescueDetail(next)
+  ) {
+    const autoRescued = performArkRescue(next);
+    if (autoRescued !== next) next = autoRescued;
+  }
 
   for (let step = 0; step < steps; step += 1) {
     const snapshot = getProductionSnapshot(next);

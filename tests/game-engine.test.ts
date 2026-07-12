@@ -15,7 +15,11 @@ import {
   getCampaignWorldIndex,
   getColonyLegacyEffects,
   fabricateWorldEquipment,
+  getArkRescueQuote,
   getBerthConstructionQuote,
+  cloneGameState,
+  hasRescueDetail,
+  performArkRescue,
   getCrisisFluxCost,
   getCrisisReadiness,
   getEquipmentFabricationQuote,
@@ -43,7 +47,11 @@ import {
   setResearchCrew,
   type ResearchProjectId,
 } from "../app/research-engine.ts";
-import type { Survivor } from "../app/survivor-engine.ts";
+import {
+  SOS_SCAN_SECONDS_BY_WORLD,
+  sanitizeSurvivorSystemState,
+  type Survivor,
+} from "../app/survivor-engine.ts";
 
 function testCrewMember(
   id: string,
@@ -776,4 +784,69 @@ test("equipment and berth prices scale with campaign progression, never with liv
   const before = getBerthConstructionQuote(late).cost;
   late.survivors.berthSections = 10;
   assert.ok(getBerthConstructionQuote(late).cost > before);
+});
+
+test("rescues cost Flux and Survivor Duty automates them when qualified", () => {
+  const state = setTutorialComplete(createInitialState(0), true);
+  state.settlement.completedWorldIds = ["cold-wake"];
+  state.settlement.currentWorldId = "pelagos";
+  state.missions.currentIndex = 1;
+  state.survivors = sanitizeSurvivorSystemState({
+    ...JSON.parse(JSON.stringify(state.survivors)),
+    beaconOnline: true,
+    beaconWorldId: "pelagos",
+    berthSections: 10,
+    lifeSupport: { atmosphere: 90, water: 90, nutrition: 90, medical: 90 },
+  });
+  state.living.salvage = 1_000_000;
+  let sim = simulateGame(state, 120, 240, false);
+  assert.ok(sim.survivors.activeSignal, "first scan fires fast");
+
+  // Flux gate blocks the launch even when Salvage is plentiful.
+  sim.flux = 0;
+  const blocked = getArkRescueQuote(sim);
+  assert.equal(blocked.canRescue, false);
+  assert.equal(blocked.reason, "flux");
+  assert.equal(performArkRescue(sim), sim);
+
+  sim.flux = blocked.fluxCost + 10;
+  const rescuedState = performArkRescue(sim);
+  assert.notEqual(rescuedState, sim);
+  assert.ok(rescuedState.flux < sim.flux);
+  assert.ok(rescuedState.survivors.survivors.length > 0);
+
+  // Survivor Duty: a level-5 Navigator and level-3 Soldier on station
+  // dispatch the next rescue automatically during simulation.
+  const duty = cloneGameState(rescuedState);
+  duty.flux = 1e9;
+  duty.living.salvage = 1e6;
+  duty.survivors = sanitizeSurvivorSystemState({
+    ...JSON.parse(JSON.stringify(duty.survivors)),
+    survivors: [
+      ...JSON.parse(JSON.stringify(duty.survivors.survivors)),
+      {
+        id: "duty-navigator",
+        name: "Duty Navigator",
+        role: "navigator",
+        backgroundId: "storm-pilot",
+        aptitudes: { navigator: 5 },
+        skillXp: { navigator: 120 * 16 + 5 },
+        assignedRole: "navigator",
+      },
+      {
+        id: "duty-soldier",
+        name: "Duty Soldier",
+        role: "security",
+        backgroundId: "breakwater-watch",
+        aptitudes: { security: 5 },
+        skillXp: { security: 120 * 4 + 5 },
+        assignedRole: "security",
+      },
+    ],
+  });
+  assert.ok(hasRescueDetail(duty));
+  const before = duty.survivors.survivors.length;
+  const after = simulateGame(duty, SOS_SCAN_SECONDS_BY_WORLD.pelagos + 60, 240, false);
+  assert.ok(after.survivors.survivors.length > before, "auto-rescue fired");
+  assert.equal(after.survivors.activeSignal, null);
 });

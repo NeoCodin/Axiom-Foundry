@@ -507,10 +507,17 @@ Approved research expansion direction (owner, July 12, 2026), sequenced:
 3. Robotics branch (~Phase 2.5): upgrades equipment effectiveness and repair drones; research tree UI becomes necessary at this point (current list UI fits ~12 projects only).
 4. Bioadaptation branch (Vesper era): opt-in survivor enhancement that plays the game's central moral question; never a continuity requirement, never touches rarity/expertise invariants, always generates contradiction lore, feeds the ending doctrines.
 
-Approved for next session (owner, July 12, 2026) - implement together and sim-validate as one batch:
+Implemented July 12, 2026 (rescue pacing batch):
+
+- SOS scans scale per world (Pelagos 8m, Viridia 12m, Cinder 18m, Nox 25m, Vesper 35m); the first scan on each world stays at 90 seconds so beacon activation pays off immediately. Signals never expire. Beacon-speed bonuses now matter.
+- Rescues cost Flux (150 x continuity scale, the shuttle launch) in addition to Salvage; both appear on the signal card and every blocked reason names its cause.
+- Survivor Duty: with a level-5 Navigator and a level-3 Soldier assigned to their stations, rescues dispatch automatically whenever every requirement (quarters, life support, Salvage, Flux) is met. Toggleable on the Crew page; earned automation like the prestige auto-buyer.
+- The security profession is displayed as "Soldier" everywhere; the internal id remains "security" for save compatibility.
+- Simulated pacing after the batch: Pelagos 2.1d, Viridia 2.8d, Cinder 2.0d, Nox 4.6d, Vesper 5.2d (~16.8 bot-days) - Vesper inside the owner's 5-7 day window with no expertise compensation needed.
+
+Still queued for next session:
 
 1. Lattice auto-transfer: staffed Analysis Core auto-moves common inputs from Ark Supply; Null Traces require a level-5 Exceptional-or-better Researcher to automate.
-2. Slower, dearer rescues: SOS scan time scales per world (Pelagos ~8m, Viridia ~12m, Cinder ~18m, Nox ~25m, Vesper ~35m; first scan on each world stays ~2m so beacon activation pays off immediately). Rescues additionally cost Flux (shuttle launch at flat continuity pricing) on top of Salvage, shown on the signal card. Signals still never expire. This slows the crew pipeline - re-run the campaign simulator and compensate expertise totals if late worlds overshoot the target curve (Vesper 5-7 bot-days).
 
 Smaller queued items:
 

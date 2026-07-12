@@ -10,7 +10,10 @@ import {
   PROFESSIONAL_ROLES,
   QUALITY_PITY_LIMIT,
   RARE_PITY_LIMIT,
+  MAX_SCAN_SECONDS,
   RARE_SURVIVOR_HOOKS,
+  SOS_SCAN_SECONDS_BY_WORLD,
+  getScanDurationSeconds,
   SOS_SCAN_SECONDS,
   advanceSurvivorSystem,
   assignSurvivorToRole,
@@ -43,7 +46,7 @@ import {
 function detectSignal(seed = 123_456) {
   let state = createSurvivorSystemState(seed);
   state = setSosBeaconOnline(state, true, "pelagos");
-  state = advanceSurvivorSystem(state, SOS_SCAN_SECONDS);
+  state = advanceSurvivorSystem(state, 2_400);
   assert.ok(state.activeSignal);
   return state;
 }
@@ -193,7 +196,7 @@ test("each campaign world uses its exact SOS group-size range", () => {
     const sizes = seeds.map((seed) => {
       let state = createSurvivorSystemState(seed);
       state = setSosBeaconOnline(state, true, worldId);
-      state = advanceSurvivorSystem(state, SOS_SCAN_SECONDS);
+      state = advanceSurvivorSystem(state, 2_400);
       assert.ok(state.activeSignal);
       return state.activeSignal.survivors.length;
     });
@@ -282,7 +285,7 @@ test("a detected survivor signal waits indefinitely without failure or replaceme
   assert.deepEqual(afterMonth.activeSignal, waitingSignal);
   assert.equal(afterMonth.signalsGenerated, 1);
   assert.equal(afterMonth.signalsResolved, 0);
-  assert.equal(state.operationalSeconds, SOS_SCAN_SECONDS);
+  assert.equal(state.operationalSeconds, 2_400);
 });
 
 test("rescue requires both stable Ark capacity and enough external Salvage", () => {
@@ -371,7 +374,7 @@ test("the specialist rotation guarantees every profession within nine signals", 
   );
   const seen = new Set<string>();
   for (let index = 0; index < PROFESSIONAL_ROLES.length; index += 1) {
-    state = advanceSurvivorSystem(state, SOS_SCAN_SECONDS);
+    state = advanceSurvivorSystem(state, 2_400);
     assert.ok(state.activeSignal);
     for (const survivor of state.activeSignal.survivors) seen.add(survivor.role);
     state = declineSurvivorSignal(state);
@@ -390,7 +393,7 @@ test("rare authored story hooks have a hard pity guarantee", () => {
   );
   let discoveredHook: string | null = null;
   for (let index = 0; index <= RARE_PITY_LIMIT; index += 1) {
-    state = advanceSurvivorSystem(state, SOS_SCAN_SECONDS);
+    state = advanceSurvivorSystem(state, 2_400);
     discoveredHook =
       state.activeSignal!.survivors.find(
         (survivor) => survivor.storyHookId !== null,
@@ -411,7 +414,7 @@ test("an Exceptional-or-better profile appears within the quality pity limit", (
   );
   let qualitySignal = 0;
   for (let signalNumber = 1; signalNumber <= QUALITY_PITY_LIMIT; signalNumber += 1) {
-    state = advanceSurvivorSystem(state, SOS_SCAN_SECONDS);
+    state = advanceSurvivorSystem(state, 2_400);
     assert.ok(state.activeSignal);
     const includesQualityProfile = state.activeSignal.survivors.some(
       (survivor) => {
@@ -431,7 +434,7 @@ test("an Exceptional-or-better profile appears within the quality pity limit", (
   let brink = createSurvivorSystemState(17_171);
   brink.qualityPity = QUALITY_PITY_LIMIT - 1;
   brink = setSosBeaconOnline(brink, true, "pelagos");
-  brink = advanceSurvivorSystem(brink, SOS_SCAN_SECONDS);
+  brink = advanceSurvivorSystem(brink, 2_400);
   assert.ok(
     brink.activeSignal?.survivors.some((survivor) => {
       const rarity = getSurvivorRarity(survivor).id;
@@ -660,7 +663,7 @@ test("sanitization repairs malformed population, support, assignments, and count
   assert.notEqual(state.rngState, 0);
   assert.equal(state.nextSurvivorSerial >= 2, true);
   assert.equal(state.operationalSeconds, 0);
-  assert.equal(state.beaconProgressSeconds, SOS_SCAN_SECONDS);
+  assert.equal(state.beaconProgressSeconds, MAX_SCAN_SECONDS);
   assert.equal(state.trainingSlots, 0);
   assert.equal(state.rarePity, 100);
   assert.equal(state.qualityPity, 100);
@@ -797,8 +800,8 @@ test("serialized RNG state continues with exactly the same future survivor group
     JSON.parse(JSON.stringify(live)) as unknown,
   );
 
-  const liveNext = advanceSurvivorSystem(live, SOS_SCAN_SECONDS);
-  const restoredNext = advanceSurvivorSystem(restored, SOS_SCAN_SECONDS);
+  const liveNext = advanceSurvivorSystem(live, 2_400);
+  const restoredNext = advanceSurvivorSystem(restored, 2_400);
   assert.deepEqual(restoredNext.activeSignal, liveNext.activeSignal);
   assert.equal(restoredNext.rngState, liveNext.rngState);
   assert.equal(restoredNext.nextSurvivorSerial, liveNext.nextSurvivorSerial);
@@ -868,7 +871,7 @@ test("survivor names never duplicate people aboard or reserved colony founders",
   );
   const reservedNames = ["Wren Vale", "Cato Rook"];
   for (let signal = 0; signal < 14; signal += 1) {
-    state = advanceSurvivorSystem(state, SOS_SCAN_SECONDS, {
+    state = advanceSurvivorSystem(state, 2_400, {
       reservedNames,
     });
     assert.ok(state.activeSignal);
@@ -894,7 +897,7 @@ test("authored story-hook characters are rescued at most once per campaign", () 
   );
   const foundHooks: string[] = [];
   for (let signal = 0; signal < 90; signal += 1) {
-    state = advanceSurvivorSystem(state, SOS_SCAN_SECONDS);
+    state = advanceSurvivorSystem(state, 2_400);
     assert.ok(state.activeSignal);
     const hooked = state.activeSignal!.survivors.find(
       (survivor) => survivor.storyHookId !== null,
@@ -921,7 +924,7 @@ test("settled story-hook characters stay excluded after transfer and reload", ()
   );
   let hookedId: string | null = null;
   while (!hookedId) {
-    state = advanceSurvivorSystem(state, SOS_SCAN_SECONDS);
+    state = advanceSurvivorSystem(state, 2_400);
     const result = rescueSurvivorSignal(state, 1_000_000);
     assert.ok(result.rescued);
     state = result.state;
@@ -1128,4 +1131,30 @@ test("the rarity retune never downgrades crew from earlier saves", () => {
   });
   assert.equal(modern.survivors[0]?.rarityFloor, null);
   assert.equal(getSurvivorRarity(modern.survivors[0]!).id, "standard");
+});
+
+test("scans are fast on arrival, then follow each world's slower cadence", () => {
+  let state = setSosBeaconOnline(
+    supportPopulation(createSurvivorSystemState(2_026), 100),
+    true,
+    "pelagos",
+  );
+  assert.equal(getScanDurationSeconds(state), SOS_SCAN_SECONDS);
+  state = advanceSurvivorSystem(state, SOS_SCAN_SECONDS);
+  assert.ok(state.activeSignal);
+  state = rescueSurvivorSignal(state, 1_000_000).state;
+  assert.equal(getScanDurationSeconds(state), SOS_SCAN_SECONDS_BY_WORLD.pelagos);
+  state = advanceSurvivorSystem(state, SOS_SCAN_SECONDS_BY_WORLD.pelagos - 30);
+  assert.equal(state.activeSignal, null);
+  state = advanceSurvivorSystem(state, 30);
+  assert.ok(state.activeSignal);
+
+  // moving to a new world resets the fast first scan
+  state = rescueSurvivorSignal(state, 1_000_000).state;
+  state = setSosBeaconOnline(state, true, "viridia");
+  assert.equal(getScanDurationSeconds(state), SOS_SCAN_SECONDS);
+  state = advanceSurvivorSystem(state, SOS_SCAN_SECONDS);
+  assert.ok(state.activeSignal);
+  state = rescueSurvivorSignal(state, 1_000_000).state;
+  assert.equal(getScanDurationSeconds(state), SOS_SCAN_SECONDS_BY_WORLD.viridia);
 });

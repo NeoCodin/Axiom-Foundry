@@ -135,7 +135,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
       "From Cinder onward, ash storms sweep the Ark's orbit. Build installations, choose a standing doctrine, and every storm resolves automatically - online or offline. Nothing here can kill crew or erase progress.",
     steps: [
       { title: "Build installations", detail: "Shield Arrays carry readiness; Repair Drones speed recovery; the Early-Warning Relay extends storm forecasts; Point-Defense matters most against future hostile contacts." },
-      { title: "Assign defenders", detail: "Assigned Security raises readiness and interception, Engineers add readiness and repair speed, Navigators extend forecast lead time." },
+      { title: "Assign defenders", detail: "Assigned Soldiers raise readiness and interception, Engineers add readiness and repair speed, Navigators extend forecast lead time." },
       { title: "Choose a doctrine", detail: "Defend is the safe default. Evade nearly eliminates risk for little reward. Intercept risks damage for extra Salvage and Engineering Models. Observe accepts small risk to gather Calibration Data and Null Traces." },
       { title: "Read the log", detail: "Every resolution is recorded with its severity, readiness, margin, and outcome, so offline results are always explainable." },
     ],

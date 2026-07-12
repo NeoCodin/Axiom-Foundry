@@ -52,6 +52,10 @@ export type PopulationConsoleProps = {
   crewGrowthMultiplier: number;
   requiredExpertiseIds: readonly ExpertiseId[];
   supportUpgradeCosts: Record<LifeSupportKey, number>;
+  scanDurationSeconds: number;
+  rescueFlux: { cost: number; label: string; affordable: boolean };
+  rescueDetail: { active: boolean; enabled: boolean };
+  onToggleAutoRescue: (enabled: boolean) => void;
   berthQuote: BerthPanelQuote;
   onStartBerthConstruction: () => void;
   onUpgradeSupport: (key: LifeSupportKey) => void;
@@ -83,7 +87,9 @@ function formatTime(seconds: number) {
 }
 
 function titleCase(value: string) {
-  return value.replaceAll("-", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  // "security" is displayed as "Soldier"; the internal id is unchanged.
+  const display = value === "security" ? "soldier" : value;
+  return display.replaceAll("-", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function PopulationConsole({
@@ -95,6 +101,10 @@ function PopulationConsole({
   crewGrowthMultiplier,
   requiredExpertiseIds,
   supportUpgradeCosts,
+  scanDurationSeconds,
+  rescueFlux,
+  rescueDetail,
+  onToggleAutoRescue,
   berthQuote,
   onStartBerthConstruction,
   onUpgradeSupport,
@@ -203,7 +213,7 @@ function PopulationConsole({
 
       <div className="continuity-two-column">
         <section className={`continuity-panel survivor-beacon-panel ${state.beaconOnline ? "is-online" : ""}`}>
-          <header><div><span>SOS ARRAY</span><h3>{state.beaconOnline ? `${currentWorldName} beacon online` : "Beacon awaiting authorization"}</h3></div><small>{state.beaconOnline ? activeSignal ? "Signal holding" : `${Math.round(state.beaconProgressSeconds)} / 90 sec scan` : "No broadcast"}</small></header>
+          <header><div><span>SOS ARRAY</span><h3>{state.beaconOnline ? `${currentWorldName} beacon online` : "Beacon awaiting authorization"}</h3></div><small>{state.beaconOnline ? activeSignal ? "Signal holding" : `${Math.round(state.beaconProgressSeconds / 60)} / ${Math.round(scanDurationSeconds / 60)} min scan` : "No broadcast"}</small></header>
           {!state.beaconOnline ? (
             <div className="continuity-empty-state">
               <strong>Invite the first witnesses aboard.</strong>
@@ -228,13 +238,23 @@ function PopulationConsole({
               </ul>
               <div className="signal-readiness">
                 <span>{activeSignalLifeSupport?.stable ? "Life support ready" : "Insufficient safe capacity"}</span>
-                <span>{activeSignal.rescueCost} Salvage</span>
+                <span>{activeSignal.rescueCost} Salvage + {rescueFlux.label}</span>
               </div>
-              <button type="button" disabled={!activeSignalLifeSupport?.stable || salvage < activeSignal.rescueCost} onClick={onRescueSignal}>Dispatch rescue shuttle</button>
+              <button type="button" disabled={!activeSignalLifeSupport?.stable || salvage < activeSignal.rescueCost || !rescueFlux.affordable} onClick={onRescueSignal}>Dispatch rescue shuttle</button>
+              {!rescueFlux.affordable && <p>The shuttle launch needs {rescueFlux.label}.</p>}
               <p>This signal never expires. You can leave it here until the Ark is ready.</p>
             </article>
           ) : (
-            <div className="continuity-empty-state"><strong>Listening across the drowned world.</strong><p>The next signal appears after 90 seconds of Ark time and remains until answered.</p></div>
+            <div className="continuity-empty-state"><strong>Listening across the drowned world.</strong><p>Each scan takes {Math.round(scanDurationSeconds / 60)} minutes here, and every signal remains until answered.</p></div>
+          )}
+          {state.beaconOnline && (
+            <label className="toggle-row">
+              <span>
+                <strong>Survivor Duty</strong>
+                <small>{rescueDetail.active ? "Rescue detail ready: a level-5 Navigator and level-3 Soldier are assigned. Rescues dispatch automatically when every requirement is met." : "Assign a level-5 Navigator and a level-3 Soldier to dispatch rescues automatically."}</small>
+              </span>
+              <input type="checkbox" disabled={!rescueDetail.active} checked={rescueDetail.enabled && rescueDetail.active} onChange={(event) => onToggleAutoRescue(event.target.checked)} />
+            </label>
           )}
         </section>
 

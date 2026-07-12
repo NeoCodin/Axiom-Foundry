@@ -111,7 +111,7 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(populationConsole, /CONTINUITY CONTRIBUTION/);
   assert.match(settlementConsole, /How this is counted/);
   assert.match(settlementConsole, /quality safety net active/);
-  assert.match(continuityExpertise, /70% of Security level/);
+  assert.match(continuityExpertise, /70% of Soldier level/);
   assert.match(continuityExpertise, /Researcher level \+ a 50% Null Dreamer bonus/);
   assert.match(campaignContent, /vesper-exceptional-founders/);
   assert.match(manual, /Profile Depth/);

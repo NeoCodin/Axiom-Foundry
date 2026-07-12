@@ -28,7 +28,7 @@ export const CONTINUITY_EXPERTISE_PRESENTATION: Record<
   },
   leadership: {
     label: "Leadership",
-    formula: "70% of Security level + 40% of Navigator level (each rounded up)",
+    formula: "70% of Soldier level + 40% of Navigator level (each rounded up)",
   },
   fabrication: {
     label: "Fabrication",

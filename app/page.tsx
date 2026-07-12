@@ -34,7 +34,10 @@ import {
   getColonyLegacyEffects,
   buyDefenseInstallation,
   chooseDefenseDoctrine,
+  getArkRescueQuote,
   getBerthConstructionQuote,
+  hasRescueDetail,
+  performArkRescue,
   getDefenseInstallationQuote,
   getCrisisReadiness,
   getCurrentViabilityForecast,
@@ -101,12 +104,12 @@ import {
 import {
   assignSurvivorToRole,
   getBerthCapacity,
+  getScanDurationSeconds,
+  setAutoRescueEnabled,
   getLifeSupportStatus,
-  getRescueReadiness,
   getSurvivorRarity,
   getSurvivorSkillLevel,
   renameSurvivorCallsign,
-  rescueSurvivorSignal,
   setLifeSupportCapacity,
   setSosBeaconOnline,
   startSurvivorTraining,
@@ -544,15 +547,10 @@ export default function Home() {
         )
       : 0,
   };
-  const rescueReadiness = useMemo(
-    () =>
-      getRescueReadiness(
-        game.survivors,
-        game.living.salvage,
-        lifeSupportCapacityMultiplier,
-      ),
-    [game.living.salvage, game.survivors, lifeSupportCapacityMultiplier],
-  );
+
+  const rescueQuote = getArkRescueQuote(game);
+  const rescueDetailActive = hasRescueDetail(game);
+  const scanDurationSeconds = getScanDurationSeconds(game.survivors);
   const viabilityForecast = getCurrentViabilityForecast(game);
   const campaignCrew = getCampaignCrewSummaries(game);
   const researchPowerAvailable = getResearchPowerAvailable(game);
@@ -896,39 +894,35 @@ export default function Home() {
 
   const handleRescueSurvivors = () => {
     const current = gameRef.current;
-    const result = rescueSurvivorSignal(
-      current.survivors,
-      current.living.salvage,
-      getResearchBonuses(current.research).habitationCapacityMultiplier,
-    );
-    if (!result.rescued) {
+    const quote = getArkRescueQuote(current);
+    const next = performArkRescue(current);
+    if (next === current) {
       setAnnouncement(
-        result.reason === "berths"
+        quote.reason === "berths"
           ? "The signal is holding. Build another quarters section before dispatching the shuttle."
-          : result.reason === "life-support"
+          : quote.reason === "life-support"
             ? "The signal is holding. Expand every life-support category before dispatching the shuttle."
-            : "The signal is holding until the Ark has enough Salvage and capacity.",
+            : quote.reason === "flux"
+              ? "The signal is holding. The shuttle launch needs more Flux."
+              : "The signal is holding until the Ark has enough Salvage and capacity.",
       );
       return;
     }
-    const rescued = result.survivorIds.length;
+    const rescued =
+      next.survivors.survivors.length - current.survivors.survivors.length;
     commitGameState(
-      {
-        ...current,
-        survivors: result.state,
-        living: {
-          ...current.living,
-          salvage: current.living.salvage - result.salvageSpent,
-        },
-        researchStock: {
-          ...current.researchStock,
-          "biological-samples":
-            current.researchStock["biological-samples"] + rescued * 18,
-          "cultural-records":
-            current.researchStock["cultural-records"] + rescued * 22,
-        },
-      },
+      next,
       `${rescued} survivors are safely aboard. Their names, aptitudes, and histories are now part of the Ark.`,
+    );
+  };
+
+  const handleToggleAutoRescue = (enabled: boolean) => {
+    const current = gameRef.current;
+    commitGameState(
+      { ...current, survivors: setAutoRescueEnabled(current.survivors, enabled) },
+      enabled
+        ? "Survivor Duty active: the rescue detail dispatches automatically when every requirement is met."
+        : "Survivor Duty paused. Rescues wait for your manual order.",
     );
   };
 
@@ -973,7 +967,7 @@ export default function Home() {
           role,
         ),
       },
-      role ? `Crew assignment updated: ${role}.` : "Crew member released from duty.",
+      role ? `Crew assignment updated: ${role === "security" ? "soldier" : role}.` : "Crew member released from duty.",
     );
   };
 
@@ -1456,7 +1450,7 @@ export default function Home() {
             return {
               id: survivor.id,
               name: survivor.callsign || survivor.name,
-              role: survivor.role.replaceAll("-", " "),
+              role: (survivor.role === "security" ? "soldier" : survivor.role).replaceAll("-", " "),
               level:
                 survivor.role === "civilian"
                   ? 0
@@ -1479,15 +1473,17 @@ export default function Home() {
             groupSize: game.survivors.activeSignal.survivors.length,
             roles: [...new Set(game.survivors.activeSignal.survivors.map((survivor) => survivor.role.replaceAll("-", " ")))],
             rescueCost: game.survivors.activeSignal.rescueCost,
-            canRescue: rescueReadiness.canRescue,
+            canRescue: rescueQuote.canRescue,
             blockedReason:
-              rescueReadiness.reason === "berths"
+              rescueQuote.reason === "berths"
                 ? "Build another quarters section first."
-                : rescueReadiness.reason === "life-support"
+                : rescueQuote.reason === "life-support"
                   ? "Expand life-support capacity first."
-                  : rescueReadiness.reason === "salvage"
+                  : rescueQuote.reason === "salvage"
                     ? "More Salvage is required."
-                    : null,
+                    : rescueQuote.reason === "flux"
+                      ? "The shuttle launch needs more Flux."
+                      : null,
             rare: game.survivors.activeSignal.survivors.some((survivor) => survivor.storyHookId),
           } : null}
           researchProject={activeResearchDefinition?.name ?? null}
@@ -1523,6 +1519,17 @@ export default function Home() {
             (requirement) => requirement.id,
           )}
           supportUpgradeCosts={supportUpgradeCosts}
+          scanDurationSeconds={scanDurationSeconds}
+          rescueFlux={{
+            cost: rescueQuote.fluxCost,
+            label: `${formatNumber(rescueQuote.fluxCost)} Flux`,
+            affordable: game.flux >= rescueQuote.fluxCost,
+          }}
+          rescueDetail={{
+            active: rescueDetailActive,
+            enabled: game.survivors.autoRescueEnabled,
+          }}
+          onToggleAutoRescue={handleToggleAutoRescue}
           berthQuote={berthPanelQuote}
           onStartBerthConstruction={handleStartBerthConstruction}
           onUpgradeSupport={handleUpgradeSupport}

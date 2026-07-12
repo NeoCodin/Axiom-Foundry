@@ -162,7 +162,7 @@ function DefenseConsole({
             );
           })}
         </div>
-        <p className="crew-rarity-note">Crew contributions: assigned Security +4 readiness each (and +2 Intercept margin), Engineers +3 readiness and faster repairs, Navigators +10 minutes of forecast each.</p>
+        <p className="crew-rarity-note">Crew contributions: assigned Soldiers +4 readiness each (and +2 Intercept margin), Engineers +3 readiness and faster repairs, Navigators +10 minutes of forecast each.</p>
       </section>
 
       <section className="continuity-panel">

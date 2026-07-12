@@ -49,7 +49,8 @@ export type SettlementConsoleProps = {
 };
 
 function titleCase(value: string) {
-  return value.replaceAll("-", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  const display = value === "security" ? "soldier" : value;
+  return display.replaceAll("-", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 const RARITY_RANKS: Record<string, number> = {

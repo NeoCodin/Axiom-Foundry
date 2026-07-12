@@ -196,6 +196,8 @@ export type SurvivorSystemState = {
   qualityPity: number;
   rolePity: Record<ProfessionalRole, number>;
   rescuedHookIds: RareSurvivorHookId[];
+  worldSignalCount: number;
+  autoRescueEnabled: boolean;
   berthSections: number;
   berthConstruction: BerthConstruction | null;
 };
@@ -432,6 +434,17 @@ export const SOS_WORLD_IDS = [
   "vesper",
 ] as const;
 export const SOS_SCAN_SECONDS = 90;
+export const SOS_SCAN_SECONDS_BY_WORLD: Record<
+  (typeof SOS_WORLD_IDS)[number],
+  number
+> = {
+  pelagos: 8 * 60,
+  viridia: 12 * 60,
+  cinder: 18 * 60,
+  nox: 25 * 60,
+  vesper: 35 * 60,
+};
+export const MAX_SCAN_SECONDS = 35 * 60;
 export const MAX_OFFLINE_SURVIVOR_SECONDS = 30 * 24 * 60 * 60;
 export const MAX_SURVIVORS = 500;
 export const MAX_SIGNAL_SURVIVORS = 8;
@@ -753,9 +766,31 @@ export function createSurvivorSystemState(
     qualityPity: 0,
     rolePity: makeRolePity(),
     rescuedHookIds: [],
+    worldSignalCount: 0,
+    autoRescueEnabled: true,
     berthSections: 0,
     berthConstruction: null,
   };
+}
+
+/**
+ * The first scan on a new world is fast so activating the beacon pays off
+ * immediately; afterwards each world listens on its own slower cadence, so
+ * survivor groups arrive as events rather than a conveyor belt.
+ */
+export function getScanDurationSeconds(
+  state: Pick<SurvivorSystemState, "worldSignalCount" | "beaconWorldId">,
+) {
+  if (state.worldSignalCount === 0) return SOS_SCAN_SECONDS;
+  return SOS_SCAN_SECONDS_BY_WORLD[state.beaconWorldId ?? SOS_WORLD_ID];
+}
+
+export function setAutoRescueEnabled(
+  state: SurvivorSystemState,
+  enabled: boolean,
+) {
+  if (state.autoRescueEnabled === enabled) return state;
+  return { ...cloneSurvivorSystemState(state), autoRescueEnabled: enabled };
 }
 
 export function getBerthCapacity(
@@ -984,6 +1019,7 @@ function generateSurvivorSignalMutable(
     ? 0
     : Math.min(100, state.qualityPity + 1);
   state.signalsGenerated = sequence;
+  state.worldSignalCount = Math.min(1_000_000, state.worldSignalCount + 1);
   state.beaconProgressSeconds = 0;
   state.activeSignal = {
     id: signalId,
@@ -1017,6 +1053,8 @@ export function setSosBeaconOnline(
     beaconOnline: online,
     beaconWorldId: online ? worldId : null,
     beaconProgressSeconds: online ? state.beaconProgressSeconds : 0,
+    worldSignalCount:
+      online && worldId !== state.beaconWorldId ? 0 : state.worldSignalCount,
   };
 }
 
@@ -1580,11 +1618,12 @@ export function advanceSurvivorSystem(
     }
   }
   if (next.beaconOnline && !next.activeSignal) {
+    const scanDuration = getScanDurationSeconds(next);
     next.beaconProgressSeconds = Math.min(
-      SOS_SCAN_SECONDS,
+      scanDuration,
       next.beaconProgressSeconds + elapsed * beaconSpeed,
     );
-    if (next.beaconProgressSeconds >= SOS_SCAN_SECONDS) {
+    if (next.beaconProgressSeconds >= scanDuration) {
       generateSurvivorSignalMutable(next, modifiers.reservedNames ?? []);
     }
   }
@@ -1719,7 +1758,7 @@ export function sanitizeSurvivorSystemState(value: unknown): SurvivorSystemState
     beaconProgressSeconds: finite(
       value.beaconProgressSeconds,
       0,
-      SOS_SCAN_SECONDS,
+      MAX_SCAN_SECONDS,
     ),
     activeSignal: null,
     survivors: [],
@@ -1733,6 +1772,12 @@ export function sanitizeSurvivorSystemState(value: unknown): SurvivorSystemState
     qualityPity: whole(value.qualityPity, 0, 100),
     rolePity: makeRolePity(),
     rescuedHookIds: [],
+    worldSignalCount: whole(
+      value.worldSignalCount,
+      whole(value.signalsGenerated, 0, MAX_COUNTER) > 0 ? 1 : 0,
+      1_000_000,
+    ),
+    autoRescueEnabled: value.autoRescueEnabled !== false,
   };
 
   const rawRolePity = isRecord(value.rolePity) ? value.rolePity : {};
