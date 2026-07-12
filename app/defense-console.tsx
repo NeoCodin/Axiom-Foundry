@@ -94,18 +94,24 @@ function DefenseConsole({
       </div>
 
       <section className={`continuity-panel ${forecast ? "is-online" : ""}`}>
-        <header><div><span>FORECAST</span><h3>{!stormsEnabled ? "No storm activity in this region" : forecast ? `Ash storm · severity ${forecast.severity}` : state.damage ? "Repairs underway" : "Skies holding"}</h3></div><small>{stormsEnabled ? "Resolution is automatic" : "Storm fronts begin at Cinder"}</small></header>
+        <header><div><span>FORECAST</span><h3>{!stormsEnabled ? "No storm activity in this region" : forecast ? forecast.severityKnown ? `Ash storm · severity ${forecast.severity}` : "Ash storm · magnitude unknown" : state.damage ? "Repairs underway" : "Skies holding"}</h3></div><small>{stormsEnabled ? "Resolution is automatic" : "Storm fronts begin at Cinder"}</small></header>
         {forecast ? (
           <div className="continuity-empty-state">
             <strong>Storm front arrives in {formatCountdown(forecast.secondsUntil)}.</strong>
-            <p>
-              Projected margin: readiness {readiness}
-              {DEFENSE_DOCTRINE_DEFINITIONS[state.doctrine].marginModifier >= 0 ? " +" : " "}
-              {DEFENSE_DOCTRINE_DEFINITIONS[state.doctrine].marginModifier} doctrine − {30 * forecast.severity} storm =
-              {" "}
-              <strong>{readiness + DEFENSE_DOCTRINE_DEFINITIONS[state.doctrine].marginModifier - 30 * forecast.severity}</strong>
-              . 10+ rides it out clean; below −20 expect temporary damage.
-            </p>
+            {forecast.severityKnown ? (
+              <p>
+                Projected margin: readiness {readiness}
+                {DEFENSE_DOCTRINE_DEFINITIONS[state.doctrine].marginModifier >= 0 ? " +" : " "}
+                {DEFENSE_DOCTRINE_DEFINITIONS[state.doctrine].marginModifier} doctrine − {30 * forecast.severity} storm =
+                {" "}
+                <strong>{readiness + DEFENSE_DOCTRINE_DEFINITIONS[state.doctrine].marginModifier - 30 * forecast.severity}</strong>
+                . 10+ rides it out clean; below −20 expect temporary damage.
+              </p>
+            ) : (
+              <p>
+                Severity resolves once the front is within your {formatCountdown(leadSeconds)} measurement window — extend it with the Early-Warning Relay and assigned Navigators. Worst case at severity 3 needs margin {90 - DEFENSE_DOCTRINE_DEFINITIONS[state.doctrine].marginModifier - readiness > 0 ? `${90 - DEFENSE_DOCTRINE_DEFINITIONS[state.doctrine].marginModifier - readiness} more readiness` : "nothing - you are covered"}.
+              </p>
+            )}
           </div>
         ) : state.damage ? (
           <div className="continuity-empty-state">
@@ -114,8 +120,8 @@ function DefenseConsole({
           </div>
         ) : (
           <div className="continuity-empty-state">
-            <strong>{stormsEnabled ? "The next front is beyond forecast range." : "The Ark is safe here."}</strong>
-            <p>{stormsEnabled ? "Longer-range warnings come from the Early-Warning Relay and assigned Navigators." : "Build ahead: installations persist for every world and every Recalibration."}</p>
+            <strong>{stormsEnabled ? "No storm front is currently tracked." : "The Ark is safe here."}</strong>
+            <p>{stormsEnabled ? "The next front appears here with a full timer the moment it forms." : "Build ahead: installations persist for every world and every Recalibration."}</p>
           </div>
         )}
       </section>

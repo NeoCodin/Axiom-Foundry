@@ -481,6 +481,11 @@ export function getDefenseProductionMultiplier(state: Pick<DefenseState, "damage
   return 1 - (state.damage?.productionPenalty ?? 0);
 }
 
+/**
+ * Environmental events are weather: their timers are always projectable.
+ * The Early-Warning window instead controls how soon severity is measured
+ * (and, in Phase 2, whether stealthy hostile contacts are detected at all).
+ */
 export function getIncomingForecast(
   state: DefenseState,
   navigators: number,
@@ -488,6 +493,9 @@ export function getIncomingForecast(
   if (!state.incoming) return null;
   const lead = getForecastLeadSeconds(state, navigators);
   const secondsUntil = state.incoming.arrivesAtSeconds - state.clockSeconds;
-  if (secondsUntil > lead) return null;
-  return { ...state.incoming, secondsUntil };
+  return {
+    ...state.incoming,
+    secondsUntil,
+    severityKnown: secondsUntil <= lead,
+  };
 }

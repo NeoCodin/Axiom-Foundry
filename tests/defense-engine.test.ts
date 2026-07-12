@@ -112,12 +112,13 @@ test("forecast lead grows with the relay and navigators", () => {
 
   const scheduled = advanceDefense(state, 60, CINDER).state;
   assert.ok(scheduled.incoming);
-  // beyond lead time the forecast is hidden, inside it it is visible
+  // storm timers are always projectable; severity resolves inside the window
   const early = getIncomingForecast(scheduled, 0);
+  assert.ok(early);
   const arrivesIn = scheduled.incoming!.arrivesAtSeconds - scheduled.clockSeconds;
-  if (arrivesIn > getForecastLeadSeconds(scheduled, 0)) assert.equal(early, null);
+  if (arrivesIn > getForecastLeadSeconds(scheduled, 0)) assert.equal(early!.severityKnown, false);
   const later = advanceDefense(scheduled, Math.max(0, arrivesIn - 10 * 60), CINDER).state;
-  if (later.incoming) assert.ok(getIncomingForecast(later, 0));
+  if (later.incoming) assert.equal(getIncomingForecast(later, 0)?.severityKnown, true);
 });
 
 test("installation costs scale with continuity and cap at level five", () => {
