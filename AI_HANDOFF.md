@@ -518,6 +518,7 @@ Implemented July 12, 2026 (rescue pacing batch):
 Still queued for next session:
 
 1. Lattice auto-transfer: staffed Analysis Core auto-moves common inputs from Ark Supply; Null Traces require a level-5 Exceptional-or-better Researcher to automate.
+2. Survivor expeditions (owner approved, July 12, 2026), unlocking at Cinder: rebuild expeditions on the real survivor roster and retire the dormant legacy-crew system. Expedition Bay panel on the Crew page; send 2-3 crew with a Flux launch cost for a fixed real-time duration (continues offline, guaranteed return, no crew harm ever); deployed crew are unavailable for assignment, training, and settlement while away. Reuse the three authored sites at their original gates (Kestrel Relay Survey at Cinder, Lantern Null-Bloom Study at Nox awarding Null Traces, Palimpsest Origin Run post-campaign) plus a repeatable Null Sounding for trace farming. Crew composition modifies outcomes (Navigator shortens duration, Soldier raises the reward floor, Researcher boosts trace yield). Expedition discoveries feed the existing mystery arcs and doctrine unlocks.
 
 Smaller queued items:
 
