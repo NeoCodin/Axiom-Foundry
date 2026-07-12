@@ -230,7 +230,9 @@ Do not restore punitive timers. Planetary crises have no deadlines.
 - Planetary restoration may also be activating ancient reality anchors or “cores” beneath the worlds.
 - This interpretation should remain suggestive during the current campaign, not presented as a settled fact.
 
-## 11. Future enemy and defense arc — approved direction, not implemented
+## 11. Enemy and defense arc — Phase 1 implemented, later phases approved direction
+
+Phase 1 (Cinder environmental tier) is implemented per docs/threat-operations-spec.md: defense-engine.ts, a Defense tab unlocking at Cinder, ash storms every 4-8 hours with deterministic offline-identical resolution, four installations at flat continuity pricing, four standing doctrines (Observe yields Calibration Data and Null Traces), damage hard-capped at -25% production and 6h repairs. Simulated pacing is unchanged (12.88 bot-days). Nox vessels, beacon exposure, and planetary networks remain unbuilt.
 
 The game should eventually introduce threats while remaining an idle game.
 
