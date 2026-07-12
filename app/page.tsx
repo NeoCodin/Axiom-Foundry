@@ -35,6 +35,7 @@ import {
   buyDefenseInstallation,
   chooseDefenseDoctrine,
   getArkRescueQuote,
+  getAutoTransferStatus,
   getBerthConstructionQuote,
   hasRescueDetail,
   performArkRescue,
@@ -1552,6 +1553,7 @@ export default function Home() {
             colonyLegacyEffects.researchSpeedMultiplier
           }
           now={clockNow || game.lastSaved}
+          autoTransfer={getAutoTransferStatus(game)}
           onStateChange={handleResearchStateChange}
           onTransferInput={handleTransferResearchInput}
           onAssignedCrewChange={handleResearchCrewChange}

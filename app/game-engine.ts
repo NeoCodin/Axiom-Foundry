@@ -44,6 +44,7 @@ import {
   type SurvivorSystemState,
 } from "./survivor-engine.ts";
 import {
+  addResearchInputs,
   advanceResearch,
   cloneResearchLatticeState,
   createResearchLatticeState,
@@ -1122,6 +1123,58 @@ export function getEquipmentFabricationQuote(
       definition.requiredResearchId.replaceAll("-", " "),
     researchMet,
   };
+}
+
+/**
+ * Null material lies to its handlers: automating its transfer into the
+ * Lattice requires a level-5 Researcher of Exceptional or better rarity.
+ * Common inputs auto-transfer whenever the Analysis Core is staffed.
+ */
+export function hasQualifiedNullHandler(state: GameState) {
+  return state.survivors.survivors.some((survivor) => {
+    if (getSurvivorSkillLevel(survivor, "researcher") < 5) return false;
+    const rarity = getSurvivorRarity(survivor).id;
+    return rarity === "exceptional" || rarity === "anomalous";
+  });
+}
+
+export function getAutoTransferStatus(state: GameState) {
+  const staffed = state.research.assignedCrew >= 1;
+  return {
+    common: staffed,
+    nullTraces: staffed && hasQualifiedNullHandler(state),
+  };
+}
+
+const AUTO_TRANSFER_BUFFER = 100;
+
+function autoTransferResearchInputs(state: GameState) {
+  const project = state.research.activeProjectId
+    ? getResearchProjectDefinition(state.research.activeProjectId)
+    : null;
+  if (!project) return;
+  const status = getAutoTransferStatus(state);
+  if (!status.common) return;
+  const moved: Partial<ResearchInputBundle> = {};
+  let any = false;
+  for (const inputId of Object.keys(state.researchStock) as Array<
+    keyof ResearchInputBundle
+  >) {
+    if ((project.costs[inputId] ?? 0) <= 0) continue;
+    if (inputId === "null-traces" && !status.nullTraces) continue;
+    const shortfall = Math.max(
+      0,
+      AUTO_TRANSFER_BUFFER - state.research.inventory[inputId],
+    );
+    const amount = Math.min(state.researchStock[inputId], shortfall);
+    if (amount <= 0) continue;
+    moved[inputId] = amount;
+    state.researchStock[inputId] -= amount;
+    any = true;
+  }
+  if (any) {
+    state.research = addResearchInputs(state.research, moved);
+  }
 }
 
 export function getRescueFluxCost(state: GameState) {
@@ -2250,6 +2303,7 @@ export function simulateGame(
       colony.founders.map((founder) => founder.name.replace(/\s*“.*$/u, "")),
     ),
   });
+  autoTransferResearchInputs(next);
   const researchAdvance = advanceResearch(next.research, seconds, {
     powerAvailable: getResearchPowerAvailable(next),
     crewAvailable: getResearchCrewAvailable(next),

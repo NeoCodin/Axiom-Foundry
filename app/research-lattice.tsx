@@ -38,6 +38,7 @@ export type ResearchLatticeProps = {
   now?: number;
   onStateChange: (state: ResearchLatticeState) => void;
   onTransferInput: (inputId: ResearchInputId, amount: number) => void;
+  autoTransfer: { common: boolean; nullTraces: boolean };
   onAssignedCrewChange?: (assignedCrew: number) => void;
   onOpenHelp: (topicId: ManualTopicId) => void;
   onClose?: () => void;
@@ -113,6 +114,7 @@ export function ResearchLattice({
   now = 0,
   onStateChange,
   onTransferInput,
+  autoTransfer,
   onAssignedCrewChange,
   onOpenHelp,
   onClose,
@@ -333,6 +335,13 @@ export function ResearchLattice({
           </div>
           <p className="research-lattice-input-guidance">
             Glowing reservoirs feed the selected program. Dim stores are safe to leave untouched.
+          </p>
+          <p className="research-lattice-input-guidance" role="status">
+            {autoTransfer.common
+              ? autoTransfer.nullTraces
+                ? "AXIOM auto-transfer active for every required input, including Null Traces."
+                : "AXIOM auto-transfers required inputs. Null Traces still need manual handling - automate them with a level-5 Exceptional (or better) Researcher aboard."
+              : "Assign Analysis Core staff to auto-transfer required inputs from Ark Supply."}
           </p>
           <div className="research-lattice-input-list">
             {RESEARCH_INPUT_DEFINITIONS.map((input) => {

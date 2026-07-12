@@ -17,6 +17,7 @@ import {
   fabricateWorldEquipment,
   getArkRescueQuote,
   getBerthConstructionQuote,
+  hasQualifiedNullHandler,
   cloneGameState,
   hasRescueDetail,
   performArkRescue,
@@ -849,4 +850,43 @@ test("rescues cost Flux and Survivor Duty automates them when qualified", () => 
   const after = simulateGame(duty, SOS_SCAN_SECONDS_BY_WORLD.pelagos + 60, 240, false);
   assert.ok(after.survivors.survivors.length > before, "auto-rescue fired");
   assert.equal(after.survivors.activeSignal, null);
+});
+
+test("staffed Analysis Core auto-transfers inputs; Null Traces need a qualified handler", () => {
+  const state = setTutorialComplete(createInitialState(0), true);
+  state.research.activeProjectId = "null-signal-baseline";
+  state.research.completedProjectIds = ["auxiliary-power-routing", "continuity-index"];
+  state.research.assignedCrew = 2;
+  state.researchStock["calibration-data"] = 500;
+  state.researchStock["null-traces"] = 500;
+
+  const sim = simulateGame(state, 5, 50, false);
+  assert.ok(sim.research.inventory["calibration-data"] > 0, "common input moved");
+  assert.equal(sim.research.inventory["null-traces"], 0, "null traces held back");
+
+  // add a level-5 Exceptional researcher and the traces flow
+  const qualified = cloneGameState(state);
+  qualified.survivors = sanitizeSurvivorSystemState({
+    ...JSON.parse(JSON.stringify(qualified.survivors)),
+    survivors: [{
+      id: "null-handler",
+      name: "Null Handler",
+      role: "researcher",
+      backgroundId: "reef-archive",
+      aptitudes: { researcher: 5, doctor: 5, engineer: 4 },
+      adaptability: 5,
+      traits: ["signal-ear", "systems-thinker"],
+      skillXp: { researcher: 120 * 16 + 10 },
+      assignedRole: "researcher",
+    }],
+  });
+  assert.ok(hasQualifiedNullHandler(qualified));
+  const flowing = simulateGame(qualified, 5, 50, false);
+  assert.ok(flowing.research.inventory["null-traces"] > 0, "null traces auto-transferred");
+
+  // unstaffed core moves nothing
+  const idle = cloneGameState(state);
+  idle.research.assignedCrew = 0;
+  const stalled = simulateGame(idle, 5, 50, false);
+  assert.equal(stalled.research.inventory["calibration-data"], 0);
 });
