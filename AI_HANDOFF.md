@@ -490,13 +490,18 @@ Use this when opening the repository with Claude or another assistant:
 
 Recommended order, subject to owner approval:
 
-1. Design the Threat Operations data model and standing doctrines without altering saves yet.
-2. Introduce Cinder environmental-defense events as a safe tutorial.
+1. Design the Threat Operations data model and standing doctrines without altering saves yet (owner has approved starting this: a Defense view/tab unlocking on Cinder arrival, with defense hardware and events visible on the Ark page).
+2. Introduce Cinder environmental-defense events (ash/debris storms) as a safe tutorial.
 3. Add Security/Navigator/Engineer defense assignments and automatic offline resolution.
 4. Add Ark visual defense upgrades and readable exposure/readiness indicators.
-5. Introduce Nox Retrograde Vessel encounters and Causal Fragments.
+5. Introduce Nox Retrograde Vessel encounters and Causal Fragments; the Observe doctrine should award Null Traces so threat study becomes the active source of the game's scarcest input.
 6. Add persistent planetary defense networks around restored world cores.
 7. Expand post-Vesper worlds only after the current campaign pacing is observed in real play.
+
+Smaller queued items:
+
+- Wire the Lantern Null-Bloom expedition (and possibly a repeatable Null sounding expedition) to award Null Traces; the `null-expeditions` unlock from Discarded Spectrum is currently a dead hook that no system consumes.
+- Mention in the Recalibration confirmation that unspent Flux is lost (players saving toward berth sections or equipment should see the trade-off).
 
 The next implementation should begin with a written mechanic specification and balance table. Do not jump directly into random combat events; the idle-resolution and failure-safety rules must be decided first.
 
