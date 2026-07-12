@@ -128,23 +128,26 @@ Current professions:
 - Security
 - Civilian
 
-Rarity colors and learning multipliers are intentional and should remain visually prominent:
+Rarity colors, learning multipliers, and profession capacity are intentional and should remain visually prominent:
 
-| Rarity | Learning multiplier | Meaning |
-|---|---:|---|
-| Standard | ×1.00 | Dependable broadly useful profile |
-| Notable | ×1.25 | Scarce aptitude/adaptability combination |
-| Exceptional | ×1.60 | Strong potential across several disciplines |
-| Anomalous | ×2.00 | Singular profile connected to the deeper mystery |
+| Rarity | Learning multiplier | Profession capacity | Meaning |
+|---|---:|---:|---|
+| Standard | ×1.00 | 1 | Dependable broadly useful profile |
+| Notable | ×1.25 | 2 | Scarce aptitude/adaptability combination |
+| Exceptional | ×1.60 | 3 | Strong potential across several disciplines |
+| Anomalous | ×2.00 | unlimited | Singular profile connected to the deeper mystery |
 
 Rules:
 
 - Rarity accelerates initial training and assigned-work XP.
+- Rarity sets profession capacity: the total number of professions a survivor may hold, counting the profession they arrived with. Standard specialists keep the profession they arrived with; Standard civilians choose one. Survivors from older saves who already exceed their capacity keep everything they learned — the cap only limits future training.
 - Rarity does not directly multiply Continuity Expertise. This avoids unreadable double-dipping.
 - Anomalous counts as Exceptional and Notable for requirements.
 - Rarity classification does not change when a survivor levels.
 - A quality-pity system guarantees an Exceptional-or-better profile within five quality misses.
 - Authored Anomalous survivors use a separate, slower pity system.
+- Each authored Anomalous character can be rescued at most once per campaign; the rescued-hook ledger persists across departures and old saves are backfilled from the roster and colony records. When all five are found, the rare pity produces boosted procedural survivors instead.
+- Procedural survivor names are never duplicated against the living roster, the pending signal, or settled colony founders.
 - Later-world SOS groups are larger: Pelagos 2–4, Viridia 3–5, Cinder 4–6, Nox 5–7, Vesper 6–8.
 
 Late Profile Depth gates:
@@ -180,6 +183,9 @@ Important balance decisions:
 
 - Pelagos keeps its established Continuity cost scale.
 - Every later world's Continuity scale grows by approximately ×60 rather than ×100.
+- Directive Flux-contribution gates were raised (Cold Wake 15K, Pelagos 500K, Viridia 250M, Cinder 50B, Nox 25T, Vesper 2Qa) after simulation showed the old gates fell in minutes against late-game production.
+- Continuity equipment (field clinics, growbeds, fabricator rigs, relay agents, analysis clusters) is fabricated with Flux on the Continuity page. Prices scale with live production (~40 minutes of current output, with a per-world floor) so Flux remains a meaningful decision at any economy size. Equipment feeds the substitution system, giving Flux a direct path to relieve crew bottlenecks.
+- Research-based substitutions now reference real Research Lattice project IDs (they previously pointed at projects that did not exist and could never trigger).
 - Settlement Charter uses Engineering Models rather than requiring an early Axiom Proof/Recalibration wall.
 - Null Studies is attainable through ordinary Researchers; Null Dreamers provide a bonus instead of being mandatory.
 - Later SOS groups grow in size to make large founder requirements less tedious.

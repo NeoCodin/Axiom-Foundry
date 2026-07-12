@@ -25,6 +25,7 @@ import {
   contributeToMission,
   createInitialState,
   departCurrentWorld,
+  fabricateWorldEquipment,
   fabricateWorldSupply,
   formatDuration,
   formatNumber,
@@ -34,6 +35,7 @@ import {
   getCrisisReadiness,
   getCurrentViabilityForecast,
   getEffectiveCohesion,
+  getEquipmentFabricationQuote,
   getInfrastructureFluxCost,
   getLegacyUpgradeCost,
   getManualGain,
@@ -580,6 +582,20 @@ export default function Home() {
       ];
     }),
   );
+  const equipmentQuotes = Object.fromEntries(
+    campaignWorld.equipment.map((definition) => {
+      const quote = getEquipmentFabricationQuote(game, definition.id);
+      return [
+        definition.id,
+        {
+          canAfford: !quote.atLimit && game.flux >= quote.cost,
+          costLabel: quote.atLimit
+            ? "Fully deployed"
+            : `${formatNumber(quote.cost)} Flux`,
+        },
+      ];
+    }),
+  );
   const crisisQuotes = Object.fromEntries(
     campaignWorld.crisisIds.map((crisisId) => {
       const readiness = getCrisisReadiness(game, crisisId);
@@ -944,6 +960,16 @@ export default function Home() {
     const current = gameRef.current;
     const next = fabricateWorldSupply(current, supplyId);
     commitGameState(next, "Settlement supply batch moved into the departure reserve.");
+  };
+
+  const handleFabricateEquipment = (equipmentId: string) => {
+    const current = gameRef.current;
+    const next = fabricateWorldEquipment(current, equipmentId);
+    if (next === current) return;
+    commitGameState(
+      next,
+      `${equipmentId.replaceAll("-", " ")} fabricated. It now counts toward this world's continuity forecast.`,
+    );
   };
 
   const handleResolveCrisis = (crisisId: string) => {
@@ -1398,6 +1424,7 @@ export default function Home() {
           colonies={game.settlement.colonies}
           infrastructureQuotes={infrastructureQuotes}
           supplyQuotes={supplyQuotes}
+          equipmentQuotes={equipmentQuotes}
           crisisQuotes={crisisQuotes}
           pendingTransmission={pendingColonyTransmission ? {
             colonyName: pendingColonyTransmission.colonyName,
@@ -1406,6 +1433,7 @@ export default function Home() {
           onToggleSettler={handleToggleSettler}
           onCompleteInfrastructure={handleCompleteInfrastructure}
           onFabricateSupply={handleFabricateSupply}
+          onFabricateEquipment={handleFabricateEquipment}
           onResolveCrisis={handleResolveCrisis}
           onDepart={handleCampaignDeparture}
           onAcknowledgeTransmission={handleAcknowledgeTransmission}

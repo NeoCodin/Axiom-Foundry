@@ -507,7 +507,11 @@ function deficitFor(
       ...(role
         ? [`Train or recruit: ${role.acceptedRoles.join(", ")}.`]
         : []),
+      "Any crew member with an open profession slot can cross-train (Notable 2 · Exceptional 3 · Anomalous unlimited).",
       ...matchingSubstitutions(world, "role", requirement.id),
+      ...(world.equipment.length > 0
+        ? ["Matching equipment can be fabricated with Flux under World Works."]
+        : []),
     ];
   } else if (requirement.kind === "expertise") {
     alternatives = [

@@ -15,10 +15,12 @@ import {
   createSurvivorSystemState,
   getSurvivorRarity,
   getSurvivorSkillLevel,
+  RARE_SURVIVOR_HOOKS,
   sanitizeSurvivorSystemState,
   setSosBeaconOnline,
   setTrainingSlots,
   transferSurvivorsToSettlement,
+  type RareSurvivorHookId,
   type SurvivorSystemState,
 } from "./survivor-engine.ts";
 import {
@@ -291,9 +293,9 @@ export const MISSIONS = [
       },
       {
         kind: "contributeFlux",
-        target: 5_000,
+        target: 15_000,
         label: "Brake into Pelagos orbit",
-        instruction: "Divert 5,000 Flux into propulsion and life-support wakeup.",
+        instruction: "Divert 15,000 Flux into propulsion and life-support wakeup.",
         lore: "The maneuver also powers a sealed berth whose biometric log already contains an occupant ID.",
       },
     ],
@@ -339,9 +341,9 @@ export const MISSIONS = [
       },
       {
         kind: "contributeFlux",
-        target: 50_000,
+        target: 500_000,
         label: "Tow the oceans home",
-        instruction: "Divert 50,000 Flux into the gravity corridor.",
+        instruction: "Divert 500,000 Flux into the gravity corridor.",
         lore: "The corridor becomes a temporary law: water falls toward Pelagos, and nowhere else.",
       },
     ],
@@ -388,9 +390,9 @@ export const MISSIONS = [
       },
       {
         kind: "contributeFlux",
-        target: 2_500_000,
+        target: 250_000_000,
         label: "Seed the planetary clinic network",
-        instruction: "Divert 2.5 million Flux into Viridia's clinic and seed network.",
+        instruction: "Divert 250 million Flux into Viridia's clinic and seed network.",
         lore: "The final charge gives every enclave tools to treat the forest as a neighbor rather than an enemy.",
       },
     ],
@@ -436,9 +438,9 @@ export const MISSIONS = [
       },
       {
         kind: "contributeFlux",
-        target: 100_000_000,
+        target: 50_000_000_000,
         label: "Power the planetary works",
-        instruction: "Divert 100 million Flux into Cinder's planetary works.",
+        instruction: "Divert 50 billion Flux into Cinder's planetary works.",
         lore: "Power returns under a public charter. The old control keys are melted into the first shift bell.",
       },
     ],
@@ -485,9 +487,9 @@ export const MISSIONS = [
       },
       {
         kind: "contributeFlux",
-        target: 10_000_000_000,
+        target: 25_000_000_000_000,
         label: "Publish the shared record",
-        instruction: "Divert 10 billion Flux into Nox's open archive relay.",
+        instruction: "Divert 25 trillion Flux into Nox's open archive relay.",
         lore: "The record is copied into every settlement. AXIOM can no longer edit one truth in silence.",
       },
     ],
@@ -526,9 +528,9 @@ export const MISSIONS = [
       },
       {
         kind: "contributeFlux",
-        target: 1_000_000_000_000,
+        target: 2_000_000_000_000_000,
         label: "Charge the ark's law chamber",
-        instruction: "Divert 1 trillion Flux into Vesper's law chamber.",
+        instruction: "Divert 2 quadrillion Flux into Vesper's law chamber.",
         lore: "Vesper stores the work of an entire fabrication cycle as a question waiting for an answer.",
       },
       {
@@ -806,6 +808,22 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
   const settlement = sanitizeSettlementState(value.settlement);
   const worldProgress = sanitizeWorldProgress(value.worldProgress);
 
+  // Story-hook characters settled in colonies stay found forever, even in
+  // saves recorded before the rescued-hook ledger existed.
+  const settledFounderNames = new Set(
+    settlement.colonies.flatMap((colony) =>
+      colony.founders.map((founder) => founder.name.replace(/\s*“.*$/u, "")),
+    ),
+  );
+  survivors.rescuedHookIds = [
+    ...new Set<RareSurvivorHookId>([
+      ...survivors.rescuedHookIds,
+      ...RARE_SURVIVOR_HOOKS.filter((hook) =>
+        settledFounderNames.has(hook.name),
+      ).map((hook) => hook.id),
+    ]),
+  ];
+
   return {
     version: SAVE_VERSION,
     flux,
@@ -1017,6 +1035,50 @@ export function getSupplyFabricationQuote(
 
 export function getCrisisFluxCost(state: GameState) {
   return bounded(5_000 * continuityScale(state));
+}
+
+export type EquipmentFabricationQuote = {
+  cost: number;
+  owned: number;
+  maxUnits: number;
+  atLimit: boolean;
+};
+
+export function getEquipmentFabricationQuote(
+  state: GameState,
+  equipmentId: string,
+): EquipmentFabricationQuote {
+  const world = state.settlement.currentWorldId
+    ? getCampaignWorld(state.settlement.currentWorldId)
+    : null;
+  const definition = world?.equipment.find(
+    (candidate) => candidate.id === equipmentId,
+  );
+  if (!definition) {
+    return { cost: Number.POSITIVE_INFINITY, owned: 0, maxUnits: 0, atLimit: true };
+  }
+  const owned = state.worldProgress.equipment[equipmentId] ?? 0;
+  // Priced against live output so equipment stays a real decision at any
+  // economy size: roughly 40 minutes of current production, never below the
+  // world's continuity floor.
+  const production = getProductionSnapshot(state).fluxPerSecond;
+  const cost = bounded(
+    Math.max(4_000 * continuityScale(state), production * 2_400) *
+      getColonyLegacyEffects(state).fabricationCostMultiplier,
+  );
+  return { cost, owned, maxUnits: definition.maxUnits, atLimit: owned >= definition.maxUnits };
+}
+
+export function fabricateWorldEquipment(state: GameState, equipmentId: string) {
+  const quote = getEquipmentFabricationQuote(state, equipmentId);
+  if (quote.atLimit || state.flux < quote.cost) return state;
+  const next = cloneGameState(state);
+  next.flux -= quote.cost;
+  next.worldProgress.equipment = {
+    ...next.worldProgress.equipment,
+    [equipmentId]: quote.owned + 1,
+  };
+  return next;
 }
 
 export type CrisisRequirementCategory =
@@ -1932,6 +1994,9 @@ export function simulateGame(
     onJobXpMultiplier:
       survivorBonuses.trainingSpeedMultiplier *
       colonyBonuses.trainingSpeedMultiplier,
+    reservedNames: next.settlement.colonies.flatMap((colony) =>
+      colony.founders.map((founder) => founder.name.replace(/\s*“.*$/u, "")),
+    ),
   });
   const researchAdvance = advanceResearch(next.research, seconds, {
     powerAvailable: getResearchPowerAvailable(next),

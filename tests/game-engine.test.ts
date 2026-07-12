@@ -14,8 +14,10 @@ import {
   getCampaignCrewSummaries,
   getCampaignWorldIndex,
   getColonyLegacyEffects,
+  fabricateWorldEquipment,
   getCrisisFluxCost,
   getCrisisReadiness,
+  getEquipmentFabricationQuote,
   getCurrentViabilityForecast,
   getEffectiveCohesion,
   getMaxAffordableCount,
@@ -312,9 +314,9 @@ test("Cold Wake engineering waits for an explicit continuity departure", () => {
   state = simulateGame(state, 0.1, 1);
   assert.equal(state.missions.stageIndex, 2);
 
-  state.flux = 5_000;
-  state.maxFlux = 5_000;
-  state.runFlux = 5_000;
+  state.flux = 15_000;
+  state.maxFlux = 15_000;
+  state.runFlux = 15_000;
   state = contributeToMission(state);
 
   const readyForContinuity = simulateGame(state, 0.1, 1);
@@ -513,9 +515,9 @@ test("idle time cannot silently skip the continuity campaign", () => {
   state = simulateGame(state, 0.1, 1);
   state.tiers[0] = { amount: 25, bought: 25 };
   state = simulateGame(state, 0.1, 1);
-  state.flux = 5_000;
-  state.maxFlux = 5_000;
-  state.runFlux = 5_000;
+  state.flux = 15_000;
+  state.maxFlux = 15_000;
+  state.runFlux = 15_000;
   state = contributeToMission(state);
   state = simulateGame(state, 0.1, 1);
   assert.equal(state.missions.awaitingAcknowledgement, true);
@@ -671,4 +673,68 @@ test("colony legacies drive their named systems, prices, and effective cohesion"
   assert.equal(getEffectiveCohesion(state), 74);
   state.living.cohesion = 96;
   assert.equal(getEffectiveCohesion(state), 100);
+});
+
+test("continuity equipment is fabricated with Flux and feeds substitutions", () => {
+  const state = setTutorialComplete(createInitialState(0), true);
+  state.settlement.completedWorldIds = ["cold-wake"];
+  state.settlement.currentWorldId = "pelagos";
+
+  const unknownQuote = getEquipmentFabricationQuote(state, "not-real-equipment");
+  assert.equal(unknownQuote.atLimit, true);
+  assert.equal(fabricateWorldEquipment(state, "not-real-equipment"), state);
+
+  const quote = getEquipmentFabricationQuote(state, "mobile-field-clinic");
+  assert.ok(Number.isFinite(quote.cost));
+  assert.ok(quote.cost > 0);
+  assert.equal(quote.owned, 0);
+  assert.equal(quote.maxUnits, 1);
+  assert.equal(quote.atLimit, false);
+
+  // Cannot afford yet.
+  state.flux = quote.cost - 1;
+  assert.equal(fabricateWorldEquipment(state, "mobile-field-clinic"), state);
+
+  state.flux = quote.cost + 10;
+  const bought = fabricateWorldEquipment(state, "mobile-field-clinic");
+  assert.notEqual(bought, state);
+  assert.equal(bought.worldProgress.equipment["mobile-field-clinic"], 1);
+  assert.ok(bought.flux < state.flux);
+
+  // Owned units feed the viability forecast substitutions.
+  const forecast = getCurrentViabilityForecast(bought);
+  const medicalRole = forecast?.lines.find(
+    (line) => line.kind === "role" && line.id === "medical-team",
+  );
+  const medicineSkill = forecast?.lines.find(
+    (line) => line.kind === "expertise" && line.id === "medicine",
+  );
+  assert.equal(medicalRole?.substitutionValue, 1);
+  assert.equal(medicineSkill?.substitutionValue, 4);
+
+  // The unit limit is enforced.
+  const limitQuote = getEquipmentFabricationQuote(bought, "mobile-field-clinic");
+  assert.equal(limitQuote.atLimit, true);
+  bought.flux = limitQuote.cost * 2;
+  assert.equal(fabricateWorldEquipment(bought, "mobile-field-clinic"), bought);
+});
+
+test("equipment prices scale with live production so Flux stays relevant", () => {
+  const idle = setTutorialComplete(createInitialState(0), true);
+  idle.settlement.completedWorldIds = ["cold-wake"];
+  idle.settlement.currentWorldId = "pelagos";
+  const idleQuote = getEquipmentFabricationQuote(idle, "mobile-field-clinic");
+
+  const industrial = setTutorialComplete(createInitialState(0), true);
+  industrial.settlement.completedWorldIds = ["cold-wake"];
+  industrial.settlement.currentWorldId = "pelagos";
+  industrial.missions.currentIndex = 1;
+  industrial.tiers[0] = { amount: 500, bought: 500 };
+  industrial.maxFlux = 1_000_000;
+  const industrialQuote = getEquipmentFabricationQuote(
+    industrial,
+    "mobile-field-clinic",
+  );
+
+  assert.ok(industrialQuote.cost > idleQuote.cost);
 });

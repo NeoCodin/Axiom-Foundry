@@ -13,8 +13,11 @@ import {
   PROFESSIONAL_ROLES,
   SURVIVOR_RARITY_DEFINITIONS,
   TRAIT_DEFINITIONS,
+  canSurvivorLearnProfession,
   getLifeSupportStatus,
   getPopulationRoleCounts,
+  getSurvivorProfessionCapacity,
+  getSurvivorProfessionCount,
   getSurvivorRarity,
   getSurvivorLearningMultiplier,
   getSurvivorOnJobXpPerHour,
@@ -216,7 +219,7 @@ function PopulationConsole({
               </span>
             ))}
           </div>
-          <small className="crew-rarity-note">Color measures how scarce a profile&apos;s aptitudes and traits are—never the worth of a person. Rarity speeds training and job XP; it never multiplies Continuity expertise directly.</small>
+          <small className="crew-rarity-note">Color measures how scarce a profile&apos;s aptitudes and traits are—never the worth of a person. Rarity speeds training and job XP and sets profession capacity (Standard 1 · Notable 2 · Exceptional 3 · Anomalous unlimited); it never multiplies Continuity expertise directly.</small>
         </section>
       </div>
 
@@ -264,6 +267,10 @@ function PopulationConsole({
                     <span>PERSONAL LEARNING</span>
                     <strong>×{getSurvivorLearningMultiplier(selectedCrew).toFixed(2)}</strong>
                     <small>Ark instruction ×{crewGrowthMultiplier.toFixed(2)}</small>
+                    <small>
+                      Profession slots {getSurvivorProfessionCount(selectedCrew)}/
+                      {getSurvivorProfessionCapacity(selectedCrew)} · {selectedRarity?.label ?? "Standard"} capacity
+                    </small>
                   </div>
                 </div>
                 {selectedSkillProgress && (
@@ -314,7 +321,11 @@ function PopulationConsole({
               ) : (
                 <div className="crew-actions-grid">
                   <label>Working assignment<select value={selectedCrew.assignedRole ?? ""} onChange={(event) => onAssignRole(selectedCrew.id, event.target.value ? event.target.value as SurvivorRole : null)}><option value="">Unassigned</option>{selectedCrew.role === "civilian" && <option value="civilian">Civilian support</option>}{PROFESSIONAL_ROLES.filter((role) => selectedCrew.role === role || getSurvivorSkillLevel(selectedCrew, role) > 0).map((role) => <option key={role} value={role}>{titleCase(role)}</option>)}</select></label>
-                  <label>Training program<select defaultValue="" onChange={(event) => { if (event.target.value) onStartTraining(selectedCrew.id, event.target.value as ProfessionalRole); event.target.value = ""; }}><option value="">Choose profession…</option>{PROFESSIONAL_ROLES.filter((role) => getSurvivorSkillLevel(selectedCrew, role) === 0).map((role) => { const quote = getTrainingQuote(selectedCrew, role); return <option key={role} value={role}>{titleCase(role)} · {formatTime(quote.durationSeconds / crewGrowthMultiplier)}</option>; })}</select></label>
+                  <label>Training program{getSurvivorProfessionCount(selectedCrew) >= getSurvivorProfessionCapacity(selectedCrew) ? (
+                    <select disabled value=""><option value="">{`Profession capacity reached (${getSurvivorProfessionCapacity(selectedCrew)})`}</option></select>
+                  ) : (
+                    <select defaultValue="" onChange={(event) => { if (event.target.value) onStartTraining(selectedCrew.id, event.target.value as ProfessionalRole); event.target.value = ""; }}><option value="">Choose profession…</option>{PROFESSIONAL_ROLES.filter((role) => canSurvivorLearnProfession(selectedCrew, role)).map((role) => { const quote = getTrainingQuote(selectedCrew, role); return <option key={role} value={role}>{titleCase(role)} · {formatTime(quote.durationSeconds / crewGrowthMultiplier)}</option>; })}</select>
+                  )}</label>
                 </div>
               )}
             </>

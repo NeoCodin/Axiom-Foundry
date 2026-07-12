@@ -32,11 +32,13 @@ export type SettlementConsoleProps = {
   colonies: readonly ColonyRecord[];
   infrastructureQuotes: Readonly<Record<string, ContinuityActionQuote>>;
   supplyQuotes: Readonly<Record<string, ContinuityActionQuote>>;
+  equipmentQuotes: Readonly<Record<string, ContinuityActionQuote>>;
   crisisQuotes: Readonly<Record<string, ContinuityActionQuote>>;
   pendingTransmission: { colonyName: string; transmission: string } | null;
   onToggleSettler: (crewId: string) => void;
   onCompleteInfrastructure: (objectiveId: string) => void;
   onFabricateSupply: (supplyId: string) => void;
+  onFabricateEquipment: (equipmentId: string) => void;
   onResolveCrisis: (crisisId: string) => void;
   onDepart: (colonyName: string) => void;
   onAcknowledgeTransmission: () => void;
@@ -58,11 +60,13 @@ function SettlementConsole({
   colonies,
   infrastructureQuotes,
   supplyQuotes,
+  equipmentQuotes,
   crisisQuotes,
   pendingTransmission,
   onToggleSettler,
   onCompleteInfrastructure,
   onFabricateSupply,
+  onFabricateEquipment,
   onResolveCrisis,
   onDepart,
   onAcknowledgeTransmission,
@@ -155,6 +159,24 @@ function SettlementConsole({
               const complete = current >= requirement.amount;
               const quote = supplyQuotes[requirement.id];
               return <article className={`world-progress-action ${complete ? "is-complete" : ""}`} key={requirement.id}><div><strong>{requirement.label}</strong><small>{current}/{requirement.amount} stored · batches remain through departure</small></div>{complete ? <span>STOCKED</span> : <button type="button" disabled={!quote?.canAfford} onClick={() => onFabricateSupply(requirement.id)}>{quote?.costLabel ?? "Unavailable"}</button>}</article>;
+            })}
+            {world.equipment.map((definition) => {
+              const owned = progress.equipment[definition.id] ?? 0;
+              const complete = owned >= definition.maxUnits;
+              const quote = equipmentQuotes[definition.id];
+              return (
+                <article className={`world-progress-action ${complete ? "is-complete" : ""}`} key={definition.id}>
+                  <div>
+                    <strong>{definition.name}</strong>
+                    <small>{owned}/{definition.maxUnits} built · {definition.description}</small>
+                  </div>
+                  {complete ? (
+                    <span>DEPLOYED</span>
+                  ) : (
+                    <button type="button" disabled={!quote?.canAfford} onClick={() => onFabricateEquipment(definition.id)}>{quote?.costLabel ?? "Unavailable"}</button>
+                  )}
+                </article>
+              );
             })}
             {world.crisisIds.map((crisisId) => {
               const complete = progress.resolvedCrisisIds.includes(crisisId);

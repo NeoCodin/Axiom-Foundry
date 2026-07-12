@@ -64,6 +64,13 @@ export type SupplyRequirement = {
   amount: number;
 };
 
+export type EquipmentDefinition = {
+  id: string;
+  name: string;
+  description: string;
+  maxUnits: number;
+};
+
 export type ContinuitySubstitution = {
   id: string;
   label: string;
@@ -105,6 +112,7 @@ export type CampaignWorldDefinition = {
   expertiseRequirements: readonly ExpertiseRequirement[];
   profileRequirements: readonly ProfileRequirement[];
   supplyRequirements: readonly SupplyRequirement[];
+  equipment: readonly EquipmentDefinition[];
   requiredResearchIds: readonly string[];
   crisisIds: readonly string[];
   substitutions: readonly ContinuitySubstitution[];
@@ -157,6 +165,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     supplyRequirements: [
       { id: "reserve-power", label: "Reserve power cells", amount: 12 },
     ],
+    equipment: [],
     requiredResearchIds: ["closed-loop-atmosphere"],
     crisisIds: ["ark-reactor-desynchronization"],
     substitutions: [],
@@ -253,6 +262,15 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
       { id: "settlement-supplies", label: "Settlement supplies", amount: 500 },
       { id: "water-modules", label: "Water-processing modules", amount: 4 },
     ],
+    equipment: [
+      {
+        id: "mobile-field-clinic",
+        name: "Mobile field clinic",
+        description:
+          "A self-contained treatment bay that can stand in for one medical post and supplement medical expertise.",
+        maxUnits: 1,
+      },
+    ],
     requiredResearchIds: ["continuity-index", "adaptive-instruction"],
     crisisIds: ["pelagos-brine-sickness"],
     substitutions: [
@@ -282,7 +300,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
         targetKind: "role",
         targetId: "education-team",
         sourceKind: "research",
-        sourceId: "adaptive-curriculum",
+        sourceId: "adaptive-instruction",
         contribution: 1,
         maxContribution: 1,
       },
@@ -380,6 +398,15 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
       { id: "settlement-supplies", label: "Settlement supplies", amount: 900 },
       { id: "gene-samplers", label: "Gene samplers", amount: 6 },
     ],
+    equipment: [
+      {
+        id: "autonomous-growbed",
+        name: "Autonomous growbed",
+        description:
+          "A sealed cultivation module that tends itself; each unit can cover an ecology post.",
+        maxUnits: 2,
+      },
+    ],
     requiredResearchIds: ["clinical-commons", "predictive-fabrication"],
     crisisIds: ["viridia-spore-fever"],
     substitutions: [
@@ -399,7 +426,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
         targetKind: "expertise",
         targetId: "medicine",
         sourceKind: "research",
-        sourceId: "predictive-epidemiology",
+        sourceId: "clinical-commons",
         contribution: 5,
         maxContribution: 5,
       },
@@ -486,9 +513,9 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
       },
     ],
     expertiseRequirements: [
-      { id: "engineering", label: "Engineering expertise", total: 28 },
-      { id: "fabrication", label: "Fabrication expertise", total: 22 },
-      { id: "medicine", label: "Medical expertise", total: 12 },
+      { id: "engineering", label: "Engineering expertise", total: 36 },
+      { id: "fabrication", label: "Fabrication expertise", total: 28 },
+      { id: "medicine", label: "Medical expertise", total: 14 },
       { id: "leadership", label: "Leadership expertise", total: 9 },
       { id: "research", label: "Research expertise", total: 8 },
     ],
@@ -503,6 +530,15 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     supplyRequirements: [
       { id: "settlement-supplies", label: "Settlement supplies", amount: 1_500 },
       { id: "thermal-regulators", label: "Thermal regulators", amount: 8 },
+    ],
+    equipment: [
+      {
+        id: "automated-fabricator-rig",
+        name: "Automated fabricator rig",
+        description:
+          "A crewless forge line certified for the mantle grid; each rig can cover a fabrication post.",
+        maxUnits: 2,
+      },
     ],
     requiredResearchIds: ["predictive-fabrication", "settlement-charter"],
     crisisIds: ["cinder-mantle-cascade"],
@@ -523,7 +559,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
         targetKind: "expertise",
         targetId: "engineering",
         sourceKind: "research",
-        sourceId: "mantle-digital-twin",
+        sourceId: "predictive-fabrication",
         contribution: 6,
         maxContribution: 6,
       },
@@ -647,6 +683,15 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
       { id: "settlement-supplies", label: "Settlement supplies", amount: 2_300 },
       { id: "relay-cores", label: "Authenticated relay cores", amount: 10 },
     ],
+    equipment: [
+      {
+        id: "relay-agent",
+        name: "Authenticated relay agent",
+        description:
+          "A signed autonomous transceiver; each agent can cover a communications post.",
+        maxUnits: 2,
+      },
+    ],
     requiredResearchIds: ["settlement-charter", "discarded-spectrum"],
     crisisIds: ["nox-echo-schism"],
     substitutions: [
@@ -666,7 +711,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
         targetKind: "expertise",
         targetId: "leadership",
         sourceKind: "research",
-        sourceId: "public-proof-ledger",
+        sourceId: "observer-recursion",
         contribution: 5,
         maxContribution: 5,
       },
@@ -765,12 +810,12 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
       },
     ],
     expertiseRequirements: [
-      { id: "research", label: "Research expertise", total: 38 },
-      { id: "null-studies", label: "Null Studies expertise", total: 30 },
-      { id: "engineering", label: "Engineering expertise", total: 32 },
-      { id: "medicine", label: "Medical expertise", total: 20 },
-      { id: "education", label: "Education expertise", total: 20 },
-      { id: "leadership", label: "Leadership expertise", total: 18 },
+      { id: "research", label: "Research expertise", total: 58 },
+      { id: "null-studies", label: "Null Studies expertise", total: 42 },
+      { id: "engineering", label: "Engineering expertise", total: 48 },
+      { id: "medicine", label: "Medical expertise", total: 24 },
+      { id: "education", label: "Education expertise", total: 28 },
+      { id: "leadership", label: "Leadership expertise", total: 20 },
     ],
     profileRequirements: [
       {
@@ -789,6 +834,15 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     supplyRequirements: [
       { id: "settlement-supplies", label: "Settlement supplies", amount: 3_400 },
       { id: "null-stabilizers", label: "Null stabilizers", amount: 12 },
+    ],
+    equipment: [
+      {
+        id: "analysis-cluster",
+        name: "Analysis cluster",
+        description:
+          "A sealed observatory computer bank; each cluster can cover a research post.",
+        maxUnits: 2,
+      },
     ],
     requiredResearchIds: ["ark-drive-coupling", "axiom-origin-proof"],
     crisisIds: ["vesper-causal-breach"],
@@ -809,7 +863,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
         targetKind: "expertise",
         targetId: "null-studies",
         sourceKind: "research",
-        sourceId: "recovered-null-model",
+        sourceId: "observer-recursion",
         contribution: 8,
         maxContribution: 8,
       },

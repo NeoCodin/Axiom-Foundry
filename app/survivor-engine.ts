@@ -147,6 +147,7 @@ export type SurvivorAdvanceModifiers = {
   trainingSpeedMultiplier?: number;
   beaconSpeedMultiplier?: number;
   onJobXpMultiplier?: number;
+  reservedNames?: readonly string[];
 };
 
 export type SurvivorSystemState = {
@@ -168,6 +169,7 @@ export type SurvivorSystemState = {
   rarePity: number;
   qualityPity: number;
   rolePity: Record<ProfessionalRole, number>;
+  rescuedHookIds: RareSurvivorHookId[];
 };
 
 export type BackgroundDefinition = {
@@ -451,6 +453,22 @@ const FIRST_NAMES = [
   "Wren",
   "Yara",
   "Zev",
+  "Anouk",
+  "Bram",
+  "Coral",
+  "Davi",
+  "Esk",
+  "Fenna",
+  "Gil",
+  "Halla",
+  "Imre",
+  "Jesse",
+  "Kova",
+  "Lumen",
+  "Marlo",
+  "Noor",
+  "Osha",
+  "Petra",
 ] as const;
 
 const LAST_NAMES = [
@@ -478,6 +496,22 @@ const LAST_NAMES = [
   "Ward",
   "Yarrow",
   "Zoryn",
+  "Ashfall",
+  "Brine",
+  "Calder",
+  "Deep",
+  "Ellum",
+  "Frost",
+  "Greel",
+  "Harrow",
+  "Isle",
+  "Krace",
+  "Loess",
+  "Mire",
+  "Naut",
+  "Osprey",
+  "Pike",
+  "Reef",
 ] as const;
 
 const SIGNAL_SOURCES = [
@@ -659,6 +693,7 @@ export function cloneSurvivorSystemState(
     lifeSupport: { ...state.lifeSupport },
     training: state.training.map((program) => ({ ...program })),
     rolePity: { ...state.rolePity },
+    rescuedHookIds: [...state.rescuedHookIds],
   };
 }
 
@@ -685,13 +720,29 @@ export function createSurvivorSystemState(
     rarePity: 0,
     qualityPity: 0,
     rolePity: makeRolePity(),
+    rescuedHookIds: [],
   };
+}
+
+const NAME_REROLL_ATTEMPTS = 24;
+
+function generateUniqueName(
+  state: SurvivorSystemState,
+  usedNames: ReadonlySet<string>,
+) {
+  let name = "";
+  for (let attempt = 0; attempt < NAME_REROLL_ATTEMPTS; attempt += 1) {
+    name = `${randomFrom(state, FIRST_NAMES)} ${randomFrom(state, LAST_NAMES)}`;
+    if (!usedNames.has(name)) return name;
+  }
+  return name;
 }
 
 function createProceduralSurvivor(
   state: SurvivorSystemState,
   role: SurvivorRole,
   signalId: string,
+  usedNames: ReadonlySet<string> = new Set(),
 ): Survivor {
   const matchingBackgrounds = BACKGROUND_DEFINITIONS.filter((background) =>
     background.preferredRoles.includes(role),
@@ -735,7 +786,7 @@ function createProceduralSurvivor(
   const serial = state.nextSurvivorSerial++;
   return {
     id: `survivor-${serial}`,
-    name: `${randomFrom(state, FIRST_NAMES)} ${randomFrom(state, LAST_NAMES)}`,
+    name: generateUniqueName(state, usedNames),
     callsign: "",
     origin: state.beaconWorldId ?? "unknown",
     originSignalId: signalId,
@@ -756,8 +807,9 @@ function createRareSurvivor(
   state: SurvivorSystemState,
   hook: (typeof RARE_SURVIVOR_HOOKS)[number],
   signalId: string,
+  usedNames: ReadonlySet<string> = new Set(),
 ): Survivor {
-  const survivor = createProceduralSurvivor(state, hook.role, signalId);
+  const survivor = createProceduralSurvivor(state, hook.role, signalId, usedNames);
   survivor.name = hook.name;
   survivor.backgroundId = hook.backgroundId;
   survivor.storyHookId = hook.id;
@@ -795,7 +847,10 @@ function elevateSurvivorToExceptional(survivor: Survivor) {
   survivor.aptitudes[tertiary] = Math.max(3, survivor.aptitudes[tertiary]);
 }
 
-function generateSurvivorSignalMutable(state: SurvivorSystemState) {
+function generateSurvivorSignalMutable(
+  state: SurvivorSystemState,
+  reservedNames: readonly string[] = [],
+) {
   if (!state.beaconOnline || state.activeSignal) return;
   const sequence = state.signalsGenerated + 1;
   const beaconWorldId = state.beaconWorldId ?? SOS_WORLD_ID;
@@ -811,18 +866,36 @@ function generateSurvivorSignalMutable(state: SurvivorSystemState) {
   if (pityRole && roles.length < groupSize) roles.push(pityRole);
   while (roles.length < groupSize) roles.push(randomFrom(state, RANDOM_ROLE_POOL));
 
+  const usedNames = new Set<string>([
+    ...state.survivors.map((survivor) => survivor.name),
+    ...reservedNames,
+  ]);
+  const foundHookIds = new Set<RareSurvivorHookId>([
+    ...state.rescuedHookIds,
+    ...state.survivors
+      .map((survivor) => survivor.storyHookId)
+      .filter((hookId): hookId is RareSurvivorHookId => hookId !== null),
+  ]);
+  const remainingHooks = RARE_SURVIVOR_HOOKS.filter(
+    (hook) => !foundHookIds.has(hook.id),
+  );
+
   const rareChance = Math.min(0.2, 0.035 + state.rarePity * 0.015);
   const includesRare =
-    state.rarePity >= RARE_PITY_LIMIT || nextRandom(state) < rareChance;
-  const survivors = roles.map((role) =>
-    createProceduralSurvivor(state, role, signalId),
-  );
+    remainingHooks.length > 0 &&
+    (state.rarePity >= RARE_PITY_LIMIT || nextRandom(state) < rareChance);
+  const survivors = roles.map((role) => {
+    const survivor = createProceduralSurvivor(state, role, signalId, usedNames);
+    usedNames.add(survivor.name);
+    return survivor;
+  });
   if (includesRare) {
-    const hook = randomFrom(state, RARE_SURVIVOR_HOOKS);
+    const hook = randomFrom(state, remainingHooks);
     survivors[survivors.length - 1] = createRareSurvivor(
       state,
       hook,
       signalId,
+      usedNames,
     );
   }
 
@@ -1040,6 +1113,14 @@ export function rescueSurvivorSignal(
     joinedAt: next.operationalSeconds,
   }));
   next.survivors.push(...arrivals);
+  next.rescuedHookIds = [
+    ...new Set([
+      ...next.rescuedHookIds,
+      ...arrivals
+        .map((survivor) => survivor.storyHookId)
+        .filter((hookId): hookId is RareSurvivorHookId => hookId !== null),
+    ]),
+  ];
   next.activeSignal = null;
   next.beaconProgressSeconds = 0;
   next.signalsResolved += 1;
@@ -1147,6 +1228,33 @@ export function isSurvivorQualified(
   return survivor.role === role || survivor.skillXp[role] > 0;
 }
 
+export const PROFESSION_CAPACITY: Record<SurvivorRarityId, number> = {
+  standard: 1,
+  notable: 2,
+  exceptional: 3,
+  anomalous: PROFESSIONAL_ROLES.length,
+};
+
+export function getSurvivorProfessionCount(survivor: Survivor) {
+  return PROFESSIONAL_ROLES.filter((role) =>
+    isSurvivorQualified(survivor, role),
+  ).length;
+}
+
+export function getSurvivorProfessionCapacity(survivor: Survivor) {
+  return PROFESSION_CAPACITY[getSurvivorRarity(survivor).id];
+}
+
+export function canSurvivorLearnProfession(
+  survivor: Survivor,
+  role: ProfessionalRole,
+) {
+  if (isSurvivorQualified(survivor, role)) return false;
+  // Crew already over capacity (from earlier releases) keep everything they
+  // know; the capacity only limits additional professions.
+  return getSurvivorProfessionCount(survivor) < getSurvivorProfessionCapacity(survivor);
+}
+
 export type TrainingQuote = {
   survivorId: string;
   targetRole: ProfessionalRole;
@@ -1196,7 +1304,7 @@ export function startSurvivorTraining(
     return state;
   }
   const survivor = state.survivors.find((candidate) => candidate.id === survivorId);
-  if (!survivor || isSurvivorQualified(survivor, targetRole)) return state;
+  if (!survivor || !canSurvivorLearnProfession(survivor, targetRole)) return state;
   const quote = getTrainingQuote(survivor, targetRole);
   const next = cloneSurvivorSystemState(state);
   next.survivors.find((candidate) => candidate.id === survivorId)!.assignedRole =
@@ -1275,6 +1383,14 @@ export function transferSurvivorsToSettlement(
   if (transferred.length === 0) return state;
   const transferredIds = new Set(transferred.map((survivor) => survivor.id));
   const next = cloneSurvivorSystemState(state);
+  next.rescuedHookIds = [
+    ...new Set([
+      ...next.rescuedHookIds,
+      ...transferred
+        .map((survivor) => survivor.storyHookId)
+        .filter((hookId): hookId is RareSurvivorHookId => hookId !== null),
+    ]),
+  ];
   next.survivors = next.survivors.filter(
     (survivor) => !transferredIds.has(survivor.id),
   );
@@ -1376,7 +1492,7 @@ export function advanceSurvivorSystem(
       next.beaconProgressSeconds + elapsed * beaconSpeed,
     );
     if (next.beaconProgressSeconds >= SOS_SCAN_SECONDS) {
-      generateSurvivorSignalMutable(next);
+      generateSurvivorSignalMutable(next, modifiers.reservedNames ?? []);
     }
   }
   return next;
@@ -1509,12 +1625,18 @@ export function sanitizeSurvivorSystemState(value: unknown): SurvivorSystemState
     rarePity: whole(value.rarePity, 0, 100),
     qualityPity: whole(value.qualityPity, 0, 100),
     rolePity: makeRolePity(),
+    rescuedHookIds: [],
   };
 
   const rawRolePity = isRecord(value.rolePity) ? value.rolePity : {};
   for (const role of PROFESSIONAL_ROLES) {
     state.rolePity[role] = whole(rawRolePity[role], 0, 100);
   }
+
+  const rawHookIds = Array.isArray(value.rescuedHookIds)
+    ? value.rescuedHookIds
+    : [];
+  state.rescuedHookIds = [...new Set(rawHookIds.filter(isRareHookId))];
 
   const survivorIds = new Set<string>();
   const rawSurvivors = Array.isArray(value.survivors) ? value.survivors : [];
@@ -1524,6 +1646,14 @@ export function sanitizeSurvivorSystemState(value: unknown): SurvivorSystemState
     survivorIds.add(survivor.id);
     state.survivors.push(survivor);
   }
+  state.rescuedHookIds = [
+    ...new Set([
+      ...state.rescuedHookIds,
+      ...state.survivors
+        .map((survivor) => survivor.storyHookId)
+        .filter((hookId): hookId is RareSurvivorHookId => hookId !== null),
+    ]),
+  ];
 
   if (isRecord(value.activeSignal)) {
     const rawSignal = value.activeSignal;

@@ -838,3 +838,158 @@ test("planetary founders transfer out of the Ark roster without mutating its rec
     transferred,
   );
 });
+
+test("survivor names never duplicate people aboard or reserved colony founders", () => {
+  let state = setSosBeaconOnline(
+    supportPopulation(createSurvivorSystemState(31_337), 200),
+    true,
+    "pelagos",
+  );
+  const reservedNames = ["Wren Vale", "Cato Rook"];
+  for (let signal = 0; signal < 14; signal += 1) {
+    state = advanceSurvivorSystem(state, SOS_SCAN_SECONDS, {
+      reservedNames,
+    });
+    assert.ok(state.activeSignal);
+    const result = rescueSurvivorSignal(state, 1_000_000);
+    assert.ok(result.rescued);
+    state = result.state;
+  }
+
+  const names = state.survivors
+    .filter((survivor) => survivor.storyHookId === null)
+    .map((survivor) => survivor.name);
+  assert.equal(new Set(names).size, names.length);
+  for (const reserved of reservedNames) {
+    assert.ok(!names.includes(reserved));
+  }
+});
+
+test("authored story-hook characters are rescued at most once per campaign", () => {
+  let state = setSosBeaconOnline(
+    supportPopulation(createSurvivorSystemState(555_777), 400),
+    true,
+    "pelagos",
+  );
+  const foundHooks: string[] = [];
+  for (let signal = 0; signal < 90; signal += 1) {
+    state = advanceSurvivorSystem(state, SOS_SCAN_SECONDS);
+    assert.ok(state.activeSignal);
+    const hooked = state.activeSignal!.survivors.find(
+      (survivor) => survivor.storyHookId !== null,
+    );
+    if (hooked) foundHooks.push(hooked.storyHookId!);
+    const result = rescueSurvivorSignal(state, 1_000_000);
+    assert.ok(result.rescued);
+    state = result.state;
+  }
+
+  assert.equal(new Set(foundHooks).size, foundHooks.length);
+  assert.equal(foundHooks.length, RARE_SURVIVOR_HOOKS.length);
+  assert.deepEqual(
+    [...state.rescuedHookIds].sort(),
+    RARE_SURVIVOR_HOOKS.map((hook) => hook.id).sort(),
+  );
+});
+
+test("settled story-hook characters stay excluded after transfer and reload", () => {
+  let state = setSosBeaconOnline(
+    supportPopulation(createSurvivorSystemState(42_424), 400),
+    true,
+    "pelagos",
+  );
+  let hookedId: string | null = null;
+  while (!hookedId) {
+    state = advanceSurvivorSystem(state, SOS_SCAN_SECONDS);
+    const result = rescueSurvivorSignal(state, 1_000_000);
+    assert.ok(result.rescued);
+    state = result.state;
+    hookedId =
+      state.survivors.find((survivor) => survivor.storyHookId !== null)?.id ??
+      null;
+  }
+  const hook = state.survivors.find((survivor) => survivor.id === hookedId)!;
+  const transferred = transferSurvivorsToSettlement(state, [hookedId]);
+  assert.ok(transferred.rescuedHookIds.includes(hook.storyHookId!));
+
+  const reloaded = sanitizeSurvivorSystemState(
+    JSON.parse(JSON.stringify(transferred)),
+  );
+  assert.ok(reloaded.rescuedHookIds.includes(hook.storyHookId!));
+});
+
+test("profession capacity follows rarity and blocks training past the limit", () => {
+  const capacityByRarity = {
+    standard: 1,
+    notable: 2,
+    exceptional: 3,
+  } as const;
+
+  for (const [rarity, capacity] of Object.entries(capacityByRarity)) {
+    const specialist = survivorWithRarity(rarity as keyof typeof capacityByRarity);
+    specialist.id = `${rarity}-specialist`;
+    specialist.role = "engineer";
+    specialist.skillXp = { engineer: 25 };
+    let state = sanitizeSurvivorSystemState({
+      rngState: 1,
+      trainingSlots: 12,
+      survivors: [specialist],
+    });
+
+    const roles = ["doctor", "farmer", "teacher", "navigator"] as const;
+    let learned = 1;
+    for (const role of roles) {
+      const before = state;
+      state = startSurvivorTraining(state, specialist.id, role);
+      if (state !== before) {
+        state = advanceSurvivorSystem(state, 100 * 3_600);
+        learned += 1;
+      }
+    }
+    assert.equal(learned, capacity, `${rarity} should cap at ${capacity}`);
+  }
+});
+
+test("anomalous crew may learn every profession", () => {
+  const anomalous = survivorWithRarity("anomalous");
+  anomalous.id = "anomalous-crew";
+  let state = sanitizeSurvivorSystemState({
+    rngState: 1,
+    trainingSlots: 12,
+    survivors: [anomalous],
+  });
+
+  for (const role of PROFESSIONAL_ROLES) {
+    const before = state;
+    state = startSurvivorTraining(state, anomalous.id, role);
+    if (state !== before) {
+      state = advanceSurvivorSystem(state, 200 * 3_600);
+    }
+  }
+  const survivor = state.survivors[0]!;
+  const qualified = PROFESSIONAL_ROLES.filter(
+    (role) => survivor.role === role || survivor.skillXp[role] > 0,
+  );
+  assert.equal(qualified.length, PROFESSIONAL_ROLES.length);
+});
+
+test("crew already beyond the new capacity keep every profession they learned", () => {
+  const veteran = survivorWithRarity("standard");
+  veteran.id = "grandfathered-veteran";
+  veteran.role = "engineer";
+  veteran.skillXp = { engineer: 500, doctor: 400, farmer: 300 };
+  const state = sanitizeSurvivorSystemState({
+    rngState: 1,
+    trainingSlots: 12,
+    survivors: [veteran],
+  });
+
+  const reloaded = state.survivors[0]!;
+  assert.ok(reloaded.skillXp.doctor >= 400);
+  assert.ok(reloaded.skillXp.farmer >= 300);
+  assert.equal(getSurvivorSkillLevel(reloaded, "doctor") > 0, true);
+  assert.equal(
+    startSurvivorTraining(state, veteran.id, "teacher"),
+    state,
+  );
+});
