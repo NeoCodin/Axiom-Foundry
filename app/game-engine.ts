@@ -10,6 +10,19 @@ import {
 } from "./living-foundry-engine.ts";
 import { syncAutomaticDiscoveries } from "./discovery-engine.ts";
 import {
+  advanceDefense,
+  cloneDefenseState,
+  createDefenseState,
+  getDefenseProductionMultiplier,
+  getInstallationCost,
+  sanitizeDefenseState,
+  setDefenseDoctrine,
+  upgradeDefenseInstallation,
+  type DefenseDoctrine,
+  type DefenseInstallationId,
+  type DefenseState,
+} from "./defense-engine.ts";
+import {
   advanceSurvivorSystem,
   BERTH_CONSTRUCTION_BASE_SECONDS,
   BERTHS_PER_SECTION,
@@ -136,6 +149,7 @@ export type GameState = {
   researchStock: ResearchInputBundle;
   settlement: SettlementState;
   worldProgress: WorldProgressSummary;
+  defense: DefenseState;
   settings: GameSettings;
   manualPulses: number;
   playTime: number;
@@ -652,6 +666,7 @@ export function createInitialState(now = Date.now()): GameState {
     researchStock: emptyResearchStock(),
     settlement: createSettlementState(),
     worldProgress: emptyWorldProgress(),
+    defense: createDefenseState(),
     settings: {
       buyMode: "1",
       autoEnabled: false,
@@ -863,6 +878,7 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
     researchStock,
     settlement,
     worldProgress,
+    defense: sanitizeDefenseState(value.defense),
     settings: {
       buyMode:
         rawSettings.buyMode === "10" || rawSettings.buyMode === "max"
@@ -910,6 +926,7 @@ export function cloneGameState(state: GameState): GameState {
       supplies: { ...state.worldProgress.supplies },
       equipment: { ...state.worldProgress.equipment },
     },
+    defense: cloneDefenseState(state.defense),
     settings: {
       ...state.settings,
       autoTiers: [...state.settings.autoTiers],
@@ -1152,6 +1169,48 @@ export function getBerthConstructionQuote(
     engineerCount: getAssignedEngineerCount(state),
     speedMultiplier: getBerthConstructionSpeed(state),
   };
+}
+
+export function getDefenseInstallationQuote(
+  state: GameState,
+  installationId: DefenseInstallationId,
+) {
+  const cost = getInstallationCost(
+    state.defense,
+    installationId,
+    continuityScale(state),
+  );
+  return {
+    cost,
+    level: state.defense.installations[installationId],
+    maxed: !Number.isFinite(cost),
+    canAfford: Number.isFinite(cost) && state.flux >= cost,
+  };
+}
+
+export function buyDefenseInstallation(
+  state: GameState,
+  installationId: DefenseInstallationId,
+) {
+  const quote = getDefenseInstallationQuote(state, installationId);
+  if (quote.maxed || state.flux < quote.cost) return state;
+  const defense = upgradeDefenseInstallation(state.defense, installationId);
+  if (defense === state.defense) return state;
+  const next = cloneGameState(state);
+  next.flux = Math.max(0, next.flux - quote.cost);
+  next.defense = defense;
+  return next;
+}
+
+export function chooseDefenseDoctrine(
+  state: GameState,
+  doctrine: DefenseDoctrine,
+) {
+  const defense = setDefenseDoctrine(state.defense, doctrine);
+  if (defense === state.defense) return state;
+  const next = cloneGameState(state);
+  next.defense = defense;
+  return next;
 }
 
 export function startArkBerthConstruction(state: GameState) {
@@ -1752,6 +1811,7 @@ export function getProductionSnapshot(state: GameState) {
   const livingBonuses = getLivingFoundryBonuses(state.living);
   const researchBonuses = getResearchBonuses(state.research);
   const colonyLegacyEffects = getColonyLegacyEffects(state);
+  const defenseMultiplier = getDefenseProductionMultiplier(state.defense);
   const globalMultiplier = safeMultiply(
     safeMultiply(
       safeMultiply(flowMultiplier, legacyMultiplier),
@@ -1761,7 +1821,8 @@ export function getProductionSnapshot(state: GameState) {
       livingBonuses.productionMultiplier *
       researchBonuses.productionMultiplier *
       relayMultiplier *
-      colonyLegacyEffects.cohesionProductionMultiplier,
+      colonyLegacyEffects.cohesionProductionMultiplier *
+      defenseMultiplier,
   );
   const resonance = getResonanceDetails(state);
   const higherTierMultiplier = 1 + 0.3 * state.runUpgrades[2];
@@ -1978,6 +2039,7 @@ export function recalibrate(state: GameState, now = Date.now()) {
     fresh.researchStock["axiom-proofs"] + gain * 8,
   );
   fresh.settlement = cloneSettlementState(state.settlement);
+  fresh.defense = cloneDefenseState(state.defense);
   fresh.worldProgress = {
     completedInfrastructureIds: [...state.worldProgress.completedInfrastructureIds],
     completedResearchIds: [...state.worldProgress.completedResearchIds],
@@ -2139,6 +2201,37 @@ export function simulateGame(
           0.15,
           0.012 + salvageWorkers * 0.006 + getCampaignWorldIndex(next) * 0.003,
         ),
+  );
+
+  const defenseAdvance = advanceDefense(next.defense, seconds, {
+    stormsEnabled: getCampaignWorldIndex(next) >= 3,
+    worldIndex: getCampaignWorldIndex(next),
+    security: next.survivors.survivors.filter(
+      (survivor) => survivor.assignedRole === "security",
+    ).length,
+    engineers: next.survivors.survivors.filter(
+      (survivor) => survivor.assignedRole === "engineer",
+    ).length,
+    navigators: next.survivors.survivors.filter(
+      (survivor) => survivor.assignedRole === "navigator",
+    ).length,
+  });
+  next.defense = defenseAdvance.state;
+  next.living.salvage = Math.min(
+    1e12,
+    next.living.salvage + defenseAdvance.salvage,
+  );
+  next.researchStock["engineering-models"] = Math.min(
+    1e12,
+    next.researchStock["engineering-models"] + defenseAdvance.engineeringModels,
+  );
+  next.researchStock["calibration-data"] = Math.min(
+    1e12,
+    next.researchStock["calibration-data"] + defenseAdvance.calibrationData,
+  );
+  next.researchStock["null-traces"] = Math.min(
+    1e12,
+    next.researchStock["null-traces"] + defenseAdvance.nullTraces,
   );
 
   for (let step = 0; step < steps; step += 1) {

@@ -9,6 +9,7 @@ export type ManualPageId =
   | "engineering"
   | "research"
   | "population"
+  | "defense"
   | "settlement";
 
 export type ManualTopicId = ManualPageId | "salvage" | ResearchInputId;
@@ -39,6 +40,7 @@ export const MANUAL_PAGE_LABELS: Record<ManualPageId, string> = {
   engineering: "Foundry",
   research: "Research",
   population: "Crew",
+  defense: "Defense",
   settlement: "Continuity",
 };
 
@@ -123,6 +125,25 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
       { label: "Specialists", detail: "Arrive ready for a profession and improve through assigned work. Notable-or-better specialists can cross-train additional professions." },
     ],
     tip: "Roster order stays chronological. Color and visible labels identify rare profiles without hiding anyone or changing rescue priority.",
+  },
+  defense: {
+    id: "defense",
+    label: "Defense",
+    category: "Page guide // threat operations",
+    title: "Prepare the Ark, then let it defend itself",
+    summary:
+      "From Cinder onward, ash storms sweep the Ark's orbit. Build installations, choose a standing doctrine, and every storm resolves automatically - online or offline. Nothing here can kill crew or erase progress.",
+    steps: [
+      { title: "Build installations", detail: "Shield Arrays carry readiness; Repair Drones speed recovery; the Early-Warning Relay extends storm forecasts; Point-Defense matters most against future hostile contacts." },
+      { title: "Assign defenders", detail: "Assigned Security raises readiness and interception, Engineers add readiness and repair speed, Navigators extend forecast lead time." },
+      { title: "Choose a doctrine", detail: "Defend is the safe default. Evade nearly eliminates risk for little reward. Intercept risks damage for extra Salvage and Engineering Models. Observe accepts small risk to gather Calibration Data and Null Traces." },
+      { title: "Read the log", detail: "Every resolution is recorded with its severity, readiness, margin, and outcome, so offline results are always explainable." },
+    ],
+    sources: [
+      { label: "Worst case", detail: "A battered outcome temporarily reduces production by at most 25% while repairs run (six hours maximum, faster with drones and engineers). Damage never stacks deeper." },
+      { label: "Null Traces", detail: "The Observe doctrine is the active way to gather Null Traces from Cinder onward." },
+    ],
+    tip: "Storms never arrive unannounced faster than 15 minutes, and the first storm is always mild.",
   },
   settlement: {
     id: "settlement",

@@ -32,7 +32,10 @@ import {
   getCampaignCrewSummaries,
   getCampaignWorldIndex,
   getColonyLegacyEffects,
+  buyDefenseInstallation,
+  chooseDefenseDoctrine,
   getBerthConstructionQuote,
+  getDefenseInstallationQuote,
   getCrisisReadiness,
   getCurrentViabilityForecast,
   getEffectiveCohesion,
@@ -76,6 +79,7 @@ import {
   type ManualTopicId,
 } from "./game-manual";
 import PopulationConsole from "./population-console";
+import DefenseConsole from "./defense-console";
 import ResearchLattice from "./research-lattice";
 import SettlementConsole from "./settlement-console";
 import {
@@ -127,6 +131,11 @@ import {
   toggleSettlerSelection,
 } from "./settlement-engine";
 import { getCampaignWorld } from "./campaign-content";
+import {
+  DEFENSE_INSTALLATION_DEFINITIONS,
+  type DefenseDoctrine,
+  type DefenseInstallationId,
+} from "./defense-engine";
 import { LORE_ENTRIES, TOUR_STEPS } from "./story-content";
 
 type MobileTab = "machines" | "systems";
@@ -655,6 +664,28 @@ export default function Home() {
     }),
   );
 
+  const defenseUnlocked =
+    campaignWorldIndex >= 3 ||
+    game.defense.stats.resolved > 0 ||
+    Object.values(game.defense.installations).some((level) => level > 0);
+  const defenseCrew = {
+    security: game.survivors.survivors.filter((survivor) => survivor.assignedRole === "security").length,
+    engineers: game.survivors.survivors.filter((survivor) => survivor.assignedRole === "engineer").length,
+    navigators: game.survivors.survivors.filter((survivor) => survivor.assignedRole === "navigator").length,
+  };
+  const defenseInstallationQuotes = Object.fromEntries(
+    (Object.keys(DEFENSE_INSTALLATION_DEFINITIONS) as DefenseInstallationId[]).map((id) => {
+      const quote = getDefenseInstallationQuote(game, id);
+      return [
+        id,
+        {
+          ...quote,
+          costLabel: quote.maxed ? "MAXED" : `${formatNumber(quote.cost)} Flux`,
+        },
+      ];
+    }),
+  ) as Record<DefenseInstallationId, { cost: number; level: number; maxed: boolean; canAfford: boolean; costLabel: string }>;
+
   useEffect(() => {
     if (!ready) return;
     const signature = `${game.missions.currentIndex}:${game.missions.awaitingAcknowledgement}:${game.missions.worldsSaved}`;
@@ -809,6 +840,20 @@ export default function Home() {
       next,
       "Habitation ring section under construction. Assigned engineers will accelerate it, even while you are away.",
     );
+  };
+
+  const handleBuyDefenseInstallation = (id: DefenseInstallationId) => {
+    const current = gameRef.current;
+    const next = buyDefenseInstallation(current, id);
+    if (next === current) return;
+    commitGameState(next, `${DEFENSE_INSTALLATION_DEFINITIONS[id].name} upgraded to level ${next.defense.installations[id]}.`);
+  };
+
+  const handleChooseDefenseDoctrine = (doctrine: DefenseDoctrine) => {
+    const current = gameRef.current;
+    const next = chooseDefenseDoctrine(current, doctrine);
+    if (next === current) return;
+    commitGameState(next, `Standing doctrine set: ${doctrine}. It applies to every event, even offline.`);
   };
 
   const handleUpgradeSupport = (key: LifeSupportKey) => {
@@ -1212,6 +1257,7 @@ export default function Home() {
   if (engineeringUnlocked) availableManualPages.push("engineering");
   if (researchUnlocked) availableManualPages.push("research");
   if (populationUnlocked) availableManualPages.push("population");
+  if (defenseUnlocked) availableManualPages.push("defense");
   if (settlementUnlocked) availableManualPages.push("settlement");
 
   return (
@@ -1331,6 +1377,18 @@ export default function Home() {
             Crew
           </button>
         )}
+        {defenseUnlocked && (
+          <button
+            className={primaryView === "defense" ? "active" : ""}
+            type="button"
+            role="tab"
+            aria-selected={primaryView === "defense"}
+            onClick={() => setPrimaryView("defense")}
+          >
+            <span aria-hidden="true">0D</span>
+            Defense
+          </button>
+        )}
         {settlementUnlocked && (
           <button
             className={primaryView === "settlement" ? "active" : ""}
@@ -1344,7 +1402,7 @@ export default function Home() {
           </button>
         )}
         <div className="nav-awakening-status" aria-live="polite">
-          <span>{[engineeringUnlocked, researchUnlocked, populationUnlocked, settlementUnlocked].filter(Boolean).length + 1}</span>
+          <span>{[engineeringUnlocked, researchUnlocked, populationUnlocked, defenseUnlocked, settlementUnlocked].filter(Boolean).length + 1}</span>
           <small>Ark systems awake</small>
         </div>
       </nav>
@@ -1492,6 +1550,18 @@ export default function Home() {
           onAssignedCrewChange={handleResearchCrewChange}
           onOpenHelp={setManualTopic}
           onClose={() => setPrimaryView("deck")}
+        />
+      ) : primaryView === "defense" ? (
+        <DefenseConsole
+          state={game.defense}
+          crew={defenseCrew}
+          currentWorldName={campaignWorld.name}
+          stormsEnabled={campaignWorldIndex >= 3}
+          installationQuotes={defenseInstallationQuotes}
+          onBuyInstallation={handleBuyDefenseInstallation}
+          onChooseDoctrine={handleChooseDefenseDoctrine}
+          onOpenHelp={setManualTopic}
+          onBack={() => setPrimaryView("deck")}
         />
       ) : primaryView === "settlement" && viabilityForecast ? (
         <SettlementConsole
