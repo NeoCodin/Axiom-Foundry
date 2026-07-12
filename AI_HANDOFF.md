@@ -1,7 +1,9 @@
 # Axiom Foundry — AI Project Handoff
 
-Last updated: July 12, 2026  
-Current development branch: `codex/axiom-foundry-game`  
+Last updated: July 12, 2026
+
+Current development branch: `codex/axiom-foundry-game`
+
 Handoff baseline commit: `6ddf4de` (`Deepen crew progression and late campaign`)
 
 This document is the portable source of truth for Codex, Claude, future AI assistants, and human collaborators. Read it before changing the game. Update it whenever a decision materially changes the vision, lore, progression, architecture, save format, or collaboration workflow.
