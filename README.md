@@ -2,6 +2,8 @@
 
 Axiom Foundry is an idle ark-restoration game about rebuilding humanity without deciding what humanity is allowed to become.
 
+AI assistants and collaborators should read [`AI_HANDOFF.md`](./AI_HANDOFF.md) before changing the game. It records the current vision, lore, balance decisions, save rules, roadmap, and Codex/Claude collaboration workflow.
+
 You awaken as AXIOM, the damaged caretaker intelligence of an empty interplanetary Ark. Pelagos is ahead. The ship cannot yet support one person, most decks are dark, and the oldest system log welcomes you back.
 
 ## The game loop
