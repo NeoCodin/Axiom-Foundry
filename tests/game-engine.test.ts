@@ -11,12 +11,17 @@ import {
   createInitialState,
   departCurrentWorld,
   getCampaignRelics,
+  getCampaignCrewSummaries,
   getCampaignWorldIndex,
+  getColonyLegacyEffects,
   getCrisisFluxCost,
   getCrisisReadiness,
   getCurrentViabilityForecast,
+  getEffectiveCohesion,
   getMaxAffordableCount,
   getProductionSnapshot,
+  getResearchCrewAvailable,
+  getResearchPowerAvailable,
   getTierCost,
   isTierUnlocked,
   pulseCore,
@@ -27,9 +32,62 @@ import {
 } from "../app/game-engine.ts";
 import { CAMPAIGN_WORLDS } from "../app/campaign-content.ts";
 import {
+  addResearchInputs,
+  advanceResearch,
+  createResearchLatticeState,
   getResearchProjectDefinition,
+  selectResearchProject,
+  setResearchCrew,
   type ResearchProjectId,
 } from "../app/research-engine.ts";
+import type { Survivor } from "../app/survivor-engine.ts";
+
+function testCrewMember(
+  id: string,
+  role: Survivor["role"],
+  skillXp: Partial<Survivor["skillXp"]> = {},
+  traits: Survivor["traits"] = ["calm-presence"],
+  assignedRole: Survivor["assignedRole"] = role,
+): Survivor {
+  const blankSkills: Survivor["skillXp"] = {
+    engineer: 0,
+    doctor: 0,
+    researcher: 0,
+    navigator: 0,
+    technician: 0,
+    fabricator: 0,
+    farmer: 0,
+    teacher: 0,
+    security: 0,
+  };
+  return {
+    id,
+    name: id,
+    callsign: "",
+    origin: "pelagos",
+    originSignalId: "test-signal",
+    backgroundId: "civic-volunteer",
+    role,
+    aptitudes: {
+      engineer: 1,
+      doctor: 1,
+      researcher: 1,
+      navigator: 1,
+      technician: 1,
+      fabricator: 1,
+      farmer: 1,
+      teacher: 1,
+      security: 1,
+    },
+    adaptability: 1,
+    traits,
+    skillXp: { ...blankSkills, ...skillXp },
+    assignedRole,
+    serviceSeconds: 0,
+    joinedAt: 0,
+    storyHookId: null,
+  };
+}
 
 test("the campaign reset retires every previous public save key", () => {
   assert.equal(SAVE_KEY, "axiom-foundry-save-v5");
@@ -468,4 +526,149 @@ test("idle time cannot silently skip the continuity campaign", () => {
   assert.equal(fourHoursLater.settlement.currentWorldId, "cold-wake");
   assert.equal(fourHoursLater.survivors.survivors.length, 0);
   assert.ok(fourHoursLater.playTime >= 4 * 3_600);
+});
+
+test("continuity crisis costs follow the deliberately flatter six-world scale", () => {
+  const expectedCosts = [
+    5_000,
+    500_000,
+    30_000_000,
+    1_800_000_000,
+    108_000_000_000,
+    6_480_000_000_000,
+  ];
+
+  assert.deepEqual(
+    expectedCosts.map((_, completedWorlds) => {
+      const state = createInitialState(0);
+      state.settlement.completedWorldIds = CAMPAIGN_WORLDS.slice(
+        0,
+        completedWorlds,
+      ).map((world) => world.id);
+      return getCrisisFluxCost(state);
+    }),
+    expectedCosts,
+  );
+});
+
+test("campaign summaries expose level-one Leadership and cross-training", () => {
+  const state = createInitialState(0);
+  state.survivors.survivors = [
+    testCrewMember("security-one", "security"),
+    testCrewMember("navigator-one", "navigator"),
+    testCrewMember(
+      "cross-trained",
+      "civilian",
+      { doctor: 1, researcher: 120 },
+      ["adaptable"],
+      "doctor",
+    ),
+  ];
+
+  const summaries = getCampaignCrewSummaries(state);
+  assert.equal(
+    summaries.find((member) => member.id === "security-one")?.expertise
+      .leadership,
+    1,
+  );
+  assert.equal(
+    summaries.find((member) => member.id === "navigator-one")?.expertise
+      .leadership,
+    1,
+  );
+  assert.deepEqual(
+    summaries.find((member) => member.id === "cross-trained")?.roles,
+    ["civilian", "doctor", "researcher"],
+  );
+});
+
+test("every Researcher contributes Null Studies and Null Dreamers add a bonus", () => {
+  const state = createInitialState(0);
+  state.survivors.survivors = [
+    testCrewMember("ordinary-researcher", "researcher"),
+    testCrewMember("null-dreamer", "researcher", {}, ["null-dreamer"]),
+  ];
+
+  const summaries = getCampaignCrewSummaries(state);
+  const ordinary = summaries.find(
+    (member) => member.id === "ordinary-researcher",
+  )!;
+  const dreamer = summaries.find((member) => member.id === "null-dreamer")!;
+  assert.equal(ordinary.expertise.research, 1);
+  assert.equal(ordinary.expertise["null-studies"], 1);
+  assert.equal(dreamer.expertise.research, 1);
+  assert.equal(dreamer.expertise["null-studies"], 2);
+});
+
+test("simulateGame applies completed-project research speed exactly once", () => {
+  const state = createInitialState(0);
+  let research = createResearchLatticeState();
+  research.completedProjectIds = ["ark-drive-coupling"];
+  research = addResearchInputs(research, { "calibration-data": 100 });
+  research = setResearchCrew(research, 1, 1);
+  research = selectResearchProject(research, "auxiliary-power-routing");
+  state.research = research;
+
+  const elapsedSeconds = 10;
+  const expected = advanceResearch(research, elapsedSeconds, {
+    powerAvailable: getResearchPowerAvailable(state),
+    crewAvailable: getResearchCrewAvailable(state),
+    externalSpeedMultiplier: 1,
+  });
+  const simulated = simulateGame(state, elapsedSeconds, 1, false);
+
+  assert.ok(expected.progressedWork > 0);
+  assert.ok(
+    Math.abs(
+      (simulated.research.progress["auxiliary-power-routing"] ?? 0) -
+        expected.progressedWork,
+    ) < 1e-10,
+  );
+});
+
+test("colony legacies drive their named systems, prices, and effective cohesion", () => {
+  const baseline = createInitialState(0);
+  baseline.tiers[0] = { amount: 10, bought: 10 };
+  baseline.living.cohesion = 64;
+  const state = createInitialState(0);
+  state.tiers[0] = { amount: 10, bought: 10 };
+  state.living.cohesion = 64;
+  state.settlement.colonies = [
+    ["pelagos", "pelagos-signal-net"],
+    ["viridia", "viridia-mentor-seeds"],
+    ["cinder", "cinder-pattern-library"],
+    ["nox", "nox-open-archive"],
+    ["vesper", "vesper-common-testimony", "vesper-null-index"],
+  ].map(([worldId, ...legacyBenefitIds], index) => ({
+    worldId: worldId as (typeof CAMPAIGN_WORLDS)[number]["id"],
+    name: `Test Colony ${index + 1}`,
+    establishedAt: index,
+    viabilityScore: 100,
+    founders: [],
+    legacyBenefitIds,
+    transmissionsRead: 0,
+  }));
+
+  const effects = getColonyLegacyEffects(state);
+  assert.equal(effects.beaconSpeedMultiplier, 1.05);
+  assert.equal(effects.trainingSpeedMultiplier, 1.06);
+  assert.ok(Math.abs(effects.fabricationCostMultiplier - 0.93) < 1e-12);
+  assert.equal(effects.researchSpeedMultiplier, 1.08);
+  assert.equal(effects.cohesionProductionMultiplier, 1.1);
+  assert.equal(effects.cohesionBonus, 10);
+  assert.equal(effects.nullSignalMultiplier, 1.1);
+  assert.ok(
+    Math.abs(getTierCost(state, 0) / getTierCost(baseline, 0) - 0.93) <
+      1e-12,
+  );
+  assert.ok(
+    Math.abs(
+      getProductionSnapshot(state).fluxPerSecond /
+        getProductionSnapshot(baseline).fluxPerSecond -
+        1.1,
+    ) < 1e-12,
+  );
+  assert.equal(getEffectiveCohesion(state), 74);
+  state.living.cohesion = 96;
+  assert.equal(getEffectiveCohesion(state), 100);
 });

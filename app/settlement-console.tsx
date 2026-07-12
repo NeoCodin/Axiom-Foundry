@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 
-import type { CampaignWorldDefinition } from "./campaign-content";
+import { getCampaignWorld, type CampaignWorldDefinition } from "./campaign-content";
+import { HelpTrigger, type ManualTopicId } from "./game-manual";
 import type {
   CampaignCrewSummary,
   ColonyRecord,
@@ -41,6 +42,7 @@ export type SettlementConsoleProps = {
   onAcknowledgeTransmission: () => void;
   onOpenPopulation: () => void;
   onOpenResearch: () => void;
+  onOpenHelp: (topicId: ManualTopicId) => void;
   onBack: () => void;
 };
 
@@ -66,6 +68,7 @@ function SettlementConsole({
   onAcknowledgeTransmission,
   onOpenPopulation,
   onOpenResearch,
+  onOpenHelp,
   onBack,
 }: SettlementConsoleProps) {
   const [colonyName, setColonyName] = useState(`${world.name} Continuity Settlement`);
@@ -100,7 +103,7 @@ function SettlementConsole({
 
       <div className="settlement-layout">
         <section className="continuity-panel">
-          <header><div><span>CONTINUITY REQUIREMENTS</span><h3>{forecast.deficits.length === 0 ? "Every requirement is met" : `${forecast.deficits.length} deficits remain`}</h3></div><small>Nothing expires</small></header>
+          <header><div><span>CONTINUITY REQUIREMENTS</span><h3>{forecast.deficits.length === 0 ? "Every requirement is met" : `${forecast.deficits.length} deficits remain`}</h3></div><div className="continuity-header-help"><small>Nothing expires</small><HelpTrigger label="Explain Continuity requirements" onClick={() => onOpenHelp("settlement")} /></div></header>
           <div className="forecast-list">
             {forecast.lines.map((line) => {
               const ratio = Math.min(1, line.currentValue / Math.max(1, line.requiredValue));
@@ -109,6 +112,13 @@ function SettlementConsole({
                   <header><span>{line.label}</span><strong>{line.currentValue}/{line.requiredValue}</strong></header>
                   <div className="forecast-line-meter"><i style={{ width: `${ratio * 100}%` }} /></div>
                   <small>{line.met ? "Requirement secured" : line.substitutionValue > 0 ? `${line.substitutionValue} supplied by research or equipment` : titleCase(line.kind)}</small>
+                  {(line.detail || line.contributors.length > 0) && (
+                    <details className="forecast-line-detail">
+                      <summary>How this is counted</summary>
+                      {line.detail && <p>{line.detail}</p>}
+                      {line.contributors.length > 0 && <div>{line.contributors.map((contributor) => <span key={`${line.id}-${contributor.id}`}>{contributor.label} <strong>+{contributor.value}</strong></span>)}</div>}
+                    </details>
+                  )}
                 </article>
               );
             })}
@@ -116,7 +126,7 @@ function SettlementConsole({
         </section>
 
         <section className="continuity-panel">
-          <header><div><span>EXPLICIT DEFICITS</span><h3>What this world still needs</h3></div><small>Random recruitment never hard-locks progress</small></header>
+          <header><div><span>EXPLICIT DEFICITS</span><h3>What this world still needs</h3></div><small>Profile gates are visible · quality safety net active</small></header>
           {forecast.deficits.length > 0 ? (
             <ul className="deficit-list">
               {forecast.deficits.map((deficit) => <li key={`${deficit.kind}-${deficit.id}`}><strong>{deficit.message}</strong>{deficit.alternatives.map((alternative) => <span key={alternative}>{alternative}</span>)}</li>)}
@@ -199,7 +209,7 @@ function SettlementConsole({
                 <label className={`${member.rarity ? `crew-rarity-${member.rarity}` : ""} ${selected.has(member.id) ? "is-selected" : ""}`} key={member.id}>
                   <input type="checkbox" checked={selected.has(member.id)} onChange={() => onToggleSettler(member.id)} />
                   <span className="crew-avatar">{member.name.slice(0, 1)}</span>
-                  <span><strong>{member.name}</strong><small>{titleCase(member.role ?? "civilian")} · {Object.entries(member.expertise ?? {}).filter(([, value]) => (value ?? 0) > 0).slice(0, 3).map(([id, value]) => `${titleCase(id)} ${value}`).join(" · ") || "Adaptable civilian"}</small></span>
+                  <span><strong>{member.name}</strong><small>{titleCase(member.role ?? "civilian")}{(member.level ?? 0) > 0 ? ` · Level ${member.level}` : ""} · {Object.entries(member.expertise ?? {}).filter(([, value]) => (value ?? 0) > 0).slice(0, 3).map(([id, value]) => `${titleCase(id)} ${value}`).join(" · ") || "Adaptable civilian"}</small></span>
                   <span className="settler-row-status"><em className="crew-rarity-badge" title={member.rarityDescription}>{member.rarityLabel ?? "Standard"}</em><b>{selected.has(member.id) ? "FOUNDER" : "ARK"}</b></span>
                 </label>
               ))}
@@ -220,7 +230,7 @@ function SettlementConsole({
       {colonies.length > 0 && (
         <section className="continuity-panel">
           <header><div><span>RESTORED WORLDS</span><h3>Colonies that continue without the Ark</h3></div><small>{colonies.length} active relays</small></header>
-          <div className="colony-list">{colonies.map((colony) => <article key={colony.worldId}><h4>{colony.name}</h4><p>{colony.founders.length} founders · {colony.viabilityScore}% departure viability</p><small>{titleCase(colony.worldId)} relay online</small></article>)}</div>
+          <div className="colony-list">{colonies.map((colony) => { const restoredWorld = getCampaignWorld(colony.worldId); return <article key={colony.worldId}><h4>{colony.name}</h4><p>{colony.founders.length} founders · {colony.viabilityScore}% departure viability</p><small>{restoredWorld?.legacyBenefits.map((benefit) => `${benefit.label}: +${Math.round(benefit.value * 100)}% ${benefit.metric.replaceAll("-", " ")}`).join(" · ") || `${titleCase(colony.worldId)} relay online`}</small></article>; })}</div>
         </section>
       )}
     </section>

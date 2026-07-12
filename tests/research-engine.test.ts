@@ -271,6 +271,58 @@ test("project prerequisites connect the three branches", () => {
   assert.equal(canStartResearchProject(established, "discarded-spectrum"), false);
 });
 
+test("Settlement Charter uses attainable materials without changing its prerequisites", () => {
+  const charter = RESEARCH_PROJECT_DEFINITIONS.find(
+    (project) => project.id === "settlement-charter",
+  );
+
+  assert.ok(charter);
+  assert.deepEqual(charter.costs, {
+    "cultural-records": 260,
+    "biological-samples": 155,
+    "engineering-models": 220,
+  });
+  assert.equal("axiom-proofs" in charter.costs, false);
+  assert.deepEqual(charter.prerequisites, [
+    "clinical-commons",
+    "discarded-spectrum",
+  ]);
+});
+
+test("research speed applies its internal bonus once and external speed separately", () => {
+  let base = createResearchLatticeState();
+  base = addResearchInputs(base, { "calibration-data": 100 });
+  base = setResearchCrew(base, MAX_RESEARCH_CREW, MAX_RESEARCH_CREW);
+  base = selectResearchProject(base, "auxiliary-power-routing");
+  const internallyBoosted: ResearchLatticeState = {
+    ...base,
+    completedProjectIds: ["ark-drive-coupling"],
+  };
+  const environment = {
+    powerAvailable: 100,
+    crewAvailable: MAX_RESEARCH_CREW,
+  };
+
+  const baseStatus = getResearchNetworkStatus(base, environment);
+  const internalStatus = getResearchNetworkStatus(internallyBoosted, environment);
+  const externalStatus = getResearchNetworkStatus(base, {
+    ...environment,
+    externalSpeedMultiplier: 2,
+  });
+  const combinedStatus = getResearchNetworkStatus(internallyBoosted, {
+    ...environment,
+    externalSpeedMultiplier: 2,
+  });
+
+  assert.equal(getResearchBonuses(internallyBoosted).researchSpeedMultiplier, 1.05);
+  assert.equal(baseStatus.stalledReason, null);
+  assert.equal(internalStatus.stalledReason, null);
+  assert.equal(baseStatus.progressPerSecond, 1);
+  assert.equal(internalStatus.progressPerSecond, 1.05);
+  assert.equal(externalStatus.progressPerSecond, 2);
+  assert.equal(combinedStatus.progressPerSecond, 2.1);
+});
+
 test("research bonuses remain modest and inside their hard caps", () => {
   const state = {
     ...createResearchLatticeState(),

@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   MAX_OFFLINE_SURVIVOR_SECONDS,
   PROFESSIONAL_ROLES,
+  QUALITY_PITY_LIMIT,
   RARE_PITY_LIMIT,
   RARE_SURVIVOR_HOOKS,
   SOS_SCAN_SECONDS,
@@ -17,9 +18,12 @@ import {
   getPopulationExpertiseTotals,
   getPopulationRoleCounts,
   getRescueReadiness,
+  getSurvivorLearningMultiplier,
+  getSurvivorOnJobXpPerHour,
   getSurvivorRarity,
   getSurvivorRarityScore,
   getSurvivorSkillLevel,
+  getSurvivorSkillProgress,
   getTrainingQuote,
   renameSurvivorCallsign,
   rescueSurvivorSignal,
@@ -77,6 +81,30 @@ function stateWithCivilian() {
       },
     ],
   });
+}
+
+function survivorWithRarity(
+  rarity: "standard" | "notable" | "exceptional" | "anomalous",
+) {
+  const survivor = structuredClone(stateWithCivilian().survivors[0]!);
+  for (const role of PROFESSIONAL_ROLES) survivor.aptitudes[role] = 1;
+  survivor.aptitudes.engineer = 5;
+  survivor.adaptability = 1;
+  survivor.traits = ["adaptable"];
+  survivor.storyHookId = null;
+
+  if (rarity === "notable") {
+    survivor.aptitudes.doctor = 4;
+    survivor.aptitudes.researcher = 2;
+  } else if (rarity === "exceptional") {
+    survivor.aptitudes.doctor = 5;
+    survivor.aptitudes.researcher = 3;
+  } else if (rarity === "anomalous") {
+    survivor.storyHookId = "pelagos-cartographer";
+  }
+
+  assert.equal(getSurvivorRarity(survivor).id, rarity);
+  return survivor;
 }
 
 test("a new Ark contains no humans and its persisted seed is deterministic", () => {
@@ -139,6 +167,28 @@ test("procedural groups are reproducible and contain readable survivor detail", 
   }
 });
 
+test("each campaign world uses its exact SOS group-size range", () => {
+  const worlds = [
+    ["pelagos", [2, 3, 4]],
+    ["viridia", [3, 4, 5]],
+    ["cinder", [4, 5, 6]],
+    ["nox", [5, 6, 7]],
+    ["vesper", [6, 7, 8]],
+  ] as const;
+  const seeds = [2_654_435_761, 1_013_904_226, 3_668_339_987] as const;
+
+  for (const [worldId, expectedSizes] of worlds) {
+    const sizes = seeds.map((seed) => {
+      let state = createSurvivorSystemState(seed);
+      state = setSosBeaconOnline(state, true, worldId);
+      state = advanceSurvivorSystem(state, SOS_SCAN_SECONDS);
+      assert.ok(state.activeSignal);
+      return state.activeSignal.survivors.length;
+    });
+    assert.deepEqual(sizes, expectedSizes, worldId);
+  }
+});
+
 test("profile rarity is deterministic, readable, and independent of training progress", () => {
   const survivor = structuredClone(stateWithCivilian().survivors[0]!);
   for (const role of PROFESSIONAL_ROLES) survivor.aptitudes[role] = 1;
@@ -168,6 +218,34 @@ test("profile rarity is deterministic, readable, and independent of training pro
 
   survivor.storyHookId = "pelagos-cartographer";
   assert.equal(getSurvivorRarity(survivor).id, "anomalous");
+});
+
+test("rarity grants the exact advertised learning multipliers", () => {
+  assert.equal(getSurvivorLearningMultiplier(survivorWithRarity("standard")), 1);
+  assert.equal(getSurvivorLearningMultiplier(survivorWithRarity("notable")), 1.25);
+  assert.equal(
+    getSurvivorLearningMultiplier(survivorWithRarity("exceptional")),
+    1.6,
+  );
+  assert.equal(getSurvivorLearningMultiplier(survivorWithRarity("anomalous")), 2);
+});
+
+test("higher rarity shortens equal-aptitude training and accelerates job XP", () => {
+  const standard = survivorWithRarity("standard");
+  const exceptional = survivorWithRarity("exceptional");
+  assert.equal(standard.aptitudes.engineer, exceptional.aptitudes.engineer);
+
+  const standardTraining = getTrainingQuote(standard, "engineer");
+  const exceptionalTraining = getTrainingQuote(exceptional, "engineer");
+  assert.ok(exceptionalTraining.durationSeconds < standardTraining.durationSeconds);
+
+  const standardJobXp = getSurvivorOnJobXpPerHour(standard, "engineer");
+  const exceptionalJobXp = getSurvivorOnJobXpPerHour(
+    exceptional,
+    "engineer",
+  );
+  assert.ok(exceptionalJobXp > standardJobXp);
+  assert.ok(Math.abs(exceptionalJobXp / standardJobXp - 1.6) < 1e-12);
 });
 
 test("a detected survivor signal waits indefinitely without failure or replacement", () => {
@@ -201,6 +279,26 @@ test("rescue requires both stable Ark capacity and enough external Salvage", () 
   assert.equal(readiness.canRescue, true);
   assert.equal(readiness.reason, null);
   assert.equal(readiness.lifeSupport.stable, true);
+});
+
+test("capacity multipliers agree between rescue readiness and the rescue action", () => {
+  const detected = detectSignal(3_030);
+  const groupSize = detected.activeSignal!.survivors.length;
+  const state = supportPopulation(detected, Math.ceil(groupSize / 2));
+  const salvage = state.activeSignal!.rescueCost;
+
+  assert.equal(getRescueReadiness(state, salvage).reason, "life-support");
+  const boostedReadiness = getRescueReadiness(state, salvage, 2);
+  assert.equal(boostedReadiness.canRescue, true);
+  assert.equal(boostedReadiness.lifeSupport.stable, true);
+
+  const unboostedRescue = rescueSurvivorSignal(state, salvage);
+  assert.equal(unboostedRescue.rescued, false);
+  assert.equal(unboostedRescue.reason, "life-support");
+  const boostedRescue = rescueSurvivorSignal(state, salvage, 2);
+  assert.equal(boostedRescue.rescued, true);
+  assert.equal(boostedRescue.state.survivors.length, groupSize);
+  assert.equal(boostedRescue.salvageSpent, salvage);
 });
 
 test("rescue is immutable, charges its exact quote, and moves the whole group aboard", () => {
@@ -283,6 +381,43 @@ test("rare authored story hooks have a hard pity guarantee", () => {
   assert.ok(RARE_SURVIVOR_HOOKS.some((hook) => hook.id === discoveredHook));
 });
 
+test("an Exceptional-or-better profile appears within the quality pity limit", () => {
+  let state = setSosBeaconOnline(
+    createSurvivorSystemState(3_668_339_987),
+    true,
+    "pelagos",
+  );
+  let qualitySignal = 0;
+  for (let signalNumber = 1; signalNumber <= QUALITY_PITY_LIMIT; signalNumber += 1) {
+    state = advanceSurvivorSystem(state, SOS_SCAN_SECONDS);
+    assert.ok(state.activeSignal);
+    const includesQualityProfile = state.activeSignal.survivors.some(
+      (survivor) => {
+        const rarity = getSurvivorRarity(survivor).id;
+        return rarity === "exceptional" || rarity === "anomalous";
+      },
+    );
+    if (includesQualityProfile) {
+      qualitySignal = signalNumber;
+      break;
+    }
+    state = declineSurvivorSignal(state);
+  }
+
+  assert.ok(qualitySignal > 0 && qualitySignal <= QUALITY_PITY_LIMIT);
+
+  let brink = createSurvivorSystemState(17_171);
+  brink.qualityPity = QUALITY_PITY_LIMIT - 1;
+  brink = setSosBeaconOnline(brink, true, "pelagos");
+  brink = advanceSurvivorSystem(brink, SOS_SCAN_SECONDS);
+  assert.ok(
+    brink.activeSignal?.survivors.some((survivor) => {
+      const rarity = getSurvivorRarity(survivor).id;
+      return rarity === "exceptional" || rarity === "anomalous";
+    }),
+  );
+});
+
 test("civilians are flexible recruits whose adaptability shortens training", () => {
   const state = stateWithCivilian();
   const civilian = state.survivors[0]!;
@@ -318,6 +453,47 @@ test("training advances offline, completes a profession, and preserves prior sta
   assert.equal(state.survivors[0]?.role, "engineer");
   assert.equal(state.completedTrainings, 1);
   assert.ok(getSurvivorSkillLevel(state.survivors[0]!, "engineer") >= 1);
+});
+
+test("skill progress reports exact level thresholds and max-level state", () => {
+  const survivor = survivorWithRarity("standard");
+  survivor.role = "civilian";
+  survivor.skillXp.engineer = 0;
+  assert.deepEqual(getSurvivorSkillProgress(survivor, "engineer"), {
+    level: 0,
+    xp: 0,
+    levelStartXp: 0,
+    nextLevelXp: null,
+    progress: 0,
+    isMaxLevel: false,
+  });
+
+  survivor.role = "engineer";
+  let progress = getSurvivorSkillProgress(survivor, "engineer");
+  assert.equal(progress.level, 1);
+  assert.equal(progress.levelStartXp, 0);
+  assert.equal(progress.nextLevelXp, 120);
+  assert.equal(progress.progress, 0);
+
+  survivor.skillXp.engineer = 119;
+  progress = getSurvivorSkillProgress(survivor, "engineer");
+  assert.equal(progress.level, 1);
+  assert.equal(progress.progress, 119 / 120);
+
+  survivor.skillXp.engineer = 120;
+  progress = getSurvivorSkillProgress(survivor, "engineer");
+  assert.equal(progress.level, 2);
+  assert.equal(progress.levelStartXp, 120);
+  assert.equal(progress.nextLevelXp, 480);
+  assert.equal(progress.progress, 0);
+
+  survivor.skillXp.engineer = 9_720;
+  progress = getSurvivorSkillProgress(survivor, "engineer");
+  assert.equal(progress.level, 10);
+  assert.equal(progress.levelStartXp, 9_720);
+  assert.equal(progress.nextLevelXp, null);
+  assert.equal(progress.progress, 1);
+  assert.equal(progress.isMaxLevel, true);
 });
 
 test("training slots, cancellation, and duplicate qualifications are enforced", () => {
@@ -432,6 +608,7 @@ test("sanitization repairs malformed population, support, assignments, and count
     beaconProgressSeconds: 999_999,
     trainingSlots: -10,
     rarePity: 99_999,
+    qualityPity: 99_999,
     rolePity: { engineer: -5, doctor: 99_999 },
     lifeSupport: {
       habitation: -8,
@@ -464,6 +641,7 @@ test("sanitization repairs malformed population, support, assignments, and count
   assert.equal(state.beaconProgressSeconds, SOS_SCAN_SECONDS);
   assert.equal(state.trainingSlots, 0);
   assert.equal(state.rarePity, 100);
+  assert.equal(state.qualityPity, 100);
   assert.equal(state.rolePity.engineer, 0);
   assert.equal(state.rolePity.doctor, 100);
   assert.deepEqual(state.lifeSupport, {
@@ -515,6 +693,37 @@ test("malformed pending signals are deduplicated and their rescue price is rebui
   assert.equal(
     state.activeSignal?.survivors[0]?.originSignalId,
     "pelagos-signal-3",
+  );
+});
+
+test("sanitization preserves as many as eight valid pending survivors", () => {
+  const state = sanitizeSurvivorSystemState({
+    beaconOnline: true,
+    beaconWorldId: "vesper",
+    activeSignal: {
+      sequence: 9,
+      survivors: Array.from({ length: 8 }, (_, index) => ({
+        id: `vesper-pending-${index + 1}`,
+        name: `Pending Founder ${index + 1}`,
+        role: "civilian",
+        backgroundId: "civic-volunteer",
+        aptitudes: {},
+        skillXp: {},
+      })),
+    },
+  });
+
+  assert.equal(state.activeSignal?.survivors.length, 8);
+  assert.deepEqual(
+    state.activeSignal?.survivors.map((survivor) => survivor.id),
+    Array.from({ length: 8 }, (_, index) => `vesper-pending-${index + 1}`),
+  );
+  assert.ok(
+    state.activeSignal?.survivors.every(
+      (survivor) =>
+        survivor.origin === "vesper" &&
+        survivor.originSignalId === "vesper-signal-9",
+    ),
   );
 });
 

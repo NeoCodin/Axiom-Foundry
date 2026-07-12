@@ -50,7 +50,7 @@ test("server-renders the Axiom Foundry game surface", async () => {
 });
 
 test("removes all temporary starter-preview wiring", async () => {
-  const [page, arkDeck, layout, pagesEntry, packageJson, css, arkCss, continuityCss, researchCss, manualCss, awakeningCss, story, manual, survivorEngine] =
+  const [page, arkDeck, layout, pagesEntry, packageJson, css, arkCss, continuityCss, researchCss, manualCss, awakeningCss, story, manual, survivorEngine, populationConsole, settlementConsole, continuityExpertise, campaignContent, researchEngine] =
     await Promise.all([
       readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/ark-deck.tsx", import.meta.url), "utf8"),
@@ -66,6 +66,11 @@ test("removes all temporary starter-preview wiring", async () => {
       readFile(new URL("../app/story-content.ts", import.meta.url), "utf8"),
       readFile(new URL("../app/game-manual.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/survivor-engine.ts", import.meta.url), "utf8"),
+      readFile(new URL("../app/population-console.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/settlement-console.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/continuity-expertise.ts", import.meta.url), "utf8"),
+      readFile(new URL("../app/campaign-content.ts", import.meta.url), "utf8"),
+      readFile(new URL("../app/research-engine.ts", import.meta.url), "utf8"),
     ]);
 
   assert.match(page, /from "\.\/game-engine"/);
@@ -83,6 +88,8 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(css, /\.mission-stages\s*\{/);
   assert.match(arkCss, /\.ark-visual-stage\s*\{/);
   assert.match(continuityCss, /\.settler-selection-list\s*\{/);
+  assert.match(continuityCss, /\.crew-career-summary\s*\{/);
+  assert.match(continuityCss, /\.crew-continuity-contribution\s*\{/);
   assert.match(researchCss, /\.research-lattice-analysis-core\s*\{/);
   assert.match(manualCss, /\.game-manual\s*\{/);
   assert.match(awakeningCss, /\.living-foundry-nav\s*\{[^}]*position:\s*fixed/s);
@@ -97,6 +104,18 @@ test("removes all temporary starter-preview wiring", async () => {
   }
   assert.match(survivorEngine, /SURVIVOR_RARITY_DEFINITIONS/);
   assert.match(survivorEngine, /anomalous/);
+  assert.match(survivorEngine, /QUALITY_PITY_LIMIT/);
+  assert.match(survivorEngine, /learningMultiplier: 2/);
+  assert.match(populationConsole, /CURRENT PROFESSION/);
+  assert.match(populationConsole, /PROFESSION XP/);
+  assert.match(populationConsole, /CONTINUITY CONTRIBUTION/);
+  assert.match(settlementConsole, /How this is counted/);
+  assert.match(settlementConsole, /quality safety net active/);
+  assert.match(continuityExpertise, /70% of Security level/);
+  assert.match(continuityExpertise, /Researcher level \+ a 50% Null Dreamer bonus/);
+  assert.match(campaignContent, /vesper-exceptional-founders/);
+  assert.match(manual, /Profile Depth/);
+  assert.match(researchEngine, /"engineering-models": 220/);
   await access(new URL("../public/og.png", import.meta.url));
   await assert.rejects(access(new URL("../dist/server/og.png", import.meta.url)));
   await assert.rejects(

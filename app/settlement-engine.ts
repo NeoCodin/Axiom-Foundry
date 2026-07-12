@@ -9,6 +9,7 @@ import {
   type ExpertiseId,
   type LegacyBenefit,
 } from "./campaign-content.ts";
+import { CONTINUITY_EXPERTISE_PRESENTATION } from "./continuity-expertise.ts";
 
 export type CampaignCrewSummary = {
   id: string;
@@ -21,6 +22,7 @@ export type CampaignCrewSummary = {
   rarity?: string;
   rarityLabel?: string;
   rarityDescription?: string;
+  level?: number;
 };
 
 export type WorldProgressSummary = {
@@ -36,6 +38,7 @@ export type FounderSnapshot = {
   name: string;
   roles: string[];
   expertise: Record<string, number>;
+  rarity: "standard" | "notable" | "exceptional" | "anomalous";
 };
 
 export type ColonyRecord = {
@@ -62,6 +65,7 @@ export type ForecastLine = {
     | "population"
     | "role"
     | "expertise"
+    | "profile"
     | "infrastructure"
     | "supplies"
     | "research"
@@ -73,6 +77,8 @@ export type ForecastLine = {
   currentValue: number;
   requiredValue: number;
   met: boolean;
+  detail: string;
+  contributors: { id: string; label: string; value: number }[];
 };
 
 export type ViabilityDeficit = {
@@ -188,7 +194,18 @@ function normalizeCrew(member: CampaignCrewSummary): FounderSnapshot | null {
     name: cleanText(member.name, "Unnamed survivor"),
     roles,
     expertise: cleanValueRecord(member.expertise),
+    rarity: normalizeRarity(member.rarity),
   };
+}
+
+function normalizeRarity(
+  value: unknown,
+): FounderSnapshot["rarity"] {
+  return value === "notable" ||
+    value === "exceptional" ||
+    value === "anomalous"
+    ? value
+    : "standard";
 }
 
 function sanitizeFounder(value: unknown): FounderSnapshot | null {
@@ -200,6 +217,7 @@ function sanitizeFounder(value: unknown): FounderSnapshot | null {
     name: cleanText(value.name, "Unnamed founder"),
     roles: uniqueIds(value.roles, 20),
     expertise: cleanValueRecord(value.expertise),
+    rarity: normalizeRarity(value.rarity),
   };
 }
 
@@ -454,6 +472,8 @@ function line(
   baseValue: number,
   substitutionValue: number,
   requiredValue: number,
+  detail = "",
+  contributors: ForecastLine["contributors"] = [],
 ): ForecastLine {
   const currentValue = baseValue + substitutionValue;
   return {
@@ -465,6 +485,8 @@ function line(
     currentValue,
     requiredValue,
     met: currentValue >= requiredValue,
+    detail,
+    contributors,
   };
 }
 
@@ -491,6 +513,12 @@ function deficitFor(
     alternatives = [
       `Train selected civilians in ${requirement.label.toLocaleLowerCase("en-US")}.`,
       ...matchingSubstitutions(world, "expertise", requirement.id),
+    ];
+  } else if (requirement.kind === "profile") {
+    message = `Select ${missing} more ${requirement.label.toLocaleLowerCase("en-US")}.`;
+    alternatives = [
+      "Exceptional and Anomalous profiles also count toward lower rarity requirements.",
+      "The SOS array guarantees an Exceptional-or-better profile within five quality misses.",
     ];
   } else if (requirement.kind === "infrastructure") {
     const objective = world.infrastructure.find(
@@ -534,6 +562,7 @@ function viabilityScore(lines: readonly ForecastLine[]) {
     population: 25,
     role: 20,
     expertise: 20,
+    profile: 10,
     infrastructure: 15,
     supplies: 8,
     research: 7,
@@ -580,6 +609,7 @@ export function getViabilityForecast(
         settlers.length,
         0,
         world.minimumPopulation,
+        "Every selected founder counts once toward the stable population.",
       ),
     );
   }
@@ -588,23 +618,36 @@ export function getViabilityForecast(
     const accepted = new Set(requirement.acceptedRoles.map(normalizeId));
     const matchingCrew = settlers.filter((settler) =>
       settler.roles.some((role) => accepted.has(role)),
-    ).length;
+    );
     const assisted = substitutionsFor(world, "role", requirement.id, progress);
     lines.push(
       line(
         "role",
         requirement.id,
         requirement.label,
-        matchingCrew,
+        matchingCrew.length,
         assisted,
         requirement.count,
+        `Accepted professions: ${requirement.acceptedRoles.join(", ")}. Cross-trained qualifications count.`,
+        matchingCrew.map((settler) => ({
+          id: settler.crewId,
+          label: settler.name,
+          value: 1,
+        })),
       ),
     );
   }
 
   for (const requirement of world.expertiseRequirements) {
-    const skillTotal = settlers.reduce(
-      (total, settler) => total + (settler.expertise[requirement.id] ?? 0),
+    const contributors = settlers
+      .map((settler) => ({
+        id: settler.crewId,
+        label: settler.name,
+        value: settler.expertise[requirement.id] ?? 0,
+      }))
+      .filter((contributor) => contributor.value > 0);
+    const skillTotal = contributors.reduce(
+      (total, contributor) => total + contributor.value,
       0,
     );
     const assisted = substitutionsFor(
@@ -621,6 +664,37 @@ export function getViabilityForecast(
         skillTotal,
         assisted,
         requirement.total,
+        CONTINUITY_EXPERTISE_PRESENTATION[requirement.id].formula,
+        contributors,
+      ),
+    );
+  }
+
+  const rarityRanks: Record<FounderSnapshot["rarity"], number> = {
+    standard: 0,
+    notable: 1,
+    exceptional: 2,
+    anomalous: 3,
+  };
+  for (const requirement of world.profileRequirements) {
+    const matchingCrew = settlers.filter(
+      (settler) =>
+        rarityRanks[settler.rarity] >= rarityRanks[requirement.minimumRarity],
+    );
+    lines.push(
+      line(
+        "profile",
+        requirement.id,
+        requirement.label,
+        matchingCrew.length,
+        0,
+        requirement.count,
+        `${requirement.minimumRarity === "exceptional" ? "Exceptional and Anomalous" : "Notable, Exceptional, and Anomalous"} founders count. Rarity accelerates learning but never multiplies Expertise directly.`,
+        matchingCrew.map((settler) => ({
+          id: settler.crewId,
+          label: settler.name,
+          value: 1,
+        })),
       ),
     );
   }

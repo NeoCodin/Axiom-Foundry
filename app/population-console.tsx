@@ -2,6 +2,11 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 import { HelpTrigger, type ManualTopicId } from "./game-manual";
+import {
+  CONTINUITY_EXPERTISE_PRESENTATION,
+  getSurvivorContinuityExpertise,
+} from "./continuity-expertise";
+import type { ExpertiseId } from "./campaign-content";
 
 import {
   BACKGROUND_DEFINITIONS,
@@ -11,6 +16,9 @@ import {
   getLifeSupportStatus,
   getPopulationRoleCounts,
   getSurvivorRarity,
+  getSurvivorLearningMultiplier,
+  getSurvivorOnJobXpPerHour,
+  getSurvivorSkillProgress,
   getSurvivorSkillLevel,
   getTrainingQuote,
   type LifeSupportKey,
@@ -24,6 +32,9 @@ export type PopulationConsoleProps = {
   salvage: number;
   currentWorldName: string;
   beaconAvailable: boolean;
+  capacityMultiplier: number;
+  crewGrowthMultiplier: number;
+  requiredExpertiseIds: readonly ExpertiseId[];
   supportUpgradeCosts: Record<LifeSupportKey, number>;
   onUpgradeSupport: (key: LifeSupportKey) => void;
   onActivateBeacon: () => void;
@@ -63,6 +74,9 @@ function PopulationConsole({
   salvage,
   currentWorldName,
   beaconAvailable,
+  capacityMultiplier,
+  crewGrowthMultiplier,
+  requiredExpertiseIds,
   supportUpgradeCosts,
   onUpgradeSupport,
   onActivateBeacon,
@@ -75,16 +89,34 @@ function PopulationConsole({
   onBack,
 }: PopulationConsoleProps) {
   const [selectedCrewId, setSelectedCrewId] = useState<string | null>(null);
-  const lifeSupport = useMemo(() => getLifeSupportStatus(state), [state]);
+  const lifeSupport = useMemo(
+    () => getLifeSupportStatus(state, [], capacityMultiplier),
+    [capacityMultiplier, state],
+  );
   const roleCounts = useMemo(() => getPopulationRoleCounts(state), [state]);
   const selectedCrew = state.survivors.find((survivor) => survivor.id === selectedCrewId) ?? state.survivors[0] ?? null;
   const selectedRarity = selectedCrew ? getSurvivorRarity(selectedCrew) : null;
   const selectedTraining = selectedCrew
     ? state.training.find((program) => program.survivorId === selectedCrew.id) ?? null
     : null;
+  const selectedProfessionalRole =
+    selectedCrew && selectedCrew.role !== "civilian"
+      ? selectedCrew.role
+      : null;
+  const selectedSkillProgress =
+    selectedCrew && selectedProfessionalRole
+      ? getSurvivorSkillProgress(selectedCrew, selectedProfessionalRole)
+      : null;
+  const selectedContinuity = selectedCrew
+    ? getSurvivorContinuityExpertise(selectedCrew)
+    : null;
+  const selectedJobRole =
+    selectedCrew?.assignedRole && selectedCrew.assignedRole !== "civilian"
+      ? selectedCrew.assignedRole
+      : null;
   const activeSignal = state.activeSignal;
   const activeSignalLifeSupport = activeSignal
-    ? getLifeSupportStatus(state, activeSignal.survivors)
+    ? getLifeSupportStatus(state, activeSignal.survivors, capacityMultiplier)
     : null;
 
   const submitCallsign = (event: FormEvent<HTMLFormElement>) => {
@@ -107,7 +139,7 @@ function PopulationConsole({
 
       <div className="continuity-summary-band">
         <div><span>People aboard</span><strong>{state.survivors.length}</strong></div>
-        <div><span>Stable capacity</span><strong>{Math.min(...Object.values(state.lifeSupport))}</strong></div>
+        <div><span>Stable capacity</span><strong>{Math.min(...Object.values(lifeSupport.capacity))}</strong></div>
         <div><span>Training</span><strong>{state.training.length}/{state.trainingSlots}</strong></div>
         <div><span>Signals answered</span><strong>{state.signalsResolved}</strong></div>
         <div className="continuity-summary-help"><span>Available Salvage <HelpTrigger label="How do I get Salvage?" onClick={() => onOpenHelp("salvage")} /></span><strong>{Math.floor(salvage)}</strong></div>
@@ -117,7 +149,7 @@ function PopulationConsole({
         <header><div><span>STABLE CAPACITY</span><h3>Life-support envelope</h3></div><small>{lifeSupport.stable ? "All current demand covered" : "Increase capacity before the next rescue"}</small></header>
         <div className="support-upgrade-grid">
           {(Object.keys(SUPPORT_LABELS) as LifeSupportKey[]).map((key) => {
-            const capacity = state.lifeSupport[key];
+            const capacity = lifeSupport.capacity[key];
             const demand = lifeSupport.demand[key];
             const cost = supportUpgradeCosts[key];
             const ratio = Math.min(1, demand / Math.max(1, capacity));
@@ -126,7 +158,7 @@ function PopulationConsole({
                 <span>{SUPPORT_LABELS[key]}</span>
                 <strong>{demand} / {capacity}</strong>
                 <div role="progressbar" aria-label={`${SUPPORT_LABELS[key]} capacity`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(ratio * 100)}><i style={{ width: `${ratio * 100}%` }} /></div>
-                <button type="button" disabled={salvage < cost} onClick={() => onUpgradeSupport(key)}>Expand +2 · {cost} Salvage</button>
+                <button type="button" disabled={salvage < cost} onClick={() => onUpgradeSupport(key)}>Expand +4 · {cost} Salvage</button>
               </article>
             );
           })}
@@ -135,7 +167,7 @@ function PopulationConsole({
 
       <div className="continuity-two-column">
         <section className={`continuity-panel survivor-beacon-panel ${state.beaconOnline ? "is-online" : ""}`}>
-          <header><div><span>SOS ARRAY</span><h3>{state.beaconOnline ? "Pelagos beacon online" : "Beacon awaiting authorization"}</h3></div><small>{state.beaconOnline ? activeSignal ? "Signal holding" : `${Math.round(state.beaconProgressSeconds)} / 90 sec scan` : "No broadcast"}</small></header>
+          <header><div><span>SOS ARRAY</span><h3>{state.beaconOnline ? `${currentWorldName} beacon online` : "Beacon awaiting authorization"}</h3></div><small>{state.beaconOnline ? activeSignal ? "Signal holding" : `${Math.round(state.beaconProgressSeconds)} / 90 sec scan` : "No broadcast"}</small></header>
           {!state.beaconOnline ? (
             <div className="continuity-empty-state">
               <strong>Invite the first witnesses aboard.</strong>
@@ -180,11 +212,11 @@ function PopulationConsole({
             {SURVIVOR_RARITY_DEFINITIONS.map((rarity) => (
               <span className={`crew-rarity-${rarity.id}`} title={rarity.description} key={rarity.id}>
                 <i aria-hidden="true" />
-                {rarity.label}
+                {rarity.label} · ×{rarity.learningMultiplier.toFixed(2)} learning
               </span>
             ))}
           </div>
-          <small className="crew-rarity-note">Color measures how scarce a profile&apos;s aptitudes and traits are—never the worth of a person.</small>
+          <small className="crew-rarity-note">Color measures how scarce a profile&apos;s aptitudes and traits are—never the worth of a person. Rarity speeds training and job XP; it never multiplies Continuity expertise directly.</small>
         </section>
       </div>
 
@@ -201,7 +233,7 @@ function PopulationConsole({
                 return (
                   <button className={`crew-rarity-${rarity.id} ${selectedCrew?.id === survivor.id ? "is-selected" : ""}`} type="button" key={survivor.id} onClick={() => setSelectedCrewId(survivor.id)}>
                     <span className="crew-avatar">{survivor.name.slice(0, 1)}</span>
-                    <span><strong>{survivor.callsign ? `“${survivor.callsign}” ${survivor.name}` : survivor.name}</strong><small>{training ? `Training ${titleCase(training.targetRole)} · ${Math.round((training.progressSeconds / training.durationSeconds) * 100)}%` : `${titleCase(survivor.role)} · ${titleCase(survivor.assignedRole ?? "unassigned")}`}</small></span>
+                    <span><strong>{survivor.callsign ? `“${survivor.callsign}” ${survivor.name}` : survivor.name}</strong><small>{training ? `Training ${titleCase(training.targetRole)} · ${Math.round((training.progressSeconds / training.durationSeconds) * 100)}%` : survivor.role === "civilian" ? `Civilian · ${titleCase(survivor.assignedRole ?? "untrained")}` : `${titleCase(survivor.role)} · Level ${getSurvivorSkillLevel(survivor, survivor.role)} · ${titleCase(survivor.assignedRole ?? "unassigned")}`}</small></span>
                     <em className="crew-rarity-badge" title={rarity.description}>{rarity.label}</em>
                   </button>
                 );
@@ -214,7 +246,33 @@ function PopulationConsole({
           {selectedCrew ? (
             <>
               <header><div><span>PERSONNEL FILE</span><h3>{selectedCrew.name}</h3></div><div className="crew-file-classification"><em className="crew-rarity-badge" title={selectedRarity?.description}>{selectedRarity?.label}</em><small>{selectedCrew.storyHookId ? "Archive discrepancy attached" : `Joined from ${titleCase(selectedCrew.origin)}`}</small></div></header>
-              <div className="crew-detail-identity"><span className="crew-avatar large">{selectedCrew.name.slice(0, 1)}</span><div><strong>{titleCase(selectedCrew.role)}</strong><small>{BACKGROUND_DEFINITIONS.find((item) => item.id === selectedCrew.backgroundId)?.summary ?? titleCase(selectedCrew.backgroundId)}</small></div></div>
+              <div className="crew-detail-identity">
+                <span className="crew-avatar large">{selectedCrew.name.slice(0, 1)}</span>
+                <div>
+                  <strong>{selectedProfessionalRole && selectedSkillProgress ? `${titleCase(selectedProfessionalRole)} · Level ${selectedSkillProgress.level}` : "Civilian · Untrained"}</strong>
+                  <small>{BACKGROUND_DEFINITIONS.find((item) => item.id === selectedCrew.backgroundId)?.summary ?? titleCase(selectedCrew.backgroundId)}</small>
+                </div>
+              </div>
+              <section className="crew-career-summary" aria-label="Profession and experience summary">
+                <div className="crew-career-heading">
+                  <div>
+                    <span>CURRENT PROFESSION</span>
+                    <strong>{selectedProfessionalRole && selectedSkillProgress ? `${titleCase(selectedProfessionalRole)} · LEVEL ${selectedSkillProgress.level}` : "CIVILIAN · READY TO TRAIN"}</strong>
+                    <small>{selectedJobRole ? `${getSurvivorOnJobXpPerHour(selectedCrew, selectedJobRole, crewGrowthMultiplier).toFixed(1)} XP/hour while assigned as ${titleCase(selectedJobRole)}` : "Assign qualified work to earn profession XP offline."}</small>
+                  </div>
+                  <div className="crew-learning-rate">
+                    <span>PERSONAL LEARNING</span>
+                    <strong>×{getSurvivorLearningMultiplier(selectedCrew).toFixed(2)}</strong>
+                    <small>Ark instruction ×{crewGrowthMultiplier.toFixed(2)}</small>
+                  </div>
+                </div>
+                {selectedSkillProgress && (
+                  <div className="crew-xp-readout">
+                    <div><span>PROFESSION XP</span><strong>{selectedSkillProgress.isMaxLevel ? `${Math.floor(selectedSkillProgress.xp).toLocaleString()} · MAX LEVEL` : `${Math.floor(selectedSkillProgress.xp).toLocaleString()} / ${selectedSkillProgress.nextLevelXp?.toLocaleString()} XP`}</strong></div>
+                    <div className="crew-xp-track" role="progressbar" aria-label={`${titleCase(selectedProfessionalRole!)} experience`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(selectedSkillProgress.progress * 100)}><i style={{ width: `${selectedSkillProgress.progress * 100}%` }} /></div>
+                  </div>
+                )}
+              </section>
               <form className="crew-callsign-form" onSubmit={submitCallsign}><label htmlFor="crew-callsign">Callsign</label><input id="crew-callsign" name="callsign" maxLength={18} defaultValue={selectedCrew.callsign} placeholder="Optional" /><button type="submit">Save</button></form>
               <div className="crew-trait-list">
                 {selectedCrew.traits.map((traitId) => {
@@ -223,15 +281,40 @@ function PopulationConsole({
                 })}
               </div>
               <div className="crew-skill-grid">
-                {PROFESSIONAL_ROLES.map((role) => <div key={role}><span>{titleCase(role)}</span><strong>{getSurvivorSkillLevel(selectedCrew, role)}</strong><small>Aptitude {selectedCrew.aptitudes[role]}/5</small></div>)}
+                {PROFESSIONAL_ROLES.map((role) => {
+                  const progress = getSurvivorSkillProgress(selectedCrew, role);
+                  return (
+                    <div className={`${progress.level > 0 ? "is-qualified" : ""} ${selectedProfessionalRole === role ? "is-current" : ""}`} key={role}>
+                      <span>{titleCase(role)}</span>
+                      <strong>{progress.level > 0 ? `LV ${progress.level}` : "UNTRAINED"}</strong>
+                      <div className="crew-skill-progress"><i style={{ width: `${progress.progress * 100}%` }} /></div>
+                      <small>{progress.level > 0 ? `${Math.floor(progress.xp).toLocaleString()} XP · ` : ""}Aptitude {selectedCrew.aptitudes[role]}/5</small>
+                    </div>
+                  );
+                })}
               </div>
 
+              <section className="crew-continuity-contribution">
+                <header><div><span>CONTINUITY CONTRIBUTION</span><strong>What this person adds to a founding roster</strong></div><HelpTrigger label="Explain crew levels and Continuity" onClick={() => onOpenHelp("settlement")} /></header>
+                {selectedContinuity && Object.values(selectedContinuity).some((value) => value > 0) ? (
+                  <ul>
+                    {(Object.entries(selectedContinuity) as [ExpertiseId, number][]).filter(([, value]) => value > 0).map(([expertiseId, value]) => {
+                      const presentation = CONTINUITY_EXPERTISE_PRESENTATION[expertiseId];
+                      const requiredHere = requiredExpertiseIds.includes(expertiseId);
+                      return <li className={requiredHere ? "is-required" : ""} key={expertiseId}><div><strong>{presentation.label} +{value}</strong><small>{presentation.formula}</small></div><em>{requiredHere ? `REQUIRED ON ${currentWorldName.toUpperCase()}` : "FUTURE VALUE"}</em></li>;
+                    })}
+                  </ul>
+                ) : (
+                  <p>Train a profession to create measurable Continuity expertise.</p>
+                )}
+              </section>
+
               {selectedTraining ? (
-                <div className="active-training-card"><span>TRAINING IN PROGRESS</span><strong>{titleCase(selectedTraining.targetRole)}</strong><div><i style={{ width: `${Math.min(100, (selectedTraining.progressSeconds / selectedTraining.durationSeconds) * 100)}%` }} /></div><small>{formatTime(selectedTraining.durationSeconds - selectedTraining.progressSeconds)} remaining · continues offline</small><button type="button" onClick={() => onCancelTraining(selectedCrew.id)}>Cancel training</button></div>
+                <div className="active-training-card"><span>TRAINING IN PROGRESS</span><strong>{titleCase(selectedTraining.targetRole)}</strong><div><i style={{ width: `${Math.min(100, (selectedTraining.progressSeconds / selectedTraining.durationSeconds) * 100)}%` }} /></div><small>{formatTime((selectedTraining.durationSeconds - selectedTraining.progressSeconds) / crewGrowthMultiplier)} remaining · ×{(getSurvivorLearningMultiplier(selectedCrew) * crewGrowthMultiplier).toFixed(2)} total learning · continues offline</small><button type="button" onClick={() => onCancelTraining(selectedCrew.id)}>Cancel training</button></div>
               ) : (
                 <div className="crew-actions-grid">
                   <label>Working assignment<select value={selectedCrew.assignedRole ?? ""} onChange={(event) => onAssignRole(selectedCrew.id, event.target.value ? event.target.value as SurvivorRole : null)}><option value="">Unassigned</option>{selectedCrew.role === "civilian" && <option value="civilian">Civilian support</option>}{PROFESSIONAL_ROLES.filter((role) => selectedCrew.role === role || getSurvivorSkillLevel(selectedCrew, role) > 0).map((role) => <option key={role} value={role}>{titleCase(role)}</option>)}</select></label>
-                  <label>Training program<select defaultValue="" onChange={(event) => { if (event.target.value) onStartTraining(selectedCrew.id, event.target.value as ProfessionalRole); event.target.value = ""; }}><option value="">Choose profession…</option>{PROFESSIONAL_ROLES.filter((role) => getSurvivorSkillLevel(selectedCrew, role) === 0).map((role) => { const quote = getTrainingQuote(selectedCrew, role); return <option key={role} value={role}>{titleCase(role)} · {formatTime(quote.durationSeconds)}</option>; })}</select></label>
+                  <label>Training program<select defaultValue="" onChange={(event) => { if (event.target.value) onStartTraining(selectedCrew.id, event.target.value as ProfessionalRole); event.target.value = ""; }}><option value="">Choose profession…</option>{PROFESSIONAL_ROLES.filter((role) => getSurvivorSkillLevel(selectedCrew, role) === 0).map((role) => { const quote = getTrainingQuote(selectedCrew, role); return <option key={role} value={role}>{titleCase(role)} · {formatTime(quote.durationSeconds / crewGrowthMultiplier)}</option>; })}</select></label>
                 </div>
               )}
             </>

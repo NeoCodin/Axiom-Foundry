@@ -34,6 +34,7 @@ export type ResearchLatticeProps = {
   resources?: Partial<ResearchInputBundle>;
   availableCrew: number;
   powerAvailable: number;
+  externalSpeedMultiplier?: number;
   now?: number;
   onStateChange: (state: ResearchLatticeState) => void;
   onTransferInput: (inputId: ResearchInputId, amount: number) => void;
@@ -108,6 +109,7 @@ export function ResearchLattice({
   resources = {},
   availableCrew,
   powerAvailable,
+  externalSpeedMultiplier = 1,
   now = 0,
   onStateChange,
   onTransferInput,
@@ -130,8 +132,9 @@ export function ResearchLattice({
       getResearchNetworkStatus(state, {
         powerAvailable,
         crewAvailable: availableCrew,
+        externalSpeedMultiplier,
       }),
-    [availableCrew, powerAvailable, state],
+    [availableCrew, externalSpeedMultiplier, powerAvailable, state],
   );
   const echoes = getResearchNullEchoes(state);
   const activeProgress = activeDefinition

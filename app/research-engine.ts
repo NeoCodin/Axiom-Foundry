@@ -385,7 +385,7 @@ export const RESEARCH_PROJECT_DEFINITIONS: readonly ResearchProjectDefinition[] 
     costs: {
       "cultural-records": 260,
       "biological-samples": 155,
-      "axiom-proofs": 14,
+      "engineering-models": 220,
     },
     prerequisites: ["clinical-commons", "discarded-spectrum"],
     unlocks: ["settlement-planner", "planetary-departure"],

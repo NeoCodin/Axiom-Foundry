@@ -61,21 +61,25 @@ export const SURVIVOR_RARITY_DEFINITIONS = [
     id: "standard",
     label: "Standard",
     description: "A dependable profile with broadly useful potential.",
+    learningMultiplier: 1,
   },
   {
     id: "notable",
     label: "Notable",
     description: "A scarce mix of strong aptitudes or unusual adaptability.",
+    learningMultiplier: 1.25,
   },
   {
     id: "exceptional",
     label: "Exceptional",
     description: "Exceptional natural potential across multiple disciplines.",
+    learningMultiplier: 1.6,
   },
   {
     id: "anomalous",
     label: "Anomalous",
     description: "A singular survivor whose record is tied to the Ark's deeper mystery.",
+    learningMultiplier: 2,
   },
 ] as const;
 
@@ -87,6 +91,7 @@ export type SurvivorRarity = {
   label: string;
   description: string;
   score: number;
+  learningMultiplier: number;
 };
 
 export function getSurvivorRarityScore(survivor: Survivor) {
@@ -116,6 +121,10 @@ export function getSurvivorRarity(survivor: Survivor): SurvivorRarity {
     (candidate) => candidate.id === rarityId,
   )!;
   return { ...definition, score };
+}
+
+export function getSurvivorLearningMultiplier(survivor: Survivor) {
+  return getSurvivorRarity(survivor).learningMultiplier;
 }
 
 export type SurvivorSignal = {
@@ -157,6 +166,7 @@ export type SurvivorSystemState = {
   signalsGenerated: number;
   signalsResolved: number;
   rarePity: number;
+  qualityPity: number;
   rolePity: Record<ProfessionalRole, number>;
 };
 
@@ -394,8 +404,10 @@ export const SOS_WORLD_IDS = [
 export const SOS_SCAN_SECONDS = 90;
 export const MAX_OFFLINE_SURVIVOR_SECONDS = 30 * 24 * 60 * 60;
 export const MAX_SURVIVORS = 500;
+export const MAX_SIGNAL_SURVIVORS = 8;
 export const MAX_TRAINING_SLOTS = 12;
 export const RARE_PITY_LIMIT = 11;
+export const QUALITY_PITY_LIMIT = 5;
 
 const DEFAULT_RNG_SEED = 0x41c6ce57;
 const MAX_COUNTER = 1_000_000_000;
@@ -671,6 +683,7 @@ export function createSurvivorSystemState(
     signalsGenerated: 0,
     signalsResolved: 0,
     rarePity: 0,
+    qualityPity: 0,
     rolePity: makeRolePity(),
   };
 }
@@ -756,12 +769,40 @@ function createRareSurvivor(
   return survivor;
 }
 
+const SOS_GROUP_SIZES: Record<
+  (typeof SOS_WORLD_IDS)[number],
+  readonly [minimum: number, maximum: number]
+> = {
+  pelagos: [2, 4],
+  viridia: [3, 5],
+  cinder: [4, 6],
+  nox: [5, 7],
+  vesper: [6, 8],
+};
+
+function elevateSurvivorToExceptional(survivor: Survivor) {
+  const rankedRoles = [...PROFESSIONAL_ROLES].sort(
+    (left, right) => survivor.aptitudes[right] - survivor.aptitudes[left],
+  );
+  const primary =
+    survivor.role !== "civilian" ? survivor.role : rankedRoles[0]!;
+  const secondary = rankedRoles.find((role) => role !== primary)!;
+  const tertiary = rankedRoles.find(
+    (role) => role !== primary && role !== secondary,
+  )!;
+  survivor.aptitudes[primary] = 5;
+  survivor.aptitudes[secondary] = 5;
+  survivor.aptitudes[tertiary] = Math.max(3, survivor.aptitudes[tertiary]);
+}
+
 function generateSurvivorSignalMutable(state: SurvivorSystemState) {
   if (!state.beaconOnline || state.activeSignal) return;
   const sequence = state.signalsGenerated + 1;
   const beaconWorldId = state.beaconWorldId ?? SOS_WORLD_ID;
   const signalId = `${beaconWorldId}-signal-${sequence}`;
-  const groupSize = 2 + randomInt(state, 3);
+  const [minimumGroupSize, maximumGroupSize] = SOS_GROUP_SIZES[beaconWorldId];
+  const groupSize =
+    minimumGroupSize + randomInt(state, maximumGroupSize - minimumGroupSize + 1);
   const scheduledRole = ROLE_ROTATION[(sequence - 1) % ROLE_ROTATION.length]!;
   const pityRole = PROFESSIONAL_ROLES.find(
     (role) => role !== scheduledRole && state.rolePity[role] >= 4,
@@ -785,12 +826,29 @@ function generateSurvivorSignalMutable(state: SurvivorSystemState) {
     );
   }
 
+  let includesExceptional = survivors.some((survivor) => {
+    const rarity = getSurvivorRarity(survivor).id;
+    return rarity === "exceptional" || rarity === "anomalous";
+  });
+  const qualityBoostChance = Math.min(0.48, 0.08 + state.qualityPity * 0.1);
+  if (
+    !includesExceptional &&
+    (state.qualityPity >= QUALITY_PITY_LIMIT - 1 ||
+      nextRandom(state) < qualityBoostChance)
+  ) {
+    elevateSurvivorToExceptional(survivors[survivors.length - 1]!);
+    includesExceptional = true;
+  }
+
   for (const role of PROFESSIONAL_ROLES) {
     state.rolePity[role] = survivors.some((survivor) => survivor.role === role)
       ? 0
       : Math.min(100, state.rolePity[role] + 1);
   }
   state.rarePity = includesRare ? 0 : Math.min(100, state.rarePity + 1);
+  state.qualityPity = includesExceptional
+    ? 0
+    : Math.min(100, state.qualityPity + 1);
   state.signalsGenerated = sequence;
   state.beaconProgressSeconds = 0;
   state.activeSignal = {
@@ -863,21 +921,26 @@ export type LifeSupportStatus = {
 export function getLifeSupportStatus(
   state: SurvivorSystemState,
   incoming: readonly Survivor[] = [],
+  capacityMultiplier = 1,
 ): LifeSupportStatus {
   const population = [...state.survivors, ...incoming];
   const demand = supportDemandForSurvivors(population);
   const keys = Object.keys(state.lifeSupport) as LifeSupportKey[];
+  const multiplier = Math.min(10, Math.max(1, finite(capacityMultiplier, 1, 10)));
+  const capacity = Object.fromEntries(
+    keys.map((key) => [key, Math.floor(state.lifeSupport[key] * multiplier)]),
+  ) as LifeSupportCapacity;
   const remaining = { ...ZERO_LIFE_SUPPORT };
   const shortages = { ...ZERO_LIFE_SUPPORT };
   for (const key of keys) {
-    remaining[key] = Math.max(0, state.lifeSupport[key] - demand[key]);
-    shortages[key] = Math.max(0, demand[key] - state.lifeSupport[key]);
+    remaining[key] = Math.max(0, capacity[key] - demand[key]);
+    shortages[key] = Math.max(0, demand[key] - capacity[key]);
   }
   return {
     stable: keys.every((key) => shortages[key] <= 0.000_001),
     population: state.survivors.length,
     populationAfter: population.length,
-    capacity: { ...state.lifeSupport },
+    capacity,
     demand,
     remaining,
     shortages,
@@ -900,9 +963,14 @@ export type RescueReadiness = {
 export function getRescueReadiness(
   state: SurvivorSystemState,
   availableSalvage: number,
+  capacityMultiplier = 1,
 ): RescueReadiness {
   const signal = state.activeSignal;
-  const lifeSupport = getLifeSupportStatus(state, signal?.survivors ?? []);
+  const lifeSupport = getLifeSupportStatus(
+    state,
+    signal?.survivors ?? [],
+    capacityMultiplier,
+  );
   if (!signal) {
     return { canRescue: false, cost: 0, reason: "no-signal", lifeSupport };
   }
@@ -949,8 +1017,13 @@ export type RescueResult = {
 export function rescueSurvivorSignal(
   state: SurvivorSystemState,
   availableSalvage: number,
+  capacityMultiplier = 1,
 ): RescueResult {
-  const readiness = getRescueReadiness(state, availableSalvage);
+  const readiness = getRescueReadiness(
+    state,
+    availableSalvage,
+    capacityMultiplier,
+  );
   if (!readiness.canRescue || !state.activeSignal) {
     return {
       state,
@@ -1003,6 +1076,70 @@ export function getSurvivorSkillLevel(
   return Math.min(10, 1 + Math.floor(Math.sqrt(xp / 120)));
 }
 
+export type SurvivorSkillProgress = {
+  level: number;
+  xp: number;
+  levelStartXp: number;
+  nextLevelXp: number | null;
+  progress: number;
+  isMaxLevel: boolean;
+};
+
+export function getSurvivorSkillProgress(
+  survivor: Survivor,
+  role: ProfessionalRole,
+): SurvivorSkillProgress {
+  const level = getSurvivorSkillLevel(survivor, role);
+  const xp = finite(survivor.skillXp[role], 0, MAX_SKILL_XP);
+  if (level <= 0) {
+    return {
+      level: 0,
+      xp,
+      levelStartXp: 0,
+      nextLevelXp: null,
+      progress: 0,
+      isMaxLevel: false,
+    };
+  }
+  if (level >= 10) {
+    return {
+      level,
+      xp,
+      levelStartXp: 120 * 9 ** 2,
+      nextLevelXp: null,
+      progress: 1,
+      isMaxLevel: true,
+    };
+  }
+  const levelStartXp = level === 1 ? 0 : 120 * (level - 1) ** 2;
+  const nextLevelXp = 120 * level ** 2;
+  return {
+    level,
+    xp,
+    levelStartXp,
+    nextLevelXp,
+    progress: Math.min(
+      1,
+      Math.max(0, (xp - levelStartXp) / (nextLevelXp - levelStartXp)),
+    ),
+    isMaxLevel: false,
+  };
+}
+
+export function getSurvivorOnJobXpPerHour(
+  survivor: Survivor,
+  role: ProfessionalRole,
+  externalMultiplier = 1,
+) {
+  const aptitudeMultiplier = 0.8 + survivor.aptitudes[role] * 0.1;
+  return (
+    ON_JOB_XP_PER_HOUR *
+    aptitudeMultiplier *
+    getSurvivorLearningMultiplier(survivor) *
+    Math.max(1, finite(externalMultiplier, 1, 10))
+  );
+}
+
 export function isSurvivorQualified(
   survivor: Survivor,
   role: ProfessionalRole,
@@ -1016,6 +1153,7 @@ export type TrainingQuote = {
   durationSeconds: number;
   aptitude: number;
   civilianAcceleration: number;
+  learningMultiplier: number;
 };
 
 export function getTrainingQuote(
@@ -1028,6 +1166,7 @@ export function getTrainingQuote(
     survivor.role === "civilian"
       ? Math.max(0.72, 0.88 - survivor.adaptability * 0.025)
       : 1;
+  const learningMultiplier = getSurvivorLearningMultiplier(survivor);
   return {
     survivorId: survivor.id,
     targetRole,
@@ -1036,11 +1175,13 @@ export function getTrainingQuote(
       Math.ceil(
         TRAINING_DURATIONS_SECONDS[targetRole] *
           aptitudeMultiplier *
-          civilianAcceleration,
+          civilianAcceleration /
+          learningMultiplier,
       ),
     ),
     aptitude,
     civilianAcceleration,
+    learningMultiplier,
   };
 }
 
@@ -1184,14 +1325,11 @@ function advanceOnJobExperienceMutable(
     );
     if (survivor.assignedRole === "civilian") continue;
     const role = survivor.assignedRole;
-    const aptitudeMultiplier = 0.8 + survivor.aptitudes[role] * 0.1;
     survivor.skillXp[role] = Math.min(
       MAX_SKILL_XP,
       survivor.skillXp[role] +
         (elapsedSeconds / 3_600) *
-          ON_JOB_XP_PER_HOUR *
-          aptitudeMultiplier *
-          xpMultiplier,
+          getSurvivorOnJobXpPerHour(survivor, role, xpMultiplier),
     );
   }
 }
@@ -1369,6 +1507,7 @@ export function sanitizeSurvivorSystemState(value: unknown): SurvivorSystemState
     signalsGenerated: whole(value.signalsGenerated, 0, MAX_COUNTER),
     signalsResolved: whole(value.signalsResolved, 0, MAX_COUNTER),
     rarePity: whole(value.rarePity, 0, 100),
+    qualityPity: whole(value.qualityPity, 0, 100),
     rolePity: makeRolePity(),
   };
 
@@ -1399,7 +1538,9 @@ export function sanitizeSurvivorSystemState(value: unknown): SurvivorSystemState
     const rawPending = Array.isArray(rawSignal.survivors)
       ? rawSignal.survivors
       : [];
-    for (const [index, raw] of rawPending.slice(0, 4).entries()) {
+    for (const [index, raw] of rawPending
+      .slice(0, MAX_SIGNAL_SURVIVORS)
+      .entries()) {
       const survivor = sanitizeSurvivor(
         raw,
         `signal-${sequence}-survivor-${index + 1}`,

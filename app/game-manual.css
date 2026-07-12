@@ -260,10 +260,12 @@
 .game-manual-tip p { margin: 4px 0 0; color: #7890a0; font-size: 10px; line-height: 1.55; }
 
 .game-manual-sources,
-.game-manual-rarity { margin-top: 22px; }
+.game-manual-rarity,
+.game-manual-formulas { margin-top: 22px; }
 
 .game-manual-sources h3,
-.game-manual-rarity h3 {
+.game-manual-rarity h3,
+.game-manual-formulas h3 {
   margin: 0 0 9px;
   color: #c9d8df;
   font-size: 11px;
@@ -290,6 +292,10 @@
 .game-manual-rarity span { display: inline-flex; align-items: center; gap: 7px; padding: 7px 9px; color: var(--crew-rarity, #a7b6c2); border: 1px solid rgb(var(--crew-rarity-rgb, 167 182 194) / 0.38); background: rgb(var(--crew-rarity-rgb, 167 182 194) / 0.07); }
 .game-manual-rarity span i { width: 8px; height: 8px; border-radius: 50%; background: var(--crew-rarity, #a7b6c2); box-shadow: 0 0 9px rgb(var(--crew-rarity-rgb, 167 182 194) / 0.44); }
 .game-manual-rarity span strong { font-family: var(--font-mono, monospace); font-size: 8px; text-transform: uppercase; }
+.game-manual-formulas > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.game-manual-formulas article { padding: 10px; border: 1px solid #213746; background: #07121b; }
+.game-manual-formulas strong { color: var(--world-accent, #55d6e8); font-size: 9px; }
+.game-manual-formulas p { margin: 5px 0 0; color: #768d9c; font-size: 8px; line-height: 1.5; }
 
 .game-manual-tip {
   margin-top: 22px;
@@ -314,4 +320,5 @@
   .game-manual-index button { width: auto; min-width: max-content; }
   .game-manual-topic { padding: 16px; }
   .game-manual-sources > div { grid-template-columns: 1fr; }
+  .game-manual-formulas > div { grid-template-columns: 1fr; }
 }

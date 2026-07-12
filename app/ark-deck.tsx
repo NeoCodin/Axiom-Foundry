@@ -454,7 +454,7 @@ function ArkDeck({
                     {crew.slice(0, 4).map((member) => (
                       <li className={`crew-rarity-${member.rarity}`} key={member.id}>
                         <span className="ark-crew-avatar">{member.name.slice(0, 1)}</span>
-                        <div><strong>{member.name}</strong><small>{member.training ? `${member.role} · training ${member.training}` : `${member.role} · level ${member.level}`}</small></div>
+                        <div><strong>{member.name}</strong><small>{member.training ? `${member.role} · training ${member.training}` : member.level > 0 ? `${member.role} · level ${member.level}` : `${member.role} · untrained`}</small></div>
                         <em className="crew-rarity-badge" title={member.rarityDescription}>{member.rarityLabel}</em>
                       </li>
                     ))}

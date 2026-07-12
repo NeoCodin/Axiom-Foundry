@@ -129,6 +129,74 @@ test("campaign content moves from a crewless Cold Wake through five distinct wor
   }
 });
 
+test("Profile Depth is absent early and explicit on every late world", () => {
+  assert.deepEqual(getCampaignWorld("pelagos")?.profileRequirements, []);
+  assert.deepEqual(getCampaignWorld("viridia")?.profileRequirements, []);
+  assert.deepEqual(
+    getCampaignWorld("cinder")?.profileRequirements.map((requirement) => [
+      requirement.minimumRarity,
+      requirement.count,
+    ]),
+    [["notable", 2]],
+  );
+  assert.deepEqual(
+    getCampaignWorld("nox")?.profileRequirements.map((requirement) => [
+      requirement.minimumRarity,
+      requirement.count,
+    ]),
+    [["notable", 4], ["exceptional", 1]],
+  );
+  assert.deepEqual(
+    getCampaignWorld("vesper")?.profileRequirements.map((requirement) => [
+      requirement.minimumRarity,
+      requirement.count,
+    ]),
+    [["notable", 6], ["exceptional", 3]],
+  );
+});
+
+test("late Profile Depth gates count higher rarities without multiplying Expertise", () => {
+  let state = sanitizeSettlementState({
+    completedWorldIds: ["cold-wake", "pelagos", "viridia", "cinder"],
+  });
+  const crew: CampaignCrewSummary[] = [
+    { id: "standard", name: "Standard", role: "researcher", rarity: "standard", expertise: { research: 4 } },
+    { id: "notable-1", name: "Notable One", role: "researcher", rarity: "notable", expertise: { research: 4 } },
+    { id: "notable-2", name: "Notable Two", role: "researcher", rarity: "notable", expertise: { research: 4 } },
+    { id: "notable-3", name: "Notable Three", role: "researcher", rarity: "notable", expertise: { research: 4 } },
+    { id: "exceptional", name: "Exceptional", role: "researcher", rarity: "exceptional", expertise: { research: 4 } },
+    { id: "anomalous", name: "Anomalous", role: "researcher", rarity: "anomalous", expertise: { research: 4 } },
+  ];
+  state = setSelectedSettlers(state, crew, crew.map((member) => member.id));
+  const forecast = getViabilityForecast(state, "nox", crew, {});
+
+  assert.equal(
+    forecast.lines.find((line) => line.id === "nox-notable-founders")?.baseValue,
+    5,
+  );
+  assert.equal(
+    forecast.lines.find((line) => line.id === "nox-exceptional-founders")?.baseValue,
+    2,
+  );
+  assert.equal(
+    forecast.lines.find((line) => line.id === "research")?.baseValue,
+    24,
+    "rarity must not secretly multiply Expertise",
+  );
+
+  const onlyStandard = setSelectedSettlers(
+    state,
+    crew,
+    ["standard"],
+  );
+  const blocked = getViabilityForecast(onlyStandard, "nox", crew, {});
+  const profileDeficit = blocked.deficits.find(
+    (deficit) => deficit.id === "nox-exceptional-founders",
+  );
+  assert.match(profileDeficit?.message ?? "", /exceptional-or-better/i);
+  assert.match(profileDeficit?.alternatives.join(" ") ?? "", /five quality misses/i);
+});
+
 test("Cold Wake requires Ark readiness but never invents a starting population", () => {
   const state = createSettlementState();
   const empty = getViabilityForecast(state, "cold-wake", [], {});
@@ -236,6 +304,14 @@ test("profession categories and expertise totals never depend on one lucky chara
     forecast.lines.find((line) => line.id === "engineering")?.baseValue,
     12,
   );
+  assert.match(
+    forecast.lines.find((line) => line.id === "engineering")?.detail ?? "",
+    /Technician level/i,
+  );
+  assert.equal(
+    forecast.lines.find((line) => line.id === "engineering")?.contributors.length,
+    3,
+  );
 });
 
 test("equipment and research can cover bounded specialist gaps", () => {
@@ -323,6 +399,7 @@ test("departure preserves founders as colony history and returns integration IDs
   );
   assert.equal(founder?.name, "Engineer 1");
   assert.equal(founder?.expertise.engineering, 4);
+  assert.equal(founder?.rarity, "standard");
 });
 
 test("colonies provide persistent transmissions and additive legacy benefits", () => {
@@ -400,6 +477,7 @@ test("sanitization rejects skipped worlds, duplicate colonies, settled selection
   assert.equal(state.colonies[0].establishedAt, 0);
   assert.equal(state.colonies[0].transmissionsRead, 3);
   assert.deepEqual(state.colonies[0].legacyBenefitIds, ["pelagos-signal-net"]);
+  assert.equal(state.colonies[0].founders[0]?.rarity, "standard");
   assert.deepEqual(state.selectedSettlerIds, ["new-person"]);
   assert.equal(state.lastDepartureAt, 0);
 });
@@ -468,6 +546,7 @@ test("the complete campaign can found five colonies without reusing or deleting 
       name: `${world.name} Founder ${index + 1}`,
       roles: everyRole,
       expertise: everyExpertise,
+      rarity: "exceptional" as const,
     }));
     state = setSelectedSettlers(
       state,

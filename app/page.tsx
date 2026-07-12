@@ -30,8 +30,10 @@ import {
   formatNumber,
   getCampaignCrewSummaries,
   getCampaignWorldIndex,
+  getColonyLegacyEffects,
   getCrisisReadiness,
   getCurrentViabilityForecast,
+  getEffectiveCohesion,
   getInfrastructureFluxCost,
   getLegacyUpgradeCost,
   getManualGain,
@@ -106,6 +108,7 @@ import {
 } from "./survivor-engine";
 import {
   addResearchInputs,
+  getResearchBonuses,
   getResearchNetworkStatus,
   getResearchProjectDefinition,
   getResearchProjectProgress,
@@ -475,13 +478,30 @@ export default function Home() {
     (game.settlement.currentWorldId
       ? getCampaignWorld(game.settlement.currentWorldId)
       : null) ?? getCampaignWorld("vesper")!;
+  const researchBonuses = useMemo(
+    () => getResearchBonuses(game.research),
+    [game.research],
+  );
+  const colonyLegacyEffects = getColonyLegacyEffects(game);
+  const lifeSupportCapacityMultiplier =
+    researchBonuses.habitationCapacityMultiplier;
   const lifeSupport = useMemo(
-    () => getLifeSupportStatus(game.survivors),
-    [game.survivors],
+    () =>
+      getLifeSupportStatus(
+        game.survivors,
+        [],
+        lifeSupportCapacityMultiplier,
+      ),
+    [game.survivors, lifeSupportCapacityMultiplier],
   );
   const rescueReadiness = useMemo(
-    () => getRescueReadiness(game.survivors, game.living.salvage),
-    [game.living.salvage, game.survivors],
+    () =>
+      getRescueReadiness(
+        game.survivors,
+        game.living.salvage,
+        lifeSupportCapacityMultiplier,
+      ),
+    [game.living.salvage, game.survivors, lifeSupportCapacityMultiplier],
   );
   const viabilityForecast = getCurrentViabilityForecast(game);
   const campaignCrew = getCampaignCrewSummaries(game);
@@ -492,8 +512,15 @@ export default function Home() {
       getResearchNetworkStatus(game.research, {
         powerAvailable: researchPowerAvailable,
         crewAvailable: researchCrewAvailable,
+        externalSpeedMultiplier:
+          colonyLegacyEffects.researchSpeedMultiplier,
       }),
-    [game.research, researchCrewAvailable, researchPowerAvailable],
+    [
+      colonyLegacyEffects.researchSpeedMultiplier,
+      game.research,
+      researchCrewAvailable,
+      researchPowerAvailable,
+    ],
   );
   const activeResearchDefinition = game.research.activeProjectId
     ? getResearchProjectDefinition(game.research.activeProjectId)
@@ -753,6 +780,7 @@ export default function Home() {
     const result = rescueSurvivorSignal(
       current.survivors,
       current.living.salvage,
+      getResearchBonuses(current.research).habitationCapacityMultiplier,
     );
     if (!result.rescued) {
       setAnnouncement(
@@ -1249,14 +1277,14 @@ export default function Home() {
           fluxPerSecondLabel={formatNumber(production.fluxPerSecond)}
           manualGainLabel={formatNumber(manualGain)}
           population={game.survivors.survivors.length}
-          populationCapacity={Math.min(...Object.values(game.survivors.lifeSupport))}
-          cohesion={game.living.cohesion}
+          populationCapacity={Math.min(...Object.values(lifeSupport.capacity))}
+          cohesion={getEffectiveCohesion(game)}
           salvageLabel={formatNumber(game.living.salvage)}
           support={(Object.keys(game.survivors.lifeSupport) as LifeSupportKey[]).map((key) => ({
             id: key,
             label: key.replaceAll("-", " "),
             value: lifeSupport.demand[key],
-            capacity: game.survivors.lifeSupport[key],
+            capacity: lifeSupport.capacity[key],
             status:
               lifeSupport.shortages[key] > 0
                 ? `${lifeSupport.shortages[key]} capacity needed`
@@ -1271,10 +1299,10 @@ export default function Home() {
               id: survivor.id,
               name: survivor.callsign || survivor.name,
               role: survivor.role.replaceAll("-", " "),
-              level: Math.max(1, getSurvivorSkillLevel(
-                survivor,
-                survivor.role === "civilian" ? "teacher" : survivor.role,
-              )),
+              level:
+                survivor.role === "civilian"
+                  ? 0
+                  : getSurvivorSkillLevel(survivor, survivor.role),
               training: training?.targetRole ?? null,
               rarity: rarity.id,
               rarityLabel: rarity.label,
@@ -1283,7 +1311,7 @@ export default function Home() {
           })}
           beaconAvailable={
             campaignWorld.kind === "planet" &&
-            Math.min(...Object.values(game.survivors.lifeSupport)) >= 2
+            Math.min(...Object.values(lifeSupport.capacity)) >= 2
           }
           beaconOnline={game.survivors.beaconOnline}
           pendingSignal={game.survivors.activeSignal ? {
@@ -1324,8 +1352,16 @@ export default function Home() {
           currentWorldName={campaignWorld.name}
           beaconAvailable={
             campaignWorld.kind === "planet" &&
-            Math.min(...Object.values(game.survivors.lifeSupport)) >= 2
+            Math.min(...Object.values(lifeSupport.capacity)) >= 2
           }
+          capacityMultiplier={lifeSupportCapacityMultiplier}
+          crewGrowthMultiplier={
+            researchBonuses.trainingSpeedMultiplier *
+            colonyLegacyEffects.trainingSpeedMultiplier
+          }
+          requiredExpertiseIds={campaignWorld.expertiseRequirements.map(
+            (requirement) => requirement.id,
+          )}
           supportUpgradeCosts={supportUpgradeCosts}
           onUpgradeSupport={handleUpgradeSupport}
           onActivateBeacon={handleActivateBeacon}
@@ -1343,6 +1379,9 @@ export default function Home() {
           resources={game.researchStock}
           availableCrew={researchCrewAvailable}
           powerAvailable={researchPowerAvailable}
+          externalSpeedMultiplier={
+            colonyLegacyEffects.researchSpeedMultiplier
+          }
           now={clockNow || game.lastSaved}
           onStateChange={handleResearchStateChange}
           onTransferInput={handleTransferResearchInput}
@@ -1372,6 +1411,7 @@ export default function Home() {
           onAcknowledgeTransmission={handleAcknowledgeTransmission}
           onOpenPopulation={() => setPrimaryView("population")}
           onOpenResearch={() => setPrimaryView("research")}
+          onOpenHelp={setManualTopic}
           onBack={() => setPrimaryView("deck")}
         />
       ) : (

@@ -51,6 +51,13 @@ export type ExpertiseRequirement = {
   total: number;
 };
 
+export type ProfileRequirement = {
+  id: string;
+  label: string;
+  minimumRarity: "notable" | "exceptional";
+  count: number;
+};
+
 export type SupplyRequirement = {
   id: string;
   label: string;
@@ -96,6 +103,7 @@ export type CampaignWorldDefinition = {
   infrastructure: readonly InfrastructureObjective[];
   roleRequirements: readonly RoleRequirement[];
   expertiseRequirements: readonly ExpertiseRequirement[];
+  profileRequirements: readonly ProfileRequirement[];
   supplyRequirements: readonly SupplyRequirement[];
   requiredResearchIds: readonly string[];
   crisisIds: readonly string[];
@@ -145,6 +153,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     ],
     roleRequirements: [],
     expertiseRequirements: [],
+    profileRequirements: [],
     supplyRequirements: [
       { id: "reserve-power", label: "Reserve power cells", amount: 12 },
     ],
@@ -239,6 +248,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
       { id: "education", label: "Education expertise", total: 4 },
       { id: "leadership", label: "Leadership expertise", total: 4 },
     ],
+    profileRequirements: [],
     supplyRequirements: [
       { id: "settlement-supplies", label: "Settlement supplies", amount: 500 },
       { id: "water-modules", label: "Water-processing modules", amount: 4 },
@@ -365,6 +375,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
       { id: "education", label: "Education expertise", total: 8 },
       { id: "research", label: "Research expertise", total: 6 },
     ],
+    profileRequirements: [],
     supplyRequirements: [
       { id: "settlement-supplies", label: "Settlement supplies", amount: 900 },
       { id: "gene-samplers", label: "Gene samplers", amount: 6 },
@@ -480,6 +491,14 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
       { id: "medicine", label: "Medical expertise", total: 12 },
       { id: "leadership", label: "Leadership expertise", total: 9 },
       { id: "research", label: "Research expertise", total: 8 },
+    ],
+    profileRequirements: [
+      {
+        id: "cinder-notable-founders",
+        label: "Notable-or-better founders",
+        minimumRarity: "notable",
+        count: 2,
+      },
     ],
     supplyRequirements: [
       { id: "settlement-supplies", label: "Settlement supplies", amount: 1_500 },
@@ -610,6 +629,20 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
       { id: "leadership", label: "Leadership expertise", total: 15 },
       { id: "research", label: "Research expertise", total: 14 },
     ],
+    profileRequirements: [
+      {
+        id: "nox-notable-founders",
+        label: "Notable-or-better founders",
+        minimumRarity: "notable",
+        count: 4,
+      },
+      {
+        id: "nox-exceptional-founders",
+        label: "Exceptional-or-better founders",
+        minimumRarity: "exceptional",
+        count: 1,
+      },
+    ],
     supplyRequirements: [
       { id: "settlement-supplies", label: "Settlement supplies", amount: 2_300 },
       { id: "relay-cores", label: "Authenticated relay cores", amount: 10 },
@@ -738,6 +771,20 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
       { id: "medicine", label: "Medical expertise", total: 20 },
       { id: "education", label: "Education expertise", total: 20 },
       { id: "leadership", label: "Leadership expertise", total: 18 },
+    ],
+    profileRequirements: [
+      {
+        id: "vesper-notable-founders",
+        label: "Notable-or-better founders",
+        minimumRarity: "notable",
+        count: 6,
+      },
+      {
+        id: "vesper-exceptional-founders",
+        label: "Exceptional-or-better founders",
+        minimumRarity: "exceptional",
+        count: 3,
+      },
     ],
     supplyRequirements: [
       { id: "settlement-supplies", label: "Settlement supplies", amount: 3_400 },

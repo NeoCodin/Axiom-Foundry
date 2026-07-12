@@ -36,6 +36,7 @@ import {
   cloneSettlementState,
   createSettlementState,
   establishSettlementAndDepart,
+  getLegacySummary,
   getViabilityForecast,
   sanitizeSettlementState,
   sanitizeWorldProgress,
@@ -47,8 +48,11 @@ import {
 import {
   getCampaignWorld,
   type CampaignWorldId,
-  type ExpertiseId,
 } from "./campaign-content.ts";
+import {
+  getQualifiedSurvivorRoles,
+  getSurvivorContinuityExpertise,
+} from "./continuity-expertise.ts";
 
 export const SAVE_VERSION = 7;
 export const SAVE_KEY = "axiom-foundry-save-v5";
@@ -898,33 +902,6 @@ export function getCampaignWorldIndex(state: GameState) {
   );
 }
 
-function survivorContinuityExpertise(
-  survivor: SurvivorSystemState["survivors"][number],
-) {
-  const skill = (role: Parameters<typeof getSurvivorSkillLevel>[1]) =>
-    getSurvivorSkillLevel(survivor, role);
-  const values: Partial<Record<ExpertiseId, number>> = {
-    engineering: skill("engineer") + Math.floor(skill("technician") * 0.6),
-    medicine: skill("doctor"),
-    ecology: skill("farmer"),
-    education: skill("teacher"),
-    leadership:
-      Math.floor(skill("security") * 0.7) +
-      Math.floor(skill("navigator") * 0.4),
-    fabrication:
-      skill("fabricator") + Math.floor(skill("technician") * 0.5),
-    research: skill("researcher"),
-    navigation: skill("navigator"),
-    communications:
-      Math.floor(skill("navigator") * 0.6) +
-      Math.floor(skill("researcher") * 0.4),
-    "null-studies": survivor.traits.includes("null-dreamer")
-      ? Math.max(1, skill("researcher"))
-      : 0,
-  };
-  return values;
-}
-
 export function getCampaignCrewSummaries(
   state: GameState,
 ): CampaignCrewSummary[] {
@@ -939,15 +916,17 @@ export function getCampaignCrewSummaries(
         ? `${survivor.name} “${survivor.callsign}”`
         : survivor.name,
       role: survivor.role,
-      roles: [survivor.role, survivor.assignedRole].filter(
-        (role): role is string => Boolean(role),
-      ),
-      expertise: survivorContinuityExpertise(survivor),
+      roles: getQualifiedSurvivorRoles(survivor),
+      expertise: getSurvivorContinuityExpertise(survivor),
       available: !trainingIds.has(survivor.id),
       canSettle: !trainingIds.has(survivor.id),
       rarity: rarity.id,
       rarityLabel: rarity.label,
       rarityDescription: rarity.description,
+      level:
+        survivor.role === "civilian"
+          ? 0
+          : getSurvivorSkillLevel(survivor, survivor.role),
     };
   });
 }
@@ -977,12 +956,42 @@ export function getCurrentViabilityForecast(
   );
 }
 
+export function getColonyLegacyEffects(state: GameState) {
+  const totals = getLegacySummary(state.settlement).totals;
+  return {
+    beaconSpeedMultiplier: 1 + (totals["beacon-throughput"] ?? 0),
+    trainingSpeedMultiplier: 1 + (totals["training-speed"] ?? 0),
+    fabricationCostMultiplier: Math.max(
+      0.8,
+      1 - (totals["fabrication-efficiency"] ?? 0),
+    ),
+    researchSpeedMultiplier: 1 + (totals["research-throughput"] ?? 0),
+    cohesionProductionMultiplier: 1 + (totals.cohesion ?? 0),
+    cohesionBonus: (totals.cohesion ?? 0) * 100,
+    nullSignalMultiplier: 1 + (totals["null-clarity"] ?? 0),
+  };
+}
+
+export function getEffectiveCohesion(state: GameState) {
+  return Math.min(
+    100,
+    state.living.cohesion + getColonyLegacyEffects(state).cohesionBonus,
+  );
+}
+
 function continuityScale(state: GameState) {
-  return safePower(100, Math.max(0, state.settlement.completedWorldIds.length));
+  const completed = Math.max(0, state.settlement.completedWorldIds.length);
+  return completed <= 1
+    ? safePower(100, completed)
+    : safeMultiply(100, safePower(60, completed - 1));
 }
 
 export function getInfrastructureFluxCost(state: GameState) {
-  return bounded(500 * continuityScale(state));
+  return bounded(
+    500 *
+      continuityScale(state) *
+      getColonyLegacyEffects(state).fabricationCostMultiplier,
+  );
 }
 
 export function getSupplyFabricationQuote(
@@ -997,7 +1006,11 @@ export function getSupplyFabricationQuote(
   );
   if (!requirement) return { cost: Number.POSITIVE_INFINITY, amount: 0 };
   return {
-    cost: bounded(500 * continuityScale(state)),
+    cost: bounded(
+      500 *
+        continuityScale(state) *
+        getColonyLegacyEffects(state).fabricationCostMultiplier,
+    ),
     amount: Math.max(1, Math.ceil(requirement.amount / 5)),
   };
 }
@@ -1331,16 +1344,22 @@ export function getWorldEffects(state: GameState) {
       );
   const restore = (startingValue: number) =>
     startingValue + (1 - startingValue) * repairProgress;
+  const hazardShield = Math.min(0.1, state.stellarRelays * 0.02);
+  const shield = (value: number) =>
+    value < 1
+      ? value + (1 - value) * hazardShield
+      : 1 + (value - 1) * (1 - hazardShield);
 
   return {
     worldIndex: getCampaignWorldIndex(state),
     repairProgress,
-    production: restore(mission.effects.production),
-    manual: restore(mission.effects.manual),
-    machineCost: restore(mission.effects.machineCost),
-    researchCost: restore(mission.effects.researchCost),
-    higherTier: restore(mission.effects.higherTier),
-    resonance: restore(mission.effects.resonance),
+    hazardShield,
+    production: shield(restore(mission.effects.production)),
+    manual: shield(restore(mission.effects.manual)),
+    machineCost: shield(restore(mission.effects.machineCost)),
+    researchCost: shield(restore(mission.effects.researchCost)),
+    higherTier: shield(restore(mission.effects.higherTier)),
+    resonance: shield(restore(mission.effects.resonance)),
   };
 }
 
@@ -1553,12 +1572,13 @@ export function getProductionSnapshot(state: GameState) {
   const legacyMultiplier =
     1 + 0.2 * Math.sqrt(state.legacyUpgrades[0]);
   const flowMultiplier = 1 + 0.25 * state.runUpgrades[1];
-  const relayMultiplier = 1;
-  const hazardShield = Math.min(0.1, state.stellarRelays * 0.02);
+  const relayMultiplier = 1 + state.stellarRelays * 0.015;
   const world = getWorldEffects(state);
+  const hazardShield = world.hazardShield;
   const relics = getCampaignRelics(state);
   const livingBonuses = getLivingFoundryBonuses(state.living);
   const researchBonuses = getResearchBonuses(state.research);
+  const colonyLegacyEffects = getColonyLegacyEffects(state);
   const globalMultiplier = safeMultiply(
     safeMultiply(
       safeMultiply(flowMultiplier, legacyMultiplier),
@@ -1566,7 +1586,9 @@ export function getProductionSnapshot(state: GameState) {
     ),
     world.production *
       livingBonuses.productionMultiplier *
-      researchBonuses.productionMultiplier,
+      researchBonuses.productionMultiplier *
+      relayMultiplier *
+      colonyLegacyEffects.cohesionProductionMultiplier,
   );
   const resonance = getResonanceDetails(state);
   const higherTierMultiplier = 1 + 0.3 * state.runUpgrades[2];
@@ -1612,6 +1634,7 @@ export function getProductionSnapshot(state: GameState) {
     resonance,
     livingBonuses,
     researchBonuses,
+    colonyLegacyEffects,
   };
 }
 
@@ -1659,6 +1682,7 @@ export function getTierCost(
   const world = getWorldEffects(state);
   const living = getLivingFoundryBonuses(state.living);
   const research = getResearchBonuses(state.research);
+  const colony = getColonyLegacyEffects(state);
   const nextPrice =
     safeMultiply(
       safeMultiply(
@@ -1667,7 +1691,8 @@ export function getTierCost(
       ),
       world.machineCost *
         living.machineCostMultiplier *
-        research.machineCostMultiplier,
+        research.machineCostMultiplier *
+        colony.fabricationCostMultiplier,
     ) / Math.max(1, priceDivider);
   const growthForQuantity = safePower(generator.growth, quantity);
   return bounded(
@@ -1845,6 +1870,7 @@ function generateResearchStock(state: GameState, elapsedSeconds: number) {
   const production = getProductionSnapshot(state).fluxPerSecond;
   const worldIndex = getCampaignWorldIndex(state);
   const bonuses = getResearchBonuses(state.research);
+  const colony = getColonyLegacyEffects(state);
   const gains: ResearchInputBundle = {
     "calibration-data": seconds * 0.025,
     "engineering-models":
@@ -1852,7 +1878,11 @@ function generateResearchStock(state: GameState, elapsedSeconds: number) {
     "biological-samples": seconds * population * 0.003,
     "cultural-records": seconds * population * 0.004,
     "null-traces":
-      seconds * Math.max(0, worldIndex) * 0.0015 * bonuses.nullSignalMultiplier,
+      seconds *
+      Math.max(0, worldIndex) *
+      0.0015 *
+      bonuses.nullSignalMultiplier *
+      colony.nullSignalMultiplier,
     "axiom-proofs": seconds * state.lifetimeAxioms * 0.0005,
   };
   for (const inputId of Object.keys(gains) as Array<keyof ResearchInputBundle>) {
@@ -1881,6 +1911,7 @@ export function simulateGame(
   let next = cloneGameState(state);
   next.living = advanceLivingFoundry(next.living, seconds);
   const survivorBonuses = getResearchBonuses(next.research);
+  const colonyBonuses = getColonyLegacyEffects(next);
   next.survivors = setTrainingSlots(
     next.survivors,
     Math.min(
@@ -1892,14 +1923,20 @@ export function simulateGame(
     ),
   );
   next.survivors = advanceSurvivorSystem(next.survivors, seconds, {
-    trainingSpeedMultiplier: survivorBonuses.trainingSpeedMultiplier,
-    beaconSpeedMultiplier: survivorBonuses.beaconSpeedMultiplier,
-    onJobXpMultiplier: survivorBonuses.researchSpeedMultiplier,
+    trainingSpeedMultiplier:
+      survivorBonuses.trainingSpeedMultiplier *
+      colonyBonuses.trainingSpeedMultiplier,
+    beaconSpeedMultiplier:
+      survivorBonuses.beaconSpeedMultiplier *
+      colonyBonuses.beaconSpeedMultiplier,
+    onJobXpMultiplier:
+      survivorBonuses.trainingSpeedMultiplier *
+      colonyBonuses.trainingSpeedMultiplier,
   });
   const researchAdvance = advanceResearch(next.research, seconds, {
     powerAvailable: getResearchPowerAvailable(next),
     crewAvailable: getResearchCrewAvailable(next),
-    externalSpeedMultiplier: survivorBonuses.researchSpeedMultiplier,
+    externalSpeedMultiplier: colonyBonuses.researchSpeedMultiplier,
   });
   next.research = researchAdvance.state;
   next.worldProgress = {

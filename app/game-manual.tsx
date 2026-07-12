@@ -1,6 +1,7 @@
 "use client";
 
 import { SURVIVOR_RARITY_DEFINITIONS } from "./survivor-engine";
+import { CONTINUITY_EXPERTISE_PRESENTATION } from "./continuity-expertise";
 import type { ResearchInputId } from "./research-engine";
 
 export type ManualPageId =
@@ -112,10 +113,11 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
       { title: "Expand every life-support category", detail: "Habitation, atmosphere, water, nutrition, and medical capacity must all cover the incoming group." },
       { title: "Activate the SOS beacon", detail: "Once the Ark reaches a planetary orbit, the beacon finds a persistent group after 90 seconds." },
       { title: "Dispatch the rescue shuttle", detail: "Spend the listed Salvage to bring the entire group aboard. Each person also brings Biological Samples and Cultural Records." },
-      { title: "Assign or train", detail: "Fabricators and Technicians improve Salvage recovery; Researchers and Technicians help the Analysis Core." },
+      { title: "Assign or train", detail: "Assigned specialists earn profession XP offline. Standard profiles learn at ×1.00, Notable ×1.25, Exceptional ×1.60, and Anomalous ×2.00." },
     ],
     sources: [
-      { label: "Profile rarity", detail: "Colors describe how scarce a recruit's aptitude, adaptability, trait, and archive combination is—not their human worth." },
+      { label: "Profile rarity", detail: "Colors describe how scarce a recruit's aptitude, adaptability, trait, and archive combination is—not their human worth. Rarity accelerates training and job XP." },
+      { label: "Profession levels", detail: "Levels come from XP and create Continuity expertise. Rarity never multiplies that expertise directly." },
       { label: "Civilians", detail: "Highly adaptable recruits who can be trained around the exact needs of a future settlement." },
       { label: "Specialists", detail: "Arrive ready for a profession and improve through assigned work." },
     ],
@@ -131,15 +133,17 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
     steps: [
       { title: "Read the explicit deficits", detail: "Every unmet requirement names the direct fix and any research or equipment substitute." },
       { title: "Complete permanent world work", detail: "Infrastructure, stored supplies, and required research remain completed. Every crisis card lists its Foundry, infrastructure, research, and Flux prerequisites live." },
-      { title: "Choose eligible founders", detail: "Select enough people and enough combined expertise for the colony to remain stable." },
+      { title: "Choose eligible founders", detail: "Select enough people, profession coverage, combined Expertise, and—on later worlds—the visible Profile Depth requirement." },
       { title: "Name and establish the settlement", detail: "Departure becomes available only when every requirement is met. There is no deadline." },
     ],
     sources: [
       { label: "Viability", detail: "A readable summary of how close the current world is to independent survival." },
-      { label: "Expertise", detail: "Combined levels from selected founders, with some professions contributing partially to related fields." },
+      { label: "Expertise", detail: "Combined profession levels from selected founders. Open any requirement's ‘How this is counted’ row to see its formula and contributors." },
+      { label: "Leadership", detail: "70% of Security level plus 40% of Navigator level, each rounded up. Even a level-one qualification contributes." },
+      { label: "Profile Depth", detail: "Cinder requires 2 Notable-or-better founders; Nox requires 4 including 1 Exceptional; Vesper requires 6 including 3 Exceptional. Anomalous counts as Exceptional." },
       { label: "Substitutions", detail: "Research and fabricated equipment prevent unlucky recruitment from hard-locking a world." },
     ],
-    tip: "Founders remain alive in the colony record after departure; they are not discarded or lost.",
+    tip: "Founders remain alive in the colony record after departure. The SOS array guarantees an Exceptional-or-better profile within five quality misses, so Profile Depth can never become a permanent luck wall.",
   },
   salvage: {
     id: "salvage",
@@ -356,8 +360,19 @@ export function GameManualDialog({
                   {SURVIVOR_RARITY_DEFINITIONS.map((rarity) => (
                     <span className={`crew-rarity-${rarity.id}`} title={rarity.description} key={rarity.id}>
                       <i aria-hidden="true" />
-                      <strong>{rarity.label}</strong>
+                      <strong>{rarity.label} ×{rarity.learningMultiplier.toFixed(2)}</strong>
                     </span>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {topicId === "settlement" && (
+              <section className="game-manual-formulas" aria-label="Continuity expertise formulas">
+                <h3>Exact Expertise formulas</h3>
+                <div>
+                  {Object.entries(CONTINUITY_EXPERTISE_PRESENTATION).map(([id, presentation]) => (
+                    <article key={id}><strong>{presentation.label}</strong><p>{presentation.formula}</p></article>
                   ))}
                 </div>
               </section>
