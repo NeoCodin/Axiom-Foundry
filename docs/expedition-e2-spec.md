@@ -42,7 +42,7 @@ Margin `m = group strength (incl. weapons) − site difficulty`:
 |----------|-----------------|---------|-------------|
 | Success  | m ≥ 0           | ×1.0    | none |
 | Lean     | −8 < m < 0      | ×0.45   | none |
-| Setback  | −16 < m ≤ −8    | ×0.25   | each member takes 30–70 damage (halved by armor), health floor 10 |
+| Setback  | −16 < m ≤ −8    | ×0.25   | each member takes 30–70 damage (× armor tier multiplier, §5), health floor 10 |
 | Distress | m ≤ −16         | none    | party is **stranded** at the site (§4) |
 
 - Setback and distress rolls use the deterministic expedition RNG seeded at
@@ -56,8 +56,9 @@ Margin `m = group strength (incl. weapons) − site difficulty`:
 ## 3. Permanent injuries and prosthetics
 
 - An injury is permanent until surgically repaired; it lowers `healthCap`:
-  - **Minor — cap 70**: setback that leaves a member below 15 health.
-  - **Major — cap 55**: stranded in a distress event while armored.
+  - **Minor — cap 70**: setback that leaves a member below 15 health, or
+    stranded while wearing an Aegis Frame (T3 armor).
+  - **Major — cap 55**: stranded in a distress event while armored (T1/T2).
   - **Severe — cap 40**: stranded in a distress event without armor.
 - Injuries are deterministic (no dice): the tier follows from what
   happened. One injury at a time; a worse event upgrades the tier.
@@ -98,23 +99,50 @@ Margin `m = group strength (incl. weapons) − site difficulty`:
   professions, world, date), and their quarters free up. Nothing ever
   abandons crew automatically.
 
-## 5. Armory (weapons and armor)
+## 5. Armory — tiered weapons and armor (owner-expanded, July 12, 2026)
 
-- Shared Ark stockpile `armory: { weapons: number; armor: number }`,
-  crafted at the Foundry: Flux (flat continuity pricing, ~800 × scale) +
-  40 Engineering Models per item.
-- Research gates: **Expedition Armaments** (weapons) and **Composite
-  Plating** (armor). Until the Threat Operations branch ships (Phase 2),
-  both live in Ark Engineering with prerequisite Predictive Fabrication and
-  migrate to the new branch later.
-- Auto-equip at launch, best-effort, no micromanagement: one weapon and one
-  armor per member while stock lasts. Weapon: +2 group strength per
-  equipped member. Armor: halves setback/distress damage and prevents the
-  severe injury tier.
-- **Armor breaks when it absorbs a hit**: each setback or distress consumes
-  the equipped armor of affected members (it did its job). Weapons never
-  break. This makes the armory a recurring Flux sink.
-- The armory persists across worlds and Recalibrations.
+An in-depth gear system with its own **Armory tab** (unlocks with
+expeditions at Cinder, worldIndex >= 3). Gear ties into research (each
+tier is a research project) and survivor level (each item has a wield
+requirement checked against the survivor's best professional level,
+0-10 scale).
+
+Weapon tiers (+group strength per equipped member):
+
+| Item | Wield req | Strength | Research gate |
+|------|-----------|----------|---------------|
+| Kinetic Pike (T1) | level 2 | +2 | Expedition Armaments |
+| Arc Carbine (T2)  | level 4 | +4 | Arc Discharge Weapons |
+| Null Lance (T3)   | level 6 | +6 | Null-Edge Armaments |
+
+Armor tiers (damage multiplier on setback/distress hits; durability =
+hits absorbed before the item becomes DAMAGED and needs repair):
+
+| Item | Wear req | Damage taken | Worst injury while worn | Durability |
+|------|----------|--------------|-------------------------|------------|
+| Composite Weave (T1) | level 1 | x0.5  | major  | 1 |
+| Reactive Shell (T2)  | level 3 | x0.35 | major  | 2 |
+| Aegis Frame (T3)     | level 5 | x0.2  | minor  | 3 |
+
+(Unarmored distress = severe injury; §3's tier table follows this column.)
+
+- **Threat Operations research branch created now** (its Phase 2 projects
+  join later): six gear projects, chained per line — Expedition Armaments →
+  Arc Discharge Weapons → Null-Edge Armaments, and Composite Plating →
+  Reactive Shell → Aegis Frame. Both roots require Predictive Fabrication.
+  T3 projects cost Null Traces. Weapons research draws visible Continuity
+  Protocol objections (canon: weaponized Axioms cause the catastrophe).
+- Crafted at the Foundry with flat continuity pricing: T1 800 × scale Flux
+  + 40 Engineering Models; T2 2,400 × scale + 100 models; T3 6,000 × scale
+  + 200 models + 40 Null Traces. Repairing a DAMAGED item costs 40% of its
+  Flux price, no models. Weapons never break.
+- **Auto-equip at launch**: each member receives the best weapon and armor
+  they are leveled to use while stock lasts (highest-level members first).
+  The Expedition Bay shows the resulting loadout next to each biometric
+  bar before departure. No per-slot micromanagement required; the Armory
+  tab is stockpile, fabrication, and repair.
+- The armory persists across worlds and Recalibrations. Phase 2 will let
+  the stockpile contribute to boarding defense.
 
 ## 6. Rewards and biometrics
 
@@ -150,12 +178,17 @@ Milestone A — health core and gear:
 1. survivor-engine: `health`/`healthCap`/`injury` fields + sanitizer,
    recovery in advance (doctor count via modifiers), wounded gating,
    founder ≥ 80 gate, medical demand contribution.
-2. expedition-engine: outcome ladder, per-crew damage, armory
-   strength/mitigation inputs, armor breakage, XP/reward changes.
-3. game-engine: armory state + craft actions (research-gated), wound
-   application + recovery in simulateGame, forecast wiring.
-4. Research projects: Expedition Armaments, Composite Plating.
-5. UI: biometric bars, badges, Armory panel, forecast line + confirms.
+2. New armory-engine: tiered item definitions, stockpile + durability
+   state, craft/repair quotes (flat continuity pricing), auto-equip
+   assignment by wield level.
+3. expedition-engine: outcome ladder, per-crew damage, gear
+   strength/mitigation inputs, armor durability loss, XP/reward changes.
+4. game-engine: armory state + craft/repair actions (research-gated),
+   wound application + recovery in simulateGame, forecast wiring.
+5. Research: Threat Operations branch with the six gear projects (§5).
+6. UI: **Armory tab** (stockpile/fabrication/repair), biometric bars,
+   badges, loadout preview in the Expedition Bay, forecast line +
+   confirms.
 
 Milestone B — distress and rescue:
 6. expedition-engine: stranded state, rescue launch/resolution,
