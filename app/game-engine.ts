@@ -35,6 +35,7 @@ import {
 } from "./expedition-engine.ts";
 import {
   addArmoryItem,
+  ARMORY_ITEM_DEFINITIONS,
   ARMORY_REPAIR_COST_RATIO,
   cloneArmoryState,
   createArmoryState,
@@ -1022,6 +1023,27 @@ export function getCampaignWorldIndex(state: GameState) {
   return Math.min(
     MISSIONS.length - 1,
     Math.max(0, Number.isFinite(rawIndex) ? Math.floor(rawIndex) : 0),
+  );
+}
+
+/**
+ * Threat Operations is deliberately introduced in layers. Cinder first teaches
+ * surface expeditions; the Defense Grid wakes after two completed sorties (or
+ * immediately for any save that already contains defense progress or hardware).
+ */
+export function isThreatOperationsActivated(state: GameState) {
+  const hasDefenseFootprint =
+    state.defense.incoming !== null ||
+    state.defense.damage !== null ||
+    state.defense.stats.resolved > 0 ||
+    Object.values(state.defense.installations).some((level) => level > 0);
+  const hasArmoryFootprint = ARMORY_ITEM_DEFINITIONS.some((item) =>
+    state.armory.stock[item.id].some((count) => count > 0),
+  );
+  return (
+    hasDefenseFootprint ||
+    (getCampaignWorldIndex(state) >= 3 &&
+      (state.expeditions.stats.completed >= 2 || hasArmoryFootprint))
   );
 }
 
@@ -3127,7 +3149,7 @@ export function simulateGame(
   );
 
   const defenseAdvance = advanceDefense(next.defense, seconds, {
-    stormsEnabled: getCampaignWorldIndex(next) >= 3,
+    stormsEnabled: isThreatOperationsActivated(next),
     worldIndex: getCampaignWorldIndex(next),
     security: next.survivors.survivors.filter((survivor) =>
       isSurvivorOnDuty(survivor, "security"),

@@ -42,12 +42,12 @@ export const MANUAL_PAGE_LABELS: Record<ManualPageId, string> = {
   deck: "Ark",
   engineering: "Foundry",
   research: "Research",
-  population: "Crew",
+  population: "Personnel",
   medical: "Medical",
   expeditions: "Expeditions",
   defense: "Defense",
   armory: "Armory",
-  settlement: "Continuity",
+  settlement: "Planet",
 };
 
 export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
@@ -61,7 +61,8 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
     steps: [
       { title: "Tune the Core", detail: "Click the Axiom Chamber to gain Flux and one Calibration Data per tune." },
       { title: "Follow the active directive", detail: "The strip above the Ark always names the next useful action and shows its progress." },
-      { title: "Enter awakened rooms", detail: "Foundry, Research, Crew, and Continuity appear progressively instead of arriving all at once." },
+      { title: "Enter awakened destinations", detail: "The five destinations are Ark, Foundry, Personnel, Research, and Planet. Medical belongs to Personnel; Expeditions, Defense, and Armory are facilities aboard the Ark." },
+      { title: "Read AXIOM's priorities", detail: "The command briefing names up to three useful actions, explains the blocker, and opens the exact destination. Every recommendation is safe to postpone." },
     ],
     sources: [
       { label: "Flux", detail: "Core tunes and Foundry machines create the energy used by almost every early action." },
@@ -140,7 +141,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
     category: "Page guide // threat operations",
     title: "Prepare the Ark, then let it defend itself",
     summary:
-      "From Cinder onward, ash storms sweep the Ark's orbit. Build installations, choose a standing doctrine, and every storm resolves automatically - online or offline. Nothing here can kill crew or erase progress.",
+      "Cinder first teaches two surface expeditions. Then the Defense Grid wakes and ash storms begin. Build installations, choose a standing doctrine, and every storm resolves automatically - online or offline. Nothing here can kill crew or erase progress.",
     steps: [
       { title: "Build installations", detail: "Shield Arrays carry readiness; Repair Drones speed recovery; the Early-Warning Relay extends storm forecasts; Point-Defense matters most against future hostile contacts." },
       { title: "Assign defenders", detail: "Assigned Soldiers raise readiness and interception, Engineers add readiness and repair speed, Navigators extend forecast lead time." },
@@ -193,7 +194,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
     category: "Page guide // expedition outfitting",
     title: "Forge the gear, and expeditions equip themselves",
     summary:
-      "Weapons and armor are shared Ark stock. Research a tier in the Threat Operations branch, forge pieces with Flux and Engineering Models, and every expedition auto-equips the best gear each member is leveled to use.",
+      "After your first Cinder expedition, the Armory wakes as shared Ark stock. Research a tier in the Threat Operations branch, forge pieces with Flux and Engineering Models, and every expedition auto-equips the best gear each member is leveled to use.",
     steps: [
       { title: "Research a tier", detail: "Each weapon and armor tier is a Threat Operations research project. Tier 3 gear also costs Null Traces to forge." },
       { title: "Forge pieces", detail: "One piece outfits one expedition member. Four of each covers a full crew." },

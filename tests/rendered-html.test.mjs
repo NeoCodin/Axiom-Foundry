@@ -33,7 +33,9 @@ test("server-renders the Axiom Foundry game surface", async () => {
   const html = await response.text();
   assert.match(html, /<title>Axiom Foundry/);
   assert.match(html, /The Ark drifts through black space/);
-  assert.match(html, /Ark systems awake/);
+  assert.match(html, /destinations awake/);
+  assert.match(html, /What matters now/);
+  assert.match(html, /Complete AXIOM orientation/);
   assert.match(html, /CARETAKER INTELLIGENCE/);
   assert.match(html, /Biological command authority/);
   assert.match(html, /Life Support/);
@@ -74,6 +76,8 @@ test("removes all temporary starter-preview wiring", async () => {
     ]);
 
   assert.match(page, /from "\.\/game-engine"/);
+  assert.match(page, /getCommandPriorities/);
+  assert.match(page, /GameNavigation/);
   assert.match(arkDeck, /Tune the Core/);
   assert.match(page, /The Foundry Floor/);
   assert.match(page, /Core tuning remains aboard the Ark/);
@@ -116,6 +120,7 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(campaignContent, /vesper-exceptional-founders/);
   assert.match(manual, /Profile Depth/);
   assert.match(researchEngine, /"engineering-models": 220/);
+  await assert.rejects(access(new URL("../app/foundry-deck.tsx", import.meta.url)));
   await access(new URL("../public/og.png", import.meta.url));
   await assert.rejects(access(new URL("../dist/server/og.png", import.meta.url)));
   await assert.rejects(

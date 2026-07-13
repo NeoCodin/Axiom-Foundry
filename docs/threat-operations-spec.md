@@ -1,7 +1,9 @@
 # Threat Operations — Phase 1 Specification (Cinder Environmental Tier)
 
-Status: **draft for owner approval**. No engine code is written until this
-spec is signed off, per `AI_HANDOFF.md` §21.
+Status: **Phase 1 implemented**. The July 13 consolidation release stages its
+introduction: Cinder Expeditions wake first, Armory follows the first completed
+sortie, and Defense/ash storms activate after two completed sorties (or
+immediately for any save containing earlier defense progress).
 
 Scope of this document: the defense framework and Cinder's environmental
 events only. Nox enemy vessels, beacon exposure, Causal Fragments, and

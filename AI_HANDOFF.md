@@ -1,6 +1,6 @@
 # Axiom Foundry — AI Project Handoff
 
-Last updated: July 12, 2026
+Last updated: July 13, 2026
 
 Current development branch: `codex/axiom-foundry-game`
 
@@ -58,7 +58,7 @@ Every major feature should reinforce at least one of these pillars:
 ## 4. Current game loop
 
 1. Tune the Axiom Chamber on the Ark page to obtain early Flux and Calibration Data.
-2. Enter the Foundry and buy nested mechanisms. Higher tiers create the tier below them.
+2. Enter the Foundry and buy nested mechanisms. Every purchased mechanism produces Flux directly; higher tiers are larger additive rate jumps and never manufacture free machines.
 3. Complete the active Planetfall campaign phase.
 4. Restore life-support categories using Salvage.
 5. Reach planetary orbit and activate the SOS beacon.
@@ -86,6 +86,8 @@ Do not add endless procedural planets yet. More planets can be authored later, b
 
 ## 6. Page responsibilities
 
+The primary navigation has exactly five destinations: **Ark, Foundry, Personnel, Research, and Planet**. Medical is a Personnel facility. Expedition Bay, Defense Grid, and Armory are Ark facilities. Contextual facility navigation appears only after those systems matter, so late-game depth does not become nine equal-weight top-level tabs.
+
 ### Ark page
 
 - The visual and emotional home screen.
@@ -93,6 +95,7 @@ Do not add endless procedural planets yet. More planets can be authored later, b
 - Shows the Ark cross-section, awakened rooms, population, life support, current world, signals, research activity, and Continuity state.
 - Should become visually richer as the player progresses.
 - Future defenses and threat events should be most visible here.
+- Owns the AXIOM command briefing: up to three current priorities that explain cross-system blockers and link directly to the correct facility.
 
 ### Foundry page
 
@@ -102,6 +105,7 @@ Do not add endless procedural planets yet. More planets can be authored later, b
 ### Crew page
 
 - Owns Habitation Ring berth construction, life-support expansion, SOS signals, survivor roster, Personnel Files, training, assignments, callsigns, rarity explanations, levels, XP, and individual Continuity contributions.
+- Appears as **Personnel** in primary navigation. Its contextual facilities are Crew Roster and, once meaningful, Medical Bay.
 
 ### Research page
 
@@ -112,6 +116,7 @@ Do not add endless procedural planets yet. More planets can be authored later, b
 
 - Owns planetary infrastructure, supplies, crisis resolution, founder selection, Expertise formulas, Profile Depth, restored colonies, transmissions, and final departure authority.
 - Every deficit must say what is missing and how to address it.
+- Appears as **Planet** in primary navigation; Continuity remains the name of its departure forecast.
 
 ## 7. Current survivor and rarity rules
 
@@ -232,7 +237,7 @@ Do not restore punitive timers. Planetary crises have no deadlines.
 
 ## 11. Enemy and defense arc — Phase 1 implemented, later phases approved direction
 
-Phase 1 (Cinder environmental tier) is implemented per docs/threat-operations-spec.md: defense-engine.ts, a Defense tab unlocking at Cinder, ash storms every 4-8 hours with deterministic offline-identical resolution, four installations at flat continuity pricing, four standing doctrines (Observe yields Calibration Data and Null Traces), damage hard-capped at -25% production and 6h repairs. Simulated pacing is unchanged (12.88 bot-days). Nox vessels, beacon exposure, and planetary networks remain unbuilt.
+Phase 1 (Cinder environmental tier) is implemented per docs/threat-operations-spec.md: defense-engine.ts, a Defense Grid facility that wakes after two completed Cinder expeditions (or immediately for any save with existing defense progress), ash storms every 4-8 hours with deterministic offline-identical resolution, four installations at flat continuity pricing, four standing doctrines (Observe yields Calibration Data and Null Traces), damage hard-capped at -25% production and 6h repairs. Simulated pacing is unchanged. Nox vessels, beacon exposure, and planetary networks remain unbuilt.
 
 The game should eventually introduce threats while remaining an idle game.
 
@@ -349,12 +354,16 @@ Future visual defense progression on the Ark page may include shield arcs, inter
 | File | Responsibility |
 |---|---|
 | `app/page.tsx` | Main UI orchestration, view unlocking, action handlers, persistence integration |
+| `app/game-navigation.tsx` | Five primary destinations and contextual Personnel/Ark facility navigation |
+| `app/game-command-bar.tsx` | Shared header, resources, save controls, and directive strip |
+| `app/command-priorities.ts` | Cross-system strategic guidance and exact destination routing |
+| `app/command-briefing.tsx` | Ark priority-board presentation |
 | `app/game-engine.ts` | Incremental economy, campaign simulation, production, Recalibration, system integration |
 | `app/survivor-engine.ts` | Survivor generation, signals, pity systems, life support, training, assignments, XP |
 | `app/research-engine.ts` | Projects, inputs, processors, routes, throughput, bonuses |
 | `app/settlement-engine.ts` | Founder selection, viability forecasts, colonies, transmissions, legacy summary |
 | `app/continuity-expertise.ts` | Shared Expertise formulas and readable explanations |
-| `app/living-foundry-engine.ts` | Physical Ark rooms, legacy living systems, Cohesion, discoveries/rewards |
+| `app/living-foundry-engine.ts` | Physical Ark rooms, Cohesion, discoveries, and Salvage rewards; the obsolete scripted roster/expedition model is retired |
 | `app/campaign-content.ts` | Worlds, requirements, themes, substitutions, legacy benefits, transmissions |
 | `app/story-content.ts` | Tutorial and archive story content |
 | `app/game-manual.tsx` | Contextual manuals and resource explanations |
@@ -367,6 +376,7 @@ Future visual defense progression on the Ark page may include shield arcs, inter
 ### Tests
 
 - `tests/game-engine.test.ts`
+- `tests/command-priorities.test.ts`
 - `tests/living-foundry-engine.test.ts`
 - `tests/discovery-engine.test.ts`
 - `tests/survivor-engine.test.ts`
@@ -492,13 +502,21 @@ Use this when opening the repository with Claude or another assistant:
 
 Recommended order, subject to owner approval:
 
-1. Design the Threat Operations data model and standing doctrines without altering saves yet (owner has approved starting this: a Defense view/tab unlocking on Cinder arrival, with defense hardware and events visible on the Ark page).
-2. Introduce Cinder environmental-defense events (ash/debris storms) as a safe tutorial.
-3. Add Security/Navigator/Engineer defense assignments and automatic offline resolution.
-4. Add Ark visual defense upgrades and readable exposure/readiness indicators.
-5. Introduce Nox Retrograde Vessel encounters and Causal Fragments; the Observe doctrine should award Null Traces so threat study becomes the active source of the game's scarcest input.
-6. Add persistent planetary defense networks around restored world cores.
-7. Expand post-Vesper worlds only after the current campaign pacing is observed in real play.
+1. Run the documented human playtest protocol from Cold Wake through Cinder and record comprehension/return-session friction before changing late-game balance.
+2. Refine the Ark priority board from that evidence; every new blocker must route to one exact action and destination.
+3. Add deeper interactions among existing Medical, Expedition, Armory, Defense, Research, and colony systems before adding another permanent page.
+4. Introduce Nox Retrograde Vessel encounters and Causal Fragments only after the consolidated Cinder flow is proven readable.
+5. Add persistent planetary defense networks around restored world cores.
+6. Expand post-Vesper worlds only after the current campaign pacing is observed in real play.
+
+Implemented July 13, 2026 (consolidation release):
+
+- Navigation reduced from up to nine equal-weight tabs to five destinations: Ark, Foundry, Personnel, Research, and Planet. Medical sits within Personnel; Expedition Bay, Defense Grid, and Armory sit within the Ark.
+- The Ark now opens with an AXIOM command briefing that chooses up to three live priorities, explains cross-system blockers, shows progress, and routes directly to the relevant screen.
+- Unlock pacing is staged: Medical becomes visible at Viridia, after Clinical Commons, or when someone actually needs care; Expeditions arrive at Cinder; Armory follows the first completed expedition or armament research; Defense and ash storms begin after two completed expeditions or immediately for saves with existing defense progress.
+- `page.tsx` began decomposition into dedicated navigation, command-bar, strategic-guidance, and briefing modules.
+- The permanently sealed nine-person Living Foundry roster and duplicate legacy expedition implementation were deleted. Old save fields are ignored safely; the real procedural survivor roster and `expedition-engine.ts` are now the only human/mission systems.
+- Added strategic-guidance and staged-threat regression tests. No save reset and no player progress loss.
 
 Approved research expansion direction (owner, July 12, 2026), sequenced:
 

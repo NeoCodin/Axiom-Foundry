@@ -97,10 +97,17 @@ import { WORLD_VISUALS } from "./foundry-vista";
 import ArkDeck, { type ArkViewId } from "./ark-deck";
 import {
   GameManualDialog,
-  HelpTrigger,
   type ManualPageId,
   type ManualTopicId,
 } from "./game-manual";
+import {
+  GameNavigation,
+  type NavigationUnlocks,
+  type PrimaryView,
+} from "./game-navigation";
+import { CommandBriefing } from "./command-briefing";
+import { getCommandPriorities } from "./command-priorities";
+import { GameCommandBar } from "./game-command-bar";
 import PopulationConsole from "./population-console";
 import DefenseConsole from "./defense-console";
 import ArmoryConsole, { type ArmoryItemQuoteView } from "./armory-console";
@@ -173,9 +180,9 @@ import {
   type DefenseInstallationId,
 } from "./defense-engine";
 import { LORE_ENTRIES, TOUR_STEPS } from "./story-content";
+import { getProgressiveDisclosure } from "./progressive-disclosure";
 
 type MobileTab = "machines" | "systems";
-type PrimaryView = ManualPageId;
 
 const purchaseModes: Array<{ value: PurchaseMode; label: string }> = [
   { value: "1", label: "×1" },
@@ -479,6 +486,7 @@ export default function Home() {
     [game],
   );
   const objective = useMemo(() => getNextObjective(game), [game]);
+  const commandPriorities = useMemo(() => getCommandPriorities(game), [game]);
   const activeMission = MISSIONS[game.missions.currentIndex];
   const activeStage =
     activeMission?.stages[game.missions.stageIndex] ?? null;
@@ -488,6 +496,7 @@ export default function Home() {
   );
   const worldEffects = useMemo(() => getWorldEffects(game), [game]);
   const campaignWorldIndex = getCampaignWorldIndex(game);
+  const disclosure = useMemo(() => getProgressiveDisclosure(game), [game]);
   const worldVisual =
     WORLD_VISUALS[campaignWorldIndex] ?? WORLD_VISUALS[0];
   const shellStyle = {
@@ -720,10 +729,7 @@ export default function Home() {
     }),
   );
 
-  const defenseUnlocked =
-    campaignWorldIndex >= 3 ||
-    game.defense.stats.resolved > 0 ||
-    Object.values(game.defense.installations).some((level) => level > 0);
+  const defenseUnlocked = disclosure.defense;
   const defenseCrew = {
     security: game.survivors.survivors.filter((survivor) => survivor.assignedRole === "security").length,
     engineers: game.survivors.survivors.filter((survivor) => survivor.assignedRole === "engineer").length,
@@ -742,20 +748,8 @@ export default function Home() {
     }),
   ) as Record<DefenseInstallationId, { cost: number; level: number; maxed: boolean; canAfford: boolean; costLabel: string }>;
 
-  const expeditionsUnlocked =
-    campaignWorldIndex >= 3 ||
-    game.expeditions.active !== null ||
-    game.expeditions.stranded !== null ||
-    game.expeditions.stats.completed > 0;
-  const armoryUnlocked =
-    campaignWorldIndex >= 3 ||
-    ARMORY_ITEM_DEFINITIONS.some(
-      (item) =>
-        game.armory.stock[item.id].some((count) => count > 0) ||
-        game.research.completedProjectIds.includes(
-          item.requiredResearchId as (typeof game.research.completedProjectIds)[number],
-        ),
-    );
+  const expeditionsUnlocked = disclosure.expeditions;
+  const armoryUnlocked = disclosure.armory;
   const armoryQuotes = Object.fromEntries(
     ARMORY_ITEM_DEFINITIONS.map((item) => {
       const craft = getArmoryCraftQuote(game, item.id);
@@ -1409,39 +1403,15 @@ export default function Home() {
   };
 
   const currentTour = tourStep === null ? null : TOUR_STEPS[tourStep];
-  const engineeringUnlocked =
-    game.manualPulses >= 12 ||
-    game.missions.stageIndex >= 1 ||
-    game.missions.currentIndex > 0 ||
-    game.missions.worldsSaved > 0 ||
-    game.tiers[0].bought > 0;
-  const researchUnlocked =
-    game.tiers[0].bought > 0 ||
-    game.research.activeProjectId !== null ||
-    game.research.completedProjectIds.length > 0;
-  const populationUnlocked =
-    game.research.completedProjectIds.includes("closed-loop-atmosphere") ||
-    campaignWorld.id !== "cold-wake" ||
-    game.survivors.survivors.length > 0 ||
-    game.survivors.beaconOnline;
-  const settlementUnlocked =
-    game.missions.awaitingAcknowledgement ||
-    game.missions.worldsSaved > 0 ||
-    game.settlement.completedWorldIds.length > 0;
-  const fabricationUnlocked =
-    game.missions.stageIndex >= 1 ||
-    game.missions.currentIndex > 0 ||
-    game.tiers[0].bought > 0;
-  const systemsUnlocked =
-    game.missions.stageIndex >= 2 ||
-    game.missions.awaitingAcknowledgement ||
-    game.missions.worldsSaved > 0;
-  const protocolsUnlocked =
-    game.maxFlux >= RUN_UPGRADES[0].revealAt || game.lifetimeAxioms > 0;
-  const recalibrationUnlocked =
-    game.maxFlux >= RUN_UPGRADES[RUN_UPGRADES.length - 1].revealAt ||
-    game.lifetimeAxioms > 0 ||
-    recalibrationGain > 0;
+  const engineeringUnlocked = disclosure.engineering;
+  const researchUnlocked = disclosure.research;
+  const populationUnlocked = disclosure.population;
+  const medicalUnlocked = disclosure.medical;
+  const settlementUnlocked = disclosure.settlement;
+  const fabricationUnlocked = disclosure.fabrication;
+  const systemsUnlocked = disclosure.systems;
+  const protocolsUnlocked = disclosure.protocols;
+  const recalibrationUnlocked = disclosure.recalibration;
   const engineeringMobileTabs: Array<[MobileTab, string]> = [["machines", "Fabricate"]];
   if (systemsUnlocked || protocolsUnlocked || recalibrationUnlocked || game.lifetimeAxioms > 0) {
     engineeringMobileTabs.push(["systems", "Campaign"]);
@@ -1455,11 +1425,21 @@ export default function Home() {
   if (engineeringUnlocked) availableManualPages.push("engineering");
   if (researchUnlocked) availableManualPages.push("research");
   if (populationUnlocked) availableManualPages.push("population");
-  if (populationUnlocked) availableManualPages.push("medical");
+  if (medicalUnlocked) availableManualPages.push("medical");
   if (expeditionsUnlocked) availableManualPages.push("expeditions");
   if (defenseUnlocked) availableManualPages.push("defense");
   if (armoryUnlocked) availableManualPages.push("armory");
   if (settlementUnlocked) availableManualPages.push("settlement");
+  const navigationUnlocks: NavigationUnlocks = {
+    engineering: engineeringUnlocked,
+    research: researchUnlocked,
+    population: populationUnlocked,
+    medical: medicalUnlocked,
+    expeditions: expeditionsUnlocked,
+    defense: defenseUnlocked,
+    armory: armoryUnlocked,
+    settlement: settlementUnlocked,
+  };
 
   return (
     <main
@@ -1473,176 +1453,37 @@ export default function Home() {
         {announcement}
       </div>
 
-      <header className={`command-bar ${currentTour?.target === "welcome" || currentTour?.target === "flux" ? "tour-focus" : ""}`}>
-        <div className="brand-lockup">
-          <span className="brand-mark" aria-hidden="true">
-            ◇
-          </span>
-          <div>
-            <p className="eyebrow">{MISSIONS[campaignWorldIndex].world.toUpperCase()} · CYCLE {String(game.cycle).padStart(2, "0")}</p>
-            <h1>{MISSIONS[campaignWorldIndex].arrival}</h1>
-          </div>
-        </div>
+      <GameCommandBar
+        worldName={MISSIONS[campaignWorldIndex].world}
+        cycle={game.cycle}
+        arrival={MISSIONS[campaignWorldIndex].arrival}
+        fluxLabel={formatNumber(game.flux)}
+        fluxExact={game.flux.toExponential(6)}
+        fluxPerSecondLabel={formatNumber(production.fluxPerSecond)}
+        axiomsLabel={formatNumber(game.axioms)}
+        resonanceLabel={formatNumber(production.resonance.multiplier)}
+        saveStatus={saveStatus}
+        ready={ready}
+        focusWelcome={currentTour?.target === "welcome"}
+        focusFlux={currentTour?.target === "flux"}
+        objective={{
+          label: objective.label,
+          currentLabel: formatNumber(objective.current),
+          thresholdLabel: formatNumber(objective.threshold),
+          progress: objective.progress,
+          directiveLabel: activeMission && game.settings.tutorialComplete && !game.missions.awaitingAcknowledgement ? activeMission.world : null,
+        }}
+        onOpenHelp={() => setManualTopic(primaryView)}
+        onOpenLore={() => setLoreOpen(true)}
+        onSave={() => persistGame("Saved")}
+        onOpenDirective={() => { setPrimaryView("engineering"); setMobileTab("systems"); }}
+      />
 
-        <div className={`resource-readout ${currentTour?.target === "flux" ? "tour-focus" : ""}`} title={`${game.flux.toExponential(6)} Flux`}>
-          <span className="resource-label">Local Flux</span>
-          <strong>{formatNumber(game.flux)}</strong>
-          <span className="rate">+{formatNumber(production.fluxPerSecond)} / sec</span>
-        </div>
-
-        <div className="header-metrics">
-          <div title="Axioms are portable, permanent laws of physics forged by Recalibration.">
-            <span>Axioms</span>
-            <strong>{formatNumber(game.axioms)}</strong>
-          </div>
-          <div>
-            <span>Resonance</span>
-            <strong>×{formatNumber(production.resonance.multiplier)}</strong>
-          </div>
-        </div>
-
-        <div className="header-actions">
-          <span className="save-status">{ready ? saveStatus : "Restoring local cycle…"}</span>
-          <HelpTrigger label="Open guide for this page" withLabel onClick={() => setManualTopic(primaryView)} />
-          <button className="quiet-button" type="button" onClick={() => setLoreOpen(true)}>Lore archive</button>
-          <button className="quiet-button" type="button" onClick={() => persistGame("Saved")}>Save now</button>
-        </div>
-
-        <div className="objective-strip">
-          <div className="objective-copy">
-            <span>{objective.label}</span>
-            <span>{formatNumber(objective.current)} / {formatNumber(objective.threshold)} required</span>
-            {activeMission && game.settings.tutorialComplete && !game.missions.awaitingAcknowledgement && (
-              <button className="crisis-link" type="button" onClick={() => { setPrimaryView("engineering"); setMobileTab("systems"); }}>
-                {activeMission.world} · Open directive
-              </button>
-            )}
-          </div>
-          <div
-            className="objective-track"
-            role="progressbar"
-            aria-label={objective.label}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.round(objective.progress * 100)}
-          >
-            <span style={{ width: `${objective.progress * 100}%` }} />
-          </div>
-        </div>
-      </header>
-
-      <nav className="living-foundry-nav" aria-label="Foundry views" role="tablist">
-        <button
-          className={primaryView === "deck" ? "active" : ""}
-          type="button"
-          role="tab"
-          aria-selected={primaryView === "deck"}
-          onClick={() => setPrimaryView("deck")}
-        >
-          <span aria-hidden="true">A</span>
-          Ark
-        </button>
-        {engineeringUnlocked && (
-          <button
-            className={primaryView === "engineering" ? "active" : ""}
-            type="button"
-            role="tab"
-            aria-selected={primaryView === "engineering"}
-            onClick={() => setPrimaryView("engineering")}
-          >
-            <span aria-hidden="true">01</span>
-            Foundry
-          </button>
-        )}
-        {researchUnlocked && (
-          <button
-            className={primaryView === "research" ? "active" : ""}
-            type="button"
-            role="tab"
-            aria-selected={primaryView === "research"}
-            onClick={() => setPrimaryView("research")}
-          >
-            <span aria-hidden="true">02</span>
-            Research
-          </button>
-        )}
-        {populationUnlocked && (
-          <button
-            className={primaryView === "population" ? "active" : ""}
-            type="button"
-            role="tab"
-            aria-selected={primaryView === "population"}
-            onClick={() => setPrimaryView("population")}
-          >
-            <span aria-hidden="true">03</span>
-            Crew
-          </button>
-        )}
-        {populationUnlocked && (
-          <button
-            className={primaryView === "medical" ? "active" : ""}
-            type="button"
-            role="tab"
-            aria-selected={primaryView === "medical"}
-            onClick={() => setPrimaryView("medical")}
-          >
-            <span aria-hidden="true">0H</span>
-            Medical
-          </button>
-        )}
-        {expeditionsUnlocked && (
-          <button
-            className={primaryView === "expeditions" ? "active" : ""}
-            type="button"
-            role="tab"
-            aria-selected={primaryView === "expeditions"}
-            onClick={() => setPrimaryView("expeditions")}
-          >
-            <span aria-hidden="true">0E</span>
-            Expeditions
-          </button>
-        )}
-        {defenseUnlocked && (
-          <button
-            className={primaryView === "defense" ? "active" : ""}
-            type="button"
-            role="tab"
-            aria-selected={primaryView === "defense"}
-            onClick={() => setPrimaryView("defense")}
-          >
-            <span aria-hidden="true">0D</span>
-            Defense
-          </button>
-        )}
-        {armoryUnlocked && (
-          <button
-            className={primaryView === "armory" ? "active" : ""}
-            type="button"
-            role="tab"
-            aria-selected={primaryView === "armory"}
-            onClick={() => setPrimaryView("armory")}
-          >
-            <span aria-hidden="true">0A</span>
-            Armory
-          </button>
-        )}
-        {settlementUnlocked && (
-          <button
-            className={primaryView === "settlement" ? "active" : ""}
-            type="button"
-            role="tab"
-            aria-selected={primaryView === "settlement"}
-            onClick={() => setPrimaryView("settlement")}
-          >
-            <span aria-hidden="true">04</span>
-            Continuity
-          </button>
-        )}
-        <div className="nav-awakening-status" aria-live="polite">
-          <span>{[engineeringUnlocked, researchUnlocked, populationUnlocked, populationUnlocked, expeditionsUnlocked, defenseUnlocked, armoryUnlocked, settlementUnlocked].filter(Boolean).length + 1}</span>
-          <small>Ark systems awake</small>
-        </div>
-      </nav>
+      <GameNavigation
+        currentView={primaryView}
+        unlocks={navigationUnlocks}
+        onNavigate={setPrimaryView}
+      />
 
       {offlineNotice && (
         <section className="offline-banner" aria-label="Offline production summary">
@@ -1658,6 +1499,8 @@ export default function Home() {
       )}
 
       {primaryView === "deck" ? (
+        <>
+        <CommandBriefing priorities={commandPriorities} onNavigate={setPrimaryView} />
         <ArkDeck
           foundryName={game.living.foundryName}
           worldName={campaignWorld.name}
@@ -1744,6 +1587,7 @@ export default function Home() {
           onOpenView={handleOpenArkView}
           onOpenHelp={setManualTopic}
         />
+        </>
       ) : primaryView === "population" ? (
         <PopulationConsole
           state={game.survivors}
@@ -1854,7 +1698,7 @@ export default function Home() {
           state={game.defense}
           crew={defenseCrew}
           currentWorldName={campaignWorld.name}
-          stormsEnabled={campaignWorldIndex >= 3}
+          stormsEnabled={defenseUnlocked}
           installationQuotes={defenseInstallationQuotes}
           onBuyInstallation={handleBuyDefenseInstallation}
           onChooseDoctrine={handleChooseDefenseDoctrine}

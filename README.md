@@ -27,7 +27,8 @@ The campaign moves through Cold Wake, Pelagos, Viridia, Cinder, Nox, and Vesper.
 - Manual Core tuning that evolves from emergency power into optional anomaly probing
 - A physical Ark cross-section that lights and fills as systems and people come online
 - Full-width cinematic presentation with a pulsing Axiom Chamber, animated planetary theater, and physical research machinery
-- Progressive navigation that reveals Foundry, Research, Life Support, Crew, and Continuity only when each system matters
+- Five-destination navigation (Ark, Foundry, Personnel, Research, Planet) with Medical, Expeditions, Defense, and Armory revealed as contextual facilities only when they matter
+- An AXIOM command briefing that translates cross-system blockers into direct next actions without deadlines
 - A contextual AXIOM Field Manual with unlocked-page guides, exact resource sources, and in-place question-mark help
 - A clear division between the Ark home screen, which owns Core tuning, and the Foundry floor, which owns fabrication and Planetfall operations
 - Zero-human Cold Wake opening and a one-time fresh save generation

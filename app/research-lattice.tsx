@@ -270,7 +270,7 @@ export function ResearchLattice({
 
       <div
         className="research-lattice-awakening"
-        aria-label={`${completedResearch} of 12 discoveries resolved`}
+        aria-label={`${completedResearch} of ${RESEARCH_PROJECT_DEFINITIONS.length} discoveries resolved`}
       >
         <span>CORE EVOLUTION</span>
         <div aria-hidden="true">
@@ -288,7 +288,7 @@ export function ResearchLattice({
             />
           ))}
         </div>
-        <strong>{completedResearch.toString().padStart(2, "0")} / 12</strong>
+        <strong>{completedResearch.toString().padStart(2, "0")} / {RESEARCH_PROJECT_DEFINITIONS.length}</strong>
       </div>
 
       <div className="research-lattice-telemetry" aria-label="Lattice limits">

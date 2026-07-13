@@ -271,8 +271,8 @@ test("recalibration grants the previewed Axiom and retains legacy progress", () 
   state.maxFlux = RECALIBRATION_THRESHOLD;
   state.legacyUpgrades[0] = 2;
   state.living.foundryName = "The Quiet Argument";
-  state.living.crew[0].callsign = "Ember";
-  state.living.crew[0].assignedRoomId = "axiom-chamber";
+  state.living.rooms[0].level = 3;
+  state.living.discoveredLore = ["awakening.cold-wake"];
   const next = recalibrate(state, 1_000);
   assert.equal(next.axioms, 1);
   assert.equal(next.lifetimeAxioms, 1);
@@ -280,8 +280,8 @@ test("recalibration grants the previewed Axiom and retains legacy progress", () 
   assert.equal(next.legacyUpgrades[0], 2);
   assert.equal(next.runFlux, 0);
   assert.equal(next.living.foundryName, "The Quiet Argument");
-  assert.equal(next.living.crew[0].callsign, "Ember");
-  assert.equal(next.living.crew[0].assignedRoomId, "axiom-chamber");
+  assert.equal(next.living.rooms[0].level, 3);
+  assert.deepEqual(next.living.discoveredLore, ["awakening.cold-wake"]);
 });
 
 test("completed lattice research provides modest final economy support", () => {
