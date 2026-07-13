@@ -64,10 +64,15 @@ import {
   type DefenseState,
 } from "./defense-engine.ts";
 import {
+  admitToMedBay,
   advanceSurvivorSystem,
   appointCommandLeader,
   applyStrandedCondition,
   applySurvivorWound,
+  dischargeFromMedBay,
+  getMedBayCarePool,
+  getMedBayRecoveryPerHour,
+  isSurvivorAdmitted,
   BERTH_CONSTRUCTION_BASE_SECONDS,
   BERTHS_PER_SECTION,
   canSurvivorFound,
@@ -1029,7 +1034,10 @@ export function getCampaignCrewSummaries(
   const deployedIds = getDeployedCrewIds(state.expeditions);
   return state.survivors.survivors.map((survivor) => {
     const rarity = getSurvivorRarity(survivor);
-    const busy = trainingIds.has(survivor.id) || deployedIds.has(survivor.id);
+    const busy =
+      trainingIds.has(survivor.id) ||
+      deployedIds.has(survivor.id) ||
+      isSurvivorAdmitted(state.survivors, survivor.id);
     return {
       id: survivor.id,
       name: survivor.callsign
@@ -1521,7 +1529,14 @@ export function getExpeditionLaunchQuote(
   const crew = unique.map((id) =>
     state.survivors.survivors.find((survivor) => survivor.id === id),
   );
-  if (crew.some((member) => !member || trainingIds.has(member.id))) {
+  if (
+    crew.some(
+      (member) =>
+        !member ||
+        trainingIds.has(member.id) ||
+        isSurvivorAdmitted(state.survivors, member.id),
+    )
+  ) {
     return blocked("crew-unavailable");
   }
   const roster = crew as NonNullable<(typeof crew)[number]>[];
@@ -1633,7 +1648,8 @@ export function getCommandTeamStatus(state: GameState): CommandTeamStatus {
     (survivor): survivor is NonNullable<typeof survivor> =>
       Boolean(survivor) &&
       !isSurvivorWounded(survivor!) &&
-      !away.has(survivor!.id),
+      !away.has(survivor!.id) &&
+      !isSurvivorAdmitted(state.survivors, survivor!.id),
   );
   const rating = contributors.reduce(
     (total, survivor) =>
@@ -1681,6 +1697,63 @@ export function chooseTrainingDoctrine(
   return next;
 }
 
+// Medical Bay: each occupied bed diverts a share of ALL Flux production to
+// life support - a percentage, so it matters at every stage of the game.
+export const MED_BAY_DIVERSION_PER_PATIENT = 0.05;
+export const MED_BAY_DIVERSION_CAP = 0.4;
+
+export function getMedBayDiversion(state: GameState) {
+  return Math.min(
+    MED_BAY_DIVERSION_CAP,
+    state.survivors.medBayIds.length * MED_BAY_DIVERSION_PER_PATIENT,
+  );
+}
+
+export type MedBayStatus = {
+  patientIds: readonly string[];
+  carePool: number;
+  recoveryPerHour: number;
+  diversionPercent: number;
+};
+
+export function getMedBayStatus(state: GameState): MedBayStatus {
+  const medicalOverCapacity =
+    getLifeSupportStatus(
+      state.survivors,
+      [],
+      getResearchBonuses(state.research).habitationCapacityMultiplier,
+    ).shortages.medical > 0;
+  return {
+    patientIds: state.survivors.medBayIds,
+    carePool: getMedBayCarePool(state.survivors),
+    recoveryPerHour: getMedBayRecoveryPerHour(
+      state.survivors,
+      medicalOverCapacity,
+    ),
+    diversionPercent: Math.round(getMedBayDiversion(state) * 100),
+  };
+}
+
+export function admitCrewToMedBay(state: GameState, survivorId: string) {
+  const survivors = admitToMedBay(
+    state.survivors,
+    survivorId,
+    getDeployedCrewIds(state.expeditions),
+  );
+  if (survivors === state.survivors) return state;
+  const next = cloneGameState(state);
+  next.survivors = survivors;
+  return next;
+}
+
+export function dischargeCrewFromMedBay(state: GameState, survivorId: string) {
+  const survivors = dischargeFromMedBay(state.survivors, survivorId);
+  if (survivors === state.survivors) return state;
+  const next = cloneGameState(state);
+  next.survivors = survivors;
+  return next;
+}
+
 export const PROSTHETIC_SURGEON_LEVEL = 5;
 export const PROSTHETIC_SURGERY_FLUX_BASE = 1_200;
 export const PROSTHETIC_SURGERY_MODEL_COST = 30;
@@ -1698,6 +1771,7 @@ export type ProstheticSurgeryQuote = {
     | "research"
     | "no-injury"
     | "unavailable"
+    | "not-admitted"
     | "surgeon"
     | "medical"
     | "flux"
@@ -1739,19 +1813,21 @@ export function getProstheticSurgeryQuote(
       ? ("no-injury" as const)
       : getDeployedCrewIds(state.expeditions).has(survivorId)
         ? ("unavailable" as const)
-        : !surgeon
-          ? ("surgeon" as const)
-          : !medicalReady
-            ? ("medical" as const)
-            : state.flux < fluxCost
-              ? ("flux" as const)
-              : state.researchStock["engineering-models"] <
-                  PROSTHETIC_SURGERY_MODEL_COST
-                ? ("models" as const)
-                : state.researchStock["biological-samples"] <
-                    PROSTHETIC_SURGERY_SAMPLE_COST
-                  ? ("samples" as const)
-                  : null;
+        : !isSurvivorAdmitted(state.survivors, survivorId)
+          ? ("not-admitted" as const)
+          : !surgeon
+            ? ("surgeon" as const)
+            : !medicalReady
+              ? ("medical" as const)
+              : state.flux < fluxCost
+                ? ("flux" as const)
+                : state.researchStock["engineering-models"] <
+                    PROSTHETIC_SURGERY_MODEL_COST
+                  ? ("models" as const)
+                  : state.researchStock["biological-samples"] <
+                      PROSTHETIC_SURGERY_SAMPLE_COST
+                    ? ("samples" as const)
+                    : null;
   return {
     fluxCost,
     modelCost: PROSTHETIC_SURGERY_MODEL_COST,
@@ -1845,7 +1921,10 @@ export function getRescueMissionQuote(
   if (
     crew.some(
       (member) =>
-        !member || trainingIds.has(member.id) || strandedIds.has(member.id),
+        !member ||
+        trainingIds.has(member.id) ||
+        strandedIds.has(member.id) ||
+        isSurvivorAdmitted(state.survivors, member.id),
     )
   ) {
     return blocked("crew-unavailable");
@@ -2625,6 +2704,8 @@ export function getProductionSnapshot(state: GameState) {
   const researchBonuses = getResearchBonuses(state.research);
   const colonyLegacyEffects = getColonyLegacyEffects(state);
   const defenseMultiplier = getDefenseProductionMultiplier(state.defense);
+  // Occupied Medical Bay beds divert a percentage of ALL production.
+  const medBayMultiplier = 1 - getMedBayDiversion(state);
   const globalMultiplier = safeMultiply(
     safeMultiply(
       safeMultiply(flowMultiplier, legacyMultiplier),
@@ -2635,7 +2716,8 @@ export function getProductionSnapshot(state: GameState) {
       researchBonuses.productionMultiplier *
       relayMultiplier *
       colonyLegacyEffects.cohesionProductionMultiplier *
-      defenseMultiplier,
+      defenseMultiplier *
+      medBayMultiplier,
   );
   const resonance = getResonanceDetails(state);
   const higherTierMultiplier = 1 + 0.3 * state.runUpgrades[2];

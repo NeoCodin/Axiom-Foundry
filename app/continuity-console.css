@@ -380,6 +380,24 @@ label.expedition-manifest-row { grid-template-columns: auto auto minmax(0, 1fr) 
 .team-alpha-actions button { padding: 7px 10px; color: #aebfca; border: 1px solid #2a4153; background: #0a1620; font-size: 9px; cursor: pointer; }
 .team-alpha-actions button:disabled { color: #526573; cursor: default; }
 
+/* Medical Bay */
+.medbay-rows { display: grid; gap: 6px; }
+.medbay-row { display: grid; grid-template-columns: auto minmax(0, 1fr) 96px auto auto; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid #1c2e3b; background: #08131c; }
+.medbay-row .crew-avatar { width: 22px; height: 22px; font-size: 9px; }
+.medbay-row-name { min-width: 0; }
+.medbay-row-name strong { display: block; overflow: hidden; color: #dce7ee; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.medbay-row-name small { display: block; color: #718797; font-size: 8px; }
+.medbay-row-eta small { color: #8fa4b5; font-family: var(--font-mono, monospace); font-size: 8px; white-space: nowrap; }
+.medbay-row-actions { display: flex; gap: 6px; }
+.medbay-row-actions button { padding: 6px 9px; color: #aebfca; border: 1px solid #2a4153; background: #0a1620; font-size: 8.5px; cursor: pointer; }
+.medbay-row-actions button:disabled { color: #526573; cursor: default; }
+.medbay-row-actions .forecast-action { width: auto; }
+@media (max-width: 760px) {
+  .medbay-row { grid-template-columns: auto minmax(0, 1fr) 80px; }
+  .medbay-row-eta { display: none; }
+  .medbay-row-actions { grid-column: 1 / -1; justify-content: flex-end; }
+}
+
 /* Armory console */
 .armory-item-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
 .armory-item-card { display: grid; align-content: start; gap: 8px; padding: 12px; border: 1px solid #243a4b; background: #071019; }

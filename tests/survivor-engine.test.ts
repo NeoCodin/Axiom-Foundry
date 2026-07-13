@@ -4,11 +4,15 @@ import test from "node:test";
 import {
   BASE_BERTHS,
   BERTHS_PER_SECTION,
+  admitToMedBay,
   appointCommandLeader,
   applySurvivorWound,
   canSurvivorFound,
   canSurvivorLearnProfession,
+  dischargeFromMedBay,
   getBerthCapacity,
+  getMedBayCarePool,
+  getMedBayRecoveryPerHour,
   runTrainingDoctrine,
   setTrainingDoctrine,
   toggleCommandTeamMember,
@@ -1211,15 +1215,23 @@ test("health defaults to full, sanitizes under injury caps, and recovers with do
     ],
   });
   recovering = { ...recovering, berthSections: 2 };
+  // ward recovery is the base trickle only - doctors help in the Med Bay
   const afterHour = advanceSurvivorSystem(recovering, 3_600);
-  // two on-duty doctors: 2 + 0.5 x 2 = 3/hour
-  assert.equal(Math.round(afterHour.survivors[0]!.health * 10) / 10, 33);
+  assert.equal(Math.round(afterHour.survivors[0]!.health * 10) / 10, 32);
 
-  // overloaded medical capacity halves recovery but never stops it
-  const strained = advanceSurvivorSystem(recovering, 3_600, {
+  // admitted: base 2 + care (two level-3 doctors = pool 6, x2, 1 patient = 12)
+  const admittedState = admitToMedBay(recovering, "patient");
+  assert.ok(admittedState.medBayIds.includes("patient"));
+  assert.equal(getMedBayCarePool(admittedState), 6);
+  assert.equal(getMedBayRecoveryPerHour(admittedState), 14);
+  const treated = advanceSurvivorSystem(admittedState, 3_600);
+  assert.equal(Math.round(treated.survivors[0]!.health * 10) / 10, 44);
+
+  // overloaded medical capacity halves both rates but never stops them
+  const strained = advanceSurvivorSystem(admittedState, 3_600, {
     medicalOverCapacity: true,
   });
-  assert.equal(Math.round(strained.survivors[0]!.health * 10) / 10, 31.5);
+  assert.equal(Math.round(strained.survivors[0]!.health * 10) / 10, 37);
 
   // recovery is chunk-size independent
   let chunked = recovering;
@@ -1503,4 +1515,63 @@ test("the training doctrine fills empty slots with idle crew and never overrides
   // unavailable crew (deployed) are skipped
   const skipped = runTrainingDoctrine(state, new Set([candidateId!]));
   assert.equal(skipped, state);
+});
+
+test("the Medical Bay admits only the hurt, stands them down, and divides care", () => {
+  const state = sanitizeSurvivorSystemState({
+    lifeSupport: { atmosphere: 50, water: 50, nutrition: 50, medical: 50 },
+    survivors: [
+      { id: "hurt-1", name: "Hurt One", role: "engineer", skillXp: { engineer: 500 }, assignedRole: "engineer", health: 30 },
+      { id: "hurt-2", name: "Hurt Two", role: "farmer", skillXp: { farmer: 500 }, assignedRole: "farmer", health: 60 },
+      { id: "fit", name: "Fit Crew", role: "navigator", skillXp: { navigator: 500 }, assignedRole: "navigator", health: 100 },
+      { id: "medic", name: "Medic", role: "doctor", skillXp: { doctor: 2000 }, assignedRole: "doctor", health: 100 },
+    ],
+  });
+
+  // the healthy cannot be admitted; the hurt stand down from their station
+  assert.equal(admitToMedBay(state, "fit"), state);
+  let bay = admitToMedBay(state, "hurt-1");
+  assert.ok(bay.medBayIds.includes("hurt-1"));
+  assert.equal(
+    bay.survivors.find((survivor) => survivor.id === "hurt-1")!.assignedRole,
+    null,
+  );
+
+  // admitted crew cannot take stations or start training
+  assert.equal(assignSurvivorToRole(bay, "hurt-1", "engineer"), bay);
+  assert.equal(startSurvivorTraining(bay, "hurt-1", "doctor"), bay);
+
+  // care divides across patients: L5 doctor pool 5 -> x2 = 10; 1 patient
+  // rate 12, 2 patients rate 7 each
+  assert.equal(getMedBayRecoveryPerHour(bay), 12);
+  bay = admitToMedBay(bay, "hurt-2");
+  assert.equal(getMedBayRecoveryPerHour(bay), 7);
+
+  // deployed crew cannot be admitted; discharge works at any moment
+  assert.equal(
+    admitToMedBay(state, "hurt-2", new Set(["hurt-2"])),
+    state,
+  );
+  const discharged = dischargeFromMedBay(bay, "hurt-1");
+  assert.equal(discharged.medBayIds.includes("hurt-1"), false);
+
+  // an admitted doctor tends no one
+  const medicDown = admitToMedBay(
+    sanitizeSurvivorSystemState({
+      ...JSON.parse(JSON.stringify(state)),
+      survivors: state.survivors.map((survivor) => ({
+        ...JSON.parse(JSON.stringify(survivor)),
+        health: survivor.id === "medic" ? 40 : survivor.health,
+      })),
+    }),
+    "medic",
+  );
+  assert.equal(getMedBayCarePool(medicDown), 0);
+
+  // sanitize round-trip keeps admissions and drops ghosts
+  const reloaded = sanitizeSurvivorSystemState({
+    ...JSON.parse(JSON.stringify(bay)),
+    medBayIds: [...bay.medBayIds, "ghost"],
+  });
+  assert.deepEqual(reloaded.medBayIds, bay.medBayIds);
 });

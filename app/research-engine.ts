@@ -506,7 +506,7 @@ export const RESEARCH_PROJECT_DEFINITIONS: readonly ResearchProjectDefinition[] 
     workRequired: 620,
     costs: {
       "biological-samples": 140,
-      "engineering-models": 120,
+      schematics: 80,
       "null-traces": 40,
     },
     prerequisites: ["clinical-commons"],

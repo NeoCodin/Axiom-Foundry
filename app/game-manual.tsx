@@ -9,6 +9,7 @@ export type ManualPageId =
   | "engineering"
   | "research"
   | "population"
+  | "medical"
   | "expeditions"
   | "defense"
   | "armory"
@@ -42,6 +43,7 @@ export const MANUAL_PAGE_LABELS: Record<ManualPageId, string> = {
   engineering: "Foundry",
   research: "Research",
   population: "Crew",
+  medical: "Medical",
   expeditions: "Expeditions",
   defense: "Defense",
   armory: "Armory",
@@ -150,6 +152,21 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
       { label: "Null Traces", detail: "The Observe doctrine is the active way to gather Null Traces from Cinder onward." },
     ],
     tip: "Storms never arrive unannounced faster than 15 minutes, and the first storm is always mild.",
+  },
+  medical: {
+    id: "medical",
+    label: "Medical",
+    category: "Page guide // medical bay",
+    title: "Admit the hurt, staff the doctors, pay the power",
+    summary:
+      "Everyone heals slowly on their own — that never stops and costs nothing. The Medical Bay is the fast lane: admitted patients do nothing but heal, at a rate driven by your doctors' LEVELS, while each occupied bed diverts 5% of all Flux production.",
+    steps: [
+      { title: "Admit from the ward", detail: "Anyone below their health cap can be admitted. Admission clears their station: no work, no training, no missions, no founding, no Team Alpha contribution — just healing. Discharge anytime." },
+      { title: "Staff the bay with levels", detail: "The care pool is the summed doctor level of on-duty Doctors — one level-6 doctor tends like six level-1s. Care divides across patients, so a crowded bay heals each patient slower." },
+      { title: "Mind the diversion", detail: "Each occupied bed diverts 5% of ALL Flux production (capped at 40%). Healing is never about affording a fee — it is about how much of the ship you are willing to power down. People should aim to not get hurt." },
+      { title: "Perform prosthetic surgery here", detail: "Permanent injuries are repaired only on ADMITTED patients: Prosthetic Fabrication research, a level-5 Doctor on duty, spare medical capacity, and Flux + Models + Bio Samples." },
+    ],
+    tip: "An overloaded medical life-support envelope halves every healing rate — expand medical capacity before a big expedition push.",
   },
   expeditions: {
     id: "expeditions",

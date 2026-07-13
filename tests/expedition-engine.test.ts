@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   abandonStrandedCrew,
+  admitCrewToMedBay,
   craftArmoryItem,
   createInitialState,
   getCampaignCrewSummaries,
@@ -442,21 +443,27 @@ test("prosthetic surgery repairs permanent injuries behind research, surgeon, an
     ...state.research.completedProjectIds,
     "prosthetic-fabrication",
   ];
+  // surgery happens only in the Medical Bay
   quote = getProstheticSurgeryQuote(state, "scout-1");
+  assert.equal(quote.canOperate, false);
+  assert.equal(quote.reason, "not-admitted");
+  const admittedState = admitCrewToMedBay(state, "scout-1");
+  assert.notEqual(admittedState, state);
+  quote = getProstheticSurgeryQuote(admittedState, "scout-1");
   assert.equal(quote.canOperate, true);
 
   // healthy crew have nothing to repair
   assert.equal(getProstheticSurgeryQuote(state, "scout-3").reason, "no-injury");
 
-  const repaired = performProstheticSurgery(state, "scout-1");
-  assert.notEqual(repaired, state);
+  const repaired = performProstheticSurgery(admittedState, "scout-1");
+  assert.notEqual(repaired, admittedState);
   const patient = repaired.survivors.survivors.find(
     (survivor) => survivor.id === "scout-1",
   )!;
   assert.equal(patient.injury, null, "the injury is repaired");
   assert.equal(patient.health, 50, "surgery stabilizes the patient at 50");
   assert.equal(getSurvivorHealthCap(patient), 100, "the cap is fully restored");
-  assert.ok(repaired.flux < state.flux);
+  assert.ok(repaired.flux < admittedState.flux);
   assert.equal(repaired.researchStock["engineering-models"], 470);
   assert.equal(repaired.researchStock["biological-samples"], 480);
   // healed past 80, they can found colonies again
@@ -467,16 +474,17 @@ test("prosthetic surgery repairs permanent injuries behind research, surgeon, an
   const summaries = getCampaignCrewSummaries(recovered);
   assert.equal(summaries.find((summary) => summary.id === "scout-1")!.canSettle, true);
 
-  // without a level-5 doctor on duty, surgery is blocked
+  // without a level-5 doctor on duty, surgery is blocked (patient admitted)
   const noSurgeon = sanitizeSurvivorSystemState({
-    ...JSON.parse(JSON.stringify(state.survivors)),
-    survivors: state.survivors.survivors.map((survivor) => ({
+    ...JSON.parse(JSON.stringify(admittedState.survivors)),
+    survivors: admittedState.survivors.survivors.map((survivor) => ({
       ...JSON.parse(JSON.stringify(survivor)),
       assignedRole: survivor.id === "scout-2" ? null : survivor.assignedRole,
     })),
   });
+  assert.ok(noSurgeon.medBayIds.includes("scout-1"), "admission survives sanitize");
   const noSurgeonQuote = getProstheticSurgeryQuote(
-    { ...state, survivors: noSurgeon },
+    { ...admittedState, survivors: noSurgeon },
     "scout-1",
   );
   assert.equal(noSurgeonQuote.reason, "surgeon");

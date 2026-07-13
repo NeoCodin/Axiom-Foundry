@@ -242,6 +242,12 @@ export type SurvivorSystemState = {
   commandTeam: CommandTeam;
   /** Team Alpha's lean: auto-enrolls IDLE crew into this profession. */
   trainingDoctrine: ProfessionalRole | null;
+  /**
+   * Medical Bay admissions. Admitted crew do nothing but heal: no work, no
+   * training, no expeditions, no founding, no team contribution. Voluntary
+   * and dischargeable at any moment.
+   */
+  medBayIds: string[];
 };
 
 export type BackgroundDefinition = {
@@ -516,11 +522,15 @@ export const INJURY_HEALTH_CAPS: Record<SurvivorInjuryTier, number> = {
   severe: 40,
 };
 export const BASE_HEALTH_RECOVERY_PER_HOUR = 2;
-export const DOCTOR_HEALTH_RECOVERY_PER_HOUR = 0.5;
-export const MAX_RECOVERY_DOCTORS = 4;
 
 // Team Alpha (command crew): leader + up to three members.
 export const MAX_COMMAND_TEAM_MEMBERS = 3;
+
+// Medical Bay: admitted patients heal at the base rate plus bedside care.
+// Care comes from DOCTOR LEVELS, not headcount - one level-6 doctor tends
+// like six level-1s - and attention divides across patients.
+export const MED_BAY_CARE_PER_DOCTOR_LEVEL = 2;
+export const MED_BAY_MAX_RECOVERY_PER_HOUR = 16;
 
 const INJURY_RANK: Record<SurvivorInjuryTier, number> = {
   minor: 1,
@@ -907,6 +917,7 @@ export function cloneSurvivorSystemState(
       leaderId: state.commandTeam.leaderId,
       memberIds: [...state.commandTeam.memberIds],
     },
+    medBayIds: [...state.medBayIds],
   };
 }
 
@@ -940,6 +951,7 @@ export function createSurvivorSystemState(
     berthConstruction: null,
     commandTeam: { leaderId: null, memberIds: [] },
     trainingDoctrine: null,
+    medBayIds: [],
   };
 }
 
@@ -1653,7 +1665,9 @@ export function startSurvivorTraining(
   }
   const survivor = state.survivors.find((candidate) => candidate.id === survivorId);
   if (!survivor || !canSurvivorLearnProfession(survivor, targetRole)) return state;
-  if (isSurvivorWounded(survivor)) return state;
+  if (isSurvivorWounded(survivor) || state.medBayIds.includes(survivorId)) {
+    return state;
+  }
   const quote = getTrainingQuote(survivor, targetRole);
   const next = cloneSurvivorSystemState(state);
   next.survivors.find((candidate) => candidate.id === survivorId)!.assignedRole =
@@ -1694,6 +1708,7 @@ export function assignSurvivorToRole(
   }
   if (role === "civilian" && survivor.role !== "civilian") return state;
   if (role !== null && isSurvivorWounded(survivor)) return state;
+  if (role !== null && state.medBayIds.includes(survivorId)) return state;
   if (
     role !== null &&
     role !== "civilian" &&
@@ -1756,6 +1771,53 @@ export function transferSurvivorsToSettlement(
   next.commandTeam.memberIds = next.commandTeam.memberIds.filter(
     (id) => !transferredIds.has(id),
   );
+  next.medBayIds = next.medBayIds.filter((id) => !transferredIds.has(id));
+  return next;
+}
+
+export const isSurvivorAdmitted = (
+  state: Pick<SurvivorSystemState, "medBayIds">,
+  survivorId: string,
+) => state.medBayIds.includes(survivorId);
+
+/**
+ * Admits a patient to the Medical Bay. They stand down from everything -
+ * station cleared, no training, no deployment, no founding - and do
+ * nothing but heal until discharged. Only crew below their health cap (or
+ * carrying an injury) can be admitted; deployed or in-training crew must
+ * come home first.
+ */
+export function admitToMedBay(
+  state: SurvivorSystemState,
+  survivorId: string,
+  unavailableIds: ReadonlySet<string> = new Set(),
+) {
+  const survivor = state.survivors.find(
+    (candidate) => candidate.id === survivorId,
+  );
+  if (!survivor || state.medBayIds.includes(survivorId)) return state;
+  if (unavailableIds.has(survivorId)) return state;
+  if (state.training.some((program) => program.survivorId === survivorId)) {
+    return state;
+  }
+  if (survivor.health >= getSurvivorHealthCap(survivor) && !survivor.injury) {
+    return state;
+  }
+  const next = cloneSurvivorSystemState(state);
+  next.medBayIds = [...next.medBayIds, survivorId];
+  next.survivors.find((candidate) => candidate.id === survivorId)!.assignedRole =
+    null;
+  return next;
+}
+
+/** Discharges a patient - allowed at any moment, at any health. */
+export function dischargeFromMedBay(
+  state: SurvivorSystemState,
+  survivorId: string,
+) {
+  if (!state.medBayIds.includes(survivorId)) return state;
+  const next = cloneSurvivorSystemState(state);
+  next.medBayIds = next.medBayIds.filter((id) => id !== survivorId);
   return next;
 }
 
@@ -1829,6 +1891,7 @@ export function runTrainingDoctrine(
         survivor.assignedRole === null &&
         !trainingIds.has(survivor.id) &&
         !unavailableIds.has(survivor.id) &&
+        !state.medBayIds.includes(survivor.id) &&
         !isSurvivorWounded(survivor) &&
         canSurvivorLearnProfession(survivor, doctrine),
     )
@@ -1902,9 +1965,45 @@ function advanceOnJobExperienceMutable(
 }
 
 /**
+ * The Medical Bay's care pool: the summed doctor levels of on-duty,
+ * non-admitted assigned Doctors. A high-level doctor tends like several
+ * low-level ones.
+ */
+export function getMedBayCarePool(
+  state: Pick<SurvivorSystemState, "survivors" | "medBayIds">,
+) {
+  return state.survivors.reduce(
+    (total, survivor) =>
+      isSurvivorOnDuty(survivor, "doctor") &&
+      !state.medBayIds.includes(survivor.id)
+        ? total + getSurvivorSkillLevel(survivor, "doctor")
+        : total,
+    0,
+  );
+}
+
+/** Healing rate for an ADMITTED patient, given the current ward load. */
+export function getMedBayRecoveryPerHour(
+  state: Pick<SurvivorSystemState, "survivors" | "medBayIds">,
+  medicalOverCapacity = false,
+) {
+  const patients = Math.max(1, state.medBayIds.length);
+  const care =
+    (getMedBayCarePool(state) * MED_BAY_CARE_PER_DOCTOR_LEVEL) / patients;
+  return (
+    Math.min(
+      MED_BAY_MAX_RECOVERY_PER_HOUR,
+      BASE_HEALTH_RECOVERY_PER_HOUR + care,
+    ) * (medicalOverCapacity ? 0.5 : 1)
+  );
+}
+
+/**
  * Recovery runs for everyone below their cap, online and offline, and never
- * reverses. Fit assigned Doctors speed it up; an overloaded medical envelope
- * slows it to half rate but can never stop it.
+ * reverses. The base trickle needs zero input (idle contract); admitting a
+ * patient to the Medical Bay adds bedside care from the doctor-level pool,
+ * divided across patients. An overloaded medical envelope halves both
+ * rates but can never stop them.
  */
 function advanceHealthRecoveryMutable(
   state: SurvivorSystemState,
@@ -1913,24 +2012,30 @@ function advanceHealthRecoveryMutable(
   recoveryExemptIds: readonly string[] = [],
 ) {
   const exempt = new Set(recoveryExemptIds);
-  const doctors = state.survivors.filter((survivor) =>
-    isSurvivorOnDuty(survivor, "doctor"),
-  ).length;
-  const perHour =
-    (BASE_HEALTH_RECOVERY_PER_HOUR +
-      DOCTOR_HEALTH_RECOVERY_PER_HOUR *
-        Math.min(MAX_RECOVERY_DOCTORS, doctors)) *
-    (medicalOverCapacity ? 0.5 : 1);
-  const gain = (elapsedSeconds / 3_600) * perHour;
+  const hours = elapsedSeconds / 3_600;
+  const baseGain =
+    hours * BASE_HEALTH_RECOVERY_PER_HOUR * (medicalOverCapacity ? 0.5 : 1);
+  const medBayGain = hours * getMedBayRecoveryPerHour(state, medicalOverCapacity);
   for (const survivor of state.survivors) {
     if (exempt.has(survivor.id)) continue;
     const cap = getSurvivorHealthCap(survivor);
+    const gain = state.medBayIds.includes(survivor.id) ? medBayGain : baseGain;
     if (survivor.health < cap) {
       survivor.health = Math.min(cap, survivor.health + gain);
     } else if (survivor.health > cap) {
       survivor.health = cap;
     }
   }
+  // Fully healed, uninjured patients discharge themselves - an empty bed
+  // stops diverting Flux. (Injured patients stay: they may await surgery.)
+  state.medBayIds = state.medBayIds.filter((id) => {
+    const patient = state.survivors.find((survivor) => survivor.id === id);
+    return (
+      patient &&
+      (patient.injury !== null ||
+        patient.health < getSurvivorHealthCap(patient))
+    );
+  });
 }
 
 export function advanceSurvivorSystem(
@@ -2320,6 +2425,19 @@ export function sanitizeSurvivorSystemState(value: unknown): SurvivorSystemState
   state.trainingDoctrine = isProfessionalRole(value.trainingDoctrine)
     ? value.trainingDoctrine
     : null;
+  state.medBayIds = Array.isArray(value.medBayIds)
+    ? [
+        ...new Set(
+          value.medBayIds.filter(
+            (id): id is string => typeof id === "string" && rosterIds.has(id),
+          ),
+        ),
+      ]
+    : [];
+  // Admitted patients hold no station.
+  for (const survivor of state.survivors) {
+    if (state.medBayIds.includes(survivor.id)) survivor.assignedRole = null;
+  }
 
   const rawTraining = Array.isArray(value.training) ? value.training : [];
   const trainees = new Set<string>();
@@ -2332,6 +2450,7 @@ export function sanitizeSurvivorSystemState(value: unknown): SurvivorSystemState
     if (
       !survivor ||
       trainees.has(survivorId) ||
+      state.medBayIds.includes(survivorId) ||
       isSurvivorQualified(survivor, raw.targetRole)
     ) {
       continue;

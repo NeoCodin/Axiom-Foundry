@@ -37,8 +37,11 @@ import {
   craftArmoryItem,
   repairArmoryItem,
   abandonStrandedCrew,
+  admitCrewToMedBay,
   chooseTrainingDoctrine,
+  dischargeCrewFromMedBay,
   getCommandTeamStatus,
+  getMedBayStatus,
   getProstheticSurgeryQuote,
   getSurfaceRecon,
   setCommandLeader,
@@ -102,6 +105,7 @@ import PopulationConsole from "./population-console";
 import DefenseConsole from "./defense-console";
 import ArmoryConsole, { type ArmoryItemQuoteView } from "./armory-console";
 import ExpeditionConsole from "./expedition-console";
+import MedicalConsole from "./medical-console";
 import ResearchLattice from "./research-lattice";
 import SettlementConsole from "./settlement-console";
 import {
@@ -960,6 +964,22 @@ export default function Home() {
     commitGameState(next, `${count} crew abandoned. Their names are recorded on the memorial wall.`);
   };
 
+  const handleAdmitToMedBay = (survivorId: string) => {
+    const current = gameRef.current;
+    const next = admitCrewToMedBay(current, survivorId);
+    if (next === current) return;
+    const patient = next.survivors.survivors.find((survivor) => survivor.id === survivorId);
+    commitGameState(next, `${patient?.callsign || patient?.name || "Crew"} admitted to the Medical Bay. They will do nothing but heal until discharged.`);
+  };
+
+  const handleDischargeFromMedBay = (survivorId: string) => {
+    const current = gameRef.current;
+    const next = dischargeCrewFromMedBay(current, survivorId);
+    if (next === current) return;
+    const patient = next.survivors.survivors.find((survivor) => survivor.id === survivorId);
+    commitGameState(next, `${patient?.callsign || patient?.name || "Crew"} discharged from the Medical Bay.`);
+  };
+
   const handleAppointLeader = (survivorId: string | null) => {
     const current = gameRef.current;
     const next = setCommandLeader(current, survivorId);
@@ -1435,6 +1455,7 @@ export default function Home() {
   if (engineeringUnlocked) availableManualPages.push("engineering");
   if (researchUnlocked) availableManualPages.push("research");
   if (populationUnlocked) availableManualPages.push("population");
+  if (populationUnlocked) availableManualPages.push("medical");
   if (expeditionsUnlocked) availableManualPages.push("expeditions");
   if (defenseUnlocked) availableManualPages.push("defense");
   if (armoryUnlocked) availableManualPages.push("armory");
@@ -1557,6 +1578,18 @@ export default function Home() {
             Crew
           </button>
         )}
+        {populationUnlocked && (
+          <button
+            className={primaryView === "medical" ? "active" : ""}
+            type="button"
+            role="tab"
+            aria-selected={primaryView === "medical"}
+            onClick={() => setPrimaryView("medical")}
+          >
+            <span aria-hidden="true">0H</span>
+            Medical
+          </button>
+        )}
         {expeditionsUnlocked && (
           <button
             className={primaryView === "expeditions" ? "active" : ""}
@@ -1606,7 +1639,7 @@ export default function Home() {
           </button>
         )}
         <div className="nav-awakening-status" aria-live="polite">
-          <span>{[engineeringUnlocked, researchUnlocked, populationUnlocked, expeditionsUnlocked, defenseUnlocked, armoryUnlocked, settlementUnlocked].filter(Boolean).length + 1}</span>
+          <span>{[engineeringUnlocked, researchUnlocked, populationUnlocked, populationUnlocked, expeditionsUnlocked, defenseUnlocked, armoryUnlocked, settlementUnlocked].filter(Boolean).length + 1}</span>
           <small>Ark systems awake</small>
         </div>
       </nav>
@@ -1740,18 +1773,6 @@ export default function Home() {
             enabled: game.survivors.autoRescueEnabled,
           }}
           onToggleAutoRescue={handleToggleAutoRescue}
-          getProstheticQuote={(survivorId) => {
-            const quote = getProstheticSurgeryQuote(game, survivorId);
-            return {
-              canOperate: quote.canOperate,
-              reason: quote.reason,
-              researchMet: quote.researchMet,
-              fluxLabel: `${formatNumber(quote.fluxCost)} Flux`,
-              modelCost: quote.modelCost,
-              sampleCost: quote.sampleCost,
-            };
-          }}
-          onProstheticSurgery={handleProstheticSurgery}
           teamAlpha={(() => {
             const status = getCommandTeamStatus(game);
             return {
@@ -1774,6 +1795,40 @@ export default function Home() {
           onCancelTraining={handleCancelTraining}
           onAssignRole={handleAssignSurvivor}
           onRenameCallsign={handleRenameSurvivor}
+          onOpenHelp={setManualTopic}
+          onBack={() => setPrimaryView("deck")}
+        />
+      ) : primaryView === "medical" ? (
+        <MedicalConsole
+          survivors={game.survivors}
+          currentWorldName={campaignWorld.name}
+          medBay={(() => {
+            const status = getMedBayStatus(game);
+            return {
+              carePool: status.carePool,
+              recoveryPerHour: status.recoveryPerHour,
+              diversionPercent: status.diversionPercent,
+              medicalOverCapacity: lifeSupport.shortages.medical > 0,
+            };
+          })()}
+          unavailableIds={[
+            ...(game.expeditions.active?.crewIds ?? []),
+            ...(game.expeditions.stranded?.crewIds ?? []),
+          ]}
+          getProstheticQuote={(survivorId) => {
+            const quote = getProstheticSurgeryQuote(game, survivorId);
+            return {
+              canOperate: quote.canOperate,
+              reason: quote.reason,
+              researchMet: quote.researchMet,
+              fluxLabel: `${formatNumber(quote.fluxCost)} Flux`,
+              modelCost: quote.modelCost,
+              sampleCost: quote.sampleCost,
+            };
+          }}
+          onProstheticSurgery={handleProstheticSurgery}
+          onAdmit={handleAdmitToMedBay}
+          onDischarge={handleDischargeFromMedBay}
           onOpenHelp={setManualTopic}
           onBack={() => setPrimaryView("deck")}
         />

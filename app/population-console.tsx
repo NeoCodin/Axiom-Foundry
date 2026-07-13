@@ -79,8 +79,6 @@ export type PopulationConsoleProps = {
   rescueFlux: { cost: number; label: string; affordable: boolean };
   rescueDetail: { active: boolean; enabled: boolean };
   onToggleAutoRescue: (enabled: boolean) => void;
-  getProstheticQuote: (survivorId: string) => ProstheticQuoteView;
-  onProstheticSurgery: (survivorId: string) => void;
   teamAlpha: TeamAlphaView;
   onAppointLeader: (survivorId: string | null) => void;
   onToggleTeamMember: (survivorId: string) => void;
@@ -129,8 +127,6 @@ function PopulationConsole({
   rescueFlux,
   rescueDetail,
   onToggleAutoRescue,
-  getProstheticQuote,
-  onProstheticSurgery,
   teamAlpha,
   onAppointLeader,
   onToggleTeamMember,
@@ -478,33 +474,9 @@ function PopulationConsole({
                 ) : selectedCrew.injury ? (
                   <small className="crew-rarity-note">A permanent {selectedCrew.injury} injury caps health at {getSurvivorHealthCap(selectedCrew)}. Founding a colony requires {FOUNDER_HEALTH_THRESHOLD}+ health.</small>
                 ) : null}
-                {selectedCrew.injury && (() => {
-                  const surgery = getProstheticQuote(selectedCrew.id);
-                  return (
-                    <button
-                      className="forecast-action"
-                      type="button"
-                      disabled={!surgery.canOperate}
-                      onClick={() => onProstheticSurgery(selectedCrew.id)}
-                    >
-                      {surgery.canOperate
-                        ? `Prosthetic Surgery · ${surgery.fluxLabel} + ${surgery.modelCost} Models + ${surgery.sampleCost} Bio Samples`
-                        : surgery.reason === "research"
-                          ? "Prosthetic Surgery requires the Prosthetic Fabrication research"
-                          : surgery.reason === "surgeon"
-                            ? "Prosthetic Surgery needs a level-5 Doctor on duty"
-                            : surgery.reason === "medical"
-                              ? "Prosthetic Surgery needs spare medical capacity"
-                              : surgery.reason === "flux"
-                                ? `Prosthetic Surgery needs ${surgery.fluxLabel}`
-                                : surgery.reason === "models"
-                                  ? `Prosthetic Surgery needs ${surgery.modelCost} Engineering Models`
-                                  : surgery.reason === "samples"
-                                    ? `Prosthetic Surgery needs ${surgery.sampleCost} Biological Samples`
-                                    : "Prosthetic Surgery unavailable while deployed"}
-                    </button>
-                  );
-                })()}
+                {selectedCrew.injury && (
+                  <small className="crew-rarity-note">Prosthetic surgery is performed in the Medical Bay — admit them there to repair this injury.</small>
+                )}
               </section>
               <div className="team-alpha-actions">
                 {teamAlpha.leaderId === selectedCrew.id ? (
