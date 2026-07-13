@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable react-hooks/set-state-in-effect */
+
 import {
   useCallback,
   useEffect,
@@ -94,6 +96,7 @@ import {
 import PopulationConsole from "./population-console";
 import DefenseConsole from "./defense-console";
 import ArmoryConsole, { type ArmoryItemQuoteView } from "./armory-console";
+import ExpeditionConsole from "./expedition-console";
 import ResearchLattice from "./research-lattice";
 import SettlementConsole from "./settlement-console";
 import {
@@ -726,6 +729,11 @@ export default function Home() {
     }),
   ) as Record<DefenseInstallationId, { cost: number; level: number; maxed: boolean; canAfford: boolean; costLabel: string }>;
 
+  const expeditionsUnlocked =
+    campaignWorldIndex >= 3 ||
+    game.expeditions.active !== null ||
+    game.expeditions.stranded !== null ||
+    game.expeditions.stats.completed > 0;
   const armoryUnlocked =
     campaignWorldIndex >= 3 ||
     ARMORY_ITEM_DEFINITIONS.some(
@@ -1387,6 +1395,7 @@ export default function Home() {
   if (engineeringUnlocked) availableManualPages.push("engineering");
   if (researchUnlocked) availableManualPages.push("research");
   if (populationUnlocked) availableManualPages.push("population");
+  if (expeditionsUnlocked) availableManualPages.push("expeditions");
   if (defenseUnlocked) availableManualPages.push("defense");
   if (armoryUnlocked) availableManualPages.push("armory");
   if (settlementUnlocked) availableManualPages.push("settlement");
@@ -1508,6 +1517,18 @@ export default function Home() {
             Crew
           </button>
         )}
+        {expeditionsUnlocked && (
+          <button
+            className={primaryView === "expeditions" ? "active" : ""}
+            type="button"
+            role="tab"
+            aria-selected={primaryView === "expeditions"}
+            onClick={() => setPrimaryView("expeditions")}
+          >
+            <span aria-hidden="true">0E</span>
+            Expeditions
+          </button>
+        )}
         {defenseUnlocked && (
           <button
             className={primaryView === "defense" ? "active" : ""}
@@ -1545,7 +1566,7 @@ export default function Home() {
           </button>
         )}
         <div className="nav-awakening-status" aria-live="polite">
-          <span>{[engineeringUnlocked, researchUnlocked, populationUnlocked, defenseUnlocked, armoryUnlocked, settlementUnlocked].filter(Boolean).length + 1}</span>
+          <span>{[engineeringUnlocked, researchUnlocked, populationUnlocked, expeditionsUnlocked, defenseUnlocked, armoryUnlocked, settlementUnlocked].filter(Boolean).length + 1}</span>
           <small>Ark systems awake</small>
         </div>
       </nav>
@@ -1679,37 +1700,6 @@ export default function Home() {
             enabled: game.survivors.autoRescueEnabled,
           }}
           onToggleAutoRescue={handleToggleAutoRescue}
-          expeditions={game.expeditions}
-          expeditionAccess={expeditionAccess}
-          surveyStatus={{
-            completed: game.worldProgress.surveysCompleted,
-            required: campaignWorld.surveysRequired,
-          }}
-          getExpeditionPreview={(siteId, crewIds) => {
-            const quote = getExpeditionLaunchQuote(game, siteId, crewIds);
-            return {
-              strength: quote.strength,
-              gearStrength: quote.gearStrength,
-              difficulty: quote.difficulty,
-              projectedOutcome: quote.projectedOutcome,
-              weapons: quote.loadout.filter((entry) => entry.weaponId).length,
-              armor: quote.loadout.filter((entry) => entry.armorId).length,
-            };
-          }}
-          onLaunchExpedition={handleLaunchExpedition}
-          getRescuePreview={(crewIds) => {
-            const quote = getRescueMissionQuote(game, crewIds);
-            return {
-              canLaunch: quote.canLaunch,
-              reason: quote.reason,
-              strength: quote.strength,
-              rescueDifficulty: quote.rescueDifficulty,
-              projectedExtraction: quote.projectedExtraction,
-              fluxLabel: `${formatNumber(quote.fluxCost)} Flux`,
-            };
-          }}
-          onLaunchRescue={handleLaunchRescue}
-          onAbandonStranded={handleAbandonStranded}
           getProstheticQuote={(survivorId) => {
             const quote = getProstheticSurgeryQuote(game, survivorId);
             return {
@@ -1769,6 +1759,44 @@ export default function Home() {
           quotes={armoryQuotes}
           onCraft={handleCraftArmoryItem}
           onRepair={handleRepairArmoryItem}
+          onOpenHelp={setManualTopic}
+          onBack={() => setPrimaryView("deck")}
+        />
+      ) : primaryView === "expeditions" ? (
+        <ExpeditionConsole
+          survivors={game.survivors}
+          expeditions={game.expeditions}
+          currentWorldName={campaignWorld.name}
+          expeditionAccess={expeditionAccess}
+          surveyStatus={{
+            completed: game.worldProgress.surveysCompleted,
+            required: campaignWorld.surveysRequired,
+          }}
+          getExpeditionPreview={(siteId, crewIds) => {
+            const quote = getExpeditionLaunchQuote(game, siteId, crewIds);
+            return {
+              strength: quote.strength,
+              gearStrength: quote.gearStrength,
+              difficulty: quote.difficulty,
+              projectedOutcome: quote.projectedOutcome,
+              weapons: quote.loadout.filter((entry) => entry.weaponId).length,
+              armor: quote.loadout.filter((entry) => entry.armorId).length,
+            };
+          }}
+          onLaunchExpedition={handleLaunchExpedition}
+          getRescuePreview={(crewIds) => {
+            const quote = getRescueMissionQuote(game, crewIds);
+            return {
+              canLaunch: quote.canLaunch,
+              reason: quote.reason,
+              strength: quote.strength,
+              rescueDifficulty: quote.rescueDifficulty,
+              projectedExtraction: quote.projectedExtraction,
+              fluxLabel: `${formatNumber(quote.fluxCost)} Flux`,
+            };
+          }}
+          onLaunchRescue={handleLaunchRescue}
+          onAbandonStranded={handleAbandonStranded}
           onOpenHelp={setManualTopic}
           onBack={() => setPrimaryView("deck")}
         />

@@ -9,6 +9,7 @@ export type ManualPageId =
   | "engineering"
   | "research"
   | "population"
+  | "expeditions"
   | "defense"
   | "armory"
   | "settlement";
@@ -41,6 +42,7 @@ export const MANUAL_PAGE_LABELS: Record<ManualPageId, string> = {
   engineering: "Foundry",
   research: "Research",
   population: "Crew",
+  expeditions: "Expeditions",
   defense: "Defense",
   armory: "Armory",
   settlement: "Continuity",
@@ -147,6 +149,25 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
       { label: "Null Traces", detail: "The Observe doctrine is the active way to gather Null Traces from Cinder onward." },
     ],
     tip: "Storms never arrive unannounced faster than 15 minutes, and the first storm is always mild.",
+  },
+  expeditions: {
+    id: "expeditions",
+    label: "Expeditions",
+    category: "Page guide // expedition command",
+    title: "Read the projection, pick the crew, launch",
+    summary:
+      "From Cinder onward, crews of 2-4 fly surface missions for salvage, schematics, Null Traces, XP, and planetary certification. The bay always projects the outcome before launch - you are never ambushed.",
+    steps: [
+      { title: "Pick a destination", detail: "Planetary Surveys certify the world for departure and are repeatable. Other sites carry bigger rewards and higher difficulty." },
+      { title: "Build the crew", detail: "Each member adds their best profession level. Soldiers level 3+ add +2 strength, Researchers +1, Navigators 3+ shorten the trip. Gear from the Armory auto-equips." },
+      { title: "Respect the projection", detail: "SUCCESS and LEAN are safe. SETBACK sends everyone home wounded. DISTRESS strands the party at the site - launching into either warning takes an extra confirm." },
+      { title: "Handle distress calmly", detail: "Stranded crews are stable forever and the signal never expires. Send a rescue party (strength of difficulty-4 extracts cleanly; weaker parties take wounds but still bring everyone home), or - only by explicit choice - abandon them to the memorial wall." },
+    ],
+    sources: [
+      { label: "Outcome bands", detail: "Success at strength >= difficulty; lean within 8 below; setback within 16; distress beyond that. Weapons add strength, armor absorbs wound damage." },
+      { label: "XP", detail: "Members earn (60 + 6 x difficulty) XP to their profession, x1.5 when it matches the site's focus, scaled by outcome." },
+    ],
+    tip: "Missions resolve fully offline. A rescue mission can never strand itself - the only way to lose someone is the Abandon button.",
   },
   armory: {
     id: "armory",
