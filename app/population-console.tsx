@@ -241,15 +241,41 @@ function PopulationConsole({
               <ul>
                 {activeSignal.survivors.map((survivor) => {
                   const rarity = getSurvivorRarity(survivor);
+                  const professionLevel =
+                    survivor.role === "civilian"
+                      ? 0
+                      : getSurvivorSkillLevel(survivor, survivor.role);
                   return (
                     <li className={`crew-rarity-${rarity.id}`} key={survivor.id}>
                       <div className="crew-avatar">{survivor.name.slice(0, 1)}</div>
-                      <div><strong>{survivor.name}</strong><small>{titleCase(survivor.role)} · {BACKGROUND_DEFINITIONS.find((item) => item.id === survivor.backgroundId)?.name ?? titleCase(survivor.backgroundId)}</small></div>
-                      <em className="crew-rarity-badge" title={rarity.description}>{rarity.label}</em>
+                      <div>
+                        <strong>{survivor.name}</strong>
+                        <small>{titleCase(survivor.role)}{professionLevel > 1 ? ` · Level ${professionLevel}` : ""} · {BACKGROUND_DEFINITIONS.find((item) => item.id === survivor.backgroundId)?.name ?? titleCase(survivor.backgroundId)}</small>
+                        {(isSurvivorWounded(survivor) || survivor.injury || survivor.health < MAX_SURVIVOR_HEALTH) && <HealthBar survivor={survivor} />}
+                      </div>
+                      <span className="crew-roster-status">
+                        {isSurvivorWounded(survivor) && <em className="crew-wounded-badge" title="Arrives needing care: extra medical demand until healed.">HURT</em>}
+                        <em className="crew-rarity-badge" title={rarity.description}>{rarity.label}</em>
+                      </span>
                     </li>
                   );
                 })}
               </ul>
+              {(() => {
+                const cargo = activeSignal.cargo;
+                const gearNames = [
+                  ...cargo.weaponTiers.map((tier) => tier === 1 ? "Kinetic Pike" : tier === 2 ? "Arc Carbine" : "Null Lance"),
+                  ...cargo.armorTiers.map((tier) => tier === 1 ? "Composite Weave" : tier === 2 ? "Reactive Shell" : "Aegis Frame"),
+                ];
+                const parts = [
+                  cargo.schematics > 0 ? `${Math.round(cargo.schematics)} recovered schematics` : null,
+                  cargo.nullTraces > 0 ? `${Math.round(cargo.nullTraces)} Null Traces` : null,
+                  ...gearNames,
+                ].filter(Boolean);
+                return parts.length > 0 ? (
+                  <p className="signal-cargo-manifest"><strong>They carry:</strong> {parts.join(" · ")}</p>
+                ) : null;
+              })()}
               <div className="signal-readiness">
                 <span>{activeSignalLifeSupport?.stable ? "Life support ready" : "Insufficient safe capacity"}</span>
                 <span>{activeSignal.rescueCost} Salvage + {rescueFlux.label}</span>
@@ -259,7 +285,7 @@ function PopulationConsole({
               <p>This signal never expires. You can leave it here until the Ark is ready.</p>
             </article>
           ) : (
-            <div className="continuity-empty-state"><strong>Listening across the drowned world.</strong><p>Each scan takes {Math.round(scanDurationSeconds / 60)} minutes here, and every signal remains until answered.</p></div>
+            <div className="continuity-empty-state"><strong>Listening across the drowned world.</strong><p>Each scan takes {Math.round(scanDurationSeconds / 60)} minutes here, and every signal remains until answered. Completed expeditions chart the surface and shorten future scans.</p></div>
           )}
           {state.beaconOnline && (
             <label className="toggle-row">

@@ -158,6 +158,19 @@ export function getSurvivorLearningMultiplier(survivor: Survivor) {
   return getSurvivorRarity(survivor).learningMultiplier;
 }
 
+/**
+ * What a rescued group carries besides themselves. Gear tiers map to armory
+ * items in the game engine (1 = Pike/Weave, 2 = Carbine/Shell, 3 =
+ * Lance/Frame) - tiers instead of ids so this engine stays independent of
+ * the armory module.
+ */
+export type SignalCargo = {
+  schematics: number;
+  nullTraces: number;
+  weaponTiers: number[];
+  armorTiers: number[];
+};
+
 export type SurvivorSignal = {
   id: string;
   sequence: number;
@@ -165,6 +178,7 @@ export type SurvivorSignal = {
   detectedAt: number;
   survivors: Survivor[];
   rescueCost: number;
+  cargo: SignalCargo;
 };
 
 export type TrainingProgram = {
@@ -187,6 +201,8 @@ export type SurvivorAdvanceModifiers = {
    * parties sheltering off-ship. Their health is frozen, never lowered.
    */
   recoveryExemptIds?: readonly string[];
+  /** Surface Recon scan-time multiplier (1 uncharted, floors at 1/3). */
+  scanDurationMultiplier?: number;
 };
 
 export type SurvivorSystemState = {
@@ -447,17 +463,23 @@ export const SOS_WORLD_IDS = [
   "vesper",
 ] as const;
 export const SOS_SCAN_SECONDS = 90;
+/**
+ * Base cadence on an uncharted world. From Cinder onward the bases are
+ * long - survivors take time to reach an unfamiliar array - and Surface
+ * Recon (completed expeditions on the world) shrinks them toward the floor.
+ */
 export const SOS_SCAN_SECONDS_BY_WORLD: Record<
   (typeof SOS_WORLD_IDS)[number],
   number
 > = {
   pelagos: 8 * 60,
   viridia: 12 * 60,
-  cinder: 18 * 60,
-  nox: 25 * 60,
-  vesper: 35 * 60,
+  cinder: 60 * 60,
+  nox: 80 * 60,
+  vesper: 105 * 60,
 };
-export const MAX_SCAN_SECONDS = 35 * 60;
+export const MAX_SCAN_SECONDS = 105 * 60;
+export const MIN_SCAN_MULTIPLIER = 1 / 3;
 export const MAX_OFFLINE_SURVIVOR_SECONDS = 30 * 24 * 60 * 60;
 export const MAX_SURVIVORS = 500;
 export const MAX_SIGNAL_SURVIVORS = 8;
@@ -696,6 +718,22 @@ const makeRolePity = (value = 0): Record<ProfessionalRole, number> =>
     number
   >;
 
+const sanitizeSignalCargo = (value: unknown): SignalCargo => {
+  const source = isRecord(value) ? value : {};
+  const tiers = (raw: unknown) =>
+    Array.isArray(raw)
+      ? raw
+          .filter((tier): tier is number => tier === 1 || tier === 2 || tier === 3)
+          .slice(0, 4)
+      : [];
+  return {
+    schematics: finite(source.schematics, 0, 10_000),
+    nullTraces: finite(source.nullTraces, 0, 10_000),
+    weaponTiers: tiers(source.weaponTiers),
+    armorTiers: tiers(source.armorTiers),
+  };
+};
+
 const sanitizeLifeSupport = (value: unknown): LifeSupportCapacity => {
   const source = isRecord(value) ? value : {};
   return {
@@ -834,6 +872,11 @@ export function cloneSurvivorSystemState(
       ? {
           ...state.activeSignal,
           survivors: state.activeSignal.survivors.map(cloneSurvivor),
+          cargo: {
+            ...state.activeSignal.cargo,
+            weaponTiers: [...state.activeSignal.cargo.weaponTiers],
+            armorTiers: [...state.activeSignal.cargo.armorTiers],
+          },
         }
       : null,
     survivors: state.survivors.map(cloneSurvivor),
@@ -880,14 +923,22 @@ export function createSurvivorSystemState(
 
 /**
  * The first scan on a new world is fast so activating the beacon pays off
- * immediately; afterwards each world listens on its own slower cadence, so
- * survivor groups arrive as events rather than a conveyor belt.
+ * immediately; afterwards each world listens on its own slower cadence,
+ * scaled by the Surface Recon multiplier (1 when uncharted, floored at
+ * MIN_SCAN_MULTIPLIER as expeditions chart the world).
  */
 export function getScanDurationSeconds(
   state: Pick<SurvivorSystemState, "worldSignalCount" | "beaconWorldId">,
+  reconMultiplier = 1,
 ) {
   if (state.worldSignalCount === 0) return SOS_SCAN_SECONDS;
-  return SOS_SCAN_SECONDS_BY_WORLD[state.beaconWorldId ?? SOS_WORLD_ID];
+  const multiplier = Math.min(
+    1,
+    Math.max(MIN_SCAN_MULTIPLIER, finite(reconMultiplier, 1, 1)),
+  );
+  return Math.ceil(
+    SOS_SCAN_SECONDS_BY_WORLD[state.beaconWorldId ?? SOS_WORLD_ID] * multiplier,
+  );
 }
 
 export function setAutoRescueEnabled(
@@ -1125,6 +1176,54 @@ function generateSurvivorSignalMutable(
   state.qualityPity = includesExceptional
     ? 0
     : Math.min(100, state.qualityPity + 1);
+
+  // Survivors are people with histories, not blank recruits: some arrive
+  // hurt, and some professionals arrive already experienced. Later worlds
+  // shelter harder people. Authored story-hook characters stay pristine.
+  const worldIndex = Math.max(0, SOS_WORLD_IDS.indexOf(beaconWorldId));
+  for (const survivor of survivors) {
+    if (!survivor.storyHookId) {
+      const woundRoll = nextRandom(state);
+      if (woundRoll < 0.08) {
+        survivor.health = 15 + randomInt(state, 21);
+      } else if (woundRoll < 0.3) {
+        survivor.health = 45 + randomInt(state, 41);
+      }
+      if (nextRandom(state) < 0.04) {
+        survivor.injury = "minor";
+        survivor.health = Math.min(survivor.health, INJURY_HEALTH_CAPS.minor);
+      }
+    }
+    if (survivor.role !== "civilian" && nextRandom(state) < 0.5) {
+      const shifted = nextRandom(state) + worldIndex * 0.04;
+      const level =
+        shifted > 1.16 ? 5 : shifted > 1.08 ? 4 : shifted > 0.95 ? 3 : shifted > 0.75 ? 2 : 1;
+      if (level > 1) {
+        survivor.skillXp[survivor.role] =
+          120 * (level - 1) ** 2 + randomInt(state, 60);
+      }
+    }
+  }
+
+  // What the shelter kept working: schematics always, gear sometimes, and
+  // Null Traces on the deep worlds. Delivered to the Ark on rescue.
+  const cargo: SignalCargo = {
+    schematics: 6 + randomInt(state, 10) + worldIndex * 6,
+    nullTraces:
+      worldIndex >= 3 && nextRandom(state) < 0.25
+        ? 5 + randomInt(state, 10)
+        : 0,
+    weaponTiers: [],
+    armorTiers: [],
+  };
+  if (nextRandom(state) < 0.35) cargo.weaponTiers.push(1);
+  if (worldIndex >= 3 && nextRandom(state) < 0.12) cargo.weaponTiers.push(2);
+  if (nextRandom(state) < 0.35) cargo.armorTiers.push(1);
+  if (worldIndex >= 3 && nextRandom(state) < 0.12) cargo.armorTiers.push(2);
+  if (worldIndex >= 4 && nextRandom(state) < 0.05) {
+    (nextRandom(state) < 0.5 ? cargo.weaponTiers : cargo.armorTiers).push(3);
+  }
+
   state.signalsGenerated = sequence;
   state.worldSignalCount = Math.min(1_000_000, state.worldSignalCount + 1);
   state.beaconProgressSeconds = 0;
@@ -1135,6 +1234,7 @@ function generateSurvivorSignalMutable(
     detectedAt: state.operationalSeconds,
     survivors,
     rescueCost: rescueCostFor(survivors),
+    cargo,
   };
 }
 
@@ -1779,7 +1879,10 @@ export function advanceSurvivorSystem(
     }
   }
   if (next.beaconOnline && !next.activeSignal) {
-    const scanDuration = getScanDurationSeconds(next);
+    const scanDuration = getScanDurationSeconds(
+      next,
+      modifiers.scanDurationMultiplier,
+    );
     next.beaconProgressSeconds = Math.min(
       scanDuration,
       next.beaconProgressSeconds + elapsed * beaconSpeed,
@@ -2070,6 +2173,7 @@ export function sanitizeSurvivorSystemState(value: unknown): SurvivorSystemState
         ),
         survivors: pending,
         rescueCost: rescueCostFor(pending),
+        cargo: sanitizeSignalCargo(rawSignal.cargo),
       };
       state.beaconProgressSeconds = 0;
     }

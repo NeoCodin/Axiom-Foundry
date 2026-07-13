@@ -367,7 +367,17 @@ test("insufficient support pauses recruitment but never harms an existing popula
   assert.equal(getLifeSupportStatus(state).stable, false);
   const afterOffline = advanceSurvivorSystem(state, 365 * 24 * 60 * 60);
 
-  assert.deepEqual(afterOffline.survivors, populationBefore);
+  // Health may only ever RISE while idle (wounded arrivals keep healing);
+  // everything else about the population is untouched.
+  const exceptHealth = (survivors: typeof populationBefore) =>
+    survivors.map((survivor) => ({ ...survivor, health: 0 }));
+  assert.deepEqual(
+    exceptHealth(afterOffline.survivors),
+    exceptHealth(populationBefore),
+  );
+  afterOffline.survivors.forEach((survivor, index) => {
+    assert.ok(survivor.health >= populationBefore[index]!.health);
+  });
   assert.equal(afterOffline.survivors.length, populationBefore.length);
 });
 
@@ -1308,4 +1318,74 @@ test("wounded crew are suspended from duty, training, assignment, and demand mor
   assert.equal(getSurvivorHealthCap(casualty), 70);
   applySurvivorWound(casualty, 20, "severe");
   assert.equal(casualty.injury, "severe", "worse events upgrade the injury tier");
+});
+
+test("surface recon shortens scans between the uncharted base and the floor", () => {
+  const charted = {
+    worldSignalCount: 3,
+    beaconWorldId: "cinder" as const,
+  };
+  assert.equal(getScanDurationSeconds(charted), SOS_SCAN_SECONDS_BY_WORLD.cinder);
+  assert.equal(
+    getScanDurationSeconds(charted, 0.5),
+    Math.ceil(SOS_SCAN_SECONDS_BY_WORLD.cinder * 0.5),
+  );
+  // the floor holds no matter how charted the world becomes
+  assert.equal(
+    getScanDurationSeconds(charted, 0),
+    Math.ceil(SOS_SCAN_SECONDS_BY_WORLD.cinder / 3),
+  );
+  // garbage multipliers never lengthen the scan past the base
+  assert.equal(getScanDurationSeconds(charted, 99), SOS_SCAN_SECONDS_BY_WORLD.cinder);
+  // the fast first scan is untouched by recon
+  assert.equal(
+    getScanDurationSeconds({ ...charted, worldSignalCount: 0 }, 0.4),
+    SOS_SCAN_SECONDS,
+  );
+});
+
+test("signals are treasure troves: cargo, arrival wounds, and experienced survivors", () => {
+  // determinism: identical seeds produce identical manifests
+  const first = detectSignal(777_001);
+  const second = detectSignal(777_001);
+  assert.deepEqual(first.activeSignal!.cargo, second.activeSignal!.cargo);
+
+  // sweep many signals: schematics always arrive, health stays in bounds,
+  // and both wounded arrivals and experienced professionals exist
+  let sawWounded = false;
+  let sawExperienced = false;
+  let sawGear = false;
+  for (let seed = 1; seed <= 40; seed += 1) {
+    const state = detectSignal(seed * 7_919);
+    const signal = state.activeSignal!;
+    assert.ok(signal.cargo.schematics > 0, "every shelter kept schematics");
+    assert.ok(
+      signal.cargo.weaponTiers.every((tier) => tier === 1) &&
+        signal.cargo.armorTiers.every((tier) => tier === 1),
+      "pelagos shelters only carry tier-1 gear",
+    );
+    for (const survivor of signal.survivors) {
+      assert.ok(survivor.health >= 15 && survivor.health <= 100);
+      if (survivor.health < 40) sawWounded = true;
+      if (
+        survivor.role !== "civilian" &&
+        getSurvivorSkillLevel(survivor, survivor.role) > 1
+      ) {
+        sawExperienced = true;
+      }
+    }
+    if (signal.cargo.weaponTiers.length + signal.cargo.armorTiers.length > 0) {
+      sawGear = true;
+    }
+  }
+  assert.ok(sawWounded, "some survivors arrive badly hurt");
+  assert.ok(sawExperienced, "some professionals arrive past level 1");
+  assert.ok(sawGear, "some groups carry weapons or armor");
+
+  // cargo survives the save round-trip
+  const withSignal = detectSignal(777_001);
+  const reloaded = sanitizeSurvivorSystemState(
+    JSON.parse(JSON.stringify(withSignal)),
+  );
+  assert.deepEqual(reloaded.activeSignal!.cargo, withSignal.activeSignal!.cargo);
 });

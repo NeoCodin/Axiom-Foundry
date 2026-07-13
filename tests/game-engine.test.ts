@@ -50,9 +50,11 @@ import {
 } from "../app/research-engine.ts";
 import {
   SOS_SCAN_SECONDS_BY_WORLD,
+  advanceSurvivorSystem,
   sanitizeSurvivorSystemState,
   type Survivor,
 } from "../app/survivor-engine.ts";
+import { getArmoryReadyCount } from "../app/armory-engine.ts";
 
 function testCrewMember(
   id: string,
@@ -892,4 +894,37 @@ test("staffed Analysis Core auto-transfers inputs; Null Traces need a qualified 
   idle.research.assignedCrew = 0;
   const stalled = simulateGame(idle, 5, 50, false);
   assert.equal(stalled.research.inventory["calibration-data"], 0);
+});
+
+test("rescued groups deliver their cargo: schematics, traces, and armory gear", () => {
+  const state = setTutorialComplete(createInitialState(0), true);
+  state.settlement.currentWorldId = "pelagos";
+  state.survivors = sanitizeSurvivorSystemState({
+    berthSections: 10,
+    lifeSupport: { atmosphere: 60, water: 60, nutrition: 60, medical: 60 },
+    beaconOnline: true,
+    beaconWorldId: "pelagos",
+    worldSignalCount: 1,
+    rngState: 424_242,
+  });
+  state.survivors = advanceSurvivorSystem(state.survivors, 2_400);
+  assert.ok(state.survivors.activeSignal, "a signal is waiting");
+  const cargo = state.survivors.activeSignal!.cargo;
+  assert.ok(cargo.schematics > 0);
+  state.living.salvage = 100_000;
+  state.flux = 1e9;
+
+  const before = state.researchStock["engineering-models"];
+  const rescued = performArkRescue(state);
+  assert.notEqual(rescued, state);
+  assert.equal(
+    Math.round(rescued.researchStock["engineering-models"] - before),
+    Math.round(cargo.schematics),
+    "recovered schematics arrive as Engineering Models",
+  );
+  const gearExpected = cargo.weaponTiers.length + cargo.armorTiers.length;
+  const gearReceived =
+    getArmoryReadyCount(rescued.armory, "kinetic-pike") +
+    getArmoryReadyCount(rescued.armory, "composite-weave");
+  assert.equal(gearReceived, gearExpected, "carried gear lands in the armory");
 });

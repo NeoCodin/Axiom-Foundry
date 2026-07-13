@@ -42,10 +42,17 @@ export type RescuePreview = {
   fluxLabel: string;
 };
 
+export type SurfaceReconView = {
+  expeditions: number;
+  multiplier: number;
+  scanLabel: string;
+};
+
 export type ExpeditionConsoleProps = {
   survivors: SurvivorSystemState;
   expeditions: ExpeditionState;
   currentWorldName: string;
+  recon: SurfaceReconView;
   expeditionAccess: Readonly<Record<ExpeditionSiteId, ExpeditionAccessView>>;
   surveyStatus: { completed: number; required: number };
   getExpeditionPreview: (
@@ -64,6 +71,7 @@ function ExpeditionConsole({
   survivors: state,
   expeditions,
   currentWorldName,
+  recon,
   expeditionAccess,
   surveyStatus,
   getExpeditionPreview,
@@ -95,6 +103,10 @@ function ExpeditionConsole({
         <div><span>Status</span><strong>{expeditions.stranded ? "DISTRESS" : expeditions.active ? (expeditions.active.kind === "rescue" ? "Rescue underway" : "Mission underway") : "Bay ready"}</strong></div>
         <div><span>Surveys certified</span><strong>{surveyStatus.required > 0 ? `${Math.min(surveyStatus.completed, surveyStatus.required)}/${surveyStatus.required}` : "—"}</strong></div>
         <div><span>Missions completed</span><strong>{expeditions.stats.completed}</strong></div>
+        <div title={`Every successful mission charts this world. SOS scans currently take ${recon.scanLabel}; recon can cut them to a third of the uncharted rate.`}>
+          <span>Surface Recon</span>
+          <strong>{recon.multiplier >= 1 ? "Uncharted" : `−${Math.round((1 - recon.multiplier) * 100)}% scan time`}</strong>
+        </div>
         <div><span>Crew lost</span><strong>{expeditions.stats.abandoned}</strong></div>
         <div className="continuity-summary-help"><span>Manual <HelpTrigger label="Explain the Expeditions page" onClick={() => onOpenHelp("expeditions")} /></span><strong>Signals never expire</strong></div>
       </div>

@@ -32,6 +32,8 @@ export type WorldProgressSummary = {
   supplies: Readonly<Record<string, number>>;
   equipment: Readonly<Record<string, number>>;
   surveysCompleted: number;
+  /** Successful expeditions on this world - drives Surface Recon. */
+  expeditionsCompleted: number;
 };
 
 export type FounderSnapshot = {
@@ -349,6 +351,7 @@ export function sanitizeWorldProgress(value: unknown): WorldProgressSummary {
       supplies: {},
       equipment: {},
       surveysCompleted: 0,
+      expeditionsCompleted: 0,
     };
   }
   return {
@@ -358,6 +361,7 @@ export function sanitizeWorldProgress(value: unknown): WorldProgressSummary {
     supplies: cleanValueRecord(value.supplies),
     equipment: cleanValueRecord(value.equipment),
     surveysCompleted: finiteInteger(value.surveysCompleted, 0, 1_000),
+    expeditionsCompleted: finiteInteger(value.expeditionsCompleted, 0, 100_000),
   };
 }
 

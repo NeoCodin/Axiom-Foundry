@@ -38,6 +38,7 @@ import {
   repairArmoryItem,
   abandonStrandedCrew,
   getProstheticSurgeryQuote,
+  getSurfaceRecon,
   performProstheticSurgery,
   getArkRescueQuote,
   getArmoryCraftQuote,
@@ -595,7 +596,11 @@ export default function Home() {
     }),
   ) as Record<ExpeditionSiteId, { available: boolean; reason: string | null; fluxLabel: string; canAffordFlux: boolean }>;
   const rescueDetailActive = hasRescueDetail(game);
-  const scanDurationSeconds = getScanDurationSeconds(game.survivors);
+  const surfaceRecon = getSurfaceRecon(game);
+  const scanDurationSeconds = getScanDurationSeconds(
+    game.survivors,
+    surfaceRecon.multiplier,
+  );
   const viabilityForecast = getCurrentViabilityForecast(game);
   const campaignCrew = getCampaignCrewSummaries(game);
   const researchPowerAvailable = getResearchPowerAvailable(game);
@@ -1767,6 +1772,11 @@ export default function Home() {
           survivors={game.survivors}
           expeditions={game.expeditions}
           currentWorldName={campaignWorld.name}
+          recon={{
+            expeditions: surfaceRecon.expeditions,
+            multiplier: surfaceRecon.multiplier,
+            scanLabel: `${Math.round(scanDurationSeconds / 60)} min`,
+          }}
           expeditionAccess={expeditionAccess}
           surveyStatus={{
             completed: game.worldProgress.surveysCompleted,

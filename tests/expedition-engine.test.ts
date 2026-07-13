@@ -10,6 +10,7 @@ import {
   getExpeditionLaunchQuote,
   getProstheticSurgeryQuote,
   getRescueMissionQuote,
+  getSurfaceRecon,
   performProstheticSurgery,
   repairArmoryItem,
   setTutorialComplete,
@@ -90,6 +91,10 @@ test("surveys gate departure and expeditions credit them on completion", () => {
   const done = simulateGame(launched, 2 * 3_600, 240, false);
   assert.equal(done.expeditions.active, null);
   assert.equal(done.worldProgress.surveysCompleted, 1);
+  // Surface Recon: the successful mission charts the world and cuts scans
+  assert.equal(done.worldProgress.expeditionsCompleted, 1);
+  assert.equal(getSurfaceRecon(done).multiplier, 0.9);
+  assert.equal(getSurfaceRecon({ ...done, worldProgress: { ...done.worldProgress, expeditionsCompleted: 20 } }).multiplier, 1 / 3);
   assert.ok(done.expeditions.log.length === 1);
   assert.equal(done.expeditions.log[0]!.outcome, "success");
   assert.ok(done.living.salvage > launched.living.salvage);

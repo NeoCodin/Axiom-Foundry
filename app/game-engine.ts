@@ -668,6 +668,7 @@ const emptyWorldProgress = (): WorldProgressSummary => ({
   supplies: {},
   equipment: {},
   surveysCompleted: 0,
+  expeditionsCompleted: 0,
 });
 
 const sanitizeResearchStock = (value: unknown): ResearchInputBundle => {
@@ -983,6 +984,7 @@ export function cloneGameState(state: GameState): GameState {
       supplies: { ...state.worldProgress.supplies },
       equipment: { ...state.worldProgress.equipment },
       surveysCompleted: state.worldProgress.surveysCompleted,
+      expeditionsCompleted: state.worldProgress.expeditionsCompleted,
     },
     defense: cloneDefenseState(state.defense),
     expeditions: cloneExpeditionState(state.expeditions),
@@ -1269,9 +1271,21 @@ export function getArkRescueQuote(state: GameState): ArkRescueQuote {
   return { canRescue: true, salvageCost: readiness.cost, fluxCost, reason: null };
 }
 
+const SIGNAL_WEAPON_BY_TIER: Record<number, ArmoryItemId> = {
+  1: "kinetic-pike",
+  2: "arc-carbine",
+  3: "null-lance",
+};
+const SIGNAL_ARMOR_BY_TIER: Record<number, ArmoryItemId> = {
+  1: "composite-weave",
+  2: "reactive-shell",
+  3: "aegis-frame",
+};
+
 export function performArkRescue(state: GameState): GameState {
   const quote = getArkRescueQuote(state);
   if (!quote.canRescue) return state;
+  const cargo = state.survivors.activeSignal?.cargo ?? null;
   const result = rescueSurvivorSignal(
     state.survivors,
     state.living.salvage,
@@ -1291,6 +1305,25 @@ export function performArkRescue(state: GameState): GameState {
     1e12,
     next.researchStock["cultural-records"] + rescued * 22,
   );
+  // Everything the group carried comes aboard with them.
+  if (cargo) {
+    next.researchStock["engineering-models"] = Math.min(
+      1e12,
+      next.researchStock["engineering-models"] + cargo.schematics,
+    );
+    next.researchStock["null-traces"] = Math.min(
+      1e12,
+      next.researchStock["null-traces"] + cargo.nullTraces,
+    );
+    for (const tier of cargo.weaponTiers) {
+      const itemId = SIGNAL_WEAPON_BY_TIER[tier];
+      if (itemId) next.armory = addArmoryItem(next.armory, itemId);
+    }
+    for (const tier of cargo.armorTiers) {
+      const itemId = SIGNAL_ARMOR_BY_TIER[tier];
+      if (itemId) next.armory = addArmoryItem(next.armory, itemId);
+    }
+  }
   return next;
 }
 
@@ -1531,6 +1564,19 @@ export function startExpedition(
     if (unique.includes(survivor.id)) survivor.assignedRole = null;
   }
   return next;
+}
+
+// Surface Recon: every completed expedition on the current world charts it,
+// cutting SOS scan time toward the floor (survivor-engine MIN_SCAN_MULTIPLIER).
+export const RECON_SCAN_REDUCTION_PER_EXPEDITION = 0.1;
+
+export function getSurfaceRecon(state: GameState) {
+  const expeditions = state.worldProgress.expeditionsCompleted;
+  const multiplier = Math.max(
+    1 / 3,
+    1 - RECON_SCAN_REDUCTION_PER_EXPEDITION * expeditions,
+  );
+  return { expeditions, multiplier };
 }
 
 export const PROSTHETIC_SURGEON_LEVEL = 5;
@@ -2713,6 +2759,7 @@ export function recalibrate(state: GameState, now = Date.now()) {
     supplies: { ...state.worldProgress.supplies },
     equipment: { ...state.worldProgress.equipment },
     surveysCompleted: state.worldProgress.surveysCompleted,
+    expeditionsCompleted: state.worldProgress.expeditionsCompleted,
   };
   fresh.missions = {
     ...state.missions,
@@ -2843,6 +2890,7 @@ export function simulateGame(
       ).shortages.medical > 0,
     // Stranded crew shelter off-ship: health frozen, never decaying.
     recoveryExemptIds: next.expeditions.stranded?.crewIds ?? [],
+    scanDurationMultiplier: getSurfaceRecon(next).multiplier,
     reservedNames: next.settlement.colonies.flatMap((colony) =>
       colony.founders.map((founder) => founder.name.replace(/\s*“.*$/u, "")),
     ),
@@ -2944,6 +2992,16 @@ export function simulateGame(
       next.worldProgress = {
         ...next.worldProgress,
         surveysCompleted: next.worldProgress.surveysCompleted + 1,
+      };
+    }
+    // Successful missions chart the world, speeding up future SOS scans.
+    if (
+      (completed.outcome === "success" || completed.outcome === "lean") &&
+      next.settlement.currentWorldId !== null
+    ) {
+      next.worldProgress = {
+        ...next.worldProgress,
+        expeditionsCompleted: next.worldProgress.expeditionsCompleted + 1,
       };
     }
     if (completed.outcome === "distress") {
