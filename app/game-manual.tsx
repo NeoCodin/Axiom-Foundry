@@ -76,7 +76,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
     summary:
       "The Foundry owns fabrication, Planetfall directives, Core Protocols, automation, Recalibration, and statistics. Core tuning stays on the Ark.",
     steps: [
-      { title: "Buy the first mechanism", detail: "Vacuum Taps create Flux. Higher machine tiers manufacture the tier directly below them." },
+      { title: "Buy the first mechanism", detail: "Every machine produces Flux directly - each tier simply produces far more per unit. Your Flux/sec only changes when you buy something; nothing grows on its own." },
       { title: "Keep adjacent tiers balanced", detail: "Groups of 15 across neighboring tiers create Resonance and improve the whole chain." },
       { title: "Complete Planetfall phases", detail: "Directives award Salvage and crew experience while progressively revealing the Foundry's deeper systems." },
       { title: "Recalibrate when worthwhile", detail: "Recalibration resets the current assembly but awards permanent Axioms and preserves people, research, and restored worlds." },

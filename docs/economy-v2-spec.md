@@ -1,6 +1,10 @@
 # Economy v2 — Additive Production ("machines make Flux, not machines")
 
-Status: **draft for owner approval**. No engine code until sign-off.
+Status: **IMPLEMENTED July 13, 2026** (owner: "defaults go"). Sim result:
+campaign completable in 14.8 bot-days of continuous play, no walls, recal
+cadence intact (17), peak flux 116B/s — every §5 rule passed on the first
+run because the campaign's true clock is crew/expertise growth, which this
+change preserves. Original draft follows.
 Direction set by the owner July 13, 2026: per-second Flux should change
 ONLY when you buy something; nothing adds to it passively except the
 Recalibration-earned auto-buyer; overnight gains should be a pleasant pile,

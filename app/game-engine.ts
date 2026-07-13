@@ -124,7 +124,7 @@ import {
   getSurvivorContinuityExpertise,
 } from "./continuity-expertise.ts";
 
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 export const SAVE_KEY = "axiom-foundry-save-v5";
 export const RETIRED_SAVE_KEYS = [
   "axiom-foundry-save-v1",
@@ -211,6 +211,13 @@ export type GameState = {
   lastSaved: number;
 };
 
+/**
+ * Economy v2 (docs/economy-v2-spec.md): every machine produces Flux
+ * directly and only Flux. The per-second rate changes ONLY when something
+ * is bought - nothing in the game mints machines for free. The one source
+ * of hands-off growth is the Recalibration-earned auto-buyer, and it pays
+ * full price, so exponential costs govern it.
+ */
 export const GENERATORS = [
   {
     name: "Vacuum Tap",
@@ -218,58 +225,58 @@ export const GENERATORS = [
     description: "Pulls usable Flux from the quiet between particles.",
     produces: "Flux",
     baseCost: 10,
-    growth: 1.17,
+    growth: 1.15,
     rate: 1,
     unlockAt: 0,
   },
   {
     name: "Phase Coil",
     shortName: "Coil",
-    description: "Winds phase pressure into new Vacuum Taps.",
-    produces: "Vacuum Taps",
+    description: "Holds a standing wave of phase pressure and bleeds it off as Flux.",
+    produces: "Flux",
     baseCost: 500,
-    growth: 1.2,
-    rate: 0.08,
+    growth: 1.15,
+    rate: 15,
     unlockAt: 250,
   },
   {
     name: "Harmonic Loom",
     shortName: "Loom",
-    description: "Weaves synchronized Phase Coils from standing waves.",
-    produces: "Phase Coils",
+    description: "Weaves interfering wavefronts until the leftover energy has nowhere to go but the conduits.",
+    produces: "Flux",
     baseCost: 50_000,
-    growth: 1.23,
-    rate: 0.015,
+    growth: 1.15,
+    rate: 350,
     unlockAt: 10_000,
   },
   {
     name: "Orbit Array",
     shortName: "Array",
-    description: "Assembles Harmonic Looms along a stable orbital track.",
-    produces: "Harmonic Looms",
+    description: "Rings the Ark with collectors that skim Flux off a stable orbital resonance.",
+    produces: "Flux",
     baseCost: 5_000_000,
-    growth: 1.27,
-    rate: 0.003,
+    growth: 1.15,
+    rate: 9_000,
     unlockAt: 1_000_000,
   },
   {
     name: "Axiom Engine",
     shortName: "Engine",
-    description: "Turns a proven law of motion into an endless assembly line.",
-    produces: "Orbit Arrays",
+    description: "Runs a proven law of motion in a loop and taxes it every cycle.",
+    produces: "Flux",
     baseCost: 200_000_000,
-    growth: 1.32,
-    rate: 0.0006,
+    growth: 1.15,
+    rate: 150_000,
     unlockAt: 50_000_000,
   },
   {
     name: "Horizon Forge",
     shortName: "Forge",
-    description: "Builds Axiom Engines at the edge of measurable space.",
-    produces: "Axiom Engines",
+    description: "Draws Flux across the edge of measurable space, from somewhere that never answers.",
+    produces: "Flux",
     baseCost: 50_000_000_000,
-    growth: 1.38,
-    rate: 0.00012,
+    growth: 1.15,
+    rate: 15_000_000,
     unlockAt: 5_000_000_000,
   },
 ] as const;
@@ -324,7 +331,9 @@ export const LEGACY_UPGRADES = [
   },
 ] as const;
 
-export const RECALIBRATION_THRESHOLD = 1_000_000_000_000;
+// Economy v2: runFlux accrues linearly now, so the first Recalibration
+// lands a couple of hours into Pelagos instead of requiring hypergrowth.
+export const RECALIBRATION_THRESHOLD = 25_000_000;
 
 export const MISSIONS = [
   {
@@ -558,7 +567,7 @@ export const MISSIONS = [
       },
       {
         kind: "contributeFlux",
-        target: 25_000_000_000_000,
+        target: 10_000_000_000_000,
         label: "Publish the shared record",
         instruction: "Divert 25 trillion Flux into Nox's open archive relay.",
         lore: "The record is copied into every settlement. AXIOM can no longer edit one truth in silence.",
@@ -599,7 +608,7 @@ export const MISSIONS = [
       },
       {
         kind: "contributeFlux",
-        target: 2_000_000_000_000_000,
+        target: 500_000_000_000_000,
         label: "Charge the ark's law chamber",
         instruction: "Divert 2 quadrillion Flux into Vesper's law chamber.",
         lore: "Vesper stores the work of an entire fabrication cycle as a question waiting for an answer.",
@@ -782,8 +791,10 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
   const tiers = GENERATORS.map((_, index) => {
     const raw = isRecord(rawTiers[index]) ? rawTiers[index] : {};
     const bought = Math.floor(readNumber(raw.bought, 0, 1_000_000_000));
-    const amount = Math.max(bought, readNumber(raw.amount));
-    return { amount, bought };
+    // Economy v2 migration: production counts BOUGHT machines only. Free
+    // machine stockpiles produced under the old compounding economy
+    // dissolve here; amount stays as a mirror of bought.
+    return { amount: bought, bought };
   });
 
   const runUpgrades = RUN_UPGRADES.map((upgrade, index) =>
@@ -2248,10 +2259,12 @@ export function departCurrentWorld(
     next.axioms += mission.rewardAxioms;
     next.lifetimeAxioms += mission.rewardAxioms;
   }
-  next.tiers[0].amount = Math.min(
+  // Seed taps are BOUGHT machines under economy v2 - they must produce.
+  next.tiers[0].bought = Math.min(
     25,
     next.legacyUpgrades[2] * 2 + getCampaignRelics(next).seedTaps,
   );
+  next.tiers[0].amount = next.tiers[0].bought;
   next.missions.baseline = captureMissionBaseline(next);
   return {
     state: next,
@@ -2541,29 +2554,29 @@ export function getProductionSnapshot(state: GameState) {
     1 / Math.max(1, unlockedTierCount - 1),
   );
 
+  // Additive economy: every tier's BOUGHT machines produce Flux directly.
+  // tierOutputs[i] is that tier's realized Flux/s contribution; the total
+  // moves only when something is purchased.
   const tierOutputs = state.tiers.map((tier, index) => {
     if (index > world.worldIndex) return 0;
     const milestoneMultiplier = 1 + 0.5 * Math.floor(tier.bought / 25);
-    const upperMultiplier =
+    const tierMultiplier =
       index === 0
         ? 1
         : edgeGearing *
           world.higherTier *
           (index === 1 ? relics.phaseCoilMultiplier : 1);
-    const machineOutput = safeMultiply(
-      safeMultiply(tier.amount, GENERATORS[index].rate),
-      safeMultiply(milestoneMultiplier, upperMultiplier),
+    return safeMultiply(
+      safeMultiply(tier.bought, GENERATORS[index].rate),
+      safeMultiply(
+        safeMultiply(milestoneMultiplier, tierMultiplier),
+        safeMultiply(globalMultiplier, resonance.multiplier),
+      ),
     );
-    return index === 0
-      ? safeMultiply(
-          machineOutput,
-          safeMultiply(globalMultiplier, resonance.multiplier),
-        )
-      : machineOutput;
   });
 
   return {
-    fluxPerSecond: tierOutputs[0],
+    fluxPerSecond: tierOutputs.reduce((sum, value) => safeAdd(sum, value), 0),
     tierOutputs,
     globalMultiplier,
     prestigeMultiplier,
@@ -2724,7 +2737,7 @@ export function getRecalibrationGain(state: GameState) {
   return Math.max(
     1,
     Math.floor(
-      safePower(state.runFlux / RECALIBRATION_THRESHOLD, 0.28),
+      safePower(state.runFlux / RECALIBRATION_THRESHOLD, 0.3),
     ),
   );
 }
@@ -2776,10 +2789,11 @@ export function recalibrate(state: GameState, now = Date.now()) {
   fresh.manualPulses = state.manualPulses;
   fresh.playTime = state.playTime;
   const relics = getCampaignRelics(state);
-  fresh.tiers[0].amount = Math.min(
+  fresh.tiers[0].bought = Math.min(
     25,
     state.legacyUpgrades[2] * 2 + relics.seedTaps,
   );
+  fresh.tiers[0].amount = fresh.tiers[0].bought;
   return fresh;
 }
 
@@ -3072,34 +3086,14 @@ export function simulateGame(
 
   for (let step = 0; step < steps; step += 1) {
     const snapshot = getProductionSnapshot(next);
-    const previousAmounts = next.tiers.map((tier) => tier.amount);
-    const fluxGain = safeMultiply(snapshot.tierOutputs[0], delta);
+    // Additive economy: machines produce Flux only. No tier ever
+    // manufactures another tier, so offline gain is strictly linear.
+    const fluxGain = safeMultiply(snapshot.fluxPerSecond, delta);
 
     next.flux = safeAdd(next.flux, fluxGain);
     next.maxFlux = Math.max(next.maxFlux, next.flux);
     next.runFlux = safeAdd(next.runFlux, fluxGain);
     next.allTimeFlux = safeAdd(next.allTimeFlux, fluxGain);
-
-    for (let index = 1; index < GENERATORS.length; index += 1) {
-      const produced = safeMultiply(
-        safeMultiply(
-          previousAmounts[index],
-          GENERATORS[index].rate,
-        ),
-        safeMultiply(
-          snapshot.tierOutputs[index] /
-            Math.max(
-              1e-300,
-              previousAmounts[index] * GENERATORS[index].rate,
-            ),
-          delta,
-        ),
-      );
-      next.tiers[index - 1].amount = safeAdd(
-        next.tiers[index - 1].amount,
-        produced,
-      );
-    }
 
     next.playTime += delta;
     next.runTime += delta;
@@ -3156,10 +3150,11 @@ export function acknowledgeNextMission(state: GameState) {
   next.tiers = GENERATORS.map(() => ({ amount: 0, bought: 0 }));
   next.runUpgrades = RUN_UPGRADES.map(() => 0);
   const relics = getCampaignRelics(next);
-  next.tiers[0].amount = Math.min(
+  next.tiers[0].bought = Math.min(
     25,
     next.legacyUpgrades[2] * 2 + relics.seedTaps,
   );
+  next.tiers[0].amount = next.tiers[0].bought;
   next.missions.awaitingAcknowledgement = false;
   next.missions.stageIndex = 0;
   next.missions.holdTime = 0;

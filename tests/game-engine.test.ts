@@ -386,14 +386,15 @@ test("unfinished planetary directives remain active indefinitely", () => {
 });
 
 test("milestone efficiency grows linearly at 25-purchase breakpoints", () => {
-  const outputs = [24, 25, 50, 100].map((bought) => {
+  // per-machine efficiency = output / bought isolates the milestone bonus
+  const perMachine = [24, 25, 50, 100].map((bought) => {
     const state = createInitialState(0);
-    state.tiers[0] = { amount: 1, bought };
-    return getProductionSnapshot(state).tierOutputs[0];
+    state.tiers[0] = { amount: bought, bought };
+    return getProductionSnapshot(state).tierOutputs[0] / bought;
   });
-  assert.ok(Math.abs(outputs[1] / outputs[0] - 1.5) < 1e-10);
-  assert.ok(Math.abs(outputs[2] / outputs[0] - 2) < 1e-10);
-  assert.ok(Math.abs(outputs[3] / outputs[0] - 3) < 1e-10);
+  assert.ok(Math.abs(perMachine[1] / perMachine[0] - 1.5) < 1e-10);
+  assert.ok(Math.abs(perMachine[2] / perMachine[0] - 2) < 1e-10);
+  assert.ok(Math.abs(perMachine[3] / perMachine[0] - 3) < 1e-10);
 });
 
 test("planet blueprints gate upper tiers even when an old save has huge Flux", () => {
@@ -408,26 +409,40 @@ test("planet blueprints gate upper tiers even when an old save has huge Flux", (
   assert.equal(isTierUnlocked(state, 1), true);
 });
 
-test("Flow and Resonance multiply final Flux without recursively boosting upper tiers", () => {
+test("Flow and Resonance multiply Flux output evenly - never compounding", () => {
   const state = createInitialState(0);
   state.missions.currentIndex = 1;
   state.missions.statuses = ["saved", "active", "locked", "locked", "locked", "locked"];
   state.tiers[0] = { amount: 15, bought: 15 };
   state.tiers[1] = { amount: 15, bought: 15 };
   const base = getProductionSnapshot(state);
+  assert.equal(
+    base.fluxPerSecond,
+    base.tierOutputs[0] + base.tierOutputs[1],
+    "total Flux is the plain sum of what was bought",
+  );
 
+  // Flow scales every tier's Flux by the same factor - a flat multiplier,
+  // not a feedback loop
   state.runUpgrades[1] = 1;
   const flow = getProductionSnapshot(state);
-  assert.ok(flow.tierOutputs[0] > base.tierOutputs[0]);
-  assert.equal(flow.tierOutputs[1], base.tierOutputs[1]);
+  const flowRatio = flow.tierOutputs[0] / base.tierOutputs[0];
+  assert.ok(flowRatio > 1);
+  assert.ok(
+    Math.abs(flow.tierOutputs[1] / base.tierOutputs[1] - flowRatio) < 1e-10,
+  );
 
+  // Resonance links likewise scale output without touching machine counts
   state.runUpgrades[1] = 0;
   state.tiers[1].bought = 14;
   const noLink = getProductionSnapshot(state);
   state.tiers[1].bought = 15;
   const linked = getProductionSnapshot(state);
-  assert.ok(linked.tierOutputs[0] > noLink.tierOutputs[0]);
-  assert.equal(linked.tierOutputs[1], noLink.tierOutputs[1]);
+  assert.ok(linked.resonance.multiplier > noLink.resonance.multiplier);
+  assert.ok(
+    linked.tierOutputs[0] / noLink.tierOutputs[0] >
+      linked.resonance.multiplier / noLink.resonance.multiplier - 1e-10,
+  );
 });
 
 test("Harmonic Gearing is distributed across the chain exactly once", () => {
@@ -459,7 +474,7 @@ test("v2 saves enter the expanded campaign without replaying old Flux progress",
       statuses: MISSIONS.map(() => "saved"),
     },
   }, 100);
-  assert.equal(migrated.version, 7);
+  assert.equal(migrated.version, 8);
   assert.equal(migrated.missions.currentIndex, 0);
   assert.equal(migrated.missions.stageIndex, 0);
   assert.equal(migrated.missions.worldsSaved, 0);
@@ -484,7 +499,7 @@ test("v3 timed saves recover lost worlds under the untimed campaign", () => {
     },
   }, 100);
 
-  assert.equal(migrated.version, 7);
+  assert.equal(migrated.version, 8);
   assert.equal(migrated.missions.schema, 3);
   assert.deepEqual(migrated.missions.statuses.slice(0, 4), [
     "saved",
@@ -927,4 +942,61 @@ test("rescued groups deliver their cargo: schematics, traces, and armory gear", 
     getArmoryReadyCount(rescued.armory, "kinetic-pike") +
     getArmoryReadyCount(rescued.armory, "composite-weave");
   assert.equal(gearReceived, gearExpected, "carried gear lands in the armory");
+});
+
+test("economy v2: flux/sec moves only when you buy, and offline gain is linear", () => {
+  const state = setTutorialComplete(createInitialState(0), true);
+  state.missions.currentIndex = 1;
+  state.missions.statuses = ["saved", "active", "locked", "locked", "locked", "locked"];
+  state.flux = 10_000;
+  state.maxFlux = 10_000;
+
+  // buying adds an exact, predictable amount to the rate
+  const before = getProductionSnapshot(state);
+  const bought = buyTier(state, 0, "1");
+  const after = getProductionSnapshot(bought);
+  assert.ok(after.fluxPerSecond > before.fluxPerSecond);
+
+  // ...and NOTHING else ever raises it: a full offline day leaves the
+  // rate exactly where purchases put it
+  const idle = simulateGame(bought, 8 * 3_600, 240, false);
+  assert.equal(
+    getProductionSnapshot(idle).fluxPerSecond,
+    after.fluxPerSecond,
+    "no passive compounding, ever",
+  );
+  assert.deepEqual(
+    idle.tiers.map((tier) => tier.bought),
+    bought.tiers.map((tier) => tier.bought),
+    "no machine mints machines",
+  );
+
+  // offline is linear: two 4-hour sessions equal one 8-hour session
+  const half = simulateGame(bought, 4 * 3_600, 240, false);
+  const twoHalves = simulateGame(half, 4 * 3_600, 240, false);
+  assert.ok(
+    Math.abs(twoHalves.flux - idle.flux) / Math.max(1, idle.flux) < 1e-6,
+    "chunked offline equals continuous offline",
+  );
+});
+
+test("economy v2 migration dissolves produced stockpiles into bought counts", () => {
+  const migrated = sanitizeGameState({
+    version: 7,
+    flux: 1e9,
+    maxFlux: 1e9,
+    tiers: [
+      { amount: 2.4e12, bought: 120 },
+      { amount: 9.9e9, bought: 60 },
+      { amount: 5e7, bought: 25 },
+      { amount: 0, bought: 0 },
+      { amount: 0, bought: 0 },
+      { amount: 0, bought: 0 },
+    ],
+  }, 100);
+  assert.equal(migrated.version, 8);
+  for (const tier of migrated.tiers) {
+    assert.equal(tier.amount, tier.bought, "amount mirrors bought after v2");
+  }
+  assert.equal(migrated.tiers[0]!.bought, 120, "purchases are never touched");
 });
