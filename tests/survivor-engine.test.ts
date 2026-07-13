@@ -4,9 +4,14 @@ import test from "node:test";
 import {
   BASE_BERTHS,
   BERTHS_PER_SECTION,
+  appointCommandLeader,
   applySurvivorWound,
   canSurvivorFound,
+  canSurvivorLearnProfession,
   getBerthCapacity,
+  runTrainingDoctrine,
+  setTrainingDoctrine,
+  toggleCommandTeamMember,
   getSurvivorHealthCap,
   isSurvivorOnDuty,
   isSurvivorWounded,
@@ -1388,4 +1393,114 @@ test("signals are treasure troves: cargo, arrival wounds, and experienced surviv
     JSON.parse(JSON.stringify(withSignal)),
   );
   assert.deepEqual(reloaded.activeSignal!.cargo, withSignal.activeSignal!.cargo);
+});
+
+test("Team Alpha: appointments, member limits, and departure cleanup", () => {
+  let state = supportPopulation(detectSignal(31_337), 30);
+  state = rescueSurvivorSignal(state, 1_000_000).state;
+  const ids = state.survivors.map((survivor) => survivor.id);
+  assert.ok(ids.length >= 2);
+
+  // leader appointment; appointing a member as leader pulls them from the bench
+  state = appointCommandLeader(state, ids[0]!);
+  assert.equal(state.commandTeam.leaderId, ids[0]);
+  state = toggleCommandTeamMember(state, ids[1]!);
+  assert.deepEqual(state.commandTeam.memberIds, [ids[1]]);
+  state = appointCommandLeader(state, ids[1]!);
+  assert.equal(state.commandTeam.leaderId, ids[1]);
+  assert.deepEqual(state.commandTeam.memberIds, [], "new leader leaves the member bench");
+
+  // the leader can never double as a member; the bench holds three
+  assert.equal(toggleCommandTeamMember(state, ids[1]!), state);
+  const bench = ids.filter((id) => id !== ids[1]).slice(0, 4);
+  for (const id of bench) state = toggleCommandTeamMember(state, id);
+  assert.equal(state.commandTeam.memberIds.length, Math.min(3, bench.length));
+
+  // founding a colony (or abandonment) removes departed crew from the team
+  const departed = transferSurvivorsToSettlement(state, [
+    state.commandTeam.leaderId!,
+    state.commandTeam.memberIds[0]!,
+  ]);
+  assert.equal(departed.commandTeam.leaderId, null);
+  assert.equal(
+    departed.commandTeam.memberIds.includes(state.commandTeam.memberIds[0]!),
+    false,
+  );
+
+  // sanitize round-trip preserves the team and drops unknown ids
+  const reloaded = sanitizeSurvivorSystemState({
+    ...JSON.parse(JSON.stringify(state)),
+    commandTeam: {
+      leaderId: state.commandTeam.leaderId,
+      memberIds: [...state.commandTeam.memberIds, "ghost-crew"],
+    },
+    trainingDoctrine: "doctor",
+  });
+  assert.equal(reloaded.commandTeam.leaderId, state.commandTeam.leaderId);
+  assert.equal(reloaded.commandTeam.memberIds.includes("ghost-crew"), false);
+  assert.equal(reloaded.trainingDoctrine, "doctor");
+});
+
+test("the training doctrine fills empty slots with idle crew and never overrides", () => {
+  let state = supportPopulation(detectSignal(64_128), 40);
+  state = rescueSurvivorSignal(state, 1_000_000).state;
+  state = setTrainingSlots({ ...state, trainingSlots: 3 }, 3);
+
+  // add a deterministic civilian who can learn medicine
+  state = sanitizeSurvivorSystemState({
+    ...JSON.parse(JSON.stringify(state)),
+    trainingSlots: 3,
+    survivors: [
+      ...state.survivors.map((survivor) => JSON.parse(JSON.stringify(survivor))),
+      {
+        id: "willing-trainee",
+        name: "Willing Trainee",
+        role: "civilian",
+        backgroundId: "civic-volunteer",
+        adaptability: 5,
+        aptitudes: { doctor: 4 },
+        traits: ["adaptable"],
+        skillXp: {},
+      },
+    ],
+  });
+  const leaderId = state.survivors[0]!.id;
+  const candidateId = "willing-trainee";
+  const doctrineRole = "doctor" as const;
+  assert.ok(
+    canSurvivorLearnProfession(
+      state.survivors.find((survivor) => survivor.id === candidateId)!,
+      doctrineRole,
+    ),
+  );
+
+  // no leader -> doctrine does nothing
+  state = setTrainingDoctrine(state, doctrineRole!);
+  assert.equal(runTrainingDoctrine(state), state);
+  state = appointCommandLeader(state, leaderId);
+
+  // assigned crew are never pulled off their stations
+  for (const survivor of state.survivors) {
+    state = assignSurvivorToRole(
+      state,
+      survivor.id,
+      survivor.role === "civilian" ? "civilian" : survivor.role,
+    );
+  }
+  assert.equal(runTrainingDoctrine(state), state, "no idle crew, no enrollments");
+
+  // idle the eligible crew member: the doctrine enrolls them automatically
+  state = assignSurvivorToRole(state, candidateId!, null);
+  const enrolled = runTrainingDoctrine(state);
+  assert.notEqual(enrolled, state);
+  assert.ok(
+    enrolled.training.some(
+      (program) =>
+        program.survivorId === candidateId &&
+        program.targetRole === doctrineRole,
+    ),
+  );
+  // unavailable crew (deployed) are skipped
+  const skipped = runTrainingDoctrine(state, new Set([candidateId!]));
+  assert.equal(skipped, state);
 });

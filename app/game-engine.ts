@@ -65,11 +65,15 @@ import {
 } from "./defense-engine.ts";
 import {
   advanceSurvivorSystem,
+  appointCommandLeader,
   applyStrandedCondition,
   applySurvivorWound,
   BERTH_CONSTRUCTION_BASE_SECONDS,
   BERTHS_PER_SECTION,
   canSurvivorFound,
+  runTrainingDoctrine,
+  setTrainingDoctrine,
+  toggleCommandTeamMember,
   cloneSurvivorSystemState,
   createSurvivorSystemState,
   getBerthCapacity,
@@ -1593,6 +1597,90 @@ export function getSurfaceRecon(state: GameState) {
   return { expeditions, multiplier };
 }
 
+// Team Alpha: the command rating (summed continuity expertise of on-duty
+// team members) becomes a bounded crew-wide training/XP multiplier.
+export const COMMAND_RATING_DIVISOR = 150;
+export const COMMAND_MULTIPLIER_CAP = 0.35;
+
+export type CommandTeamStatus = {
+  leader: ReturnType<typeof getSurvivorById>;
+  members: NonNullable<ReturnType<typeof getSurvivorById>>[];
+  /** Sum of on-duty team members' continuity expertise. */
+  rating: number;
+  /** Applied to crew-wide training speed and on-job XP. */
+  multiplier: number;
+  doctrine: ReturnType<typeof getTrainingDoctrine>;
+};
+
+const getSurvivorById = (state: GameState, survivorId: string | null) =>
+  survivorId
+    ? state.survivors.survivors.find((survivor) => survivor.id === survivorId) ??
+      null
+    : null;
+
+const getTrainingDoctrine = (state: GameState) =>
+  state.survivors.trainingDoctrine;
+
+export function getCommandTeamStatus(state: GameState): CommandTeamStatus {
+  const away = getDeployedCrewIds(state.expeditions);
+  const leader = getSurvivorById(state, state.survivors.commandTeam.leaderId);
+  const members = state.survivors.commandTeam.memberIds
+    .map((id) => getSurvivorById(state, id))
+    .filter((survivor): survivor is NonNullable<typeof survivor> =>
+      Boolean(survivor),
+    );
+  const contributors = [leader, ...members].filter(
+    (survivor): survivor is NonNullable<typeof survivor> =>
+      Boolean(survivor) &&
+      !isSurvivorWounded(survivor!) &&
+      !away.has(survivor!.id),
+  );
+  const rating = contributors.reduce(
+    (total, survivor) =>
+      total +
+      Object.values(getSurvivorContinuityExpertise(survivor)).reduce(
+        (sum, value) => sum + value,
+        0,
+      ),
+    0,
+  );
+  return {
+    leader,
+    members,
+    rating,
+    multiplier:
+      1 + Math.min(COMMAND_MULTIPLIER_CAP, rating / COMMAND_RATING_DIVISOR),
+    doctrine: getTrainingDoctrine(state),
+  };
+}
+
+export function setCommandLeader(state: GameState, survivorId: string | null) {
+  const survivors = appointCommandLeader(state.survivors, survivorId);
+  if (survivors === state.survivors) return state;
+  const next = cloneGameState(state);
+  next.survivors = survivors;
+  return next;
+}
+
+export function toggleTeamAlphaMember(state: GameState, survivorId: string) {
+  const survivors = toggleCommandTeamMember(state.survivors, survivorId);
+  if (survivors === state.survivors) return state;
+  const next = cloneGameState(state);
+  next.survivors = survivors;
+  return next;
+}
+
+export function chooseTrainingDoctrine(
+  state: GameState,
+  doctrine: Parameters<typeof setTrainingDoctrine>[1],
+) {
+  const survivors = setTrainingDoctrine(state.survivors, doctrine);
+  if (survivors === state.survivors) return state;
+  const next = cloneGameState(state);
+  next.survivors = survivors;
+  return next;
+}
+
 export const PROSTHETIC_SURGEON_LEVEL = 5;
 export const PROSTHETIC_SURGERY_FLUX_BASE = 1_200;
 export const PROSTHETIC_SURGERY_MODEL_COST = 30;
@@ -2891,16 +2979,25 @@ export function simulateGame(
         Math.floor(next.survivors.survivors.length / 20),
     ),
   );
+  // Team Alpha's doctrine fills empty training slots with idle crew, and
+  // the command rating multiplies crew-wide training/XP speed (bounded).
+  next.survivors = runTrainingDoctrine(
+    next.survivors,
+    getDeployedCrewIds(next.expeditions),
+  );
+  const commandMultiplier = getCommandTeamStatus(next).multiplier;
   next.survivors = advanceSurvivorSystem(next.survivors, seconds, {
     trainingSpeedMultiplier:
       survivorBonuses.trainingSpeedMultiplier *
-      colonyBonuses.trainingSpeedMultiplier,
+      colonyBonuses.trainingSpeedMultiplier *
+      commandMultiplier,
     beaconSpeedMultiplier:
       survivorBonuses.beaconSpeedMultiplier *
       colonyBonuses.beaconSpeedMultiplier,
     onJobXpMultiplier:
       survivorBonuses.trainingSpeedMultiplier *
-      colonyBonuses.trainingSpeedMultiplier,
+      colonyBonuses.trainingSpeedMultiplier *
+      commandMultiplier,
     constructionSpeedMultiplier: getBerthConstructionSpeed(next),
     medicalOverCapacity:
       getLifeSupportStatus(

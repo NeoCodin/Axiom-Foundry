@@ -128,6 +128,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
       { label: "Civilians", detail: "Highly adaptable recruits who can be trained around the exact needs of a future settlement." },
       { label: "Specialists", detail: "Arrive ready for a profession and improve through assigned work. Notable-or-better specialists can cross-train additional professions." },
       { label: "Expeditions & health", detail: "The Expedition Bay always projects the outcome before launch. Setbacks send crew home wounded (below 40 health = RECOVERING); a projected DISTRESS would strand them at the site. Stranded crews are stable forever - send a rescue party (it can never strand itself) or, only by explicit choice, abandon them to the memorial wall. Nothing in the game kills crew automatically." },
+      { label: "Team Alpha", detail: "Appoint a crew leader plus up to three officers from any personnel file. Their combined continuity expertise becomes a Command Rating that boosts crew-wide training and job XP (capped). With a leader appointed, set a Training Doctrine (a lean): empty training slots auto-fill with your best IDLE crew for that profession - it never cancels manual programs or pulls anyone off a station. Officers keep their jobs and can still deploy or found colonies; their contribution simply pauses while they are away or recovering." },
     ],
     tip: "Roster order stays chronological. Color and visible labels identify rare profiles without hiding anyone or changing rescue priority.",
   },

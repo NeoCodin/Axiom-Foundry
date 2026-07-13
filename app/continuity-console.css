@@ -365,6 +365,21 @@ label.expedition-manifest-row { grid-template-columns: auto auto minmax(0, 1fr) 
   .expedition-manifest-picker { max-height: 260px; }
 }
 
+/* Team Alpha (command crew) */
+.team-alpha-panel { border-top: 2px solid var(--world-accent, #55d6e8); }
+.team-alpha-slots { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-bottom: 10px; }
+.team-alpha-slot { display: grid; gap: 3px; padding: 10px; border: 1px dashed #2a4153; background: #071019; text-align: left; cursor: pointer; }
+.team-alpha-slot.is-filled { border-style: solid; border-color: #33506a; }
+.team-alpha-slot.is-leader.is-filled { border-color: var(--world-accent, #55d6e8); box-shadow: inset 0 1px 0 rgb(85 214 232 / 0.3); }
+.team-alpha-slot:disabled { cursor: default; }
+.team-alpha-slot-label { color: #687f91; font-family: var(--font-mono, monospace); font-size: 7px; font-weight: 800; letter-spacing: 0.12em; }
+.team-alpha-slot strong { color: #dce7ee; font-size: 10px; }
+.team-alpha-slot strong.is-empty { color: #44586a; }
+.team-alpha-slot small { color: #718797; font-size: 8px; }
+.team-alpha-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.team-alpha-actions button { padding: 7px 10px; color: #aebfca; border: 1px solid #2a4153; background: #0a1620; font-size: 9px; cursor: pointer; }
+.team-alpha-actions button:disabled { color: #526573; cursor: default; }
+
 /* Armory console */
 .armory-item-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
 .armory-item-card { display: grid; align-content: start; gap: 8px; padding: 12px; border: 1px solid #243a4b; background: #071019; }

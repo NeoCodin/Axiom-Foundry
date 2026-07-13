@@ -37,8 +37,12 @@ import {
   craftArmoryItem,
   repairArmoryItem,
   abandonStrandedCrew,
+  chooseTrainingDoctrine,
+  getCommandTeamStatus,
   getProstheticSurgeryQuote,
   getSurfaceRecon,
+  setCommandLeader,
+  toggleTeamAlphaMember,
   performProstheticSurgery,
   getArkRescueQuote,
   getArmoryCraftQuote,
@@ -956,6 +960,37 @@ export default function Home() {
     commitGameState(next, `${count} crew abandoned. Their names are recorded on the memorial wall.`);
   };
 
+  const handleAppointLeader = (survivorId: string | null) => {
+    const current = gameRef.current;
+    const next = setCommandLeader(current, survivorId);
+    if (next === current) return;
+    const leader = survivorId
+      ? next.survivors.survivors.find((survivor) => survivor.id === survivorId)
+      : null;
+    commitGameState(
+      next,
+      leader
+        ? `${leader.callsign || leader.name} now leads the crew. AXIOM notes the transfer of biological command authority.`
+        : "The crew leader stood down. Team Alpha awaits a new appointment.",
+    );
+  };
+
+  const handleToggleTeamMember = (survivorId: string) => {
+    const current = gameRef.current;
+    const next = toggleTeamAlphaMember(current, survivorId);
+    if (next === current) return;
+    const joined = next.survivors.commandTeam.memberIds.includes(survivorId);
+    const member = next.survivors.survivors.find((survivor) => survivor.id === survivorId);
+    commitGameState(next, `${member?.callsign || member?.name || "Crew"} ${joined ? "joined" : "left"} Team Alpha.`);
+  };
+
+  const handleSetDoctrine = (role: Parameters<typeof chooseTrainingDoctrine>[1]) => {
+    const current = gameRef.current;
+    const next = chooseTrainingDoctrine(current, role);
+    if (next === current) return;
+    commitGameState(next, role ? `Training doctrine set: the crew leans ${role === "security" ? "Soldier" : role}. Idle crew will enroll automatically.` : "Training doctrine cleared. Training is fully manual again.");
+  };
+
   const handleProstheticSurgery = (survivorId: string) => {
     const current = gameRef.current;
     const next = performProstheticSurgery(current, survivorId);
@@ -1717,6 +1752,19 @@ export default function Home() {
             };
           }}
           onProstheticSurgery={handleProstheticSurgery}
+          teamAlpha={(() => {
+            const status = getCommandTeamStatus(game);
+            return {
+              leaderId: game.survivors.commandTeam.leaderId,
+              memberIds: game.survivors.commandTeam.memberIds,
+              rating: Math.round(status.rating),
+              bonusPercent: Math.round((status.multiplier - 1) * 100),
+              doctrine: status.doctrine,
+            };
+          })()}
+          onAppointLeader={handleAppointLeader}
+          onToggleTeamMember={handleToggleTeamMember}
+          onSetDoctrine={handleSetDoctrine}
           berthQuote={berthPanelQuote}
           onStartBerthConstruction={handleStartBerthConstruction}
           onUpgradeSupport={handleUpgradeSupport}

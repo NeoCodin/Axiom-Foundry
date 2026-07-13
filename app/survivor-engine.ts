@@ -205,6 +205,16 @@ export type SurvivorAdvanceModifiers = {
   scanDurationMultiplier?: number;
 };
 
+/**
+ * Team Alpha: one crew leader plus up to three members, displayed as its
+ * own group at the top of the roster. Membership is a designation, never a
+ * station - members keep their jobs and can still deploy or found colonies.
+ */
+export type CommandTeam = {
+  leaderId: string | null;
+  memberIds: string[];
+};
+
 export type SurvivorSystemState = {
   schema: number;
   rngState: number;
@@ -229,6 +239,9 @@ export type SurvivorSystemState = {
   autoRescueEnabled: boolean;
   berthSections: number;
   berthConstruction: BerthConstruction | null;
+  commandTeam: CommandTeam;
+  /** Team Alpha's lean: auto-enrolls IDLE crew into this profession. */
+  trainingDoctrine: ProfessionalRole | null;
 };
 
 export type BackgroundDefinition = {
@@ -505,6 +518,9 @@ export const INJURY_HEALTH_CAPS: Record<SurvivorInjuryTier, number> = {
 export const BASE_HEALTH_RECOVERY_PER_HOUR = 2;
 export const DOCTOR_HEALTH_RECOVERY_PER_HOUR = 0.5;
 export const MAX_RECOVERY_DOCTORS = 4;
+
+// Team Alpha (command crew): leader + up to three members.
+export const MAX_COMMAND_TEAM_MEMBERS = 3;
 
 const INJURY_RANK: Record<SurvivorInjuryTier, number> = {
   minor: 1,
@@ -887,6 +903,10 @@ export function cloneSurvivorSystemState(
     berthConstruction: state.berthConstruction
       ? { ...state.berthConstruction }
       : null,
+    commandTeam: {
+      leaderId: state.commandTeam.leaderId,
+      memberIds: [...state.commandTeam.memberIds],
+    },
   };
 }
 
@@ -918,6 +938,8 @@ export function createSurvivorSystemState(
     autoRescueEnabled: true,
     berthSections: 0,
     berthConstruction: null,
+    commandTeam: { leaderId: null, memberIds: [] },
+    trainingDoctrine: null,
   };
 }
 
@@ -1725,6 +1747,101 @@ export function transferSurvivorsToSettlement(
   next.training = next.training.filter(
     (program) => !transferredIds.has(program.survivorId),
   );
+  if (
+    next.commandTeam.leaderId &&
+    transferredIds.has(next.commandTeam.leaderId)
+  ) {
+    next.commandTeam.leaderId = null;
+  }
+  next.commandTeam.memberIds = next.commandTeam.memberIds.filter(
+    (id) => !transferredIds.has(id),
+  );
+  return next;
+}
+
+/** Appoints (or stands down, with null) the crew leader of Team Alpha. */
+export function appointCommandLeader(
+  state: SurvivorSystemState,
+  survivorId: string | null,
+) {
+  if (survivorId !== null) {
+    const exists = state.survivors.some(
+      (survivor) => survivor.id === survivorId,
+    );
+    if (!exists) return state;
+  }
+  if (state.commandTeam.leaderId === survivorId) return state;
+  const next = cloneSurvivorSystemState(state);
+  next.commandTeam.leaderId = survivorId;
+  next.commandTeam.memberIds = next.commandTeam.memberIds.filter(
+    (id) => id !== survivorId,
+  );
+  return next;
+}
+
+/** Adds or removes a Team Alpha member (leader excluded, max 3 members). */
+export function toggleCommandTeamMember(
+  state: SurvivorSystemState,
+  survivorId: string,
+) {
+  const exists = state.survivors.some((survivor) => survivor.id === survivorId);
+  if (!exists || state.commandTeam.leaderId === survivorId) return state;
+  const next = cloneSurvivorSystemState(state);
+  if (next.commandTeam.memberIds.includes(survivorId)) {
+    next.commandTeam.memberIds = next.commandTeam.memberIds.filter(
+      (id) => id !== survivorId,
+    );
+    return next;
+  }
+  if (next.commandTeam.memberIds.length >= MAX_COMMAND_TEAM_MEMBERS) {
+    return state;
+  }
+  next.commandTeam.memberIds = [...next.commandTeam.memberIds, survivorId];
+  return next;
+}
+
+export function setTrainingDoctrine(
+  state: SurvivorSystemState,
+  doctrine: ProfessionalRole | null,
+) {
+  if (doctrine !== null && !isProfessionalRole(doctrine)) return state;
+  if (state.trainingDoctrine === doctrine) return state;
+  return { ...cloneSurvivorSystemState(state), trainingDoctrine: doctrine };
+}
+
+/**
+ * Team Alpha's lean: fills EMPTY training slots with the best IDLE
+ * candidates for the doctrine profession. It never cancels manual
+ * programs, never pulls anyone off a working assignment, and requires an
+ * appointed crew leader. Runs during simulation, online or offline.
+ */
+export function runTrainingDoctrine(
+  state: SurvivorSystemState,
+  unavailableIds: ReadonlySet<string> = new Set(),
+) {
+  const doctrine = state.trainingDoctrine;
+  if (!doctrine || !state.commandTeam.leaderId) return state;
+  if (state.training.length >= state.trainingSlots) return state;
+  const trainingIds = new Set(state.training.map((program) => program.survivorId));
+  const candidates = state.survivors
+    .filter(
+      (survivor) =>
+        survivor.assignedRole === null &&
+        !trainingIds.has(survivor.id) &&
+        !unavailableIds.has(survivor.id) &&
+        !isSurvivorWounded(survivor) &&
+        canSurvivorLearnProfession(survivor, doctrine),
+    )
+    .sort(
+      (left, right) =>
+        right.aptitudes[doctrine] - left.aptitudes[doctrine] ||
+        right.adaptability - left.adaptability,
+    );
+  let next = state;
+  for (const candidate of candidates) {
+    if (next.training.length >= next.trainingSlots) break;
+    next = startSurvivorTraining(next, candidate.id, doctrine);
+  }
   return next;
 }
 
@@ -2178,6 +2295,31 @@ export function sanitizeSurvivorSystemState(value: unknown): SurvivorSystemState
       state.beaconProgressSeconds = 0;
     }
   }
+
+  // Team Alpha: keep only ids that still exist aboard; the leader never
+  // doubles as a member.
+  const rosterIds = new Set(state.survivors.map((survivor) => survivor.id));
+  const rawTeam = isRecord(value.commandTeam) ? value.commandTeam : {};
+  const leaderId =
+    typeof rawTeam.leaderId === "string" && rosterIds.has(rawTeam.leaderId)
+      ? rawTeam.leaderId
+      : null;
+  state.commandTeam = {
+    leaderId,
+    memberIds: Array.isArray(rawTeam.memberIds)
+      ? [
+          ...new Set(
+            rawTeam.memberIds.filter(
+              (id): id is string =>
+                typeof id === "string" && rosterIds.has(id) && id !== leaderId,
+            ),
+          ),
+        ].slice(0, MAX_COMMAND_TEAM_MEMBERS)
+      : [],
+  };
+  state.trainingDoctrine = isProfessionalRole(value.trainingDoctrine)
+    ? value.trainingDoctrine
+    : null;
 
   const rawTraining = Array.isArray(value.training) ? value.training : [];
   const trainees = new Set<string>();

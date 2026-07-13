@@ -36,6 +36,14 @@ import {
   type SurvivorSystemState,
 } from "./survivor-engine";
 
+export type TeamAlphaView = {
+  leaderId: string | null;
+  memberIds: readonly string[];
+  rating: number;
+  bonusPercent: number;
+  doctrine: ProfessionalRole | null;
+};
+
 export type ProstheticQuoteView = {
   canOperate: boolean;
   reason: string | null;
@@ -73,6 +81,10 @@ export type PopulationConsoleProps = {
   onToggleAutoRescue: (enabled: boolean) => void;
   getProstheticQuote: (survivorId: string) => ProstheticQuoteView;
   onProstheticSurgery: (survivorId: string) => void;
+  teamAlpha: TeamAlphaView;
+  onAppointLeader: (survivorId: string | null) => void;
+  onToggleTeamMember: (survivorId: string) => void;
+  onSetDoctrine: (role: ProfessionalRole | null) => void;
   berthQuote: BerthPanelQuote;
   onStartBerthConstruction: () => void;
   onUpgradeSupport: (key: LifeSupportKey) => void;
@@ -119,6 +131,10 @@ function PopulationConsole({
   onToggleAutoRescue,
   getProstheticQuote,
   onProstheticSurgery,
+  teamAlpha,
+  onAppointLeader,
+  onToggleTeamMember,
+  onSetDoctrine,
   berthQuote,
   onStartBerthConstruction,
   onUpgradeSupport,
@@ -316,6 +332,66 @@ function PopulationConsole({
         </section>
       </div>
 
+      {state.survivors.length > 0 && (
+        <section className="continuity-panel team-alpha-panel">
+          <header>
+            <div><span>TEAM ALPHA // COMMAND</span><h3>{teamAlpha.leaderId ? "Chain of command established" : "No crew leader appointed"}</h3></div>
+            <small>{teamAlpha.rating > 0 ? `Command rating ${teamAlpha.rating} · +${teamAlpha.bonusPercent}% training & job XP for everyone` : "Appoint a leader from any personnel file"}</small>
+          </header>
+          <div className="team-alpha-slots">
+            {(() => {
+              const slot = (survivorId: string | null, label: string, key: string) => {
+                const survivor = survivorId ? state.survivors.find((candidate) => candidate.id === survivorId) ?? null : null;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    className={`team-alpha-slot ${survivor ? "is-filled" : ""} ${label === "LEADER" ? "is-leader" : ""}`}
+                    onClick={() => survivor && setSelectedCrewId(survivor.id)}
+                    disabled={!survivor}
+                    title={survivor ? "Open personnel file" : "Assign from a personnel file below"}
+                  >
+                    <span className="team-alpha-slot-label">{label}</span>
+                    {survivor ? (
+                      <>
+                        <strong>{survivor.callsign || survivor.name}</strong>
+                        <small>{survivor.role === "civilian" ? "Civilian" : `${titleCase(survivor.role)} · Lv ${getSurvivorSkillLevel(survivor, survivor.role)}`}{isSurvivorWounded(survivor) ? " · recovering (not counting)" : ""}</small>
+                      </>
+                    ) : (
+                      <strong className="is-empty">EMPTY</strong>
+                    )}
+                  </button>
+                );
+              };
+              return (
+                <>
+                  {slot(teamAlpha.leaderId, "LEADER", "leader")}
+                  {[0, 1, 2].map((index) =>
+                    slot(teamAlpha.memberIds[index] ?? null, `OFFICER ${index + 1}`, `member-${index}`),
+                  )}
+                </>
+              );
+            })()}
+          </div>
+          <div className="crew-actions-grid">
+            <label>
+              Training doctrine (lean)
+              <select
+                value={teamAlpha.doctrine ?? ""}
+                disabled={!teamAlpha.leaderId}
+                onChange={(event) => onSetDoctrine(event.target.value ? (event.target.value as ProfessionalRole) : null)}
+              >
+                <option value="">{teamAlpha.leaderId ? "Off — train manually" : "Requires a crew leader"}</option>
+                {PROFESSIONAL_ROLES.map((role) => (
+                  <option key={role} value={role}>Lean {titleCase(role)}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <small className="crew-rarity-note">The doctrine fills empty training slots with your best IDLE crew for the lean — it never cancels manual programs or pulls anyone off a station. The command bonus counts on-duty team members only; wounded or deployed officers pause their contribution.</small>
+        </section>
+      )}
+
       <div className="crew-management-grid">
         <section className="continuity-panel crew-roster-panel">
           {(() => {
@@ -430,6 +506,26 @@ function PopulationConsole({
                   );
                 })()}
               </section>
+              <div className="team-alpha-actions">
+                {teamAlpha.leaderId === selectedCrew.id ? (
+                  <button type="button" onClick={() => onAppointLeader(null)}>Stand down as Crew Leader</button>
+                ) : (
+                  <button type="button" onClick={() => onAppointLeader(selectedCrew.id)}>Appoint as Crew Leader</button>
+                )}
+                {teamAlpha.leaderId !== selectedCrew.id && (
+                  teamAlpha.memberIds.includes(selectedCrew.id) ? (
+                    <button type="button" onClick={() => onToggleTeamMember(selectedCrew.id)}>Remove from Team Alpha</button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={teamAlpha.memberIds.length >= 3}
+                      onClick={() => onToggleTeamMember(selectedCrew.id)}
+                    >
+                      {teamAlpha.memberIds.length >= 3 ? "Team Alpha is full (3 officers)" : "Add to Team Alpha"}
+                    </button>
+                  )
+                )}
+              </div>
               <form className="crew-callsign-form" onSubmit={submitCallsign}><label htmlFor="crew-callsign">Callsign</label><input id="crew-callsign" name="callsign" maxLength={18} defaultValue={selectedCrew.callsign} placeholder="Optional" /><button type="submit">Save</button></form>
               <div className="crew-trait-list">
                 {selectedCrew.traits.map((traitId) => {
