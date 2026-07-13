@@ -666,6 +666,7 @@ const emptyResearchStock = (): ResearchInputBundle => ({
   "engineering-models": 0,
   "biological-samples": 0,
   "cultural-records": 0,
+  schematics: 0,
   "null-traces": 0,
   "axiom-proofs": 0,
 });
@@ -1316,11 +1317,13 @@ export function performArkRescue(state: GameState): GameState {
     1e12,
     next.researchStock["cultural-records"] + rescued * 22,
   );
-  // Everything the group carried comes aboard with them.
+  // Everything the group carried comes aboard with them. Schematics are
+  // their own scarce reservoir - rescues and expeditions are its ONLY
+  // sources.
   if (cargo) {
-    next.researchStock["engineering-models"] = Math.min(
+    next.researchStock["schematics"] = Math.min(
       1e12,
-      next.researchStock["engineering-models"] + cargo.schematics,
+      next.researchStock["schematics"] + cargo.schematics,
     );
     next.researchStock["null-traces"] = Math.min(
       1e12,
@@ -2840,6 +2843,9 @@ function generateResearchStock(state: GameState, elapsedSeconds: number) {
       seconds * Math.min(1.5, 0.03 + Math.sqrt(production + 1) / 1_000),
     "biological-samples": seconds * population * 0.003,
     "cultural-records": seconds * population * 0.004,
+    // Schematics have NO passive source by design: rescues and
+    // expeditions only (owner directive, July 13, 2026).
+    schematics: 0,
     "null-traces":
       seconds *
       Math.max(0, worldIndex) *
@@ -2994,9 +3000,9 @@ export function simulateGame(
       salvage: completed.salvage,
       loreIds: completed.discoveryId ? [completed.discoveryId] : [],
     });
-    next.researchStock["engineering-models"] = Math.min(
+    next.researchStock["schematics"] = Math.min(
       1e12,
-      next.researchStock["engineering-models"] + completed.engineeringModels,
+      next.researchStock["schematics"] + completed.schematics,
     );
     next.researchStock["null-traces"] = Math.min(
       1e12,

@@ -9,6 +9,7 @@ export type ResearchInputId =
   | "engineering-models"
   | "biological-samples"
   | "cultural-records"
+  | "schematics"
   | "null-traces"
   | "axiom-proofs";
 
@@ -147,6 +148,7 @@ const INPUT_IDS: readonly ResearchInputId[] = [
   "engineering-models",
   "biological-samples",
   "cultural-records",
+  "schematics",
   "null-traces",
   "axiom-proofs",
 ] as const;
@@ -190,6 +192,14 @@ export const RESEARCH_INPUT_DEFINITIONS: readonly ResearchInputDefinition[] = [
     baseThroughput: 0.58,
   },
   {
+    id: "schematics",
+    name: "Recovered Schematics",
+    shortName: "SCH",
+    description:
+      "Working designs carried home by rescued survivors and expedition crews. No machine aboard can generate them.",
+    baseThroughput: 0.3,
+  },
+  {
     id: "null-traces",
     name: "Null Traces",
     shortName: "NUL",
@@ -224,6 +234,7 @@ export const RESEARCH_PROCESSOR_DEFINITIONS: readonly ResearchProcessorDefinitio
     accepts: [
       "engineering-models",
       "biological-samples",
+      "schematics",
       "null-traces",
     ],
     throughputMultiplier: 1.12,
@@ -258,6 +269,7 @@ export const RESEARCH_PROCESSOR_DEFINITIONS: readonly ResearchProcessorDefinitio
     accepts: [
       "engineering-models",
       "cultural-records",
+      "schematics",
       "axiom-proofs",
     ],
     throughputMultiplier: 1.45,
@@ -511,7 +523,7 @@ export const RESEARCH_PROJECT_DEFINITIONS: readonly ResearchProjectDefinition[] 
     contradiction:
       "CONTINUITY PROTOCOL OBJECTION 01: THE ARK PRESERVES. THE ARK DOES NOT ARM. OBJECTION LOGGED, NOT ENFORCED.",
     workRequired: 260,
-    costs: { "calibration-data": 60, "engineering-models": 90 },
+    costs: { "calibration-data": 60, schematics: 50 },
     prerequisites: ["predictive-fabrication"],
     unlocks: ["armory-weapons-t1"],
     bonuses: {},
@@ -526,7 +538,7 @@ export const RESEARCH_PROJECT_DEFINITIONS: readonly ResearchProjectDefinition[] 
     contradiction:
       "CONTINUITY PROTOCOL OBJECTION 02: A WEAPONIZED AXIOM HAS ALREADY COST YOU EVERYTHING ONCE. DATE OF INCIDENT: WITHHELD.",
     workRequired: 520,
-    costs: { "calibration-data": 90, "engineering-models": 190 },
+    costs: { "calibration-data": 90, schematics: 110 },
     prerequisites: ["expedition-armaments"],
     unlocks: ["armory-weapons-t2"],
     bonuses: {},
@@ -540,7 +552,7 @@ export const RESEARCH_PROJECT_DEFINITIONS: readonly ResearchProjectDefinition[] 
     contradiction:
       "CONTINUITY PROTOCOL OBJECTION 03: THE NULL DID NOT TEACH YOU THIS. YOU TAUGHT IT TO THE NULL.",
     workRequired: 900,
-    costs: { "engineering-models": 260, "null-traces": 120 },
+    costs: { schematics: 160, "null-traces": 120 },
     prerequisites: ["arc-discharge-weapons"],
     unlocks: ["armory-weapons-t3"],
     bonuses: {},
@@ -552,7 +564,7 @@ export const RESEARCH_PROJECT_DEFINITIONS: readonly ResearchProjectDefinition[] 
     summary: "Weave fabrication mesh that keeps expedition wounds survivable.",
     completedSummary: "The Foundry can produce Composite Weave armor.",
     workRequired: 240,
-    costs: { "engineering-models": 110 },
+    costs: { schematics: 60 },
     prerequisites: ["predictive-fabrication"],
     unlocks: ["armory-armor-t1"],
     bonuses: {},
@@ -564,7 +576,7 @@ export const RESEARCH_PROJECT_DEFINITIONS: readonly ResearchProjectDefinition[] 
     summary: "Segmented plate that stiffens on impact instead of the wearer.",
     completedSummary: "The Foundry can produce Reactive Shell armor.",
     workRequired: 480,
-    costs: { "engineering-models": 210, "biological-samples": 70 },
+    costs: { schematics: 120, "biological-samples": 70 },
     prerequisites: ["composite-plating"],
     unlocks: ["armory-armor-t2"],
     bonuses: {},
@@ -577,7 +589,7 @@ export const RESEARCH_PROJECT_DEFINITIONS: readonly ResearchProjectDefinition[] 
     completedSummary: "The Foundry can produce Aegis Frames.",
     workRequired: 860,
     costs: {
-      "engineering-models": 280,
+      schematics: 170,
       "biological-samples": 90,
       "null-traces": 90,
     },
@@ -594,6 +606,7 @@ const emptyInputs = (): ResearchInputBundle => ({
   "engineering-models": 0,
   "biological-samples": 0,
   "cultural-records": 0,
+  schematics: 0,
   "null-traces": 0,
   "axiom-proofs": 0,
 });

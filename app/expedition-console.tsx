@@ -407,7 +407,7 @@ function ExpeditionConsole({
               return (
                 <li key={`${entry.resolvedAtSeconds}-${index}`}>
                   <strong>{site.name} · {outcomeLabel} (strength {Math.round(entry.strength)} vs {entry.difficulty})</strong>
-                  <span>{entry.salvage > 0 ? `+${entry.salvage} Salvage · ` : ""}{entry.engineeringModels > 0 ? `+${entry.engineeringModels} recovered schematics · ` : ""}{entry.nullTraces > 0 ? `+${entry.nullTraces} Null Traces · ` : ""}{entry.surveyCredited ? "survey certified · " : ""}{crewNote}</span>
+                  <span>{entry.salvage > 0 ? `+${entry.salvage} Salvage · ` : ""}{entry.schematics > 0 ? `+${entry.schematics} Schematics · ` : ""}{entry.nullTraces > 0 ? `+${entry.nullTraces} Null Traces · ` : ""}{entry.surveyCredited ? "survey certified · " : ""}{crewNote}</span>
                 </li>
               );
             })}

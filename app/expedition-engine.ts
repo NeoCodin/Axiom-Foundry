@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Expeditions E1+E2 (see docs/expedition-e2-spec.md). Groups of 2-4 real
  * crew launch to planetary sites for a fixed real-time duration and always
  * return in E2. Outcomes follow the strength-vs-difficulty margin: success,
@@ -50,7 +50,7 @@ export type ExpeditionSiteDefinition = {
   focusRoles: readonly ProfessionalRole[];
   rewards: {
     salvage: number;
-    engineeringModels: number;
+    schematics: number;
     nullTraces: number;
     discoveryId?: string;
   };
@@ -110,7 +110,7 @@ export type ExpeditionResult = {
   crewIds: string[];
   resolvedAtSeconds: number;
   salvage: number;
-  engineeringModels: number;
+  schematics: number;
   nullTraces: number;
   discoveryId: string | null;
   surveyCredited: boolean;
@@ -138,14 +138,14 @@ export const MIN_EXPEDITION_CREW = 2;
 export const MAX_EXPEDITION_CREW = 4;
 export const MAX_EXPEDITION_LOG = 10;
 
-// Outcome bands on margin = strength - difficulty (docs/expedition-e2-spec.md §2).
+// Outcome bands on margin = strength - difficulty (docs/expedition-e2-spec.md section 2).
 export const LEAN_MARGIN = 8;
 export const DISTRESS_MARGIN = 16;
 export const SETBACK_DAMAGE_MIN = 30;
 export const SETBACK_DAMAGE_MAX = 70;
 export const MAX_MEMORIALS = 100;
 
-// Rescue missions (docs/expedition-e2-spec.md §4): they know the route, so
+// Rescue missions (docs/expedition-e2-spec.md section 4): they know the route, so
 // they fly faster and need less strength - and they can NEVER strand.
 export const RESCUE_DIFFICULTY_RELIEF = 4;
 export const RESCUE_FLUX_RATIO = 0.5;
@@ -189,7 +189,7 @@ export const EXPEDITION_SITE_DEFINITIONS: readonly ExpeditionSiteDefinition[] = 
     difficulty: 10,
     fluxCostBase: 300,
     focusRoles: ["navigator", "researcher"],
-    rewards: { salvage: 25, engineeringModels: 20, nullTraces: 0 },
+    rewards: { salvage: 25, schematics: 20, nullTraces: 0 },
   },
   {
     id: "kestrel-relay",
@@ -205,7 +205,7 @@ export const EXPEDITION_SITE_DEFINITIONS: readonly ExpeditionSiteDefinition[] = 
     focusRoles: ["technician", "researcher"],
     rewards: {
       salvage: 60,
-      engineeringModels: 30,
+      schematics: 30,
       nullTraces: 10,
       discoveryId: "expedition.dead-relay",
     },
@@ -224,7 +224,7 @@ export const EXPEDITION_SITE_DEFINITIONS: readonly ExpeditionSiteDefinition[] = 
     focusRoles: ["researcher", "navigator"],
     rewards: {
       salvage: 40,
-      engineeringModels: 20,
+      schematics: 20,
       nullTraces: 70,
       discoveryId: "expedition.null-bloom",
     },
@@ -241,7 +241,7 @@ export const EXPEDITION_SITE_DEFINITIONS: readonly ExpeditionSiteDefinition[] = 
     difficulty: 14,
     fluxCostBase: 600,
     focusRoles: ["researcher", "navigator"],
-    rewards: { salvage: 15, engineeringModels: 10, nullTraces: 25 },
+    rewards: { salvage: 15, schematics: 10, nullTraces: 25 },
   },
   {
     id: "palimpsest-origin",
@@ -268,7 +268,7 @@ export const EXPEDITION_SITE_DEFINITIONS: readonly ExpeditionSiteDefinition[] = 
     ],
     rewards: {
       salvage: 150,
-      engineeringModels: 80,
+      schematics: 80,
       nullTraces: 60,
       discoveryId: "expedition.first-foundry",
     },
@@ -513,7 +513,8 @@ export function sanitizeExpeditionState(value: unknown): ExpeditionState {
           crewIds,
           resolvedAtSeconds: finite(raw.resolvedAtSeconds, 0, 1e15),
           salvage: finite(raw.salvage, 0, 1e9),
-          engineeringModels: finite(raw.engineeringModels, 0, 1e9),
+          // legacy logs stored this reward as engineeringModels
+          schematics: finite(raw.schematics ?? raw.engineeringModels, 0, 1e9),
           nullTraces: finite(raw.nullTraces, 0, 1e9),
           discoveryId:
             typeof raw.discoveryId === "string" ? raw.discoveryId : null,
@@ -769,7 +770,7 @@ export function advanceExpeditions(
       crewIds: [...active.crewIds],
       resolvedAtSeconds: next.clockSeconds,
       salvage: 0,
-      engineeringModels: 0,
+      schematics: 0,
       nullTraces: 0,
       discoveryId: null,
       surveyCredited: false,
@@ -812,7 +813,7 @@ export function advanceExpeditions(
                   10,
               ) / 10,
             // Setback wounds inflict at most a minor permanent injury; the
-            // heavier tiers are reserved for distress events (E2 spec §3).
+            // heavier tiers are reserved for distress events (E2 spec section 3).
             injuryTier: "minor",
             armorId: entry?.armorId ?? null,
           };
@@ -845,7 +846,7 @@ export function advanceExpeditions(
     crewIds: [...active.crewIds],
     resolvedAtSeconds: next.clockSeconds,
     salvage: Math.round(site.rewards.salvage * scale),
-    engineeringModels: Math.round(site.rewards.engineeringModels * scale),
+    schematics: Math.round(site.rewards.schematics * scale),
     nullTraces: Math.round(site.rewards.nullTraces * scale),
     discoveryId: outcome === "success" ? site.rewards.discoveryId ?? null : null,
     surveyCredited,

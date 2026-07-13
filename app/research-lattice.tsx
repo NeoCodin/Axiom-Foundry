@@ -82,6 +82,7 @@ const INPUT_ACCENTS: Record<ResearchInputId, string> = {
   "engineering-models": "100 157 255",
   "biological-samples": "111 225 153",
   "cultural-records": "236 188 104",
+  schematics: "255 176 92",
   "null-traces": "188 126 255",
   "axiom-proofs": "255 105 121",
 };
@@ -91,6 +92,7 @@ const INPUT_SOURCE_COPY: Record<ResearchInputId, string> = {
   "engineering-models": "Machine purchases, Flux production, and infrastructure",
   "biological-samples": "18 per rescued person + 10.8 per person each hour",
   "cultural-records": "22 per rescued person + 14.4 per person each hour",
+  schematics: "ONLY from rescued survivors' cargo and expedition returns — nothing aboard generates them",
   "null-traces": "Later worlds, passive Null signals, and resolved crises",
   "axiom-proofs": "Recalibration + passive generation from lifetime Axioms",
 };

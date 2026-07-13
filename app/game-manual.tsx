@@ -280,6 +280,20 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
       { title: "Transfer it", detail: "Press +25 in Evidence Reservoirs to move Ark Supply into the Lattice." },
     ],
   },
+  schematics: {
+    id: "schematics",
+    label: "Schematics",
+    category: "Research input // SCH",
+    title: "Designs the Ark cannot invent — only recover",
+    summary:
+      "Recovered Schematics fuel the Threat Operations research branch (weapons and armor tiers). Nothing aboard generates them: they arrive only with people and expeditions, which makes them one of the scarcest reservoirs in the game.",
+    steps: [
+      { title: "Answer SOS signals", detail: "Every rescued group carries schematics in its cargo manifest — richer on later worlds." },
+      { title: "Fly expeditions", detail: "Every site pays schematics on return, scaled by the outcome. Surveys are the steady repeatable source." },
+      { title: "Spend them on Threat Operations", detail: "Weapon and armor research tiers are priced mostly in schematics. Transfer them into the Lattice like any evidence reservoir." },
+    ],
+    tip: "Both sources are time-locked — scan cadence and mission clocks — so schematics can't be farmed by idling. Plan the branch around your rescue and expedition rhythm.",
+  },
   "null-traces": {
     id: "null-traces",
     label: "Null Traces",
@@ -312,6 +326,7 @@ const RESOURCE_TOPIC_IDS: readonly ManualTopicId[] = [
   "engineering-models",
   "biological-samples",
   "cultural-records",
+  "schematics",
   "null-traces",
   "axiom-proofs",
 ];

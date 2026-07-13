@@ -929,13 +929,13 @@ test("rescued groups deliver their cargo: schematics, traces, and armory gear", 
   state.living.salvage = 100_000;
   state.flux = 1e9;
 
-  const before = state.researchStock["engineering-models"];
+  const before = state.researchStock["schematics"];
   const rescued = performArkRescue(state);
   assert.notEqual(rescued, state);
   assert.equal(
-    Math.round(rescued.researchStock["engineering-models"] - before),
+    Math.round(rescued.researchStock["schematics"] - before),
     Math.round(cargo.schematics),
-    "recovered schematics arrive as Engineering Models",
+    "carried schematics land in the schematics reservoir",
   );
   const gearExpected = cargo.weaponTiers.length + cargo.armorTiers.length;
   const gearReceived =
