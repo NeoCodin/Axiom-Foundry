@@ -327,6 +327,44 @@
 .signal-cargo-manifest { margin: 8px 0 0; padding: 8px 10px; border: 1px solid rgb(85 214 232 / 0.3); background: rgb(85 214 232 / 0.05); color: #a8bdca; font-size: 9px; line-height: 1.5; }
 .signal-cargo-manifest strong { color: var(--world-accent, #55d6e8); }
 
+/* Expedition Mission Bay planning grid */
+.expedition-planning-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 12px; align-items: start; }
+.expedition-box-label { display: block; margin-bottom: 8px; color: #687f91; font-family: var(--font-mono, monospace); font-size: 7px; font-weight: 800; letter-spacing: 0.12em; }
+.expedition-dossier,
+.expedition-manifest { min-width: 0; padding: 12px; border: 1px solid #243a4b; background: #071019; }
+.expedition-dossier select { width: 100%; min-width: 0; padding: 8px; color: #dce8ef; border: 1px solid #243a4b; border-radius: 2px; outline: none; background: #0a141d; }
+.expedition-dossier select:focus { border-color: var(--world-accent, #55d6e8); }
+.expedition-dossier h4 { margin: 0 0 6px; color: #dce7ee; font-size: 13px; }
+.expedition-flight-readout { display: block; margin: 2px 0 6px; color: var(--world-accent, #55d6e8); font-size: 11px; }
+.expedition-lore { margin: 10px 0; color: #8fa4b5; font-size: 10px; line-height: 1.6; font-style: italic; }
+.expedition-dossier > p { margin: 10px 0; color: #8fa4b5; font-size: 10px; line-height: 1.6; }
+.expedition-stat-list { display: grid; gap: 5px; margin: 0 0 10px; padding: 0; list-style: none; }
+.expedition-stat-list li { display: flex; justify-content: space-between; gap: 10px; font-size: 9px; }
+.expedition-stat-list span { color: #687f91; }
+.expedition-stat-list strong { color: #bccbd4; text-align: right; }
+.expedition-request { padding: 8px 10px; border: 1px solid rgb(85 214 232 / 0.28); background: rgb(85 214 232 / 0.05); color: #a8bdca; font-size: 9px; line-height: 1.55; }
+.expedition-request > span { display: block; margin-bottom: 4px; color: var(--world-accent, #55d6e8); font-family: var(--font-mono, monospace); font-size: 7px; font-weight: 800; letter-spacing: 0.12em; }
+.expedition-manifest-rows { display: grid; gap: 4px; }
+.expedition-manifest-picker { max-height: 340px; overflow-y: auto; padding-right: 4px; }
+.expedition-manifest-row { display: grid; grid-template-columns: auto minmax(0, 1fr) 84px minmax(88px, auto); align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid #1c2e3b; background: #08131c; }
+label.expedition-manifest-row { grid-template-columns: auto auto minmax(0, 1fr) 84px minmax(88px, auto); cursor: pointer; }
+.expedition-manifest-row.is-selected { border-color: var(--crew-rarity, var(--world-accent, #55d6e8)); background: rgb(85 214 232 / 0.06); }
+.expedition-manifest-row .crew-avatar { width: 20px; height: 20px; font-size: 9px; }
+.expedition-manifest-name { min-width: 0; }
+.expedition-manifest-name strong { display: block; overflow: hidden; color: #dce7ee; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.expedition-manifest-name small { display: block; color: #718797; font-size: 8px; }
+.crew-health-chip { display: inline-flex; align-items: center; gap: 5px; }
+.crew-health-chip .crew-health-track { flex: 1 1 auto; width: 56px; margin-top: 0; }
+.crew-health-chip small { min-width: 18px; color: #8fa4b5; font-family: var(--font-mono, monospace); font-size: 8px; text-align: right; }
+.expedition-gear-tags { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+.expedition-gear-tags em { padding: 2px 6px; color: #a8bdca; border: 1px solid #284052; border-radius: 999px; background: #0a141d; font-size: 7.5px; font-style: normal; white-space: nowrap; }
+.expedition-gear-tags em.is-empty { color: #587084; border-style: dashed; }
+.expedition-biometrics .crew-health-track { max-width: 110px; }
+@media (max-width: 900px) {
+  .expedition-planning-grid { grid-template-columns: 1fr; }
+  .expedition-manifest-picker { max-height: 260px; }
+}
+
 /* Armory console */
 .armory-item-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
 .armory-item-card { display: grid; align-content: start; gap: 8px; padding: 12px; border: 1px solid #243a4b; background: #071019; }

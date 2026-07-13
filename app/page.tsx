@@ -1791,6 +1791,7 @@ export default function Home() {
               projectedOutcome: quote.projectedOutcome,
               weapons: quote.loadout.filter((entry) => entry.weaponId).length,
               armor: quote.loadout.filter((entry) => entry.armorId).length,
+              loadout: quote.loadout,
             };
           }}
           onLaunchExpedition={handleLaunchExpedition}

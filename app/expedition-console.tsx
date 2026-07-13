@@ -31,6 +31,20 @@ export type ExpeditionPreview = {
   projectedOutcome: "success" | "lean" | "setback" | "distress" | null;
   weapons: number;
   armor: number;
+  loadout: readonly {
+    crewId: string;
+    weaponId: string | null;
+    armorId: string | null;
+  }[];
+};
+
+const GEAR_SHORT_NAMES: Record<string, string> = {
+  "kinetic-pike": "Pike",
+  "arc-carbine": "Carbine",
+  "null-lance": "Lance",
+  "composite-weave": "Weave",
+  "reactive-shell": "Shell",
+  "aegis-frame": "Frame",
 };
 
 export type RescuePreview = {
@@ -227,111 +241,147 @@ function ExpeditionConsole({
             fallbackLabel: `Crew ${index + 1}`,
           }));
           return (
-            <div className="continuity-empty-state">
-              <strong>{site.name} · {Math.round(progress * 100)}% · {formatMissionTime(remaining)} remaining</strong>
-              <div role="progressbar" aria-label={`${site.name} progress`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)} className="crew-xp-track"><i style={{ width: `${progress * 100}%` }} /></div>
-              <div className="expedition-biometrics" aria-label="Party biometrics">
-                {members.map(({ survivor, gear, fallbackLabel }, index) => (
-                  <div key={survivor?.id ?? index}>
-                    <span>
-                      <strong>{survivor ? survivor.callsign || survivor.name : fallbackLabel}</strong>
-                      {survivor && <HealthBar survivor={survivor} />}
-                    </span>
-                    <small>{gear?.weaponId ? "armed" : "unarmed"} · {gear?.armorId ? "armored" : "no armor"}</small>
-                  </div>
-                ))}
+            <div className="expedition-planning-grid">
+              <div className="expedition-dossier">
+                <span className="expedition-box-label">MISSION</span>
+                <h4>{site.name}</h4>
+                <strong className="expedition-flight-readout">{Math.round(progress * 100)}% · {formatMissionTime(remaining)} remaining</strong>
+                <div role="progressbar" aria-label={`${site.name} progress`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)} className="crew-xp-track"><i style={{ width: `${progress * 100}%` }} /></div>
+                <p>{site.description}</p>
+                <ul className="expedition-stat-list">
+                  <li><span>Group strength</span><strong>{expeditions.active!.strength} vs {site.difficulty}</strong></li>
+                  <li><span>Guarantee</span><strong>The crew always returns</strong></li>
+                </ul>
               </div>
-              <p>Group strength {expeditions.active!.strength} vs difficulty {site.difficulty}. The crew always returns; wounds heal back aboard the Ark.</p>
+              <div className="expedition-manifest">
+                <span className="expedition-box-label">PARTY BIOMETRICS</span>
+                <div className="expedition-manifest-rows" aria-label="Party biometrics">
+                  {members.map(({ survivor, gear, fallbackLabel }, index) => (
+                    <div className="expedition-manifest-row" key={survivor?.id ?? index}>
+                      <span className="crew-avatar">{(survivor?.name ?? fallbackLabel).slice(0, 1)}</span>
+                      <span className="expedition-manifest-name"><strong>{survivor ? survivor.callsign || survivor.name : fallbackLabel}</strong></span>
+                      {survivor && <span className="crew-health-chip"><HealthBar survivor={survivor} /><small>{Math.round(survivor.health)}</small></span>}
+                      <span className="expedition-gear-tags">
+                        {gear?.weaponId && <em title={gear.weaponId}>⚔ {GEAR_SHORT_NAMES[gear.weaponId] ?? "Armed"}</em>}
+                        {gear?.armorId && <em title={gear.armorId}>🛡 {GEAR_SHORT_NAMES[gear.armorId] ?? "Armored"}</em>}
+                        {!gear?.weaponId && !gear?.armorId && <em className="is-empty">no gear</em>}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           );
-        })() : (
-          <>
-            <div className="crew-actions-grid">
-              <label>Destination<select value={expeditionSiteId} onChange={(event) => { setConfirmingSetback(false); setExpeditionSiteId(event.target.value as ExpeditionSiteId); }}>
-                {EXPEDITION_SITE_DEFINITIONS.map((site) => {
-                  const access = expeditionAccess[site.id];
-                  return <option key={site.id} value={site.id} disabled={!access.available}>{site.name}{access.available ? ` · ${access.fluxLabel}` : access.reason === "locked-world" ? " · later worlds" : access.reason === "already-completed" ? " · completed" : access.reason === "campaign-incomplete" ? " · after the campaign" : ""}</option>;
-                })}
-              </select></label>
-            </div>
-            {(() => {
-              const site = getExpeditionSite(expeditionSiteId);
-              const access = expeditionAccess[expeditionSiteId];
-              const trainingIds = new Set(state.training.map((program) => program.survivorId));
-              const woundedCount = state.survivors.filter(isSurvivorWounded).length;
-              const eligible = state.survivors.filter(
-                (survivor) => !trainingIds.has(survivor.id) && !isSurvivorWounded(survivor),
-              );
-              const chosen = expeditionCrewIds.filter((id) => eligible.some((survivor) => survivor.id === id));
-              const toggle = (id: string) => {
-                setConfirmingSetback(false);
-                setExpeditionCrewIds((current) => current.includes(id) ? current.filter((existing) => existing !== id) : current.length >= MAX_EXPEDITION_CREW ? current : [...current, id]);
-              };
-              const preview = chosen.length >= MIN_EXPEDITION_CREW ? getExpeditionPreview(expeditionSiteId, chosen) : null;
-              const needsConfirm =
-                preview?.projectedOutcome === "setback" ||
-                preview?.projectedOutcome === "distress";
-              return (
-                <>
-                  <p className="crew-rarity-note">{site.description} Difficulty {site.difficulty} · {formatMissionTime(site.durationSeconds)} base (Navigators level 3+ shorten it) · {access.fluxLabel}{site.countsAsSurvey ? " · counts toward planetary certification" : ""}{woundedCount > 0 ? ` · ${woundedCount} recovering crew unavailable` : ""}</p>
-                  <div className="settler-selection-list expedition-crew-list">
+        })() : (() => {
+          const site = getExpeditionSite(expeditionSiteId);
+          const access = expeditionAccess[expeditionSiteId];
+          const trainingIds = new Set(state.training.map((program) => program.survivorId));
+          const woundedCount = state.survivors.filter(isSurvivorWounded).length;
+          const eligible = state.survivors.filter(
+            (survivor) => !trainingIds.has(survivor.id) && !isSurvivorWounded(survivor),
+          );
+          const chosen = expeditionCrewIds.filter((id) => eligible.some((survivor) => survivor.id === id));
+          const toggle = (id: string) => {
+            setConfirmingSetback(false);
+            setExpeditionCrewIds((current) => current.includes(id) ? current.filter((existing) => existing !== id) : current.length >= MAX_EXPEDITION_CREW ? current : [...current, id]);
+          };
+          const preview = chosen.length >= MIN_EXPEDITION_CREW ? getExpeditionPreview(expeditionSiteId, chosen) : null;
+          const needsConfirm =
+            preview?.projectedOutcome === "setback" ||
+            preview?.projectedOutcome === "distress";
+          return (
+            <>
+              <div className="expedition-planning-grid">
+                <div className="expedition-dossier">
+                  <span className="expedition-box-label">DESTINATION DOSSIER</span>
+                  <select aria-label="Destination" value={expeditionSiteId} onChange={(event) => { setConfirmingSetback(false); setExpeditionSiteId(event.target.value as ExpeditionSiteId); }}>
+                    {EXPEDITION_SITE_DEFINITIONS.map((candidate) => {
+                      const candidateAccess = expeditionAccess[candidate.id];
+                      return <option key={candidate.id} value={candidate.id} disabled={!candidateAccess.available}>{candidate.name}{candidateAccess.available ? "" : candidateAccess.reason === "locked-world" ? " · later worlds" : candidateAccess.reason === "already-completed" ? " · completed" : candidateAccess.reason === "campaign-incomplete" ? " · after the campaign" : ""}</option>;
+                    })}
+                  </select>
+                  <p className="expedition-lore">{site.description}</p>
+                  <ul className="expedition-stat-list">
+                    <li><span>Difficulty</span><strong>{site.difficulty}</strong></li>
+                    <li><span>Duration</span><strong>{formatMissionTime(site.durationSeconds)} base</strong></li>
+                    <li><span>Launch cost</span><strong>{access.fluxLabel}</strong></li>
+                    <li><span>Favors</span><strong>{site.focusRoles.length >= 9 ? "Every profession" : site.focusRoles.map(titleCase).join(", ")} · +50% XP</strong></li>
+                    {site.countsAsSurvey && <li><span>Certification</span><strong>Counts toward planetary surveys</strong></li>}
+                  </ul>
+                  <div className="expedition-request">
+                    <span>MISSION PROFILE</span>
+                    Requests strength {site.difficulty}+ for full success. {Math.max(1, site.difficulty - 7)}+ still returns unharmed with lean rewards; below that the crew comes home wounded{site.difficulty > 16 ? ", and far below it they would be stranded" : ""}. Weapons add strength; Navigators level 3+ fly faster.
+                  </div>
+                </div>
+                <div className="expedition-manifest">
+                  <span className="expedition-box-label">CREW MANIFEST · {chosen.length}/{MAX_EXPEDITION_CREW}{woundedCount > 0 ? ` · ${woundedCount} recovering unavailable` : ""}</span>
+                  <div className="expedition-manifest-rows expedition-manifest-picker">
                     {eligible.map((survivor) => {
                       const rarity = getSurvivorRarity(survivor);
                       const picked = chosen.includes(survivor.id);
+                      const gear = preview?.loadout.find((entry) => entry.crewId === survivor.id) ?? null;
                       return (
-                        <label className={`crew-rarity-${rarity.id} ${picked ? "is-selected" : ""}`} key={survivor.id}>
+                        <label className={`expedition-manifest-row crew-rarity-${rarity.id} ${picked ? "is-selected" : ""}`} key={survivor.id}>
                           <input type="checkbox" checked={picked} onChange={() => toggle(survivor.id)} />
                           <span className="crew-avatar">{survivor.name.slice(0, 1)}</span>
-                          <span><strong>{survivor.callsign || survivor.name}</strong><small>{survivor.role === "civilian" ? "Civilian" : `${titleCase(survivor.role)} · Level ${getSurvivorSkillLevel(survivor, survivor.role)}`}</small><HealthBar survivor={survivor} /></span>
-                          <span className="settler-row-status"><b>{picked ? "CREW" : ""}</b></span>
+                          <span className="expedition-manifest-name">
+                            <strong>{survivor.callsign || survivor.name}</strong>
+                            <small>{survivor.role === "civilian" ? "Civilian" : `${titleCase(survivor.role)} · Lv ${getSurvivorSkillLevel(survivor, survivor.role)}`}</small>
+                          </span>
+                          <span className="crew-health-chip"><HealthBar survivor={survivor} /><small>{Math.round(survivor.health)}</small></span>
+                          <span className="expedition-gear-tags">
+                            {picked && gear?.weaponId && <em title={gear.weaponId}>⚔ {GEAR_SHORT_NAMES[gear.weaponId] ?? "Armed"}</em>}
+                            {picked && gear?.armorId && <em title={gear.armorId}>🛡 {GEAR_SHORT_NAMES[gear.armorId] ?? "Armored"}</em>}
+                            {picked && preview && !gear?.weaponId && !gear?.armorId && <em className="is-empty">no gear</em>}
+                          </span>
                         </label>
                       );
                     })}
                   </div>
-                  {preview && (
-                    <div className={`expedition-projection ${preview.projectedOutcome === "setback" || preview.projectedOutcome === "distress" ? "is-warning" : ""}`} aria-live="polite">
-                      <strong>
-                        {preview.projectedOutcome === "success"
-                          ? `Projected: SUCCESS (strength ${preview.strength} vs ${preview.difficulty})`
-                          : preview.projectedOutcome === "lean"
-                            ? `Projected: LEAN RETURN (strength ${preview.strength} vs ${preview.difficulty}) — reduced rewards, nobody hurt`
-                            : preview.projectedOutcome === "setback"
-                              ? `Projected: SETBACK RISK (strength ${preview.strength} vs ${preview.difficulty}) — the crew will come home wounded`
-                              : `Projected: DISTRESS (strength ${preview.strength} vs ${preview.difficulty}) — the crew would be STRANDED and need a rescue mission`}
-                      </strong>
-                      <br />
-                      Auto-equip: {preview.weapons > 0 ? `${preview.weapons} weapon${preview.weapons === 1 ? "" : "s"} (+${preview.gearStrength} strength)` : "no weapons"} · {preview.armor > 0 ? `${preview.armor} armor` : "no armor"}. Forge more in the Armory.
-                    </div>
-                  )}
-                  <button
-                    className="forecast-action"
-                    type="button"
-                    disabled={!access.available || !access.canAffordFlux || chosen.length < MIN_EXPEDITION_CREW}
-                    onClick={() => {
-                      if (needsConfirm && !confirmingSetback) {
-                        setConfirmingSetback(true);
-                        return;
-                      }
-                      setConfirmingSetback(false);
-                      onLaunchExpedition(expeditionSiteId, chosen);
-                      setExpeditionCrewIds([]);
-                    }}
-                  >
-                    {chosen.length < MIN_EXPEDITION_CREW
-                      ? `Select ${MIN_EXPEDITION_CREW}-${MAX_EXPEDITION_CREW} crew`
-                      : !access.canAffordFlux
-                        ? `Needs ${access.fluxLabel}`
-                        : needsConfirm
-                          ? confirmingSetback
-                            ? "AXIOM objection logged — confirm launch"
-                            : `Launch anyway? Crew will be wounded · ${access.fluxLabel}`
-                          : `Launch ${site.name} · ${access.fluxLabel}`}
-                  </button>
-                </>
-              );
-            })()}
-          </>
-        )}
+                </div>
+              </div>
+              {preview && (
+                <div className={`expedition-projection ${preview.projectedOutcome === "setback" || preview.projectedOutcome === "distress" ? "is-warning" : ""}`} aria-live="polite">
+                  <strong>
+                    {preview.projectedOutcome === "success"
+                      ? `Projected: SUCCESS (strength ${preview.strength} vs ${preview.difficulty})`
+                      : preview.projectedOutcome === "lean"
+                        ? `Projected: LEAN RETURN (strength ${preview.strength} vs ${preview.difficulty}) — reduced rewards, nobody hurt`
+                        : preview.projectedOutcome === "setback"
+                          ? `Projected: SETBACK RISK (strength ${preview.strength} vs ${preview.difficulty}) — the crew will come home wounded`
+                          : `Projected: DISTRESS (strength ${preview.strength} vs ${preview.difficulty}) — the crew would be STRANDED and need a rescue mission`}
+                  </strong>
+                  <br />
+                  Auto-equip: {preview.weapons > 0 ? `${preview.weapons} weapon${preview.weapons === 1 ? "" : "s"} (+${preview.gearStrength} strength)` : "no weapons"} · {preview.armor > 0 ? `${preview.armor} armor` : "no armor"}. Forge more in the Armory.
+                </div>
+              )}
+              <button
+                className="forecast-action"
+                type="button"
+                disabled={!access.available || !access.canAffordFlux || chosen.length < MIN_EXPEDITION_CREW}
+                onClick={() => {
+                  if (needsConfirm && !confirmingSetback) {
+                    setConfirmingSetback(true);
+                    return;
+                  }
+                  setConfirmingSetback(false);
+                  onLaunchExpedition(expeditionSiteId, chosen);
+                  setExpeditionCrewIds([]);
+                }}
+              >
+                {chosen.length < MIN_EXPEDITION_CREW
+                  ? `Select ${MIN_EXPEDITION_CREW}-${MAX_EXPEDITION_CREW} crew`
+                  : !access.canAffordFlux
+                    ? `Needs ${access.fluxLabel}`
+                    : needsConfirm
+                      ? confirmingSetback
+                        ? "AXIOM objection logged — confirm launch"
+                        : `Launch anyway? Crew will be wounded · ${access.fluxLabel}`
+                      : `Launch ${site.name} · ${access.fluxLabel}`}
+              </button>
+            </>
+          );
+        })()}
       </section>
 
       {expeditions.log.length > 0 && (
