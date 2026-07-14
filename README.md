@@ -14,7 +14,7 @@ You awaken as AXIOM, the damaged caretaker intelligence of an empty interplaneta
 4. Rescue persistent procedural survivor groups with names, histories, traits, aptitudes, and occasional mystery characters.
 5. Let AXIOM staff adults into their strongest work, protect manual assignments, and study new professions while the game is open or closed.
 6. Manufacture science inputs and route them through the configurable Research Lattice.
-7. Complete Ark Engineering, Human Continuity, and Null Studies projects.
+7. Advance through four research eras across eight connected disciplines, from emergency recovery to Axiom theory.
 8. Restore planetary infrastructure, resolve its crisis, and stock an independent settlement.
 9. Explicitly choose the trained founders who will remain on the planet.
 10. Depart only when the continuity forecast proves the world can survive without the Ark.
@@ -37,10 +37,12 @@ The campaign moves through Cold Wake, Pelagos, Viridia, Cinder, Nox, and Vesper.
 - Stable profile-rarity colors across survivor signals, rosters, Ark previews, and founder selection
 - Stable life-support capacity with no hunger, death, punishment timers, or negative offline decay
 - A 48-person Ark limit, expandable living space, family groups, children, elders, Ark Reserve, automatic staffing, protected manual assignments, cross-training, callsigns, and offline XP
-- A visual Research Lattice with safe auto-routing and an optional manual patch panel
-- Six manufactured research inputs, six processors, crew/power limits, and three connected branches
-- Research that unlocks habitation, training, medicine, fabrication, settlement planning, and the Null mystery
-- A six-frame Personnel Armory with shared auto-equipment, offline Mark projects, researched specializations, scarce material costs, and permanent Axiom manufacturing laws
+- A visual Research Lattice with distinct Core, Technology Map, routing, and discovery Archive views
+- Seven research inputs, six processors, crew/power limits, eight branches, 38 programs, four eras, and four experimental stages
+- Researcher-led projects whose speed reflects the on-duty crew, plus late repeatable studies that keep the Lattice useful
+- Research that unlocks habitation, training, medicine, fabrication, settlement planning, Armory laws, and the Null mystery
+- Permanent Profile Elevation that can raise a favorite crew member's rarity through mastery, research, Axioms, and scarce evidence without replacing their identity
+- A six-frame Personnel Armory with shared auto-equipment, offline Mark projects, researched specializations, scarce material costs, and research-proven Axiom manufacturing laws
 - Planet-specific Community Readiness, combined Expertise, infrastructure, supply, crisis, and research requirements
 - Live crisis-resolution checklists generated from every world's Foundry stages, infrastructure, research, and Flux gates
 - Explicit founder selection and detailed viability forecasts with fair research/equipment substitutions

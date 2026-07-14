@@ -183,6 +183,18 @@
 .crew-actions-grid select:focus,
 .colony-name-input:focus { border-color: var(--world-accent, #55d6e8); }
 .crew-callsign-form button { padding: 8px 10px; color: #aebfca; border: 1px solid #2a4153; background: #0a1620; cursor: pointer; }
+.crew-profile-elevation { margin: 10px 0; padding: 12px; border: 1px solid rgb(var(--crew-rarity-rgb, 167 182 194) / 0.38); background: radial-gradient(circle at 100% 0, rgb(var(--crew-rarity-rgb, 167 182 194) / 0.14), transparent 42%), #071019; }
+.crew-profile-elevation header { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+.crew-profile-elevation header span, .crew-profile-elevation header strong, .crew-profile-elevation header small { display: block; }
+.crew-profile-elevation header span { color: var(--crew-rarity, #a7b6c2); font-size: 8px; letter-spacing: 0.14em; }
+.crew-profile-elevation header strong { margin-top: 4px; color: #e7f1f5; font-family: var(--font-mono, monospace); font-size: 12px; }
+.crew-profile-elevation header small, .crew-profile-elevation > small { color: #6d8291; font-size: 8px; }
+.crew-profile-elevation p { color: #93a7b5; font-size: 9px; line-height: 1.55; }
+.profile-elevation-costs { display: flex; flex-wrap: wrap; gap: 6px; margin: 9px 0; }
+.profile-elevation-costs span { padding: 5px 7px; border: 1px solid #1f3543; color: #758b99; font-size: 8px; }
+.profile-elevation-costs b { color: #d8e7ed; font-family: var(--font-mono, monospace); }
+.crew-profile-elevation > button { width: 100%; padding: 9px; border: 1px solid rgb(var(--crew-rarity-rgb, 167 182 194) / 0.48); color: #dce9ee; background: rgb(var(--crew-rarity-rgb, 167 182 194) / 0.1); cursor: pointer; }
+.crew-profile-elevation > button:disabled { opacity: 0.48; cursor: not-allowed; }
 .crew-trait-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
 .crew-trait-list span { padding: 5px 7px; color: #a8bdca; border: 1px solid #284052; background: #08131c; font-size: 8px; }
 .crew-skill-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }

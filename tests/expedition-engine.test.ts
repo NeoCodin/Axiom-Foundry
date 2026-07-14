@@ -354,6 +354,12 @@ test("specializations create visible tradeoffs and Axiom laws stay hard-gated", 
 
   assert.equal(getArmoryLawQuote(armed, "recursive-forging").canBuy, false);
   armed.axioms = 20;
+  assert.equal(
+    getArmoryLawQuote(armed, "recursive-forging").canBuy,
+    false,
+    "Axioms cannot bypass the research proof",
+  );
+  armed.research.completedProjectIds.push("recursive-manufacturing");
   const lawCost = getArmoryLawQuote(armed, "recursive-forging").cost;
   const lawful = purchaseArmoryLaw(armed, "recursive-forging");
   assert.equal(lawful.armory.laws["recursive-forging"], 1);

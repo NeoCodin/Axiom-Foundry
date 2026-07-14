@@ -30,6 +30,8 @@ import {
   getProductionSnapshot,
   getResearchCrewAvailable,
   getResearchPowerAvailable,
+  getProfileElevationQuote,
+  elevateCrewProfile,
   getTierCost,
   isTierUnlocked,
   pulseCore,
@@ -51,6 +53,7 @@ import {
 import {
   SOS_SCAN_SECONDS_BY_WORLD,
   advanceSurvivorSystem,
+  getSurvivorRarity,
   sanitizeSurvivorSystemState,
   type Survivor,
 } from "../app/survivor-engine.ts";
@@ -101,6 +104,12 @@ function testCrewMember(
     joinedAt: 0,
     storyHookId: null,
     rarityFloor: null,
+    profileElevations: [],
+    assignmentLocked: false,
+    preferredRole: assignedRole,
+    settlementProtected: false,
+    ageGroup: "adult",
+    ageProgress: 0,
     health: 100,
     injury: null,
   };
@@ -282,6 +291,34 @@ test("recalibration grants the previewed Axiom and retains legacy progress", () 
   assert.equal(next.living.foundryName, "The Quiet Argument");
   assert.equal(next.living.rooms[0].level, 3);
   assert.deepEqual(next.living.discoveredLore, ["awakening.cold-wake"]);
+});
+
+test("Profile Elevation preserves a favorite crew member's identity and XP", () => {
+  const state = createInitialState(0);
+  const favorite = testCrewMember(
+    "favorite",
+    "researcher",
+    { researcher: 500 },
+  );
+  favorite.callsign = "Lantern";
+  state.survivors.survivors = [favorite];
+  state.research.completedProjectIds = ["human-potential-mapping"];
+  state.axioms = 3;
+  state.researchStock["cultural-records"] = 200;
+
+  const quote = getProfileElevationQuote(state, favorite.id);
+  assert.equal(quote.targetRarity, "notable");
+  assert.equal(quote.canElevate, true);
+  const elevated = elevateCrewProfile(state, favorite.id);
+  const after = elevated.survivors.survivors[0]!;
+
+  assert.equal(state.survivors.survivors[0]!.rarityFloor, null, "snapshot stays immutable");
+  assert.equal(after.name, favorite.name);
+  assert.equal(after.callsign, "Lantern");
+  assert.equal(after.skillXp.researcher, 500);
+  assert.equal(getSurvivorRarity(after).id, "notable");
+  assert.equal(after.profileElevations.length, 1);
+  assert.equal(elevated.axioms, 2);
 });
 
 test("completed lattice research provides modest final economy support", () => {
@@ -875,6 +912,17 @@ test("staffed Analysis Core auto-transfers inputs; Null Traces need a qualified 
   state.research.assignedCrew = 2;
   state.researchStock["calibration-data"] = 500;
   state.researchStock["null-traces"] = 500;
+  state.survivors = sanitizeSurvivorSystemState({
+    survivors: [{
+      id: "analysis-lead",
+      name: "Analysis Lead",
+      role: "researcher",
+      backgroundId: "reef-archive",
+      aptitudes: { researcher: 4 },
+      skillXp: { researcher: 500 },
+      assignedRole: "researcher",
+    }],
+  });
 
   const sim = simulateGame(state, 5, 50, false);
   assert.ok(sim.research.inventory["calibration-data"] > 0, "common input moved");

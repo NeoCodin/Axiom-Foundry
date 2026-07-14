@@ -67,6 +67,20 @@ export type BerthPanelQuote = {
   progressRatio: number;
 };
 
+export type ProfileElevationView = {
+  currentRarity: string;
+  targetRarity: string | null;
+  researchName: string | null;
+  levelRequired: number;
+  masteryLevel: number;
+  axiomCost: number;
+  culturalCost: number;
+  proofCost: number;
+  nullCost: number;
+  canElevate: boolean;
+  reason: "missing" | "child" | "maximum" | "research" | "mastery" | "resources" | null;
+};
+
 export type PopulationConsoleProps = {
   state: SurvivorSystemState;
   salvage: number;
@@ -97,6 +111,8 @@ export type PopulationConsoleProps = {
   onCancelTraining: (survivorId: string) => void;
   onAssignRole: (survivorId: string, role: SurvivorRole | null) => void;
   onRenameCallsign: (survivorId: string, callsign: string) => void;
+  getProfileElevation: (survivorId: string) => ProfileElevationView;
+  onElevateProfile: (survivorId: string) => void;
   onOpenHelp: (topicId: ManualTopicId) => void;
   onBack: () => void;
 };
@@ -149,6 +165,8 @@ function PopulationConsole({
   onCancelTraining,
   onAssignRole,
   onRenameCallsign,
+  getProfileElevation,
+  onElevateProfile,
   onOpenHelp,
   onBack,
 }: PopulationConsoleProps) {
@@ -173,6 +191,9 @@ function PopulationConsole({
       : null;
   const selectedContinuity = selectedCrew
     ? getSurvivorContinuityExpertise(selectedCrew)
+    : null;
+  const selectedElevation = selectedCrew
+    ? getProfileElevation(selectedCrew.id)
     : null;
   const selectedJobRole =
     selectedCrew?.assignedRole && selectedCrew.assignedRole !== "civilian"
@@ -536,6 +557,63 @@ function PopulationConsole({
                 )}
               </div>
               <form className="crew-callsign-form" onSubmit={submitCallsign}><label htmlFor="crew-callsign">Callsign</label><input id="crew-callsign" name="callsign" maxLength={18} defaultValue={selectedCrew.callsign} placeholder="Optional" /><button type="submit">Save</button></form>
+              {selectedElevation && (
+                <section className="crew-profile-elevation" aria-label="Profile elevation">
+                  <header>
+                    <div>
+                      <span>PROFILE ELEVATION</span>
+                      <strong>
+                        {selectedElevation.targetRarity
+                          ? `${titleCase(selectedElevation.currentRarity)} → ${titleCase(selectedElevation.targetRarity)}`
+                          : `${titleCase(selectedElevation.currentRarity)} profile complete`}
+                      </strong>
+                    </div>
+                    <small>Permanent · identity and XP preserved</small>
+                  </header>
+                  {selectedElevation.targetRarity ? (
+                    <>
+                      <p>
+                        Recognize earned mastery as a permanent service profile. Elevation raises
+                        learning speed and profession capacity; it never replaces this person,
+                        their callsign, history, traits, or learned levels.
+                      </p>
+                      <div className="profile-elevation-costs">
+                        <span>Mastery <b>LV {selectedElevation.masteryLevel}/{selectedElevation.levelRequired}</b></span>
+                        <span>Axioms <b>{selectedElevation.axiomCost}</b></span>
+                        <span>Culture <b>{selectedElevation.culturalCost}</b></span>
+                        {selectedElevation.proofCost > 0 && <span>Proofs <b>{selectedElevation.proofCost}</b></span>}
+                        {selectedElevation.nullCost > 0 && <span>Null <b>{selectedElevation.nullCost}</b></span>}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={!selectedElevation.canElevate}
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              `Permanently elevate ${selectedCrew.callsign || selectedCrew.name} to ${titleCase(selectedElevation.targetRarity!)}? Their identity and all profession XP will be preserved.`,
+                            )
+                          ) onElevateProfile(selectedCrew.id);
+                        }}
+                      >
+                        {selectedElevation.canElevate
+                          ? `Elevate to ${titleCase(selectedElevation.targetRarity)}`
+                          : selectedElevation.reason === "research"
+                            ? `Requires ${selectedElevation.researchName}`
+                            : selectedElevation.reason === "mastery"
+                              ? `Requires profession mastery level ${selectedElevation.levelRequired}`
+                              : "Required evidence unavailable"}
+                      </button>
+                    </>
+                  ) : (
+                    <p>This service profile has reached the Ark&apos;s highest recognized classification.</p>
+                  )}
+                  {selectedCrew.profileElevations.length > 0 && (
+                    <small>
+                      Service record: {selectedCrew.profileElevations.map((record) => `${titleCase(record.from)} → ${titleCase(record.to)}`).join(" · ")}
+                    </small>
+                  )}
+                </section>
+              )}
               <div className="team-alpha-actions">
                 <button type="button" disabled={!selectedCrew.assignmentLocked || selectedCrew.ageGroup === "child"} onClick={() => onReturnToAutoAssignment(selectedCrew.id)}>{selectedCrew.assignmentLocked ? "Return assignment to AXIOM" : "Assignment managed by AXIOM"}</button>
                 <button type="button" onClick={() => onProtectForArk(selectedCrew.id, !selectedCrew.settlementProtected)}>{selectedCrew.settlementProtected ? "Allow planetary selection" : "Protect for the Ark"}</button>

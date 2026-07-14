@@ -82,6 +82,7 @@ import {
   applyStrandedCondition,
   applySurvivorWound,
   dischargeFromMedBay,
+  elevateSurvivorProfile,
   getMedBayCarePool,
   getMedBayRecoveryPerHour,
   isSurvivorAdmitted,
@@ -96,6 +97,7 @@ import {
   getBerthCapacity,
   getLifeSupportStatus,
   getSurvivorRarity,
+  getSurvivorBestSkillLevel,
   getSurvivorSkillLevel,
   isSurvivorOnDuty,
   isSurvivorWounded,
@@ -110,6 +112,7 @@ import {
   startBerthSectionConstruction,
   transferSurvivorsToSettlement,
   type RareSurvivorHookId,
+  type SurvivorRarityId,
   type SurvivorSystemState,
 } from "./survivor-engine.ts";
 import {
@@ -118,8 +121,11 @@ import {
   cloneResearchLatticeState,
   createResearchLatticeState,
   getResearchBonuses,
+  getResearchProjectCosts,
   getResearchProjectDefinition,
+  getResearchRepeatCount,
   sanitizeResearchLatticeState,
+  type ResearchExpertise,
   type ResearchInputBundle,
   type ResearchLatticeState,
   type ResearchProjectId,
@@ -1253,10 +1259,78 @@ export function getEquipmentFabricationQuote(
 /**
  * Null material lies to its handlers: automating its transfer into the
  * Lattice requires a level-5 Researcher of Exceptional or better rarity.
- * Common inputs auto-transfer whenever the Analysis Core is staffed.
+ * Common inputs auto-transfer once the staffed Analysis Core has an on-duty
+ * level-3 Researcher to supervise it.
  */
+function getUnavailableResearchCrewIds(state: GameState) {
+  return new Set([
+    ...state.survivors.training.map((program) => program.survivorId),
+    ...state.survivors.medBayIds,
+    ...getDeployedCrewIds(state.expeditions),
+  ]);
+}
+
+export function getOperationalResearchExpertise(state: GameState): ResearchExpertise {
+  const totals: ResearchExpertise = {
+    research: 0,
+    engineering: 0,
+    fabrication: 0,
+    medicine: 0,
+    education: 0,
+    field: 0,
+    navigation: 0,
+    ecology: 0,
+  };
+  const unavailable = getUnavailableResearchCrewIds(state);
+  const add = (
+    survivor: (typeof state.survivors.survivors)[number],
+    role: Parameters<typeof getSurvivorSkillLevel>[1],
+    target: keyof ResearchExpertise,
+    weight = 1,
+  ) => {
+    if (unavailable.has(survivor.id) || !isSurvivorOnDuty(survivor, role)) return;
+    totals[target] += getSurvivorSkillLevel(survivor, role) * weight;
+  };
+  for (const survivor of state.survivors.survivors) {
+    add(survivor, "researcher", "research");
+    add(survivor, "engineer", "engineering");
+    add(survivor, "technician", "engineering", 0.5);
+    add(survivor, "fabricator", "fabrication");
+    add(survivor, "technician", "fabrication", 0.5);
+    add(survivor, "doctor", "medicine");
+    add(survivor, "teacher", "education");
+    add(survivor, "security", "field");
+    add(survivor, "navigator", "navigation");
+    add(survivor, "farmer", "ecology");
+  }
+  return totals;
+}
+
+export function getResearchLeadStatus(state: GameState) {
+  const unavailable = getUnavailableResearchCrewIds(state);
+  const lead = state.survivors.survivors
+    .filter(
+      (survivor) =>
+        !unavailable.has(survivor.id) && isSurvivorOnDuty(survivor, "researcher"),
+    )
+    .sort(
+      (left, right) =>
+        getSurvivorSkillLevel(right, "researcher") -
+        getSurvivorSkillLevel(left, "researcher"),
+    )[0];
+  const rarity = lead ? getSurvivorRarity(lead).id : "standard";
+  return {
+    level: lead ? getSurvivorSkillLevel(lead, "researcher") : 0,
+    exceptional:
+      Boolean(lead) && (rarity === "exceptional" || rarity === "anomalous"),
+    name: lead?.callsign || lead?.name || null,
+  };
+}
+
 export function hasQualifiedNullHandler(state: GameState) {
+  const unavailable = getUnavailableResearchCrewIds(state);
   return state.survivors.survivors.some((survivor) => {
+    if (unavailable.has(survivor.id) || !isSurvivorOnDuty(survivor, "researcher")) return false;
     if (getSurvivorSkillLevel(survivor, "researcher") < 5) return false;
     const rarity = getSurvivorRarity(survivor).id;
     return rarity === "exceptional" || rarity === "anomalous";
@@ -1265,13 +1339,12 @@ export function hasQualifiedNullHandler(state: GameState) {
 
 export function getAutoTransferStatus(state: GameState) {
   const staffed = state.research.assignedCrew >= 1;
+  const lead = getResearchLeadStatus(state);
   return {
-    common: staffed,
+    common: staffed && lead.level >= 3,
     nullTraces: staffed && hasQualifiedNullHandler(state),
   };
 }
-
-const AUTO_TRANSFER_BUFFER = 100;
 
 function autoTransferResearchInputs(state: GameState) {
   const project = state.research.activeProjectId
@@ -1280,16 +1353,17 @@ function autoTransferResearchInputs(state: GameState) {
   if (!project) return;
   const status = getAutoTransferStatus(state);
   if (!status.common) return;
+  const projectCosts = getResearchProjectCosts(state.research, project);
   const moved: Partial<ResearchInputBundle> = {};
   let any = false;
   for (const inputId of Object.keys(state.researchStock) as Array<
     keyof ResearchInputBundle
   >) {
-    if ((project.costs[inputId] ?? 0) <= 0) continue;
+    if ((projectCosts[inputId] ?? 0) <= 0) continue;
     if (inputId === "null-traces" && !status.nullTraces) continue;
     const shortfall = Math.max(
       0,
-      AUTO_TRANSFER_BUFFER - state.research.inventory[inputId],
+      (projectCosts[inputId] ?? 0) + 25 - state.research.inventory[inputId],
     );
     const amount = Math.min(state.researchStock[inputId], shortfall);
     if (amount <= 0) continue;
@@ -1531,7 +1605,7 @@ const getMarkResearchId = (
   kind: "weapon" | "armor",
   targetMark: ArmoryMark,
 ): ResearchProjectId => {
-  if (targetMark === 4) return "axiom-origin-proof";
+  if (targetMark === 4) return "impossible-material-synthesis";
   if (kind === "weapon")
     return targetMark === 2 ? "arc-discharge-weapons" : "null-edge-armaments";
   return targetMark === 2 ? "reactive-shell" : "aegis-frame";
@@ -1574,13 +1648,25 @@ export function getArmoryUpgradeQuote(
   }
   const patternFactor = 1 - 0.1 * state.armory.laws["standardized-patterns"];
   const forgingFactor = Math.pow(0.85, state.armory.laws["recursive-forging"]);
+  const operations = getOperationalResearchExpertise(state);
+  const crewFactor = 1 / (1 + Math.min(0.3, (operations.engineering + operations.fabrication) * 0.01));
+  const stressFactor = Math.pow(
+    0.98,
+    Math.min(10, getResearchRepeatCount(state.research, "equipment-stress-tests")),
+  );
   const tierFactor = 0.75 + item.tier * 0.25;
   const fluxCost = bounded(item.fluxCostBase * ARMORY_MARK_FLUX_MULTIPLIER[targetMark] * continuityScale(state) * patternFactor);
   const salvageCost = Math.ceil((targetMark === 2 ? 80 : targetMark === 3 ? 220 : 650) * item.tier * patternFactor);
   const schematicCost = Math.ceil((targetMark === 2 ? 30 : targetMark === 3 ? 80 : 200) * item.tier * patternFactor);
   const modelCost = Math.ceil(item.modelCost * (targetMark === 2 ? 2 : targetMark === 3 ? 4 : 8) * patternFactor);
   const nullTraceCost = Math.ceil((targetMark === 2 ? 0 : targetMark === 3 ? 20 : 100) * item.tier * patternFactor);
-  const durationSeconds = Math.ceil(ARMORY_MARK_DURATION_SECONDS[targetMark] * tierFactor * forgingFactor);
+  const durationSeconds = Math.ceil(
+    ARMORY_MARK_DURATION_SECONDS[targetMark] *
+      tierFactor *
+      forgingFactor *
+      crewFactor *
+      stressFactor,
+  );
   const requiredResearchId = getMarkResearchId(item.kind, targetMark);
   const reason = state.armory.activeProject
     ? ("project" as const)
@@ -1652,7 +1738,20 @@ export function getArmoryLawQuote(state: GameState, lawId: ArmoryLawId) {
   const level = state.armory.laws[lawId];
   const maxed = level >= definition.maxLevel;
   const cost = maxed ? 0 : Math.ceil(definition.baseCost * Math.pow(2, level));
-  return { lawId, level, maxed, cost, canBuy: !maxed && state.axioms >= cost };
+  const researchMet = state.research.completedProjectIds.includes(
+    definition.requiredResearchId as ResearchProjectId,
+  );
+  return {
+    lawId,
+    level,
+    maxed,
+    cost,
+    researchMet,
+    researchName:
+      getResearchProjectDefinition(definition.requiredResearchId as ResearchProjectId)?.name ??
+      definition.requiredResearchId.replaceAll("-", " "),
+    canBuy: !maxed && researchMet && state.axioms >= cost,
+  };
 }
 
 export function purchaseArmoryLaw(state: GameState, lawId: ArmoryLawId) {
@@ -1661,6 +1760,130 @@ export function purchaseArmoryLaw(state: GameState, lawId: ArmoryLawId) {
   const next = cloneGameState(state);
   next.axioms -= quote.cost;
   next.armory = buyArmoryStateLaw(next.armory, lawId);
+  return next;
+}
+
+const PROFILE_ELEVATION_STEPS = {
+  notable: {
+    from: "standard",
+    researchId: "human-potential-mapping",
+    levelRequired: 3,
+    axiomCost: 1,
+    culturalCost: 100,
+    proofCost: 0,
+    nullCost: 0,
+  },
+  exceptional: {
+    from: "notable",
+    researchId: "continuity-scaffolding",
+    levelRequired: 6,
+    axiomCost: 3,
+    culturalCost: 300,
+    proofCost: 10,
+    nullCost: 0,
+  },
+  anomalous: {
+    from: "exceptional",
+    researchId: "axiomatic-identity-preservation",
+    levelRequired: 9,
+    axiomCost: 8,
+    culturalCost: 1_000,
+    proofCost: 40,
+    nullCost: 50,
+  },
+} as const;
+
+export type ProfileElevationQuote = {
+  survivorId: string;
+  currentRarity: SurvivorRarityId;
+  targetRarity: Exclude<SurvivorRarityId, "standard"> | null;
+  researchName: string | null;
+  levelRequired: number;
+  masteryLevel: number;
+  axiomCost: number;
+  culturalCost: number;
+  proofCost: number;
+  nullCost: number;
+  canElevate: boolean;
+  reason: "missing" | "child" | "maximum" | "research" | "mastery" | "resources" | null;
+};
+
+export function getProfileElevationQuote(
+  state: GameState,
+  survivorId: string,
+): ProfileElevationQuote {
+  const survivor = state.survivors.survivors.find((candidate) => candidate.id === survivorId);
+  const missing = (reason: ProfileElevationQuote["reason"]): ProfileElevationQuote => ({
+    survivorId,
+    currentRarity: survivor ? getSurvivorRarity(survivor).id : "standard",
+    targetRarity: null,
+    researchName: null,
+    levelRequired: 0,
+    masteryLevel: survivor ? getSurvivorBestSkillLevel(survivor) : 0,
+    axiomCost: 0,
+    culturalCost: 0,
+    proofCost: 0,
+    nullCost: 0,
+    canElevate: false,
+    reason,
+  });
+  if (!survivor) return missing("missing");
+  if (survivor.ageGroup === "child") return missing("child");
+  const currentRarity = getSurvivorRarity(survivor).id;
+  const targetRarity =
+    currentRarity === "standard"
+      ? "notable"
+      : currentRarity === "notable"
+        ? "exceptional"
+        : currentRarity === "exceptional"
+          ? "anomalous"
+          : null;
+  if (!targetRarity) return missing("maximum");
+  const step = PROFILE_ELEVATION_STEPS[targetRarity];
+  const research = getResearchProjectDefinition(step.researchId);
+  const researchMet = state.research.completedProjectIds.includes(step.researchId);
+  const masteryLevel = getSurvivorBestSkillLevel(survivor);
+  const resourcesMet =
+    state.axioms >= step.axiomCost &&
+    state.researchStock["cultural-records"] >= step.culturalCost &&
+    state.researchStock["axiom-proofs"] >= step.proofCost &&
+    state.researchStock["null-traces"] >= step.nullCost;
+  const reason = !researchMet
+    ? "research"
+    : masteryLevel < step.levelRequired
+      ? "mastery"
+      : !resourcesMet
+        ? "resources"
+        : null;
+  return {
+    survivorId,
+    currentRarity,
+    targetRarity,
+    researchName: research?.name ?? step.researchId.replaceAll("-", " "),
+    levelRequired: step.levelRequired,
+    masteryLevel,
+    axiomCost: step.axiomCost,
+    culturalCost: step.culturalCost,
+    proofCost: step.proofCost,
+    nullCost: step.nullCost,
+    canElevate: reason === null,
+    reason,
+  };
+}
+
+export function elevateCrewProfile(state: GameState, survivorId: string) {
+  const quote = getProfileElevationQuote(state, survivorId);
+  if (!quote.canElevate || !quote.targetRarity) return state;
+  const next = cloneGameState(state);
+  next.axioms -= quote.axiomCost;
+  next.researchStock["cultural-records"] -= quote.culturalCost;
+  next.researchStock["axiom-proofs"] -= quote.proofCost;
+  next.researchStock["null-traces"] -= quote.nullCost;
+  next.survivors = elevateSurvivorProfile(
+    next.survivors,
+    survivorId,
+    quote.targetRarity,
+  );
   return next;
 }
 
@@ -2214,8 +2437,19 @@ export function getAssignedEngineerCount(state: GameState) {
   ).length;
 }
 
+export function getAssignedEngineeringExpertise(state: GameState) {
+  return state.survivors.survivors.reduce(
+    (total, survivor) =>
+      total +
+      (isSurvivorOnDuty(survivor, "engineer")
+        ? getSurvivorSkillLevel(survivor, "engineer")
+        : 0),
+    0,
+  );
+}
+
 export function getBerthConstructionSpeed(state: GameState) {
-  return Math.min(5, 1 + getAssignedEngineerCount(state) * 0.35);
+  return Math.min(5, 1 + getAssignedEngineeringExpertise(state) * 0.08);
 }
 
 export type BerthConstructionQuote = {
@@ -3204,10 +3438,12 @@ export function getResearchPowerAvailable(state: GameState) {
 }
 
 export function getResearchCrewAvailable(state: GameState) {
+  const unavailable = getUnavailableResearchCrewIds(state);
   const operators = state.survivors.survivors.filter(
     (survivor) =>
-      isSurvivorOnDuty(survivor, "researcher") ||
-      isSurvivorOnDuty(survivor, "technician"),
+      !unavailable.has(survivor.id) &&
+      (isSurvivorOnDuty(survivor, "researcher") ||
+        isSurvivorOnDuty(survivor, "technician")),
   ).length;
   return Math.min(8, Math.max(1, operators));
 }
@@ -3220,12 +3456,27 @@ function generateResearchStock(state: GameState, elapsedSeconds: number) {
   const worldIndex = getCampaignWorldIndex(state);
   const bonuses = getResearchBonuses(state.research);
   const colony = getColonyLegacyEffects(state);
+  const expertise = getOperationalResearchExpertise(state);
   const gains: ResearchInputBundle = {
-    "calibration-data": seconds * 0.025,
+    "calibration-data": seconds * (0.025 + expertise.research * 0.0005),
     "engineering-models":
-      seconds * Math.min(1.5, 0.03 + Math.sqrt(production + 1) / 1_000),
-    "biological-samples": seconds * population * 0.003,
-    "cultural-records": seconds * population * 0.004,
+      seconds *
+      Math.min(
+        1.5,
+        0.03 +
+          Math.sqrt(production + 1) / 1_000 +
+          expertise.engineering * 0.001 +
+          expertise.fabrication * 0.0008,
+      ),
+    "biological-samples":
+      seconds *
+      (0.004 + expertise.medicine * 0.0018 + expertise.ecology * 0.0012),
+    "cultural-records":
+      seconds *
+      (0.006 +
+        expertise.education * 0.002 +
+        expertise.research * 0.0005 +
+        population * 0.00025),
     // Schematics have NO passive source by design: rescues and
     // expeditions only (owner directive, July 13, 2026).
     schematics: 0,
@@ -3316,10 +3567,15 @@ export function simulateGame(
     getDeployedCrewIds(next.expeditions),
   );
   autoTransferResearchInputs(next);
+  const researchExpertise = getOperationalResearchExpertise(next);
+  const researchLead = getResearchLeadStatus(next);
   const researchAdvance = advanceResearch(next.research, seconds, {
     powerAvailable: getResearchPowerAvailable(next),
     crewAvailable: getResearchCrewAvailable(next),
     externalSpeedMultiplier: colonyBonuses.researchSpeedMultiplier,
+    expertise: researchExpertise,
+    leadResearcherLevel: researchLead.level,
+    exceptionalLeadAvailable: researchLead.exceptional,
   });
   next.research = researchAdvance.state;
   // Armory Mark projects use the same offline-safe elapsed time as research.
@@ -3336,11 +3592,17 @@ export function simulateGame(
     ],
   };
   generateResearchStock(next, seconds);
-  const salvageWorkers = next.survivors.survivors.filter(
-    (survivor) =>
-      isSurvivorOnDuty(survivor, "fabricator") ||
-      isSurvivorOnDuty(survivor, "technician"),
-  ).length;
+  const salvageExpertise = next.survivors.survivors.reduce(
+    (total, survivor) =>
+      total +
+      (isSurvivorOnDuty(survivor, "fabricator")
+        ? getSurvivorSkillLevel(survivor, "fabricator")
+        : 0) +
+      (isSurvivorOnDuty(survivor, "technician")
+        ? getSurvivorSkillLevel(survivor, "technician") * 0.6
+        : 0),
+    0,
+  );
   const trainingIds = new Set(
     next.survivors.training.map((program) => program.survivorId),
   );
@@ -3361,7 +3623,7 @@ export function simulateGame(
         Math.min(
           0.15,
           0.012 +
-            salvageWorkers * 0.006 +
+            salvageExpertise * 0.0024 +
             reserveAdults * 0.0015 +
             getCampaignWorldIndex(next) * 0.003,
         ),
@@ -3370,15 +3632,17 @@ export function simulateGame(
   const defenseAdvance = advanceDefense(next.defense, seconds, {
     stormsEnabled: isThreatOperationsActivated(next),
     worldIndex: getCampaignWorldIndex(next),
-    security: next.survivors.survivors.filter((survivor) =>
-      isSurvivorOnDuty(survivor, "security"),
-    ).length,
-    engineers: next.survivors.survivors.filter((survivor) =>
-      isSurvivorOnDuty(survivor, "engineer"),
-    ).length,
-    navigators: next.survivors.survivors.filter((survivor) =>
-      isSurvivorOnDuty(survivor, "navigator"),
-    ).length,
+    security: next.survivors.survivors.reduce(
+      (total, survivor) =>
+        total + (isSurvivorOnDuty(survivor, "security") ? getSurvivorSkillLevel(survivor, "security") : 0),
+      0,
+    ),
+    engineers: getAssignedEngineeringExpertise(next),
+    navigators: next.survivors.survivors.reduce(
+      (total, survivor) =>
+        total + (isSurvivorOnDuty(survivor, "navigator") ? getSurvivorSkillLevel(survivor, "navigator") : 0),
+      0,
+    ),
   });
   next.defense = defenseAdvance.state;
   next.living.salvage = Math.min(

@@ -74,11 +74,12 @@ export const ARMORY_LAWS: Readonly<Record<ArmoryLawId, {
   description: string;
   maxLevel: number;
   baseCost: number;
+  requiredResearchId: string;
 }>> = {
-  "standardized-patterns": { name: "Standardized Patterns", description: "Each level cuts Mark-project material costs by 10%.", maxLevel: 2, baseCost: 3 },
-  "recursive-forging": { name: "Recursive Forging", description: "Each level shortens Armory projects by 15%.", maxLevel: 3, baseCost: 3 },
-  "resonant-munitions": { name: "Resonant Munitions", description: "Veterans gain +1 weapon strength per law level.", maxLevel: 3, baseCost: 5 },
-  "impossible-materials": { name: "Impossible Materials", description: "Authorizes extremely expensive Mark IV projects.", maxLevel: 1, baseCost: 8 },
+  "standardized-patterns": { name: "Standardized Patterns", description: "Each level cuts Mark-project material costs by 10%.", maxLevel: 2, baseCost: 3, requiredResearchId: "pattern-architecture" },
+  "recursive-forging": { name: "Recursive Forging", description: "Each level shortens Armory projects by 15%.", maxLevel: 3, baseCost: 3, requiredResearchId: "recursive-manufacturing" },
+  "resonant-munitions": { name: "Resonant Munitions", description: "Veterans gain +1 weapon strength per law level.", maxLevel: 3, baseCost: 5, requiredResearchId: "resonant-weapon-dynamics" },
+  "impossible-materials": { name: "Impossible Materials", description: "Authorizes extremely expensive Mark IV projects.", maxLevel: 1, baseCost: 8, requiredResearchId: "impossible-material-synthesis" },
 };
 
 export type ArmoryStock = Record<ArmoryItemId, number[]>;

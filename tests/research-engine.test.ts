@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { CAMPAIGN_WORLDS } from "../app/campaign-content.ts";
 
 import {
   MAX_RESEARCH_CREW,
@@ -14,10 +15,15 @@ import {
   createResearchLatticeState,
   getResearchBonuses,
   getResearchCapabilities,
+  getAvailableResearchEras,
   getResearchNetworkStatus,
   getResearchNullEchoes,
   getResearchProjectPresentation,
   getResearchProjectProgress,
+  getResearchProjectCosts,
+  getResearchProjectEra,
+  getResearchProjectWorkRequired,
+  getResearchRepeatCount,
   getResolvedResearchRoutes,
   sanitizeResearchLatticeState,
   selectResearchProject,
@@ -82,7 +88,7 @@ test("sanitization repairs malformed inventory, routes, progress, and identifier
     lastAdvancedAt: -1,
   });
 
-  assert.equal(state.schema, 1);
+  assert.equal(state.schema, 2);
   assert.equal(state.assignedCrew, MAX_RESEARCH_CREW);
   assert.equal(state.inventory["calibration-data"], 0);
   assert.equal(state.inventory["engineering-models"], 0);
@@ -94,8 +100,8 @@ test("sanitization repairs malformed inventory, routes, progress, and identifier
     "auxiliary-power-routing",
     "closed-loop-atmosphere",
   ]);
-  assert.equal(state.progress["auxiliary-power-routing"], 90);
-  assert.equal(state.progress["closed-loop-atmosphere"], 240);
+  assert.equal(state.progress["auxiliary-power-routing"], 180);
+  assert.equal(state.progress["closed-loop-atmosphere"], 500);
   assert.equal(state.activeProjectId, null);
   assert.deepEqual(state.unlockedEchoIds, []);
   assert.equal(state.lastAdvancedAt, null);
@@ -199,7 +205,7 @@ test("power, crew, route throughput, and inventory all govern progress", () => {
 
 test("completed projects consume their exact science cost and unlock physical systems", () => {
   let state = createResearchLatticeState();
-  state = addResearchInputs(state, { "calibration-data": 48 });
+  state = addResearchInputs(state, { "calibration-data": 60 });
   state = setResearchCrew(state, 3, 3);
   state = selectResearchProject(state, "auxiliary-power-routing");
   const result = advanceResearch(state, 1_000, {
@@ -210,7 +216,7 @@ test("completed projects consume their exact science cost and unlock physical sy
   assert.equal(result.completedProjectId, "auxiliary-power-routing");
   assert.equal(result.state.activeProjectId, null);
   assert.equal(getResearchProjectProgress(result.state, "auxiliary-power-routing"), 1);
-  assert.ok(Math.abs(result.consumed["calibration-data"] - 48) < 1e-7);
+  assert.ok(Math.abs(result.consumed["calibration-data"] - 60) < 1e-7);
   assert.ok(result.state.inventory["calibration-data"] < 1e-7);
   assert.ok(getResearchCapabilities(result.state).includes("auxiliary-grid"));
   assert.equal(getResearchBonuses(result.state).productionMultiplier, 1.04);
@@ -218,11 +224,11 @@ test("completed projects consume their exact science cost and unlock physical sy
 
 test("research stops cleanly when an input is exhausted", () => {
   let state = createResearchLatticeState();
-  state = addResearchInputs(state, { "calibration-data": 4.8 });
+  state = addResearchInputs(state, { "calibration-data": 6 });
   state = selectResearchProject(state, "auxiliary-power-routing");
   const result = advanceResearch(state, 50_000, { powerAvailable: 100 });
 
-  assert.ok(Math.abs(result.progressedWork - 9) < 1e-7);
+  assert.ok(Math.abs(result.progressedWork - 18) < 1e-7);
   assert.equal(result.completedProjectId, null);
   assert.ok(result.state.inventory["calibration-data"] < 1e-7);
   assert.equal(getResearchProjectProgress(result.state, "auxiliary-power-routing"), 0.1);
@@ -278,9 +284,9 @@ test("Settlement Charter uses attainable materials without changing its prerequi
 
   assert.ok(charter);
   assert.deepEqual(charter.costs, {
-    "cultural-records": 260,
-    "biological-samples": 155,
-    "engineering-models": 220,
+    "cultural-records": 520,
+    "biological-samples": 300,
+    "engineering-models": 440,
   });
   assert.equal("axiom-proofs" in charter.costs, false);
   assert.deepEqual(charter.prerequisites, [
@@ -383,4 +389,141 @@ test("manual layouts visibly report missing required routes", () => {
   assert.deepEqual(status.missingInputs, ["calibration-data"]);
   assert.equal(status.progressPerSecond, 0);
   assert.match(status.stalledReason ?? "", /route/i);
+});
+
+test("research eras reveal through prerequisites instead of exposing the whole tree", () => {
+  const fresh = createResearchLatticeState();
+  assert.deepEqual(getAvailableResearchEras(fresh).map((era) => era.id), ["recovery"]);
+  const progressing = {
+    ...fresh,
+    completedProjectIds: [
+      "auxiliary-power-routing",
+      "closed-loop-atmosphere",
+      "continuity-index",
+      "adaptive-instruction",
+    ] as typeof fresh.completedProjectIds,
+  };
+  assert.ok(getAvailableResearchEras(progressing).some((era) => era.id === "integration"));
+  assert.equal(getAvailableResearchEras(progressing).some((era) => era.id === "convergence"), false);
+});
+
+test("on-duty stage expertise is meaningful but bounded", () => {
+  let state = createResearchLatticeState();
+  state = addResearchInputs(state, { "calibration-data": 100 });
+  state = setResearchCrew(state, MAX_RESEARCH_CREW, MAX_RESEARCH_CREW);
+  state = selectResearchProject(state, "auxiliary-power-routing");
+  const base = getResearchNetworkStatus(state, {
+    powerAvailable: 100,
+    crewAvailable: MAX_RESEARCH_CREW,
+  });
+  const mastered = getResearchNetworkStatus(state, {
+    powerAvailable: 100,
+    crewAvailable: MAX_RESEARCH_CREW,
+    expertise: { research: 100 },
+  });
+  assert.equal(mastered.stage, "theory");
+  assert.equal(mastered.expertiseMultiplier, 1.35);
+  assert.ok(mastered.progressPerSecond > base.progressPerSecond);
+  assert.ok(mastered.progressPerSecond <= base.progressPerSecond * 1.35 + 1e-8);
+});
+
+test("advanced eras require an actual research lead", () => {
+  let state = createResearchLatticeState();
+  state = {
+    ...state,
+    completedProjectIds: RESEARCH_PROJECT_DEFINITIONS.map((project) => project.id).filter(
+      (id) => id !== "recursive-manufacturing",
+    ),
+  };
+  state = addResearchInputs(state, {
+    "engineering-models": 2_000,
+    schematics: 500,
+    "null-traces": 500,
+  });
+  state = setResearchCrew(state, MAX_RESEARCH_CREW, MAX_RESEARCH_CREW);
+  state = selectResearchProject(state, "recursive-manufacturing");
+  const unstaffed = getResearchNetworkStatus(state, {
+    powerAvailable: 100,
+    crewAvailable: MAX_RESEARCH_CREW,
+  });
+  const staffed = getResearchNetworkStatus(state, {
+    powerAvailable: 100,
+    crewAvailable: MAX_RESEARCH_CREW,
+    leadResearcherLevel: 5,
+  });
+  assert.match(unstaffed.stalledReason ?? "", /level-5/i);
+  assert.ok(staffed.progressPerSecond > 0);
+});
+
+test("repeatable field studies scale, cap, and retain their first unlock", () => {
+  let state = createResearchLatticeState();
+  state = {
+    ...state,
+    completedProjectIds: RESEARCH_PROJECT_DEFINITIONS.map((project) => project.id).filter(
+      (id) => id !== "equipment-stress-tests",
+    ),
+  };
+  state = addResearchInputs(state, {
+    "engineering-models": 1_000,
+    schematics: 500,
+  });
+  state = setResearchCrew(state, MAX_RESEARCH_CREW, MAX_RESEARCH_CREW);
+  state = selectResearchProject(state, "equipment-stress-tests");
+  const firstWork = getResearchProjectWorkRequired(
+    state,
+    RESEARCH_PROJECT_DEFINITIONS.find((project) => project.id === "equipment-stress-tests")!,
+  );
+  const result = advanceResearch(state, 20_000, {
+    powerAvailable: 100,
+    crewAvailable: MAX_RESEARCH_CREW,
+    leadResearcherLevel: 5,
+  });
+  assert.equal(result.completedProjectId, "equipment-stress-tests");
+  assert.equal(getResearchRepeatCount(result.state, "equipment-stress-tests"), 1);
+  assert.equal(canStartResearchProject(result.state, "equipment-stress-tests"), true);
+  const project = RESEARCH_PROJECT_DEFINITIONS.find((candidate) => candidate.id === "equipment-stress-tests")!;
+  assert.ok(getResearchProjectWorkRequired(result.state, project) > firstWork);
+  assert.ok((getResearchProjectCosts(result.state, project).schematics ?? 0) > 120);
+});
+
+test("fresh Cold Wake through Cinder has a bounded, obtainable research chain", () => {
+  const required = new Set<string>();
+  const collect = (projectId: string) => {
+    if (required.has(projectId)) return;
+    const project = RESEARCH_PROJECT_DEFINITIONS.find((candidate) => candidate.id === projectId);
+    assert.ok(project, `missing campaign research ${projectId}`);
+    required.add(projectId);
+    project.prerequisites.forEach(collect);
+  };
+  CAMPAIGN_WORLDS.filter((world) => world.chapter <= 3).forEach((world) =>
+    world.requiredResearchIds.forEach(collect),
+  );
+  const chain = [...required].map((id) =>
+    RESEARCH_PROJECT_DEFINITIONS.find((project) => project.id === id)!,
+  );
+  assert.ok(chain.length >= 8, "the route is no longer a tiny research checklist");
+  assert.ok(chain.every((project) => {
+    const era = getResearchProjectEra(project);
+    return era !== "synthesis" && era !== "convergence";
+  }));
+  assert.ok(
+    chain.every((project) => !project.costs.schematics && !project.costs["axiom-proofs"]),
+    "required pre-Cinder research cannot depend on expedition-only or recalibration-only evidence",
+  );
+  for (const project of chain) {
+    const conservativeThroughput = getResearchProjectEra(project) === "integration" ? 0.8 : 0.35;
+    assert.ok(
+      project.workRequired / conservativeThroughput <= 2 * 3_600,
+      `${project.name} exceeds the two-hour active-work ceiling`,
+    );
+  }
+  const baseline = RESEARCH_PROJECT_DEFINITIONS.find(
+    (project) => project.id === "null-signal-baseline",
+  )!;
+  const firstCrisisCache = 20;
+  const pelagosNullPerHour = 0.0015 * 3_600;
+  assert.ok(
+    ((baseline.costs["null-traces"] ?? 0) - firstCrisisCache) / pelagosNullPerHour <= 8,
+    "the first Null gate must remain below one offline session after Cold Wake's cache",
+  );
 });

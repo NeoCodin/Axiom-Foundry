@@ -5,22 +5,34 @@ import { HelpTrigger, type ManualTopicId } from "./game-manual";
 
 import {
   RESEARCH_INPUT_DEFINITIONS,
+  RESEARCH_BRANCHES,
+  RESEARCH_ERAS,
   RESEARCH_PROCESSOR_DEFINITIONS,
   RESEARCH_PROJECT_DEFINITIONS,
+  canStartResearchProject,
   configureResearchRoute,
+  getAvailableResearchEras,
+  getCurrentResearchEra,
+  getResearchEraProgress,
   getResearchInputDefinition,
   getResearchNetworkStatus,
   getResearchNullEchoes,
   getResearchProcessorDefinition,
   getResearchProjectDefinition,
+  getResearchProjectCosts,
+  getResearchProjectEra,
+  getResearchProjectWorkRequired,
   getResearchProjectPresentation,
   getResearchProjectProgress,
   getResolvedResearchRoutes,
+  getResearchRepeatCount,
   selectResearchProject,
   setResearchAutoRoute,
   setResearchCrew,
   setResearchRouteEnabled,
   type ResearchBranch,
+  type ResearchEra,
+  type ResearchExpertise,
   type ResearchInputBundle,
   type ResearchInputId,
   type ResearchLatticeState,
@@ -35,6 +47,8 @@ export type ResearchLatticeProps = {
   availableCrew: number;
   powerAvailable: number;
   externalSpeedMultiplier?: number;
+  expertise: ResearchExpertise;
+  leadResearcher: { level: number; exceptional: boolean; name: string | null };
   now?: number;
   onStateChange: (state: ResearchLatticeState) => void;
   onTransferInput: (inputId: ResearchInputId, amount: number) => void;
@@ -44,38 +58,9 @@ export type ResearchLatticeProps = {
   onClose?: () => void;
 };
 
-const BRANCHES: readonly {
-  id: ResearchBranch;
-  name: string;
-  code: string;
-  description: string;
-}[] = [
-  {
-    id: "ark-engineering",
-    name: "Ark Engineering",
-    code: "ARK",
-    description: "Power, habitation, fabrication, and departure systems.",
-  },
-  {
-    id: "human-continuity",
-    name: "Human Continuity",
-    code: "HUM",
-    description: "Training, medicine, settlements, and independent survival.",
-  },
-  {
-    id: "null-studies",
-    name: "Null Studies",
-    code: "NUL",
-    description: "Study the absence pursuing the Ark. Do not trust its metadata.",
-  },
-  {
-    id: "threat-operations",
-    name: "Threat Operations",
-    code: "THR",
-    description:
-      "Expedition weapons and armor. The Continuity Protocol objects to every project here.",
-  },
-] as const;
+const BRANCHES = RESEARCH_BRANCHES;
+
+type ResearchView = "core" | "technology" | "lattice" | "archive";
 
 const INPUT_ACCENTS: Record<ResearchInputId, string> = {
   "calibration-data": "72 215 235",
@@ -90,8 +75,8 @@ const INPUT_ACCENTS: Record<ResearchInputId, string> = {
 const INPUT_SOURCE_COPY: Record<ResearchInputId, string> = {
   "calibration-data": "Core tunes + passive chamber observations",
   "engineering-models": "Machine purchases, Flux production, and infrastructure",
-  "biological-samples": "18 per rescued person + 10.8 per person each hour",
-  "cultural-records": "22 per rescued person + 14.4 per person each hour",
+  "biological-samples": "Rescues, clinical work, Doctors, Farmers, and planetary crises",
+  "cultural-records": "Rescues, Teachers, Researchers, community testimony, and settlements",
   schematics: "ONLY from rescued survivors' cargo and expedition returns — nothing aboard generates them",
   "null-traces": "Later worlds, passive Null signals, and resolved crises",
   "axiom-proofs": "Recalibration + passive generation from lifetime Axioms",
@@ -120,6 +105,8 @@ export function ResearchLattice({
   availableCrew,
   powerAvailable,
   externalSpeedMultiplier = 1,
+  expertise,
+  leadResearcher,
   now = 0,
   onStateChange,
   onTransferInput,
@@ -134,6 +121,12 @@ export function ResearchLattice({
   const [branch, setBranch] = useState<ResearchBranch>(
     activeDefinition?.branch ?? "ark-engineering",
   );
+  const [view, setView] = useState<ResearchView>(
+    state.activeProjectId || state.completedProjectIds.length > 0 ? "core" : "technology",
+  );
+  const [era, setEra] = useState<ResearchEra>(
+    activeDefinition ? getResearchProjectEra(activeDefinition) : getCurrentResearchEra(state),
+  );
   const resolvedRoutes = useMemo(
     () => getResolvedResearchRoutes(state),
     [state],
@@ -144,15 +137,18 @@ export function ResearchLattice({
         powerAvailable,
         crewAvailable: availableCrew,
         externalSpeedMultiplier,
+        expertise,
+        leadResearcherLevel: leadResearcher.level,
+        exceptionalLeadAvailable: leadResearcher.exceptional,
       }),
-    [availableCrew, externalSpeedMultiplier, powerAvailable, state],
+    [availableCrew, expertise, externalSpeedMultiplier, leadResearcher, powerAvailable, state],
   );
   const echoes = getResearchNullEchoes(state);
   const activeProgress = activeDefinition
     ? getResearchProjectProgress(state, activeDefinition.id)
     : 0;
   const remainingWork = activeDefinition
-    ? activeDefinition.workRequired * (1 - activeProgress)
+    ? getResearchProjectWorkRequired(state, activeDefinition) * (1 - activeProgress)
     : 0;
   const eta =
     activeDefinition && network.progressPerSecond > 0
@@ -220,6 +216,8 @@ export function ResearchLattice({
 
   const projectStartedAt = state.lastAdvancedAt ?? now;
   const completedResearch = state.completedProjectIds.length;
+  const availableEras = getAvailableResearchEras(state);
+  const eraProgress = getResearchEraProgress(state, era);
   const connectedRoutes = resolvedRoutes.filter(
     (route) => route.sourceId && route.processorId && route.enabled,
   ).length;
@@ -240,7 +238,7 @@ export function ResearchLattice({
 
   return (
     <section
-      className={`research-lattice-shell ${coreOnline ? "is-core-online" : "is-core-idle"} ${
+      className={`research-lattice-shell is-view-${view} ${coreOnline ? "is-core-online" : "is-core-idle"} ${
         network.stalledReason ? "is-core-stalled" : ""
       }`}
       style={machineStyle}
@@ -248,11 +246,16 @@ export function ResearchLattice({
     >
       <header className="research-lattice-header">
         <div>
-          <p className="research-lattice-kicker">ANALYSIS DECK // SYNTHESIS ENGINE</p>
-          <h1>Research Lattice</h1>
+          <p className="research-lattice-kicker">ANALYSIS DECK // {RESEARCH_ERAS.find((item) => item.id === era)?.code}</p>
+          <h1>{view === "core" ? "Analysis Core" : view === "technology" ? "Technology Map" : view === "lattice" ? "Research Lattice" : "Research Archive"}</h1>
           <p>
-            Feed evidence into a living machine. Every connected line wakes another
-            processor; AXIOM keeps a safe route running until you choose to rewire it.
+            {view === "core"
+              ? "Watch the active program move from theory through prototype, field validation, and final synthesis."
+              : view === "technology"
+                ? "Choose one deliberate capability at a time. Later eras reveal only after earlier discoveries create a path to them."
+                : view === "lattice"
+                  ? "Route evidence into the living machine. AXIOM can keep a safe layout running; mastery makes it faster."
+                  : "Review completed capabilities, repeatable mastery, and contradictions the lattice insists arrived from later."}
           </p>
         </div>
         <div className="research-lattice-header-actions">
@@ -268,13 +271,33 @@ export function ResearchLattice({
         </div>
       </header>
 
+      <nav className="research-command-tabs" aria-label="Research sections">
+        {([
+          ["core", "Core", "Active synthesis and crew contribution"],
+          ["technology", "Technology Map", "Eras, branches, and programs"],
+          ["lattice", "Lattice", "Evidence routing and Analysis stations"],
+          ["archive", "Archive", "Completed work and contradictions"],
+        ] as const).map(([id, label, description]) => (
+          <button
+            key={id}
+            type="button"
+            className={view === id ? "is-active" : ""}
+            disabled={id === "archive" && completedResearch === 0}
+            onClick={() => setView(id)}
+          >
+            <span>{label}</span>
+            <small>{id === "archive" && completedResearch === 0 ? "Reveals after the first discovery" : description}</small>
+          </button>
+        ))}
+      </nav>
+
       <div
         className="research-lattice-awakening"
-        aria-label={`${completedResearch} of ${RESEARCH_PROJECT_DEFINITIONS.length} discoveries resolved`}
+        aria-label={`${eraProgress.complete} of ${eraProgress.total} ${era} discoveries resolved`}
       >
-        <span>CORE EVOLUTION</span>
+        <span>{RESEARCH_ERAS.find((item) => item.id === era)?.name.toUpperCase()} ERA</span>
         <div aria-hidden="true">
-          {RESEARCH_PROJECT_DEFINITIONS.map((project, index) => (
+          {RESEARCH_PROJECT_DEFINITIONS.filter((project) => getResearchProjectEra(project) === era && !project.repeatable).map((project, index) => (
             <i
               className={
                 state.completedProjectIds.includes(project.id)
@@ -288,7 +311,7 @@ export function ResearchLattice({
             />
           ))}
         </div>
-        <strong>{completedResearch.toString().padStart(2, "0")} / {RESEARCH_PROJECT_DEFINITIONS.length}</strong>
+        <strong>{eraProgress.complete.toString().padStart(2, "0")} / {eraProgress.total}</strong>
       </div>
 
       <div className="research-lattice-telemetry" aria-label="Lattice limits">
@@ -303,10 +326,14 @@ export function ResearchLattice({
           </strong>
         </div>
         <div>
-          <span>Researchers</span>
+          <span>Analysis stations</span>
           <strong>
             {network.crewOperating} / {network.crewRequired} optimal
           </strong>
+        </div>
+        <div>
+          <span>{network.stageLabel}</span>
+          <strong>Uses {network.expertiseId.replaceAll("-", " ")} expertise</strong>
         </div>
         <div>
           <span>Throughput</span>
@@ -319,6 +346,24 @@ export function ResearchLattice({
           </strong>
         </div>
       </div>
+
+      <section className="research-operations-panel" aria-label="Operational expertise">
+        <div>
+          <span>ACTIVE STAGE</span>
+          <strong>{activeDefinition ? network.stageLabel : "Awaiting a program"}</strong>
+          <small>{activeDefinition ? `${network.expertiseId.replaceAll("-", " ")} expertise ×${network.expertiseMultiplier.toFixed(2)}` : "Choose work from the Technology Map."}</small>
+        </div>
+        <div>
+          <span>RESEARCH LEAD</span>
+          <strong>{leadResearcher.name ?? "AXIOM alone"}</strong>
+          <small>Level {leadResearcher.level} · Integration 3 · Synthesis 5 · Convergence 9 Exceptional</small>
+        </div>
+        <div>
+          <span>ON-DUTY CONTRIBUTION</span>
+          <strong>{Math.round(network.expertiseTotal)} {network.expertiseId.replaceAll("-", " ")}</strong>
+          <small>Only healthy, assigned, aboard personnel contribute. Team Alpha&apos;s lean trains the workforce; it is not a free multiplier.</small>
+        </div>
+      </section>
 
       {network.stalledReason === "Awaiting research inputs" && activeDefinition && (
         <p className="research-lattice-input-guidance" role="status">
@@ -349,8 +394,8 @@ export function ResearchLattice({
             {autoTransfer.common
               ? autoTransfer.nullTraces
                 ? "AXIOM auto-transfer active for every required input, including Null Traces."
-                : "AXIOM auto-transfers required inputs. Null Traces still need manual handling - automate them with a level-5 Exceptional (or better) Researcher aboard."
-              : "Assign Analysis Core staff to auto-transfer required inputs from Ark Supply."}
+                : "Common evidence transfer is automated. Null Traces require an on-duty level-5 Exceptional (or better) Researcher."
+              : "Common transfer unlocks with an on-duty level-3 Researcher and at least one occupied Analysis station."}
           </p>
           <div className="research-lattice-input-list">
             {RESEARCH_INPUT_DEFINITIONS.map((input) => {
@@ -630,7 +675,7 @@ export function ResearchLattice({
           <div className="research-lattice-crew-control">
             <div>
               <span>LABOR ALLOCATION</span>
-              <strong>{state.assignedCrew} researchers assigned</strong>
+              <strong>{state.assignedCrew} Analysis stations active</strong>
               <small>{Math.max(0, availableCrew - state.assignedCrew)} crew available elsewhere</small>
             </div>
             <div>
@@ -664,10 +709,55 @@ export function ResearchLattice({
           </div>
           <small>Practical capability first. Multipliers remain capped.</small>
         </div>
+        <nav className="research-era-tabs" aria-label="Research eras">
+          {RESEARCH_ERAS.map((candidate) => {
+            const available = availableEras.some((item) => item.id === candidate.id);
+            const progress = getResearchEraProgress(state, candidate.id);
+            return (
+              <button
+                key={candidate.id}
+                type="button"
+                className={era === candidate.id ? "is-active" : ""}
+                disabled={!available}
+                onClick={() => {
+                  setEra(candidate.id);
+                  const firstBranch = BRANCHES.find((branchCandidate) =>
+                    RESEARCH_PROJECT_DEFINITIONS.some(
+                      (project) =>
+                        project.branch === branchCandidate.id &&
+                        getResearchProjectEra(project) === candidate.id,
+                    ),
+                  );
+                  if (firstBranch) setBranch(firstBranch.id);
+                }}
+              >
+                <span>{candidate.code}</span>
+                <strong>{candidate.name}</strong>
+                <small>{available ? `${progress.complete}/${progress.total} resolved` : "SEALED"}</small>
+              </button>
+            );
+          })}
+        </nav>
+        <p className="research-era-thesis">
+          {RESEARCH_ERAS.find((candidate) => candidate.id === era)?.thesis}
+        </p>
         <nav className="research-lattice-branch-tabs" aria-label="Research branches">
-          {BRANCHES.map((candidate) => {
+          {BRANCHES.filter((candidate) =>
+            RESEARCH_PROJECT_DEFINITIONS.some(
+              (project) =>
+                project.branch === candidate.id &&
+                getResearchProjectEra(project) === era,
+            ),
+          ).map((candidate) => {
+            const branchProjects = RESEARCH_PROJECT_DEFINITIONS.filter(
+              (project) =>
+                project.branch === candidate.id &&
+                getResearchProjectEra(project) === era,
+            );
             const complete = RESEARCH_PROJECT_DEFINITIONS.filter(
-              (project) => project.branch === candidate.id,
+              (project) =>
+                project.branch === candidate.id &&
+                getResearchProjectEra(project) === era,
             ).filter((project) => state.completedProjectIds.includes(project.id)).length;
             return (
               <button
@@ -678,12 +768,12 @@ export function ResearchLattice({
               >
                 <span
                   className="research-lattice-branch-dial"
-                  style={{ "--branch-progress": `${complete / 4}` } as CSSProperties}
+                  style={{ "--branch-progress": `${complete / Math.max(1, branchProjects.length)}` } as CSSProperties}
                 >
                   {candidate.code}
                 </span>
                 <b>{candidate.name}</b>
-                <small>{complete} / 4 resolved</small>
+                <small>{complete} / {branchProjects.length} resolved</small>
               </button>
             );
           })}
@@ -693,15 +783,22 @@ export function ResearchLattice({
         </p>
         <div className={`research-lattice-project-grid is-${branch}`}>
           {RESEARCH_PROJECT_DEFINITIONS.filter(
-            (project) => project.branch === branch,
+            (project) =>
+              project.branch === branch && getResearchProjectEra(project) === era,
           ).map((project, index) => {
-            const complete = state.completedProjectIds.includes(project.id);
+            const repeatCount = getResearchRepeatCount(state, project.id);
+            const complete = project.repeatable
+              ? repeatCount >= project.repeatable.maxCompletions
+              : state.completedProjectIds.includes(project.id);
+            const resolvedOnce = state.completedProjectIds.includes(project.id);
             const active = state.activeProjectId === project.id;
             const locked = !project.prerequisites.every((prerequisite) =>
               state.completedProjectIds.includes(prerequisite),
             );
             const progress = getResearchProjectProgress(state, project.id);
             const presentation = getResearchProjectPresentation(state, project.id);
+            const projectCosts = getResearchProjectCosts(state, project);
+            const canStart = canStartResearchProject(state, project.id);
             return (
               <article
                 key={project.id}
@@ -722,23 +819,24 @@ export function ResearchLattice({
                     <span>{project.branch.replace("-", " ")}</span>
                     <h3>{project.name}</h3>
                   </div>
-                  <b>{complete ? "RESOLVED" : active ? "ACTIVE" : locked ? "SEALED" : "READY"}</b>
+                  <b>{complete ? "MASTERED" : active ? "ACTIVE" : locked ? "SEALED" : project.repeatable && resolvedOnce ? `CYCLE ${repeatCount + 1}` : "READY"}</b>
                 </div>
                 <p>{presentation?.displaySummary ?? project.summary}</p>
                 <div className="research-lattice-project-progress">
                   <i style={{ width: `${progress * 100}%` }} />
                 </div>
                 <div className="research-lattice-project-costs">
+                  <span><b>WORK</b> {formatNumber(getResearchProjectWorkRequired(state, project))}</span>
                   {RESEARCH_INPUT_DEFINITIONS.filter(
-                    (input) => (project.costs[input.id] ?? 0) > 0,
+                    (input) => (projectCosts[input.id] ?? 0) > 0,
                   ).map((input) => (
                     <span key={input.id} style={getInputStyle(input.id)}>
-                      <b>{input.shortName}</b> {formatNumber(project.costs[input.id] ?? 0)}
+                      <b>{input.shortName}</b> {formatNumber(projectCosts[input.id] ?? 0)}
                     </span>
                   ))}
                 </div>
                 <div className="research-lattice-project-unlocks">
-                  <span>Unlocks</span>
+                  <span>{project.repeatable ? `Mastery ${repeatCount}/${project.repeatable.maxCompletions}` : "Unlocks"}</span>
                   <p>{project.unlocks.map((unlock) => unlock.replaceAll("-", " ")).join(" · ")}</p>
                 </div>
                 {locked ? (
@@ -751,7 +849,7 @@ export function ResearchLattice({
                 ) : (
                   <button
                     type="button"
-                    disabled={complete}
+                    disabled={complete || !canStart}
                     onClick={() =>
                       onStateChange(
                         selectResearchProject(
@@ -762,9 +860,31 @@ export function ResearchLattice({
                       )
                     }
                   >
-                    {complete ? "Research complete" : active ? "Pause program" : progress > 0 ? "Resume program" : "Begin research"}
+                    {complete ? "Research mastered" : active ? "Pause program" : progress > 0 ? "Resume program" : project.repeatable && repeatCount > 0 ? `Begin cycle ${repeatCount + 1}` : "Begin research"}
                   </button>
                 )}
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="research-lattice-archive" aria-label="Completed research archive">
+        <div className="research-lattice-section-heading">
+          <div><span>04</span><h2>Proven capabilities</h2></div>
+          <small>{completedResearch} discoveries preserved across recalibrations</small>
+        </div>
+        <div className="research-archive-grid">
+          {state.completedProjectIds.map((projectId) => {
+            const project = getResearchProjectDefinition(projectId);
+            if (!project) return null;
+            const repeatCount = getResearchRepeatCount(state, project.id);
+            return (
+              <article key={project.id}>
+                <span>{getResearchProjectEra(project).toUpperCase()} · {BRANCHES.find((item) => item.id === project.branch)?.code}</span>
+                <strong>{project.name}</strong>
+                <p>{project.contradiction ?? project.completedSummary}</p>
+                {project.repeatable && <small>Mastery cycles {repeatCount}/{project.repeatable.maxCompletions}</small>}
               </article>
             );
           })}

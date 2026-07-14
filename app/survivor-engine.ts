@@ -45,6 +45,12 @@ export type LifeSupportKey = keyof LifeSupportCapacity;
 
 export type SurvivorInjuryTier = "minor" | "major" | "severe";
 
+export type ProfileElevationRecord = {
+  from: SurvivorRarityId;
+  to: Exclude<SurvivorRarityId, "standard">;
+  atOperationalSeconds: number;
+};
+
 export type Survivor = {
   id: string;
   name: string;
@@ -74,7 +80,9 @@ export type Survivor = {
    * Rarity classification floor for crew rescued before a threshold retune.
    * A survivor's displayed rarity never drops below this recorded value.
    */
-  rarityFloor: "notable" | "exceptional" | null;
+  rarityFloor: "notable" | "exceptional" | "anomalous" | null;
+  /** Permanent profile milestones. Name, history, traits, and XP are preserved. */
+  profileElevations: ProfileElevationRecord[];
   /** 0-100. Only expedition setbacks/distress ever lower it (E2). */
   health: number;
   /** Permanent until Prosthetic Surgery; caps max health (see INJURY_HEALTH_CAPS). */
@@ -484,7 +492,7 @@ export const TRAINING_DURATIONS_SECONDS: Record<ProfessionalRole, number> = {
   security: 25 * 60,
 };
 
-export const SURVIVOR_SCHEMA = 5;
+export const SURVIVOR_SCHEMA = 6;
 export const SOS_WORLD_ID = "pelagos";
 export const SOS_WORLD_IDS = [
   "pelagos",
@@ -900,6 +908,7 @@ function cloneSurvivor(survivor: Survivor): Survivor {
     aptitudes: { ...survivor.aptitudes },
     traits: [...survivor.traits],
     skillXp: { ...survivor.skillXp },
+    profileElevations: survivor.profileElevations.map((record) => ({ ...record })),
   };
 }
 
@@ -1116,6 +1125,7 @@ function createProceduralSurvivor(
     joinedAt: 0,
     storyHookId: null,
     rarityFloor: null,
+    profileElevations: [],
     health: MAX_SURVIVOR_HEALTH,
     injury: null,
   };
@@ -1934,6 +1944,29 @@ export function transferSurvivorsToSettlement(
   return next;
 }
 
+export function elevateSurvivorProfile(
+  state: SurvivorSystemState,
+  survivorId: string,
+  target: Exclude<SurvivorRarityId, "standard">,
+) {
+  const survivor = state.survivors.find((candidate) => candidate.id === survivorId);
+  if (!survivor || survivor.ageGroup === "child") return state;
+  const current = getSurvivorRarity(survivor).id;
+  if (RARITY_RANK[target] !== RARITY_RANK[current] + 1) return state;
+  const next = cloneSurvivorSystemState(state);
+  const elevated = next.survivors.find((candidate) => candidate.id === survivorId)!;
+  elevated.rarityFloor = target;
+  elevated.profileElevations = [
+    ...elevated.profileElevations,
+    {
+      from: current,
+      to: target,
+      atOperationalSeconds: next.operationalSeconds,
+    },
+  ].slice(-3);
+  return next;
+}
+
 /** One chapter is a meaningful stretch of story time, not a real-time timer. */
 export function advanceCrewAgesAfterChapter(state: SurvivorSystemState) {
   const next = cloneSurvivorSystemState(state);
@@ -2400,9 +2433,33 @@ function sanitizeSurvivor(
     joinedAt: finite(value.joinedAt, joinedFallback, MAX_OPERATIONAL_SECONDS),
     storyHookId,
     rarityFloor:
-      value.rarityFloor === "notable" || value.rarityFloor === "exceptional"
+      value.rarityFloor === "notable" ||
+      value.rarityFloor === "exceptional" ||
+      value.rarityFloor === "anomalous"
         ? value.rarityFloor
         : null,
+    profileElevations: Array.isArray(value.profileElevations)
+      ? value.profileElevations
+          .filter(isRecord)
+          .map<ProfileElevationRecord>((record) => ({
+            from:
+              record.from === "notable" ||
+              record.from === "exceptional" ||
+              record.from === "anomalous"
+                ? record.from
+                : "standard",
+            to:
+              record.to === "exceptional" || record.to === "anomalous"
+                ? record.to
+                : "notable",
+            atOperationalSeconds: finite(
+              record.atOperationalSeconds,
+              0,
+              MAX_OPERATIONAL_SECONDS,
+            ),
+          }))
+          .slice(-3)
+      : [],
     health: MAX_SURVIVOR_HEALTH,
     injury:
       value.injury === "minor" ||

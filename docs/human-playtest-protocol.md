@@ -54,3 +54,25 @@ Do not rebalance from total completion time alone. First identify whether a
 slow milestone is a meaningful anticipation period, a comprehension problem,
 or an economy wall. Change costs only for the third case.
 
+## Mechanical pacing audit — July 14, 2026
+
+The Research v2 implementation includes an automated fresh-state audit from
+Cold Wake through Cinder. It recursively follows every campaign research
+prerequisite and currently verifies all of the following:
+
+- The route contains nine required programs and remains inside the Recovery
+  and Integration eras; Synthesis and Convergence do not gate the opening.
+- No required opening program consumes expedition-only Recovered Schematics or
+  recalibration-only Axiom Proofs.
+- At conservative staffed-Core throughput, no active opening program contains
+  more than 100 minutes of Core work. Evidence collection continues in
+  parallel rather than extending that into a single opaque timer.
+- The first Null Studies gate is obtainable from the Cold Wake cache plus
+  Pelagos production in under eight hours at minimum intended staffing.
+- A regression test enforces those ceilings whenever research costs or campaign
+  requirements change.
+
+This is a mechanical wall check, not a replacement for the think-aloud human
+session above. The July 14 browser walkthrough was interrupted before it could
+produce reliable comprehension notes; real idle waits also cannot be honestly
+compressed into browser automation.

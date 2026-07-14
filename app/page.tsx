@@ -80,6 +80,10 @@ import {
   getPurchaseQuantity,
   getRecalibrationGain,
   getResearchCrewAvailable,
+  getOperationalResearchExpertise,
+  getResearchLeadStatus,
+  getProfileElevationQuote,
+  elevateCrewProfile,
   getResearchPowerAvailable,
   getRunUpgradeCost,
   getSupplyFabricationQuote,
@@ -643,6 +647,8 @@ export default function Home() {
   const campaignCrew = getCampaignCrewSummaries(game);
   const researchPowerAvailable = getResearchPowerAvailable(game);
   const researchCrewAvailable = getResearchCrewAvailable(game);
+  const researchExpertise = getOperationalResearchExpertise(game);
+  const researchLead = getResearchLeadStatus(game);
   const researchNetwork = useMemo(
     () =>
       getResearchNetworkStatus(game.research, {
@@ -650,10 +656,15 @@ export default function Home() {
         crewAvailable: researchCrewAvailable,
         externalSpeedMultiplier:
           colonyLegacyEffects.researchSpeedMultiplier,
+        expertise: researchExpertise,
+        leadResearcherLevel: researchLead.level,
+        exceptionalLeadAvailable: researchLead.exceptional,
       }),
     [
       colonyLegacyEffects.researchSpeedMultiplier,
       game.research,
+      researchExpertise,
+      researchLead,
       researchCrewAvailable,
       researchPowerAvailable,
     ],
@@ -1567,6 +1578,16 @@ export default function Home() {
     settlement: settlementUnlocked,
   };
 
+  const handleElevateProfile = (survivorId: string) => {
+    const current = gameRef.current;
+    const quote = getProfileElevationQuote(current, survivorId);
+    if (!quote.canElevate || !quote.targetRarity) return;
+    commitGameState(
+      elevateCrewProfile(current, survivorId),
+      `Personnel profile elevated to ${quote.targetRarity}. Identity and profession XP preserved.`,
+    );
+  };
+
   const handleToggleAutoAssignment = (enabled: boolean) => {
     const current = gameRef.current;
     let survivors = setAutoAssignmentEnabled(current.survivors, enabled);
@@ -1845,6 +1866,10 @@ export default function Home() {
           onCancelTraining={handleCancelTraining}
           onAssignRole={handleAssignSurvivor}
           onRenameCallsign={handleRenameSurvivor}
+          getProfileElevation={(survivorId) =>
+            getProfileElevationQuote(game, survivorId)
+          }
+          onElevateProfile={handleElevateProfile}
           onOpenHelp={setManualTopic}
           onBack={() => setPrimaryView("deck")}
         />
@@ -1891,6 +1916,8 @@ export default function Home() {
           externalSpeedMultiplier={
             colonyLegacyEffects.researchSpeedMultiplier
           }
+          expertise={researchExpertise}
+          leadResearcher={researchLead}
           now={clockNow || game.lastSaved}
           autoTransfer={getAutoTransferStatus(game)}
           onStateChange={handleResearchStateChange}
