@@ -9,6 +9,7 @@ import {
 } from "../app/game-engine.ts";
 import { getProgressiveDisclosure } from "../app/progressive-disclosure.ts";
 import { selectResearchProject } from "../app/research-engine.ts";
+import { beginTransit } from "../app/transit-engine.ts";
 
 test("orientation is the only priority before the game begins", () => {
   const state = createInitialState(0);
@@ -24,6 +25,31 @@ test("the command board routes the active Cold Wake action to the Ark", () => {
   assert.equal(priorities[0]?.id, "active-directive");
   assert.equal(priorities[0]?.target, "deck");
   assert.match(priorities[0]?.detail ?? "", /Tune the Core 12 times/);
+});
+
+test("transit replaces the destination directive with an offline Navigation priority", () => {
+  const state = setTutorialComplete(createInitialState(0), true);
+  state.missions.currentIndex = 2;
+  state.settlement.currentWorldId = null;
+  state.transit = beginTransit(
+    state.transit,
+    "pelagos",
+    "viridia",
+    4,
+    false,
+    0,
+  );
+
+  const priorities = getCommandPriorities(state);
+  const transit = priorities.find((entry) => entry.id === "active-transit");
+  assert.ok(transit);
+  assert.equal(transit.target, "settlement");
+  assert.equal(transit.cadence, "automatic");
+  assert.equal(
+    priorities.some((entry) => entry.id === "active-directive"),
+    false,
+  );
+  assert.equal(isThreatOperationsActivated(state), true);
 });
 
 test("Threat Operations wakes in layers and preserves old defense progress", () => {

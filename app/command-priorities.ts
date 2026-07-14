@@ -23,6 +23,7 @@ import {
 import { getProgressiveDisclosure } from "./progressive-disclosure.ts";
 import type { PrimaryView } from "./game-navigation.tsx";
 import type { ViabilityDeficit } from "./settlement-engine.ts";
+import { getCampaignWorld } from "./campaign-content.ts";
 import { DEFENSE_EVENT_DEFINITIONS } from "./defense-engine.ts";
 import { getPlanetaryIncomingForecast } from "./planetary-defense-engine.ts";
 import { isSurvivorWounded } from "./survivor-engine.ts";
@@ -111,7 +112,7 @@ function researchInputGuidance(state: GameState, inputId: ResearchInputId) {
   if (inputId === "null-traces") {
     const disclosure = getProgressiveDisclosure(state);
     if (disclosure.defense) {
-      return state.defense.doctrine === "observe"
+      return state.defense.contactDoctrine === "observe"
         ? { detail: "The active program has exhausted Null Traces. Observe doctrine is already gathering evidence from automatically resolved defense events.", missing: "Null Traces from the next observed event", nextAction: "No intervention is required; leave Observe doctrine active", actionLabel: "Review Defense forecast", target: "defense" as const, cadence: "automatic" as const }
         : { detail: "The active program has exhausted Null Traces. Observed defense events produce active evidence.", missing: "An active observation doctrine", nextAction: "Adopt Observe doctrine before the next forecast", actionLabel: "Open Defense doctrine", target: "defense" as const, cadence: "action" as const };
     }
@@ -188,8 +189,33 @@ export function getCommandPriorities(state: GameState): CommandPriority[] {
     });
   }
 
+  const activeTransit = state.transit.active;
+  if (activeTransit) {
+    const destination = getCampaignWorld(activeTransit.destinationWorldId);
+    const remainingSeconds = Math.max(
+      0,
+      activeTransit.durationSeconds - activeTransit.elapsedSeconds,
+    );
+    add({
+      id: "active-transit",
+      eyebrow: "Offline navigation",
+      title: `Ark en route to ${destination?.name ?? "the next world"}`,
+      detail: `The corridor closes in ${Math.ceil(remainingSeconds / 60)} minutes. Foundry production, Research, training, repair, and Defense all continue while the game is closed.`,
+      actionLabel: "Open Navigation",
+      target: "settlement",
+      missing: "Orbital arrival",
+      nextAction: "No intervention is required; review the route or leave the Ark running offline",
+      cadence: "automatic",
+      tone: priorities.length === 0 ? "active" : "opportunity",
+      progress: Math.min(
+        1,
+        activeTransit.elapsedSeconds / Math.max(1, activeTransit.durationSeconds),
+      ),
+    });
+  }
+
   const mission = MISSIONS[state.missions.currentIndex];
-  if (mission && !state.missions.awaitingAcknowledgement) {
+  if (mission && !state.missions.awaitingAcknowledgement && !activeTransit) {
     const stage = mission.stages[state.missions.stageIndex] ?? mission.stages[0];
     const progress = getMissionProgress(state);
     const route = missionRoute(stage.kind);

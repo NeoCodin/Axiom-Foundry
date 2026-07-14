@@ -63,6 +63,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
       { title: "Follow the active directive", detail: "The strip above the Ark always names the next useful action and shows its progress." },
       { title: "Enter awakened destinations", detail: "The five destinations are Ark, Foundry, Personnel, Research, and Planet. Medical and Armory management belong to Personnel; Expeditions and Defense remain Ark operations." },
       { title: "Read AXIOM's priorities", detail: "The command briefing names up to three useful actions, shows exactly what is missing, names the one action to take, and opens the correct page and sub-panel." },
+      { title: "Travel without babysitting", detail: "After Pelagos, departure begins a real corridor journey instead of instantly changing worlds. Open Planet to see route progress and ETA; production, research, training, construction, repair, and Defense all continue online or offline." },
     ],
     sources: [
       { label: "Flux", detail: "Core tunes and Foundry machines create the energy used by almost every early action." },
@@ -154,22 +155,25 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
     category: "Page guide // threat operations",
     title: "Prepare the Ark, then let it defend itself",
     summary:
-      "Cinder teaches environmental defense. From Nox onward, retrograde contacts target specific Ark systems. Installations, crew, equipment, research, drones, and your standing doctrine resolve every incident automatically online or offline.",
+      "Travel hazards begin on the first interplanetary corridor, Cinder orbit teaches ash defense, and Nox reveals retrograde contacts. Installations, crew, equipment, research, drones, and two independent standing doctrines resolve every incident automatically online or offline.",
     steps: [
-      { title: "Build installations", detail: "Shield Arrays carry readiness; Repair Drones speed recovery; the Early-Warning Relay extends storm forecasts; Point-Defense matters most against future hostile contacts." },
+      { title: "Build installation Marks", detail: "Shield Arrays carry readiness and reduce injuries; Repair Swarms speed recovery; the Early-Warning Relay extends forecasts; Point-Defense contests debris and hostile craft. Each installation advances from Mark I to IV through one offline project at a time." },
       { title: "Assign defenders", detail: "On-duty Soldier levels raise readiness and interception, Engineer levels add readiness and repair speed, and Navigator levels extend forecast lead time. Experience matters more than headcount." },
       { title: "Develop threat support", detail: "Defensive Forecasting and Causal Threat Projection add visible readiness; Temporal Signal Analysis extends warning; Autonomous Repair Swarms multiply repair speed." },
-      { title: "Choose a doctrine", detail: "Defend is the safe default. Evade guarantees no automatic crew injury for little reward. Intercept exposes defenders for extra recovery. Observe gathers Calibration Data, Null Traces, and Causal Fragments." },
+      { title: "Choose an environmental doctrine", detail: "Brace is safest. Harvest opens collection vanes for better Salvage and telemetry at greater hull risk. Outrun improves the projected margin but recovers little." },
+      { title: "Choose a contact doctrine", detail: "Defend is the safe default. Evade guarantees no automatic crew injury for little reward. Intercept exposes defenders for extra recovery. Observe gathers Calibration Data, Null Traces, and Causal Fragments." },
       { title: "Prepare actual people", detail: "Nox contacts may injure eligible on-duty adult defenders. Ready armor reduces wound damage. Wounded crew are removed from duty and protected from further exposure; automatic events never kill them." },
       { title: "Purge targeted compromises", detail: "A failed defense can temporarily siphon Flux, quarantine research, seize one drone program, spoof the beacon, desynchronize the Core, or contaminate the Archive. Purges complete automatically offline and never delete state." },
       { title: "Read the incident report", detail: "Every resolution records its target, margin, injuries, compromise, rewards, and recovery time, so offline results remain explainable." },
     ],
     sources: [
+      { label: "Location-specific hazards", detail: "Transit produces asteroid, debris, ion, drive, and later Null hazards. Cinder produces ash storms; Nox produces Null shear and ion storms; Vesper produces Null shear and debris fronts. An old forecast is discarded when the Ark changes environment." },
+      { label: "Mark economy", detail: "Higher Marks cost sharply more Flux, Salvage, Engineering Models, Schematics, and eventually Null Traces. Mark II-IV also require Defensive Forecasting, Autonomous Repair Swarms, and Causal Threat Projection respectively." },
       { label: "Worst case", detail: "A battered outcome temporarily reduces production by at most 25% while repairs run (six hours maximum, faster with drones and engineers). Damage never stacks deeper." },
       { label: "Null Traces", detail: "The Observe doctrine is the active way to gather Null Traces from Cinder onward." },
       { label: "Causal Fragments", detail: "Identified contacts reveal evidence that they originate from damaged futures and may be trying to prevent something the Ark eventually causes. The current campaign never states the full answer." },
     ],
-    tip: "Storms never arrive unannounced faster than 15 minutes, and the first storm is always mild.",
+    tip: "The first corridor hazard waits 45 minutes. A fresh Defense ledger's first orbital hazard waits two hours; later environmental gaps are four to eight hours. First contact waits 90 minutes after hostile operations become possible.",
   },
   medical: {
     id: "medical",
@@ -243,6 +247,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
       { title: "Choose a founding community", detail: "Community Readiness replaces a raw population quota. Every person contributes; children, elders, social Expertise, profession diversity, and completed planetary works increase readiness." },
       { title: "Meet combined Expertise", detail: "Engineering, Medical, Ecology, and other requirements count combined levels, not numbers of job titles. One experienced specialist can contribute several points." },
       { title: "Name and establish the settlement", detail: "Departure becomes available only when every requirement is met. There is no deadline." },
+      { title: "Cross the corridor", detail: "Pelagos and later departures begin timed offline travel. Planetfall directives do not advance until orbital arrival, expedition launches pause during the crossing, and the Navigation screen shows the exact ETA and current hazard forecast." },
       { title: "Protect restored worlds", detail: "After Nox contact, every colony gains a persistent defense network. Choose Conservation, Guard, or Fortress upkeep and build Reality Anchors, Shields, Interceptors, Shelters, and Repair Yards. Construction and attacks continue offline." },
     ],
     sources: [

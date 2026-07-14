@@ -34,6 +34,7 @@ import {
   getColonyLegacyEffects,
   buyDefenseInstallation,
   chooseDefenseDoctrine,
+  chooseEnvironmentalDefenseDoctrine,
   craftArmoryItem,
   repairArmoryItem,
   beginArmoryUpgrade,
@@ -85,6 +86,8 @@ import {
   getResearchLeadStatus,
   getDefenseCrewContext,
   getActiveAutomationEffects,
+  getActiveTransit,
+  getDefenseEnvironment,
   getAutomationFrameQuote,
   getOperationalLoad,
   isAutomationProgramUnlocked,
@@ -139,6 +142,7 @@ import ExpeditionConsole from "./expedition-console";
 import MedicalConsole from "./medical-console";
 import ResearchLattice, { type ResearchView } from "./research-lattice";
 import SettlementConsole from "./settlement-console";
+import TransitConsole from "./transit-console";
 import AutomationConsole from "./automation-console";
 import {
   addDiscovery,
@@ -211,6 +215,7 @@ import {
   setResearchCrew,
   type ResearchInputId,
   type ResearchLatticeState,
+  type ResearchProjectId,
 } from "./research-engine";
 import {
   acknowledgeColonyTransmission,
@@ -228,6 +233,7 @@ import {
   DEFENSE_INSTALLATION_DEFINITIONS,
   type DefenseDoctrine,
   type DefenseInstallationId,
+  type EnvironmentalDoctrine,
 } from "./defense-engine";
 import { LORE_ENTRIES, TOUR_STEPS } from "./story-content";
 import { getProgressiveDisclosure } from "./progressive-disclosure";
@@ -582,6 +588,7 @@ export default function Home() {
     [game.living.discoveredLore, game.missions.worldsSaved],
   );
   const chosenDoctrine = getChosenDoctrine(game.living.doctrine);
+  const activeTransit = getActiveTransit(game);
   const firstLockedGenerator = GENERATORS.findIndex(
     (_, index) => !isTierUnlocked(game, index),
   );
@@ -592,7 +599,9 @@ export default function Home() {
   const campaignWorld =
     (game.settlement.currentWorldId
       ? getCampaignWorld(game.settlement.currentWorldId)
-      : null) ?? getCampaignWorld("vesper")!;
+      : activeTransit
+        ? getCampaignWorld(activeTransit.destinationWorldId)
+        : null) ?? getCampaignWorld("vesper")!;
   const researchBonuses = useMemo(
     () => getResearchBonuses(game.research),
     [game.research],
@@ -653,7 +662,7 @@ export default function Home() {
     getExpeditionAvailability(
       game.expeditions,
       campaignWorldIndex,
-      game.settlement.currentWorldId === null,
+      game.settlement.currentWorldId === null && !activeTransit,
     ).map((entry) => {
       const quote = getExpeditionLaunchQuote(game, entry.site.id, [
         "placeholder-a",
@@ -662,8 +671,8 @@ export default function Home() {
       return [
         entry.site.id,
         {
-          available: entry.available,
-          reason: entry.reason,
+          available: entry.available && !activeTransit,
+          reason: activeTransit ? "in-transit" : entry.reason,
           fluxLabel: `${formatNumber(quote.fluxCost)} Flux`,
           canAffordFlux: game.flux >= quote.fluxCost,
         },
@@ -804,15 +813,39 @@ export default function Home() {
   const defenseInstallationQuotes = Object.fromEntries(
     (Object.keys(DEFENSE_INSTALLATION_DEFINITIONS) as DefenseInstallationId[]).map((id) => {
       const quote = getDefenseInstallationQuote(game, id);
+      const requiredResearch = quote.requiredResearchId
+        ? getResearchProjectDefinition(quote.requiredResearchId as ResearchProjectId)
+        : null;
       return [
         id,
         {
-          ...quote,
-          costLabel: quote.maxed ? "MAXED" : `${formatNumber(quote.cost)} Flux`,
+          mark: quote.mark,
+          targetMark: quote.targetMark,
+          maxed: quote.maxed,
+          busy: quote.busy,
+          researchMet: quote.researchMet,
+          canAfford: quote.canAfford,
+          capability: quote.capability,
+          durationLabel: formatDuration(quote.durationSeconds),
+          costLabel: quote.maxed
+            ? "Architecture complete"
+            : !quote.researchMet
+              ? `Requires ${requiredResearch?.name ?? quote.requiredResearchId}`
+              : `${formatNumber(quote.fluxCost)} Flux + ${quote.salvageCost} Salvage + ${quote.modelCost} Models${quote.schematicCost > 0 ? ` + ${quote.schematicCost} Schematics` : ""}${quote.nullTraceCost > 0 ? ` + ${quote.nullTraceCost} Null Traces` : ""}`,
         },
       ];
     }),
-  ) as Record<DefenseInstallationId, { cost: number; level: number; maxed: boolean; canAfford: boolean; costLabel: string }>;
+  ) as Record<DefenseInstallationId, {
+    mark: number;
+    targetMark: number;
+    maxed: boolean;
+    busy: boolean;
+    researchMet: boolean;
+    canAfford: boolean;
+    capability: string;
+    durationLabel: string;
+    costLabel: string;
+  }>;
 
   const automationFrameQuote = getAutomationFrameQuote(game);
   const automationFrameQuoteView = {
@@ -1129,9 +1162,13 @@ export default function Home() {
 
   const handleBuyDefenseInstallation = (id: DefenseInstallationId) => {
     const current = gameRef.current;
+    const quote = getDefenseInstallationQuote(current, id);
     const next = buyDefenseInstallation(current, id);
-    if (next === current) return;
-    commitGameState(next, `${DEFENSE_INSTALLATION_DEFINITIONS[id].name} upgraded to level ${next.defense.installations[id]}.`);
+    if (next === current) {
+      setAnnouncement("That Mark project still needs its listed research or committed resources, or another installation is already under construction.");
+      return;
+    }
+    commitGameState(next, `${DEFENSE_INSTALLATION_DEFINITIONS[id].name} Mark ${quote.targetMark} construction started. Work continues offline.`);
   };
 
   const handleLaunchRescue = (crewIds: readonly string[]) => {
@@ -1262,7 +1299,16 @@ export default function Home() {
     const current = gameRef.current;
     const next = chooseDefenseDoctrine(current, doctrine);
     if (next === current) return;
-    commitGameState(next, `Standing doctrine set: ${doctrine}. It applies to every event, even offline.`);
+    commitGameState(next, `Contact doctrine set: ${doctrine}. It applies to every hostile contact, even offline.`);
+  };
+
+  const handleChooseEnvironmentalDefenseDoctrine = (
+    doctrine: EnvironmentalDoctrine,
+  ) => {
+    const current = gameRef.current;
+    const next = chooseEnvironmentalDefenseDoctrine(current, doctrine);
+    if (next === current) return;
+    commitGameState(next, `Environmental doctrine set: ${doctrine}. Transit and orbital hazards will use it automatically.`);
   };
 
   const handleBuildAutomationFrame = () => {
@@ -1377,7 +1423,11 @@ export default function Home() {
     const current = gameRef.current;
     const next = startExpedition(current, siteId, crewIds);
     if (next === current) {
-      setAnnouncement("The expedition cannot launch yet - check crew availability and the Flux cost.");
+      setAnnouncement(
+        current.transit.active
+          ? "The launch bay is secured for transit. Expeditions resume automatically when the Ark reaches orbit."
+          : "The expedition cannot launch yet - check crew availability and the Flux cost.",
+      );
       return;
     }
     commitGameState(
@@ -1563,10 +1613,12 @@ export default function Home() {
     commitGameState(
       result.state,
       result.nextWorldId
-        ? `${campaignWorld.name} is independent. The Ark is now bound for ${getCampaignWorld(result.nextWorldId)?.name ?? "the next world"}.`
+        ? result.state.transit.active
+          ? `${campaignWorld.name} is independent. The Ark is in transit to ${getCampaignWorld(result.nextWorldId)?.name ?? "the next world"}; arrival in ${formatDuration(result.state.transit.active.totalSeconds)}.`
+          : `${campaignWorld.name} is independent. The Ark has reached ${getCampaignWorld(result.nextWorldId)?.name ?? "the next world"}.`
         : "The continuity route is complete. AXIOM must now decide what kind of future it has been building.",
     );
-    setPrimaryView("deck");
+    setPrimaryView(result.state.transit.active ? "settlement" : "deck");
   };
 
   const handleAcknowledgeTransmission = () => {
@@ -1812,9 +1864,9 @@ export default function Home() {
       </div>
 
       <GameCommandBar
-        worldName={MISSIONS[campaignWorldIndex].world}
+        worldName={activeTransit ? `Transit to ${activeTransit.destinationName}` : MISSIONS[campaignWorldIndex].world}
         cycle={game.cycle}
-        arrival={MISSIONS[campaignWorldIndex].arrival}
+        arrival={activeTransit ? `${activeTransit.originName} corridor // ${formatDuration(activeTransit.remainingSeconds)} to arrival` : MISSIONS[campaignWorldIndex].arrival}
         fluxLabel={formatNumber(game.flux)}
         fluxExact={game.flux.toExponential(6)}
         fluxPerSecondLabel={formatNumber(production.fluxPerSecond)}
@@ -1825,7 +1877,13 @@ export default function Home() {
         ready={ready}
         focusWelcome={currentTour?.target === "welcome"}
         focusFlux={currentTour?.target === "flux"}
-        objective={{
+        objective={activeTransit ? {
+          label: `Navigate to ${activeTransit.destinationName}`,
+          currentLabel: `${Math.round(activeTransit.progress * 1000) / 10}%`,
+          thresholdLabel: "100%",
+          progress: activeTransit.progress,
+          directiveLabel: null,
+        } : {
           label: objective.label,
           currentLabel: formatNumber(objective.current),
           thresholdLabel: formatNumber(objective.threshold),
@@ -2074,12 +2132,13 @@ export default function Home() {
           state={game.defense}
           crew={defenseCrew}
           crewNames={Object.fromEntries(game.survivors.survivors.map((survivor) => [survivor.id, survivor.callsign || survivor.name]))}
-          currentWorldName={campaignWorld.name}
-          stormsEnabled={defenseUnlocked}
+          currentLocationName={activeTransit ? `${activeTransit.originName} to ${activeTransit.destinationName}` : campaignWorld.name}
+          stormsEnabled={getDefenseEnvironment(game) !== null}
           hostilesEnabled={isHostileThreatOperationsActivated(game)}
           installationQuotes={defenseInstallationQuotes}
           onBuyInstallation={handleBuyDefenseInstallation}
-          onChooseDoctrine={handleChooseDefenseDoctrine}
+          onChooseContactDoctrine={handleChooseDefenseDoctrine}
+          onChooseEnvironmentalDoctrine={handleChooseEnvironmentalDefenseDoctrine}
           onOpenHelp={setManualTopic}
           onBack={() => setPrimaryView("deck")}
         />
@@ -2141,6 +2200,14 @@ export default function Home() {
           onLaunchRescue={handleLaunchRescue}
           onAbandonStranded={handleAbandonStranded}
           onOpenHelp={setManualTopic}
+          onBack={() => setPrimaryView("deck")}
+        />
+      ) : primaryView === "settlement" && activeTransit ? (
+        <TransitConsole
+          journey={activeTransit}
+          defense={game.defense}
+          defenseCrew={defenseCrew}
+          onOpenDefense={() => setPrimaryView("defense")}
           onBack={() => setPrimaryView("deck")}
         />
       ) : primaryView === "settlement" && viabilityForecast ? (

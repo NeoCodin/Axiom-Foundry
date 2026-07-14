@@ -78,20 +78,32 @@ import {
 } from "./automation-engine.ts";
 import {
   advanceDefense,
+  beginDefenseInstallationProject,
   cloneDefenseState,
   createDefenseState,
   getDefenseProductionMultiplier,
   getDefenseCompromiseLoad,
   getSuppressedAutomationProgram,
-  getInstallationCost,
+  getInstallationProjectRequirements,
   sanitizeDefenseState,
   setDefenseDoctrine,
-  upgradeDefenseInstallation,
+  setEnvironmentalDefenseDoctrine,
   type DefenseCrewContext,
   type DefenseDoctrine,
+  type DefenseEnvironment,
   type DefenseInstallationId,
   type DefenseState,
+  type EnvironmentalDoctrine,
 } from "./defense-engine.ts";
+import {
+  advanceTransit,
+  beginTransit,
+  cloneTransitState,
+  createTransitState,
+  getTransitProgress,
+  sanitizeTransitState,
+  type TransitState,
+} from "./transit-engine.ts";
 import {
   MAX_PLANETARY_INSTALLATION_LEVEL,
   PLANETARY_INSTALLATION_DEFINITIONS,
@@ -187,7 +199,7 @@ import {
   getSurvivorContinuityExpertise,
 } from "./continuity-expertise.ts";
 
-export const SAVE_VERSION = 9;
+export const SAVE_VERSION = 10;
 export const SAVE_KEY = "axiom-foundry-save-v5";
 export const RETIRED_SAVE_KEYS = [
   "axiom-foundry-save-v1",
@@ -267,6 +279,7 @@ export type GameState = {
   armory: ArmoryState;
   automation: AutomationState;
   planetaryDefense: PlanetaryDefenseState;
+  transit: TransitState;
   settings: GameSettings;
   manualPulses: number;
   playTime: number;
@@ -800,6 +813,7 @@ export function createInitialState(now = Date.now()): GameState {
     armory: createArmoryState(),
     automation: createAutomationState(),
     planetaryDefense: createPlanetaryDefenseState(),
+    transit: createTransitState(),
     settings: {
       buyMode: "1",
       autoEnabled: false,
@@ -961,6 +975,8 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
   const research = sanitizeResearchLatticeState(value.research);
   const researchStock = sanitizeResearchStock(value.researchStock);
   const settlement = sanitizeSettlementState(value.settlement);
+  const transit = sanitizeTransitState(value.transit);
+  if (transit.active) settlement.currentWorldId = null;
   const worldProgress = sanitizeWorldProgress(value.worldProgress);
 
   // Story-hook characters settled in colonies stay found forever, even in
@@ -1018,6 +1034,7 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
     armory: sanitizeArmoryState(value.armory),
     automation: sanitizeAutomationState(value.automation),
     planetaryDefense: sanitizePlanetaryDefenseState(value.planetaryDefense, settlement.colonies),
+    transit,
     settings: {
       buyMode:
         rawSettings.buyMode === "10" || rawSettings.buyMode === "max"
@@ -1072,6 +1089,7 @@ export function cloneGameState(state: GameState): GameState {
     armory: cloneArmoryState(state.armory),
     automation: cloneAutomationState(state.automation),
     planetaryDefense: clonePlanetaryDefenseState(state.planetaryDefense),
+    transit: cloneTransitState(state.transit),
     settings: {
       ...state.settings,
       autoTiers: [...state.settings.autoTiers],
@@ -1087,11 +1105,7 @@ export function getCampaignWorldIndex(state: GameState) {
   );
 }
 
-/**
- * Threat Operations is deliberately introduced in layers. Cinder first teaches
- * surface expeditions; the Defense Grid wakes after two completed sorties (or
- * immediately for any save that already contains defense progress or hardware).
- */
+/** The first interplanetary route introduces weather; Nox always reveals contacts. */
 export function isThreatOperationsActivated(state: GameState) {
   const hasDefenseFootprint =
     state.defense.incoming !== null ||
@@ -1103,9 +1117,25 @@ export function isThreatOperationsActivated(state: GameState) {
   );
   return (
     hasDefenseFootprint ||
+    state.transit.active !== null ||
+    getCampaignWorldIndex(state) >= 4 ||
     (getCampaignWorldIndex(state) >= 3 &&
       (state.expeditions.stats.completed >= 2 || hasArmoryFootprint))
   );
+}
+
+function defenseEnvironmentForWorldId(
+  worldId: CampaignWorldId | null,
+): DefenseEnvironment | null {
+  if (worldId === "cinder") return "cinder-orbit";
+  if (worldId === "nox") return "nox-orbit";
+  if (worldId === "vesper") return "vesper-orbit";
+  return null;
+}
+
+export function getDefenseEnvironment(state: GameState): DefenseEnvironment | null {
+  if (state.transit.active) return "transit";
+  return defenseEnvironmentForWorldId(state.settlement.currentWorldId);
 }
 
 export function getCampaignCrewSummaries(
@@ -2158,6 +2188,7 @@ export type ExpeditionLaunchQuote = {
   canLaunch: boolean;
   reason:
     | "unavailable"
+    | "transit"
     | "busy"
     | "crew-count"
     | "crew-unavailable"
@@ -2195,10 +2226,11 @@ export function getExpeditionLaunchQuote(
     projectedOutcome: null,
     loadout: [],
   });
+  if (state.transit.active) return blocked("transit");
   const availability = getExpeditionAvailability(
     state.expeditions,
     getCampaignWorldIndex(state),
-    state.settlement.currentWorldId === null,
+    state.settlement.currentWorldId === null && !state.transit.active,
   ).find((entry) => entry.site.id === siteId);
   if (!availability?.available) {
     return blocked(availability?.reason === "busy" ? "busy" : "unavailable");
@@ -2790,16 +2822,46 @@ export function getDefenseInstallationQuote(
   state: GameState,
   installationId: DefenseInstallationId,
 ) {
-  const cost = getInstallationCost(
-    state.defense,
-    installationId,
-    continuityScale(state),
-  );
+  const project = getInstallationProjectRequirements(state.defense, installationId);
+  const materialScale = 1 + getCampaignWorldIndex(state) * 0.15;
+  const cost = project.maxed
+    ? 0
+    : bounded(
+        project.fluxCost *
+          continuityScale(state) *
+          getColonyLegacyEffects(state).fabricationCostMultiplier,
+      );
+  const salvageCost = project.maxed ? 0 : Math.ceil(project.salvageCost * materialScale);
+  const modelCost = project.maxed ? 0 : Math.ceil(project.modelCost * materialScale);
+  const researchMet =
+    project.requiredResearchId === null ||
+    state.research.completedProjectIds.includes(project.requiredResearchId as ResearchProjectId);
+  const busy = state.defense.construction !== null;
   return {
     cost,
-    level: state.defense.installations[installationId],
-    maxed: !Number.isFinite(cost),
-    canAfford: Number.isFinite(cost) && state.flux >= cost,
+    fluxCost: cost,
+    salvageCost,
+    modelCost,
+    schematicCost: project.schematicCost,
+    nullTraceCost: project.nullTraceCost,
+    durationSeconds: project.durationSeconds,
+    requiredResearchId: project.requiredResearchId,
+    researchMet,
+    capability: project.capability,
+    mark: project.currentMark,
+    level: project.currentMark,
+    targetMark: project.targetMark,
+    maxed: project.maxed,
+    busy,
+    canAfford:
+      !project.maxed &&
+      !busy &&
+      researchMet &&
+      state.flux >= cost &&
+      state.living.salvage >= salvageCost &&
+      state.researchStock["engineering-models"] >= modelCost &&
+      state.researchStock.schematics >= project.schematicCost &&
+      state.researchStock["null-traces"] >= project.nullTraceCost,
   };
 }
 
@@ -2808,11 +2870,19 @@ export function buyDefenseInstallation(
   installationId: DefenseInstallationId,
 ) {
   const quote = getDefenseInstallationQuote(state, installationId);
-  if (quote.maxed || state.flux < quote.cost) return state;
-  const defense = upgradeDefenseInstallation(state.defense, installationId);
+  if (!quote.canAfford) return state;
+  const defense = beginDefenseInstallationProject(
+    state.defense,
+    installationId,
+    quote.durationSeconds,
+  );
   if (defense === state.defense) return state;
   const next = cloneGameState(state);
-  next.flux = Math.max(0, next.flux - quote.cost);
+  next.flux = Math.max(0, next.flux - quote.fluxCost);
+  next.living.salvage -= quote.salvageCost;
+  next.researchStock["engineering-models"] -= quote.modelCost;
+  next.researchStock.schematics -= quote.schematicCost;
+  next.researchStock["null-traces"] -= quote.nullTraceCost;
   next.defense = defense;
   return next;
 }
@@ -2822,6 +2892,17 @@ export function chooseDefenseDoctrine(
   doctrine: DefenseDoctrine,
 ) {
   const defense = setDefenseDoctrine(state.defense, doctrine);
+  if (defense === state.defense) return state;
+  const next = cloneGameState(state);
+  next.defense = defense;
+  return next;
+}
+
+export function chooseEnvironmentalDefenseDoctrine(
+  state: GameState,
+  doctrine: EnvironmentalDoctrine,
+) {
+  const defense = setEnvironmentalDefenseDoctrine(state.defense, doctrine);
   if (defense === state.defense) return state;
   const next = cloneGameState(state);
   next.defense = defense;
@@ -3413,6 +3494,18 @@ export function departCurrentWorld(
   );
   next.tiers[0].amount = next.tiers[0].bought;
   next.missions.baseline = captureMissionBaseline(next);
+  if (result.nextWorldId && worldId !== "cold-wake") {
+    const navigationExpertise = getDefenseCrewContext(next).navigators;
+    next.transit = beginTransit(
+      next.transit,
+      worldId,
+      result.nextWorldId,
+      navigationExpertise,
+      next.research.completedProjectIds.includes("ark-drive-coupling"),
+      departedAt,
+    );
+    if (next.transit.active) next.settlement.currentWorldId = null;
+  }
   return {
     state: next,
     ok: true,
@@ -3744,6 +3837,10 @@ export function getProductionSnapshot(state: GameState) {
   };
 }
 
+export function getActiveTransit(state: GameState) {
+  return getTransitProgress(state.transit);
+}
+
 export function getManualGain(state: GameState) {
   const production = getProductionSnapshot(state).fluxPerSecond;
   const responsiveBase = 1 + Math.sqrt(production + 1) * 0.04;
@@ -4066,6 +4163,25 @@ export function simulateGame(
   );
   const delta = seconds / steps;
   let next = cloneGameState(state);
+  const startingTransit = next.transit.active ? { ...next.transit.active } : null;
+  const transitMissionDelay = startingTransit
+    ? Math.min(
+        seconds,
+        Math.max(0, startingTransit.totalSeconds - startingTransit.elapsedSeconds),
+      )
+    : 0;
+  if (startingTransit) {
+    const transitAdvance = advanceTransit(next.transit, seconds);
+    next.transit = transitAdvance.state;
+    if (transitAdvance.arrivedWorldId) {
+      next.settlement.currentWorldId = transitAdvance.arrivedWorldId;
+      next.survivors = setSosBeaconOnline(
+        next.survivors,
+        false,
+        transitAdvance.arrivedWorldId,
+      );
+    }
+  }
   next.living = advanceLivingFoundry(next.living, seconds);
   const survivorBonuses = getResearchBonuses(next.research);
   const colonyBonuses = getColonyLegacyEffects(next);
@@ -4198,39 +4314,75 @@ export function simulateGame(
         ),
   );
 
-  const defenseAdvance = advanceDefense(next.defense, seconds, {
-    stormsEnabled: isThreatOperationsActivated(next),
-    hostilesEnabled: isHostileThreatOperationsActivated(next),
-    beaconOnline: next.survivors.beaconOnline,
-    worldIndex: getCampaignWorldIndex(next),
-    ...getDefenseCrewContext(next),
-  });
-  next.defense = defenseAdvance.state;
-  next.living.salvage = Math.min(
-    1e12,
-    next.living.salvage + defenseAdvance.salvage,
-  );
-  next.researchStock["engineering-models"] = Math.min(
-    1e12,
-    next.researchStock["engineering-models"] + defenseAdvance.engineeringModels,
-  );
-  next.researchStock["calibration-data"] = Math.min(
-    1e12,
-    next.researchStock["calibration-data"] + defenseAdvance.calibrationData,
-  );
-  next.researchStock["null-traces"] = Math.min(
-    1e12,
-    next.researchStock["null-traces"] + defenseAdvance.nullTraces,
-  );
-  for (const event of defenseAdvance.resolvedEvents) {
-    for (const wound of event.injuries) {
-      const survivor = next.survivors.survivors.find(
-        (candidate) => candidate.id === wound.crewId,
-      );
-      if (!survivor) continue;
-      applySurvivorWound(survivor, wound.damage, wound.injuryTier);
-      if (isSurvivorWounded(survivor)) survivor.assignedRole = null;
+  const applyDefenseSegment = (
+    duration: number,
+    environment: DefenseEnvironment | null,
+    hostilesEnabled: boolean,
+  ) => {
+    if (duration <= 0) return;
+    const defenseAdvance = advanceDefense(next.defense, duration, {
+      environment,
+      stormsEnabled: environment !== null,
+      hostilesEnabled,
+      beaconOnline: next.survivors.beaconOnline,
+      worldIndex: getCampaignWorldIndex(next),
+      constructionSpeedMultiplier:
+        automationEffects.constructionSpeedMultiplier *
+        (1 + Math.min(0.5, getAssignedEngineeringExpertise(next) * 0.025)),
+      ...getDefenseCrewContext(next),
+    });
+    next.defense = defenseAdvance.state;
+    next.living.salvage = Math.min(
+      1e12,
+      next.living.salvage + defenseAdvance.salvage,
+    );
+    next.researchStock["engineering-models"] = Math.min(
+      1e12,
+      next.researchStock["engineering-models"] + defenseAdvance.engineeringModels,
+    );
+    next.researchStock["calibration-data"] = Math.min(
+      1e12,
+      next.researchStock["calibration-data"] + defenseAdvance.calibrationData,
+    );
+    next.researchStock["null-traces"] = Math.min(
+      1e12,
+      next.researchStock["null-traces"] + defenseAdvance.nullTraces,
+    );
+    for (const event of defenseAdvance.resolvedEvents) {
+      for (const wound of event.injuries) {
+        const survivor = next.survivors.survivors.find(
+          (candidate) => candidate.id === wound.crewId,
+        );
+        if (!survivor) continue;
+        applySurvivorWound(survivor, wound.damage, wound.injuryTier);
+        if (isSurvivorWounded(survivor)) survivor.assignedRole = null;
+      }
     }
+  };
+
+  if (startingTransit) {
+    const routeWorldIndex = getCampaignWorld(
+      startingTransit.destinationWorldId,
+    )?.chapter ?? 0;
+    applyDefenseSegment(
+      transitMissionDelay,
+      "transit",
+      routeWorldIndex >= 4 || next.defense.firstContactResolved,
+    );
+    const orbitalSeconds = Math.max(0, seconds - transitMissionDelay);
+    if (orbitalSeconds > 0) {
+      applyDefenseSegment(
+        orbitalSeconds,
+        defenseEnvironmentForWorldId(startingTransit.destinationWorldId),
+        routeWorldIndex >= 4 || next.defense.firstContactResolved,
+      );
+    }
+  } else {
+    applyDefenseSegment(
+      seconds,
+      getDefenseEnvironment(next),
+      isHostileThreatOperationsActivated(next),
+    );
   }
 
   next.planetaryDefense = syncPlanetaryDefenseNetworks(
@@ -4392,7 +4544,15 @@ export function simulateGame(
     next.playTime += delta;
     next.runTime += delta;
 
-    if (advanceMissions) next = advanceMission(next, delta);
+    const stepStart = step * delta;
+    const stepEnd = stepStart + delta;
+    const missionDelta = Math.max(
+      0,
+      stepEnd - Math.max(stepStart, transitMissionDelay),
+    );
+    if (advanceMissions && missionDelta > 0) {
+      next = advanceMission(next, missionDelta);
+    }
 
     if (next.lifetimeAxioms >= 1 && next.settings.autoEnabled) {
       next.autoTimer += delta;

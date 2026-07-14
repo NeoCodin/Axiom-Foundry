@@ -25,6 +25,240 @@
   --font-number: ui-monospace, "Cascadia Mono", Consolas, monospace;
 }
 
+/* Transit and Defense Grid Mark architecture */
+.transit-console {
+  width: min(1760px, calc(100% - 32px));
+  margin: 0 auto 48px;
+  display: grid;
+  gap: 18px;
+}
+
+.transit-console-header,
+.defense-command-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.transit-console-header p,
+.transit-hazard-card header span,
+.transit-telemetry span,
+.defense-readiness-ledger header span,
+.defense-installation-program header span {
+  color: var(--world-accent, var(--flux));
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.transit-console-header h2 {
+  margin: 4px 0 6px;
+  font-size: clamp(1.7rem, 3vw, 3.25rem);
+}
+
+.transit-console-header > div > span {
+  display: block;
+  max-width: 820px;
+  color: var(--muted);
+}
+
+.transit-vista {
+  position: relative;
+  min-height: 420px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--world-accent) 45%, var(--border));
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 84% 48%, color-mix(in srgb, var(--world-accent) 22%, transparent) 0 5%, transparent 22%),
+    radial-gradient(circle at 14% 48%, rgba(255,255,255,.08), transparent 13%),
+    linear-gradient(145deg, #02050a, color-mix(in srgb, var(--world-sky) 35%, #040711));
+  box-shadow: inset 0 0 80px rgba(0,0,0,.72), 0 24px 80px rgba(0,0,0,.32);
+}
+
+.transit-stars i {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: #dffaff;
+  box-shadow: 170px 40px #6ba9b9, 390px 160px #fff, 630px -60px #87dcea, 880px 120px #56778f, 1120px -30px #fff, 1390px 80px #74c6d7;
+}
+.transit-stars i:nth-child(1) { left: 4%; top: 18%; }
+.transit-stars i:nth-child(2) { left: 12%; top: 72%; transform: scale(.7); }
+.transit-stars i:nth-child(3) { left: 36%; top: 32%; transform: scale(1.4); }
+.transit-stars i:nth-child(4) { left: 55%; top: 82%; }
+.transit-stars i:nth-child(5) { left: 72%; top: 16%; transform: scale(.6); }
+.transit-stars i:nth-child(6) { left: 89%; top: 69%; transform: scale(1.2); }
+
+.transit-route-line {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 54%;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(255,255,255,.2), var(--world-accent), rgba(255,255,255,.18));
+  box-shadow: 0 0 18px color-mix(in srgb, var(--world-accent) 60%, transparent);
+}
+
+.transit-origin,
+.transit-destination,
+.transit-ark {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+.transit-origin { left: 0; }
+.transit-destination { left: 100%; }
+.transit-origin::before,
+.transit-destination i {
+  content: "";
+  display: block;
+  width: 68px;
+  height: 68px;
+  margin: auto;
+  border: 1px solid color-mix(in srgb, var(--world-accent) 55%, white 12%);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 32%, color-mix(in srgb, var(--world-accent) 80%, white), color-mix(in srgb, var(--world-ground) 70%, #02030a) 62%, #010207 63%);
+  box-shadow: 0 0 34px color-mix(in srgb, var(--world-accent) 30%, transparent);
+}
+.transit-origin::before { filter: grayscale(.75) brightness(.55); }
+.transit-origin b,
+.transit-destination b,
+.transit-ark b {
+  display: block;
+  margin-top: 10px;
+  white-space: nowrap;
+  color: var(--text);
+  font-size: .72rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.transit-ark {
+  transition: left .6s ease;
+  z-index: 3;
+}
+.transit-ark i {
+  display: block;
+  width: 42px;
+  height: 18px;
+  clip-path: polygon(0 50%, 62% 0, 100% 50%, 62% 100%);
+  background: linear-gradient(90deg, #8fa8b2, #e9fbff 50%, var(--world-accent));
+  box-shadow: 0 0 24px var(--world-accent);
+}
+.transit-ark::after {
+  content: "";
+  position: absolute;
+  right: 31px;
+  top: 6px;
+  width: 90px;
+  height: 5px;
+  background: linear-gradient(90deg, transparent, var(--world-accent));
+  filter: blur(3px);
+}
+
+.transit-progress-copy {
+  position: absolute;
+  left: 50%;
+  top: 12%;
+  transform: translateX(-50%);
+  text-align: center;
+}
+.transit-progress-copy span { color: var(--muted); font-size: .68rem; letter-spacing: .18em; }
+.transit-progress-copy strong { display: block; color: var(--world-accent); font-size: clamp(2.4rem, 6vw, 5.4rem); line-height: 1; text-shadow: 0 0 34px color-mix(in srgb, var(--world-accent) 50%, transparent); }
+.transit-progress-copy p { margin: 8px 0 0; color: var(--text); }
+
+.transit-telemetry {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(7,13,23,.86);
+}
+.transit-telemetry article { padding: 16px 18px; border-right: 1px solid var(--border); }
+.transit-telemetry article:last-child { border-right: 0; }
+.transit-telemetry strong { display: block; margin: 4px 0; font-size: 1.35rem; }
+.transit-telemetry small { color: var(--muted); }
+
+.transit-hazard-card,
+.transit-idle-contract {
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(8,15,26,.9);
+}
+.transit-hazard-card.is-tracked { border-color: color-mix(in srgb, #ffbd6a 55%, var(--border)); }
+.transit-hazard-card header { display: flex; justify-content: space-between; gap: 20px; }
+.transit-hazard-card h3 { margin: 3px 0; }
+.transit-hazard-card p,
+.transit-idle-contract p { color: var(--muted); }
+
+.defense-summary-band { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.defense-readiness-sources { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.defense-readiness-sources article { padding: 14px; border: 1px solid var(--border); border-radius: 10px; background: rgba(3,9,17,.56); }
+.defense-readiness-sources span { display: block; min-height: 2.2em; color: var(--muted); font-size: .72rem; }
+.defense-readiness-sources strong { color: var(--world-accent); font-size: 1.35rem; }
+
+.defense-forecast-body { display: grid; gap: 8px; }
+.defense-outcome-projection { display: grid; grid-template-columns: auto 1fr auto 1fr; gap: 8px 14px; align-items: center; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: rgba(0,0,0,.2); }
+.defense-outcome-projection span { color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; }
+
+.defense-doctrine-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.defense-doctrine-stack { display: grid; gap: 8px; }
+.defense-doctrine-stack article { display: grid; grid-template-columns: 1fr auto; gap: 14px; padding: 13px; border: 1px solid var(--border); border-radius: 10px; background: rgba(0,0,0,.16); }
+.defense-doctrine-stack article.is-active { border-color: var(--world-accent); background: color-mix(in srgb, var(--world-accent) 10%, rgba(0,0,0,.16)); }
+.defense-doctrine-stack span { color: var(--world-accent); font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+.defense-doctrine-stack strong { display: block; margin-top: 3px; font-size: .78rem; }
+.defense-doctrine-stack p { margin: 5px 0 0; color: var(--muted); font-size: .78rem; }
+
+.defense-construction-banner { display: grid; grid-template-columns: 1fr minmax(220px, 38%); gap: 20px; align-items: center; margin-bottom: 14px; padding: 14px; border: 1px solid color-mix(in srgb, var(--world-accent) 50%, var(--border)); border-radius: 12px; background: color-mix(in srgb, var(--world-accent) 8%, rgba(0,0,0,.25)); }
+.defense-construction-banner span,
+.defense-construction-banner small { display: block; color: var(--muted); }
+.defense-construction-track { height: 8px; overflow: hidden; border-radius: 99px; background: rgba(255,255,255,.08); }
+.defense-construction-track i { display: block; height: 100%; background: var(--world-accent); box-shadow: 0 0 14px var(--world-accent); }
+
+.defense-installation-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.defense-installation-grid > article { display: flex; flex-direction: column; gap: 9px; min-height: 300px; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: rgba(3,9,17,.58); }
+.defense-installation-grid > article.is-online { border-color: color-mix(in srgb, var(--world-accent) 42%, var(--border)); }
+.defense-installation-grid article header { display: flex; justify-content: space-between; gap: 10px; }
+.defense-installation-grid article header span { color: var(--text); letter-spacing: 0; font-size: .82rem; }
+.defense-installation-grid article header strong { color: var(--world-accent); }
+.defense-installation-grid p { color: var(--muted); min-height: 4.5em; }
+.defense-installation-grid small { display: block; color: var(--muted); }
+.defense-installation-grid button { margin-top: auto; }
+.defense-mark-pips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+.defense-mark-pips i { height: 5px; border-radius: 99px; background: rgba(255,255,255,.08); }
+.defense-mark-pips i.is-filled { background: var(--world-accent); box-shadow: 0 0 8px color-mix(in srgb, var(--world-accent) 60%, transparent); }
+
+@media (max-width: 1050px) {
+  .transit-telemetry,
+  .defense-readiness-sources { grid-template-columns: repeat(2, 1fr); }
+  .transit-telemetry article:nth-child(2) { border-right: 0; }
+  .transit-telemetry article { border-bottom: 1px solid var(--border); }
+  .defense-summary-band { grid-template-columns: repeat(3, 1fr); }
+  .defense-installation-grid { grid-template-columns: repeat(2, 1fr); }
+  .defense-doctrine-columns { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 680px) {
+  .transit-console { width: min(100% - 16px, 1760px); }
+  .transit-console-header,
+  .defense-command-header { flex-direction: column; }
+  .transit-vista { min-height: 350px; }
+  .transit-route-line { left: 14%; right: 14%; top: 60%; }
+  .transit-origin::before,
+  .transit-destination i { width: 46px; height: 46px; }
+  .transit-origin b,
+  .transit-destination b { max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
+  .transit-telemetry,
+  .defense-readiness-sources,
+  .defense-summary-band,
+  .defense-installation-grid { grid-template-columns: 1fr; }
+  .transit-telemetry article { border-right: 0; }
+  .defense-outcome-projection { grid-template-columns: 1fr 1fr; }
+  .defense-construction-banner { grid-template-columns: 1fr; }
+}
+
 * {
   box-sizing: border-box;
 }

@@ -303,7 +303,7 @@ function ExpeditionConsole({
                   <select aria-label="Destination" value={expeditionSiteId} onChange={(event) => { setConfirmingSetback(false); setExpeditionSiteId(event.target.value as ExpeditionSiteId); }}>
                     {EXPEDITION_SITE_DEFINITIONS.map((candidate) => {
                       const candidateAccess = expeditionAccess[candidate.id];
-                      return <option key={candidate.id} value={candidate.id} disabled={!candidateAccess.available}>{candidate.name}{candidateAccess.available ? "" : candidateAccess.reason === "locked-world" ? " · later worlds" : candidateAccess.reason === "already-completed" ? " · completed" : candidateAccess.reason === "campaign-incomplete" ? " · after the campaign" : ""}</option>;
+                      return <option key={candidate.id} value={candidate.id} disabled={!candidateAccess.available}>{candidate.name}{candidateAccess.available ? "" : candidateAccess.reason === "in-transit" ? " · Ark in transit" : candidateAccess.reason === "locked-world" ? " · later worlds" : candidateAccess.reason === "already-completed" ? " · completed" : candidateAccess.reason === "campaign-incomplete" ? " · after the campaign" : ""}</option>;
                     })}
                   </select>
                   <p className="expedition-lore">{site.description}</p>
@@ -378,8 +378,10 @@ function ExpeditionConsole({
                   setExpeditionCrewIds([]);
                 }}
               >
-                {chosen.length < MIN_EXPEDITION_CREW
-                  ? `Select ${MIN_EXPEDITION_CREW}-${MAX_EXPEDITION_CREW} crew`
+                 {!access.available && access.reason === "in-transit"
+                   ? "Launches resume after orbital arrival"
+                   : chosen.length < MIN_EXPEDITION_CREW
+                     ? `Select ${MIN_EXPEDITION_CREW}-${MAX_EXPEDITION_CREW} crew`
                   : !access.canAffordFlux
                     ? `Needs ${access.fluxLabel}`
                     : needsConfirm

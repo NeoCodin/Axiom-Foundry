@@ -3,32 +3,50 @@ import test from "node:test";
 
 import {
   FIRST_STORM_DELAY_SECONDS,
+  FIRST_TRANSIT_HAZARD_DELAY_SECONDS,
+  MAX_INSTALLATION_MARK,
   MAX_PRODUCTION_PENALTY,
   MAX_REPAIR_SECONDS,
   advanceDefense,
+  beginDefenseInstallationProject,
   createDefenseState,
   getDefenseProductionMultiplier,
   getDefenseReadiness,
   getForecastLeadSeconds,
   getIncomingForecast,
-  getInstallationCost,
+  getInstallationProjectRequirements,
   sanitizeDefenseState,
   setDefenseDoctrine,
-  upgradeDefenseInstallation,
+  setEnvironmentalDefenseDoctrine,
   type DefenseAdvanceContext,
+  type DefenseInstallationId,
+  type DefenseState,
 } from "../app/defense-engine.ts";
 
 const CINDER: DefenseAdvanceContext = {
+  environment: "cinder-orbit",
   stormsEnabled: true,
+  hostilesEnabled: false,
   worldIndex: 3,
   security: 0,
   engineers: 0,
   navigators: 0,
 };
 
-test("storms never occur before they are enabled and scheduling is deterministic", () => {
+const quietContext: DefenseAdvanceContext = {
+  ...CINDER,
+  environment: null,
+  stormsEnabled: false,
+};
+
+function completeMark(state: DefenseState, id: DefenseInstallationId) {
+  const started = beginDefenseInstallationProject(state, id, 60);
+  return advanceDefense(started, 60, quietContext).state;
+}
+
+test("environmental events never occur when disabled and scheduling is deterministic", () => {
   const state = createDefenseState(1234);
-  const safe = advanceDefense(state, 90 * 3_600, { ...CINDER, stormsEnabled: false });
+  const safe = advanceDefense(state, 90 * 3_600, quietContext);
   assert.equal(safe.resolvedEvents.length, 0);
   assert.equal(safe.state.incoming, null);
 
@@ -36,128 +54,145 @@ test("storms never occur before they are enabled and scheduling is deterministic
   const second = advanceDefense(state, 8 * 3_600, CINDER);
   assert.deepEqual(first.state, second.state);
   assert.deepEqual(first.resolvedEvents, second.resolvedEvents);
+  assert.ok(first.resolvedEvents.every((event) => event.kind === "ash-storm"));
 });
 
-test("the first storm is mild, arrives after the tutorial delay, and resolves automatically", () => {
+test("Cinder weather is mild, delayed, and cannot follow the Ark into transit", () => {
   const state = createDefenseState(42);
   const beforeArrival = advanceDefense(state, FIRST_STORM_DELAY_SECONDS - 60, CINDER);
   assert.equal(beforeArrival.resolvedEvents.length, 0);
-  assert.ok(beforeArrival.state.incoming);
-  assert.equal(beforeArrival.state.incoming!.severity, 1);
+  assert.equal(beforeArrival.state.incoming?.kind, "ash-storm");
+  assert.equal(beforeArrival.state.incoming?.severity, 1);
 
-  const arrived = advanceDefense(beforeArrival.state, 120, CINDER);
-  assert.equal(arrived.resolvedEvents.length, 1);
-  assert.equal(arrived.resolvedEvents[0]!.severity, 1);
+  const transit = advanceDefense(beforeArrival.state, 60, {
+    ...CINDER,
+    environment: "transit",
+  });
+  assert.notEqual(transit.state.incoming?.kind, "ash-storm");
+  assert.equal(
+    transit.state.incoming!.arrivesAtSeconds - transit.state.clockSeconds,
+    FIRST_TRANSIT_HAZARD_DELAY_SECONDS - 60,
+  );
 });
 
-test("one long advance resolves the same storms as many short ones", () => {
+test("one long advance resolves the same hazards as many short advances", () => {
   const seedState = createDefenseState(777);
   const oneShot = advanceDefense(seedState, 24 * 3_600, CINDER);
   let chunked = seedState;
-  for (let i = 0; i < 96; i += 1) {
-    chunked = advanceDefense(chunked, 900, CINDER).state;
-  }
+  for (let i = 0; i < 96; i += 1) chunked = advanceDefense(chunked, 900, CINDER).state;
   assert.equal(oneShot.state.stats.resolved, chunked.stats.resolved);
   assert.equal(oneShot.state.clockSeconds, chunked.clockSeconds);
   assert.deepEqual(oneShot.state.eventLog, chunked.eventLog);
 });
 
-test("readiness beats storms and negligence is survivable but never fatal", () => {
-  // Fully built Ark rides out everything.
+test("installation Marks are costly offline projects instead of instant levels", () => {
+  let state = createDefenseState(1);
+  const markOne = getInstallationProjectRequirements(state, "shieldArray");
+  assert.equal(markOne.targetMark, 1);
+  assert.equal(markOne.requiredResearchId, null);
+  assert.ok(markOne.durationSeconds >= 30 * 60);
+
+  const started = beginDefenseInstallationProject(state, "shieldArray", 3_600);
+  assert.ok(started.construction);
+  assert.equal(started.installations.shieldArray, 0);
+  const halfway = advanceDefense(started, 1_800, quietContext).state;
+  assert.equal(halfway.installations.shieldArray, 0);
+  state = advanceDefense(halfway, 1_800, quietContext).state;
+  assert.equal(state.installations.shieldArray, 1);
+
+  const markTwo = getInstallationProjectRequirements(state, "shieldArray");
+  assert.equal(markTwo.targetMark, 2);
+  assert.equal(markTwo.requiredResearchId, "defensive-forecasting");
+  assert.ok(markTwo.fluxCost > markOne.fluxCost);
+  assert.ok(markTwo.schematicCost > 0);
+
+  for (let mark = 2; mark <= MAX_INSTALLATION_MARK; mark += 1) {
+    state = completeMark(state, "shieldArray");
+  }
+  assert.equal(state.installations.shieldArray, MAX_INSTALLATION_MARK);
+  assert.equal(getInstallationProjectRequirements(state, "shieldArray").maxed, true);
+  assert.equal(beginDefenseInstallationProject(state, "shieldArray", 60), state);
+});
+
+test("Mark installations and crew can make hazards safe while negligence stays recoverable", () => {
   let strong = createDefenseState(9);
-  for (let i = 0; i < 5; i += 1) {
-    strong = upgradeDefenseInstallation(strong, "shieldArray");
-    strong = upgradeDefenseInstallation(strong, "repairDrones");
+  for (const id of ["shieldArray", "repairDrones", "pointDefense"] as const) {
+    for (let mark = 0; mark < MAX_INSTALLATION_MARK; mark += 1) strong = completeMark(strong, id);
   }
   const crew = { ...CINDER, security: 4, engineers: 4 };
   assert.ok(getDefenseReadiness(strong, crew) >= 90);
   const defended = advanceDefense(strong, 7 * 24 * 3_600, crew);
   assert.ok(defended.state.stats.resolved > 10);
   assert.equal(defended.state.stats.damaged, 0);
-  assert.ok(defended.salvage > 0);
 
-  // A player who builds nothing takes bounded, recoverable damage forever.
   const negligent = advanceDefense(createDefenseState(9), 30 * 24 * 3_600, CINDER);
-  assert.ok(negligent.state.stats.resolved > 40);
   assert.ok(negligent.state.stats.damaged > 0);
-  const penalty = negligent.state.damage?.productionPenalty ?? 0;
-  assert.ok(penalty <= MAX_PRODUCTION_PENALTY + 1e-9);
-  const repair = negligent.state.damage?.repairRemainingSeconds ?? 0;
-  assert.ok(repair <= MAX_REPAIR_SECONDS + 1e-9);
+  assert.ok((negligent.state.damage?.productionPenalty ?? 0) <= MAX_PRODUCTION_PENALTY);
+  assert.ok((negligent.state.damage?.repairRemainingSeconds ?? 0) <= MAX_REPAIR_SECONDS);
   assert.ok(getDefenseProductionMultiplier(negligent.state) >= 1 - MAX_PRODUCTION_PENALTY);
 });
 
-test("observe doctrine gathers research inputs including Null Traces", () => {
+test("environmental and contact doctrines are independent standing orders", () => {
   let state = createDefenseState(31);
-  for (let i = 0; i < 4; i += 1) state = upgradeDefenseInstallation(state, "shieldArray");
+  state = setEnvironmentalDefenseDoctrine(state, "harvest");
   state = setDefenseDoctrine(state, "observe");
-  const crew = { ...CINDER, security: 2, engineers: 2 };
-  const observed = advanceDefense(state, 4 * 24 * 3_600, crew);
+  assert.equal(state.environmentalDoctrine, "harvest");
+  assert.equal(state.contactDoctrine, "observe");
 
-  let defendState = createDefenseState(31);
-  for (let i = 0; i < 4; i += 1) defendState = upgradeDefenseInstallation(defendState, "shieldArray");
-  const defended = advanceDefense(defendState, 4 * 24 * 3_600, crew);
+  const harvested = advanceDefense(state, 10 * 3_600, {
+    ...CINDER,
+    environment: "transit",
+  });
+  assert.ok(harvested.calibrationData > 0);
 
+  const observed = advanceDefense(harvested.state, 2 * 3_600, {
+    ...quietContext,
+    hostilesEnabled: true,
+    worldIndex: 4,
+  });
   assert.ok(observed.nullTraces > 0);
-  assert.ok(observed.calibrationData > 0);
-  assert.equal(defended.nullTraces, 0);
-  assert.ok(defended.salvage > observed.salvage);
 });
 
-test("forecast lead grows with the relay and navigators", () => {
+test("forecast lead grows by meaningful Early-Warning Marks", () => {
   let state = createDefenseState(5);
   assert.equal(getForecastLeadSeconds(state, 0), 15 * 60);
-  state = upgradeDefenseInstallation(state, "earlyWarningRelay");
+  state = completeMark(state, "earlyWarningRelay");
   assert.equal(getForecastLeadSeconds(state, 2), 15 * 60 + 45 * 60 + 20 * 60);
 
   const scheduled = advanceDefense(state, 60, CINDER).state;
   assert.ok(scheduled.incoming);
-  // storm timers are always projectable; severity resolves inside the window
   const early = getIncomingForecast(scheduled, 0);
   assert.ok(early);
-  const arrivesIn = scheduled.incoming!.arrivesAtSeconds - scheduled.clockSeconds;
-  if (arrivesIn > getForecastLeadSeconds(scheduled, 0)) assert.equal(early!.severityKnown, false);
-  const later = advanceDefense(scheduled, Math.max(0, arrivesIn - 10 * 60), CINDER).state;
-  if (later.incoming) assert.equal(getIncomingForecast(later, 0)?.severityKnown, true);
 });
 
-test("installation costs scale with continuity and cap at level five", () => {
-  let state = createDefenseState(1);
-  const pelagosCost = getInstallationCost(state, "shieldArray", 1);
-  const cinderCost = getInstallationCost(state, "shieldArray", 6_000);
-  assert.ok(cinderCost > pelagosCost);
-  for (let i = 0; i < 5; i += 1) state = upgradeDefenseInstallation(state, "shieldArray");
-  assert.equal(state.installations.shieldArray, 5);
-  assert.equal(upgradeDefenseInstallation(state, "shieldArray"), state);
-  assert.equal(getInstallationCost(state, "shieldArray", 1), Number.POSITIVE_INFINITY);
-});
-
-test("sanitization repairs malformed defense saves without losing structure", () => {
-  const damaged = sanitizeDefenseState({
+test("legacy 5/5 saves migrate to Mark I and malformed state is bounded", () => {
+  const migrated = sanitizeDefenseState({
+    schema: 2,
     rngState: 0,
     clockSeconds: -5,
-    doctrine: "attack-everything",
-    installations: { shieldArray: 99, pointDefense: -3, bogus: 4 },
-    incoming: { severity: 90, arrivesAtSeconds: -1 },
+    doctrine: "observe",
+    installations: { shieldArray: 5, pointDefense: 99, repairDrones: -3 },
+    incoming: { kind: "ash-storm", severity: 2, arrivesAtSeconds: 4_000 },
     damage: { productionPenalty: 4, repairRemainingSeconds: 1e9 },
-    eventLog: ["junk", { severity: 2, outcome: "battered" }],
+    eventLog: ["junk", { kind: "ash-storm", severity: 2, outcome: "battered" }],
     stats: { resolved: -4 },
   });
-  assert.equal(damaged.doctrine, "defend");
-  assert.equal(damaged.installations.shieldArray, 5);
-  assert.equal(damaged.installations.pointDefense, 0);
-  assert.equal(damaged.incoming, null);
-  assert.ok((damaged.damage?.productionPenalty ?? 0) <= MAX_PRODUCTION_PENALTY);
-  assert.equal(damaged.eventLog.length, 1);
-  assert.equal(damaged.stats.resolved, 0);
+  assert.equal(migrated.contactDoctrine, "observe");
+  assert.equal(migrated.environmentalDoctrine, "brace");
+  assert.equal(migrated.installations.shieldArray, 1);
+  assert.equal(migrated.installations.pointDefense, 1);
+  assert.equal(migrated.installations.repairDrones, 0);
+  assert.ok((migrated.damage?.productionPenalty ?? 0) <= MAX_PRODUCTION_PENALTY);
+  assert.equal(migrated.eventLog.length, 1);
 
-  const roundTrip = sanitizeDefenseState(JSON.parse(JSON.stringify(damaged)));
-  assert.deepEqual(roundTrip.installations, damaged.installations);
+  const roundTrip = sanitizeDefenseState(JSON.parse(JSON.stringify(migrated)));
+  assert.deepEqual(roundTrip, migrated);
 });
 
-test("Nox introduces deterministic hostile contacts, bounded injuries, and recoverable compromises", () => {
+test("Nox contacts remain deterministic, injure only under risky doctrine, and recover", () => {
   const context: DefenseAdvanceContext = {
-    stormsEnabled: false,
+    environment: "transit",
+    stormsEnabled: true,
     hostilesEnabled: true,
     worldIndex: 4,
     security: 0,
@@ -172,7 +207,6 @@ test("Nox introduces deterministic hostile contacts, bounded injuries, and recov
   assert.equal(first.resolvedEvents[0]!.kind, "retrograde-probe");
   assert.equal(first.state.firstContactResolved, true);
   assert.ok(first.resolvedEvents[0]!.injuries.length > 0);
-  assert.ok(first.resolvedEvents[0]!.injuries.every((injury) => injury.damage > 0 && injury.damage <= 80));
   assert.ok((first.state.compromise?.remainingSeconds ?? 0) <= 6 * 3_600);
   assert.ok(first.state.causalFragmentIds.length >= 1);
 

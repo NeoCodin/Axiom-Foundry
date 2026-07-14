@@ -4,7 +4,7 @@ Last updated: July 13, 2026
 
 Current development branch: `codex/axiom-foundry-game`
 
-Handoff baseline commit: `6ddf4de` (`Deepen crew progression and late campaign`)
+Handoff baseline: current `codex/axiom-foundry-game` tip (offline Transit + Defense Marks release)
 
 This document is the portable source of truth for Codex, Claude, future AI assistants, and human collaborators. Read it before changing the game. Update it whenever a decision materially changes the vision, lore, progression, architecture, save format, or collaboration workflow.
 
@@ -69,7 +69,9 @@ Every major feature should reinforce at least one of these pillars:
 10. Finish planetary infrastructure, supplies, crisis resolution, and founder requirements.
 11. Select the exact founders who will remain on the planet.
 12. Depart only when the Continuity forecast proves the world can survive without the Ark.
-13. Carry research, colonies, Axioms, and permanent legacy effects into later worlds.
+13. After Pelagos, cross a timed interplanetary corridor. Travel, Foundry production, Research, training, construction, repairs, and Defense all advance offline; destination directives wait for orbital arrival.
+14. Prepare separate environmental and hostile-contact doctrines, build Ark Defense installations through Mark I-IV projects, and inspect deterministic incident reports.
+15. Carry research, colonies, Axioms, and permanent legacy effects into later worlds.
 
 ## 5. Current campaign order
 
@@ -95,6 +97,7 @@ The primary navigation has exactly five destinations: **Ark, Foundry, Personnel,
 - Shows the Ark cross-section, awakened rooms, population, life support, current world, signals, research activity, and Continuity state.
 - Should become visually richer as the player progresses.
 - Future defenses and threat events should be most visible here.
+- Active corridor travel appears through the Planet/Navigation view and the Ark command strip, with exact progress and ETA.
 - Owns the AXIOM command briefing: up to three current priorities that explain cross-system blockers and link directly to the correct facility.
 
 ### Foundry page
@@ -235,16 +238,23 @@ Do not restore punitive timers. Planetary crises have no deadlines.
 - Planetary restoration may also be activating ancient reality anchors or “cores” beneath the worlds.
 - This interpretation should remain suggestive during the current campaign, not presented as a settled fact.
 
-## 11. Enemy and defense arc — Phase 1 implemented, later phases approved direction
+## 11. Enemy, defense, and travel arc — current implementation
 
-Phase 1 (Cinder environmental tier) is implemented per docs/threat-operations-spec.md: defense-engine.ts, a Defense Grid facility that wakes after two completed Cinder expeditions (or immediately for any save with existing defense progress), ash storms every 4-8 hours with deterministic offline-identical resolution, four installations at flat continuity pricing, four standing doctrines (Observe yields Calibration Data and Null Traces), damage hard-capped at -25% production and 6h repairs. Simulated pacing is unchanged. Nox vessels, beacon exposure, and planetary networks remain unbuilt.
+Threat Operations Phase 2, planetary defense networks, offline Transit, and the Ark Defense Mark economy are implemented. Historical Phase 1 details in `docs/threat-operations-spec.md` are superseded by `docs/threat-operations-phase2-spec.md` and `docs/transit-and-defense-marks-spec.md` where they conflict.
+
+- Cold Wake and Pelagos orbit are safe. The first true interplanetary route begins after Pelagos and introduces mild environmental hazards; Cinder orbit uses ash storms; Nox and Vesper use their own Null/ion/debris environments.
+- Departures from Pelagos onward create timed corridor journeys. Navigation Expertise and Ark-Drive Coupling reduce duration within a bounded cap. Progress and arrival resolve identically online or offline.
+- Environmental doctrine (`Brace`, `Harvest`, `Outrun`) is independent from contact doctrine (`Defend`, `Evade`, `Intercept`, `Observe`).
+- Shield Array, Repair Swarms, Point-Defense Grid, and Early-Warning Relay progress from Mark I-IV through one committed offline project at a time. Higher Marks require sharply larger material stores and Research proofs.
+- Nox+ hostile contacts can wound eligible crew and temporarily compromise named systems, but cannot automatically kill anyone or delete progress. All compromises purge offline.
+- Every restored world receives a persistent defense network. Failed protection produces temporary instability, lost opportunity, or repair load; colonies and founders cannot be erased.
 
 The game should eventually introduce threats while remaining an idle game.
 
 ### Progressive introduction
 
 - Cold Wake: completely safe.
-- Pelagos: completely safe; players learn the core game without attacks.
+- Pelagos orbit: completely safe; players learn the core game without attacks. The outbound Pelagos-to-Viridia corridor introduces the first mild hazard.
 - Viridia: harmless reconnaissance, intercepted signals, and hints that restoration is being observed.
 - Cinder: environmental defense tutorial, such as meteor or debris showers.
 - Nox: hostile retrograde vessels, pirates, or raiders begin interacting with the SOS beacon and Ark systems.
@@ -274,12 +284,18 @@ Crew defense roles:
 - Doctors: recovery and temporary debuff reduction.
 - Teachers: training and readiness improvement.
 
-Possible doctrines:
+Contact doctrines:
 
 - Defend — safest, consumes more resources.
 - Evade — protects the Ark but gives fewer rewards.
 - Intercept — higher risk and better Salvage/intelligence.
 - Observe — gathers research while accepting limited temporary disruption.
+
+Environmental doctrines:
+
+- Brace — safest hull posture and reduced recovery.
+- Harvest — greater Salvage and telemetry at greater hull risk.
+- Outrun — stronger margin and little material recovery.
 
 Threats should resolve automatically, including offline. A poor outcome may temporarily reduce production, damage a room, delay a beacon scan, consume supplies, or destabilize a planetary defense network. It must not kill crew, permanently destroy a restored planet, erase a colony, or delete progress.
 
@@ -358,7 +374,9 @@ Future visual defense progression on the Ark page may include shield arcs, inter
 | `app/game-command-bar.tsx` | Shared header, resources, save controls, and directive strip |
 | `app/command-priorities.ts` | Cross-system strategic guidance and exact destination routing |
 | `app/command-briefing.tsx` | Ark priority-board presentation |
-| `app/game-engine.ts` | Incremental economy, campaign simulation, production, Recalibration, system integration |
+| `app/game-engine.ts` | Incremental economy, campaign simulation, production, Recalibration, Transit/Defense integration |
+| `app/transit-engine.ts` / `app/transit-console.tsx` | Timed offline routes, bounded Navigation speed, arrival, and Navigation presentation |
+| `app/defense-engine.ts` / `app/defense-console.tsx` | Environmental/hostile scheduling, Mark projects, doctrines, forecasts, incidents, and recoverable consequences |
 | `app/survivor-engine.ts` | Survivor generation, signals, pity systems, life support, training, assignments, XP |
 | `app/research-engine.ts` | Projects, inputs, processors, routes, throughput, bonuses |
 | `app/settlement-engine.ts` | Founder selection, viability forecasts, colonies, transmissions, legacy summary |
@@ -382,15 +400,17 @@ Future visual defense progression on the Ark page may include shield arcs, inter
 - `tests/survivor-engine.test.ts`
 - `tests/research-engine.test.ts`
 - `tests/settlement-engine.test.ts`
+- `tests/defense-engine.test.ts`
+- `tests/transit-engine.test.ts`
 - `tests/rendered-html.test.mjs`
 
-At the handoff baseline, 105 automated tests pass.
+At the current handoff baseline, 173 automated tests pass.
 
 ## 15. Save compatibility rules
 
 Current identifiers at the handoff baseline:
 
-- `SAVE_VERSION = 7`
+- `SAVE_VERSION = 10`
 - `SAVE_KEY = "axiom-foundry-save-v5"`
 
 Rules for all assistants:
@@ -403,7 +423,7 @@ Rules for all assistants:
 6. If a migration is genuinely required, add tests for old save recovery before publishing.
 7. Do not resurrect retired timed-world loss behavior.
 
-The latest crew/late-game release intentionally preserved all existing saves.
+The Transit/Defense Mark release intentionally preserves all existing saves. `GameState.transit` is additive; legacy 1-5 Defense installation levels migrate to Mark I instead of forging higher Marks or deleting progress.
 
 ## 16. Non-negotiable safety and UX invariants
 
@@ -509,6 +529,7 @@ Owner-approved order as of July 14, 2026:
 5. **Implemented:** Robotics and Automation gameplay. Eight scarce Utility Drone Frames support seven research-gated programs, consume visible Operational Load, multiply staffed human work, and can automatically maintain damaged equipment under a player-selected reserve policy.
 6. **Implemented:** Threat Operations Phase 2. Nox introduces Retrograde Vessel encounters, beacon exposure, visible targeted forecasts, equipment/interceptor influence, bounded crew injuries, temporary system compromises, incident reports, and Causal Fragments under the existing idle-first doctrines.
 7. **Implemented:** persistent planetary defense networks. Every restored world receives permanent Reality Anchors, Shields, Interceptors, Shelters, and Repair Yards; Conservation/Guard/Fortress postures divert 1.5%/2.5%/3.5% production per colony. Breaches cause only temporary instability and repair load; worlds and founders are never deleted.
+   **Implemented modernization:** departures after Pelagos now use real offline Transit; location-specific environmental hazards replace Cinder weather leaking into later worlds; the Ark Defense Grid now uses separate environmental/contact orders and four expensive installation Marks rather than five quick instant levels.
 8. **Then:** the Enemy Mystery/Causal Fragment storyline: Unknown Contacts -> Retrograde Vessels -> Causal Interdictors -> The Returned. Reveal the damaged-future origin and possible Foundry Event responsibility only through fragments and contradictions, not a current-campaign exposition dump.
 9. **Then:** opt-in Bioadaptation around Vesper/Convergence. It never changes rarity, becomes a Continuity requirement, or treats people as disposable stats; every enhancement creates moral and lore consequences.
 10. **After items 3-9 are complete:** run the documented think-aloud human playtest across the whole current campaign. The owner explicitly postponed the major playtest until the version is feature-complete through Bioadaptation. Mechanical audits and regression tests continue after every item, but they do not substitute for that final observation.
@@ -680,6 +701,17 @@ The next implementation should begin with a written mechanic specification and b
 - Ark and planetary contact reports recover eight staged Causal Fragments. They suggest that the attackers originate in damaged futures, deliberately avoid some civilians, and associate AXIOM with a future Foundry Event. The current campaign does not state the full truth.
 - Validation baseline: 168 automated tests, production build, lint, and static hosting build. The in-app browser runtime failed before connecting during this release, so the postponed owner playtest remains required after agenda item 9.
 - Full mechanic and balance tables: `docs/threat-operations-phase2-spec.md`.
+
+### Implemented July 14, 2026 — offline Transit and Defense Marks
+
+- `SAVE_VERSION = 10` adds additive `GameState.transit` state. The save key is unchanged and there is no player reset.
+- Cold Wake-to-Pelagos remains the authored approach/tutorial arrival. Pelagos-to-Viridia, Viridia-to-Cinder, Cinder-to-Nox, and Nox-to-Vesper take 90 minutes, 2.5 hours, 4 hours, and 6 hours before bounded Navigation/drive reductions.
+- The Planet destination becomes a Navigation console during travel. It shows the physical route, exact ETA/progress, continuing offline systems, and the active Defense forecast. Destination Planetfall directives remain paused until arrival, and new expeditions cannot launch mid-corridor.
+- Defense environments are location-specific. Cinder forecasts cannot follow the Ark to Nox or into transit; changing environments discards an obsolete environmental forecast. Transit adds asteroid, debris, ion, drive, and later Null hazards.
+- Environmental doctrine is independent of contact doctrine. The player can safely Brace for weather while separately Observing or Defending against a Retrograde contact.
+- Ark installations now progress through Mark I-IV offline projects. Flux growth factors are 1/6/30/150 and material factors 1/3/7/15; later Marks additionally consume Schematics and Null Traces and require Defensive Forecasting, Autonomous Repair Swarms, and Causal Threat Projection.
+- Legacy Defense saves migrate additively: any previous positive 1-5 installation level becomes Mark I. Existing players keep useful hardware but must earn the new late-game progression.
+- Validation baseline: 173 automated tests, lint, production build, and static hosting build passing. Full balance and migration rules: `docs/transit-and-defense-marks-spec.md`.
 
 ## 22. Maintaining this handoff
 
