@@ -37,6 +37,8 @@ export type WorldProgressSummary = {
   surveysCompleted: number;
   /** Successful expeditions on this world - drives Surface Recon. */
   expeditionsCompleted: number;
+  /** One-time current-world operations completed successfully. */
+  completedExpeditionIds: readonly string[];
 };
 
 export type FounderSnapshot = {
@@ -77,6 +79,7 @@ export type ForecastLine = {
     | "supplies"
     | "research"
     | "survey"
+    | "operation"
     | "crisis";
   id: string;
   label: string;
@@ -368,6 +371,7 @@ export function sanitizeWorldProgress(value: unknown): WorldProgressSummary {
       equipment: {},
       surveysCompleted: 0,
       expeditionsCompleted: 0,
+      completedExpeditionIds: [],
     };
   }
   return {
@@ -378,6 +382,7 @@ export function sanitizeWorldProgress(value: unknown): WorldProgressSummary {
     equipment: cleanValueRecord(value.equipment),
     surveysCompleted: finiteInteger(value.surveysCompleted, 0, 1_000),
     expeditionsCompleted: finiteInteger(value.expeditionsCompleted, 0, 100_000),
+    completedExpeditionIds: uniqueIds(value.completedExpeditionIds, 100),
   };
 }
 
@@ -573,6 +578,11 @@ function deficitFor(
     alternatives = [
       "Send 2-4 available crew on the Planetary Survey site in the Expedition Bay.",
     ];
+  } else if (requirement.kind === "operation") {
+    message = `Complete ${requirement.label} in the Expedition Bay.`;
+    alternatives = [
+      "Open the operation dossier, satisfy its required preparations, and assemble a crew whose projected result is safe.",
+    ];
   } else if (requirement.kind === "research") {
     message = `Complete research: ${requirement.label}.`;
   } else if (requirement.kind === "crisis") {
@@ -612,6 +622,7 @@ function viabilityScore(lines: readonly ForecastLine[]) {
     supplies: 8,
     research: 7,
     survey: 7,
+    operation: 9,
     crisis: 5,
   };
   let weightedTotal = 0;
@@ -800,6 +811,22 @@ export function getViabilityForecast(
         0,
         world.surveysRequired,
         "AXIOM certifies a world safe only after crews have physically surveyed it.",
+      ),
+    );
+  }
+
+  for (const expeditionId of world.requiredExpeditionIds) {
+    lines.push(
+      line(
+        "operation",
+        expeditionId,
+        expeditionId
+          .replace(/-/g, " ")
+          .replace(/\b\w/g, (letter) => letter.toUpperCase()),
+        progress.completedExpeditionIds.includes(expeditionId) ? 1 : 0,
+        0,
+        1,
+        "A critical field operation proves this settlement plan against the world itself.",
       ),
     );
   }

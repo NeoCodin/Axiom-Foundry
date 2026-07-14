@@ -340,6 +340,32 @@
 .signal-cargo-manifest strong { color: var(--world-accent, #55d6e8); }
 
 /* Expedition Mission Bay planning grid */
+.expedition-operation-board { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 7px; margin-bottom: 12px; }
+.expedition-operation-board button { display: grid; min-height: 88px; align-content: start; gap: 5px; padding: 10px 11px; color: #8ba0ae; text-align: left; border: 1px solid #203544; border-top: 2px solid #4d6677; background: linear-gradient(145deg, #08131c, #060d14); cursor: pointer; }
+.expedition-operation-board button:hover { border-color: rgb(var(--world-accent-rgb, 85 214 232) / 0.62); }
+.expedition-operation-board button.is-selected { color: #d9e8ef; border-color: var(--world-accent, #55d6e8); background: linear-gradient(145deg, rgb(var(--world-accent-rgb, 85 214 232) / 0.12), #071019 58%); box-shadow: inset 0 1px 0 rgb(var(--world-accent-rgb, 85 214 232) / 0.22); }
+.expedition-operation-board button.is-complete { border-top-color: #63ba89; }
+.expedition-operation-board button.expedition-category-critical { border-top-color: #ee8d66; }
+.expedition-operation-board button.expedition-category-resource { border-top-color: #c79c55; }
+.expedition-operation-board button > span { color: var(--world-accent, #55d6e8); font-family: var(--font-mono, monospace); font-size: 7px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.expedition-operation-board button > strong { color: #dce7ee; font-size: 10px; line-height: 1.35; }
+.expedition-operation-board button > small { margin-top: auto; color: #657b8b; font-family: var(--font-mono, monospace); font-size: 7px; letter-spacing: .06em; }
+.expedition-preparation-list { display: grid; gap: 5px; margin: 10px 0; }
+.expedition-preparation-list > span { color: #718797; font-family: var(--font-mono, monospace); font-size: 7px; font-weight: 800; letter-spacing: .11em; }
+.expedition-preparation-list > div { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; align-items: center; gap: 7px; padding: 7px 8px; border: 1px solid #263b4b; background: #08131c; }
+.expedition-preparation-list > div.is-met { border-color: rgb(99 186 137 / .42); background: linear-gradient(90deg, rgb(99 186 137 / .07), transparent), #08131c; }
+.expedition-preparation-list > div.is-blocked { border-color: rgb(238 141 102 / .48); background: linear-gradient(90deg, rgb(238 141 102 / .08), transparent), #08131c; }
+.expedition-preparation-list i { display: grid; width: 19px; height: 19px; place-items: center; color: #718797; border: 1px solid currentColor; border-radius: 50%; font-size: 9px; font-style: normal; }
+.expedition-preparation-list .is-met i { color: #6fca98; }
+.expedition-preparation-list .is-blocked i { color: #ee8d66; }
+.expedition-preparation-list p { margin: 0; }
+.expedition-preparation-list p strong, .expedition-preparation-list p small { display: block; }
+.expedition-preparation-list p strong { color: #c9d7df; font-size: 8px; }
+.expedition-preparation-list p small { margin-top: 2px; color: #6c8393; font-size: 7.5px; line-height: 1.4; }
+.expedition-preparation-list em { color: #718797; font-family: var(--font-mono, monospace); font-size: 6.5px; font-style: normal; font-weight: 800; }
+.expedition-preparation-list .is-met em { color: #6fbd8f; }
+.expedition-preparation-list .is-blocked em { color: #ee8d66; }
+.expedition-debrief { display: block; margin-top: 5px; color: #8097a6; font-size: 8px; font-style: italic; line-height: 1.45; }
 .expedition-planning-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 12px; align-items: start; }
 .expedition-box-label { display: block; margin-bottom: 8px; color: #687f91; font-family: var(--font-mono, monospace); font-size: 7px; font-weight: 800; letter-spacing: 0.12em; }
 .expedition-dossier,
@@ -373,6 +399,7 @@ label.expedition-manifest-row { grid-template-columns: auto auto minmax(0, 1fr) 
 .expedition-gear-tags em.is-empty { color: #587084; border-style: dashed; }
 .expedition-biometrics .crew-health-track { max-width: 110px; }
 @media (max-width: 900px) {
+  .expedition-operation-board { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .expedition-planning-grid { grid-template-columns: 1fr; }
   .expedition-manifest-picker { max-height: 260px; }
 }
@@ -477,6 +504,7 @@ label.expedition-manifest-row { grid-template-columns: auto auto minmax(0, 1fr) 
 }
 
 @media (max-width: 560px) {
+  .expedition-operation-board { grid-template-columns: 1fr; }
   .armory-law-grid, .armory-modification-list { grid-template-columns: 1fr; }
   .crisis-action-heading { grid-template-columns: 1fr; }
   .crisis-action-heading > button { width: 100%; }

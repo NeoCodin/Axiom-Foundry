@@ -29,6 +29,8 @@ import {
   RESCUE_XP_PER_MEMBER,
   sanitizeExpeditionState,
   type ExpeditionOutcome,
+  type ExpeditionPreparationOption,
+  type ExpeditionSiteDefinition,
   type ExpeditionSiteId,
   type ExpeditionState,
   type MemorialRecord,
@@ -216,7 +218,7 @@ import {
   type CausalArchiveView,
 } from "./causal-archive-engine.ts";
 
-export const SAVE_VERSION = 11;
+export const SAVE_VERSION = 12;
 export const SAVE_KEY = "axiom-foundry-save-v5";
 export const RETIRED_SAVE_KEYS = [
   "axiom-foundry-save-v1",
@@ -775,6 +777,7 @@ const emptyWorldProgress = (): WorldProgressSummary => ({
   equipment: {},
   surveysCompleted: 0,
   expeditionsCompleted: 0,
+  completedExpeditionIds: [],
 });
 
 const sanitizeResearchStock = (value: unknown): ResearchInputBundle => {
@@ -996,7 +999,18 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
   const settlement = sanitizeSettlementState(value.settlement);
   const transit = sanitizeTransitState(value.transit);
   if (transit.active) settlement.currentWorldId = null;
-  const worldProgress = sanitizeWorldProgress(value.worldProgress);
+  const sanitizedWorldProgress = sanitizeWorldProgress(value.worldProgress);
+  const expeditions = sanitizeExpeditionState(value.expeditions);
+  const currentWorldId = settlement.currentWorldId;
+  const worldProgress: WorldProgressSummary = {
+    ...sanitizedWorldProgress,
+    completedExpeditionIds:
+      sanitizedWorldProgress.completedExpeditionIds.length > 0 || !currentWorldId
+        ? sanitizedWorldProgress.completedExpeditionIds
+        : expeditions.completedSiteIds.filter(
+            (siteId) => getExpeditionSite(siteId).worldId === currentWorldId,
+          ),
+  };
 
   // Story-hook characters settled in colonies stay found forever, even in
   // saves recorded before the rescued-hook ledger existed.
@@ -1049,7 +1063,7 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
     settlement,
     worldProgress,
     defense: sanitizeDefenseState(value.defense),
-    expeditions: sanitizeExpeditionState(value.expeditions),
+    expeditions,
     armory: sanitizeArmoryState(value.armory),
     automation: sanitizeAutomationState(value.automation),
     planetaryDefense: sanitizePlanetaryDefenseState(value.planetaryDefense, settlement.colonies),
@@ -1106,6 +1120,7 @@ export function cloneGameState(state: GameState): GameState {
       equipment: { ...state.worldProgress.equipment },
       surveysCompleted: state.worldProgress.surveysCompleted,
       expeditionsCompleted: state.worldProgress.expeditionsCompleted,
+      completedExpeditionIds: [...state.worldProgress.completedExpeditionIds],
     },
     defense: cloneDefenseState(state.defense),
     expeditions: cloneExpeditionState(state.expeditions),
@@ -2391,6 +2406,7 @@ export type ExpeditionLaunchQuote = {
     | "crew-count"
     | "crew-unavailable"
     | "crew-wounded"
+    | "preparation"
     | "flux"
     | null;
   /** Base crew strength + weapon bonus, vs the site difficulty. */
@@ -2404,7 +2420,75 @@ export type ExpeditionLaunchQuote = {
   /** Always projected before launch - the player is never ambushed. */
   projectedOutcome: ExpeditionOutcome | null;
   loadout: ExpeditionLoadoutEntry[];
+  preparations: ExpeditionPreparationStatus[];
 };
+
+export type ExpeditionPreparationStatus = {
+  id: string;
+  label: string;
+  detail: string;
+  required: boolean;
+  met: boolean;
+};
+
+function expeditionPreparationOptionMet(
+  state: GameState,
+  crew: readonly Survivor[],
+  loadout: readonly ExpeditionLoadoutEntry[],
+  option: ExpeditionPreparationOption,
+) {
+  if (option.kind === "research") {
+    return state.research.completedProjectIds.includes(
+      option.id as ResearchProjectId,
+    );
+  }
+  if (option.kind === "weapons") {
+    return loadout.filter((entry) => entry.weaponId !== null).length >= option.count;
+  }
+  if (option.kind === "armor") {
+    return loadout.filter((entry) => entry.armorId !== null).length >= option.count;
+  }
+  if (option.kind === "role") {
+    return (
+      crew.filter(
+        (survivor) =>
+          getSurvivorSkillLevel(survivor, option.role) >= option.level,
+      ).length >= (option.count ?? 1)
+    );
+  }
+  if (option.kind === "completed-expedition") {
+    return (
+      state.worldProgress.completedExpeditionIds.includes(option.id) ||
+      state.expeditions.completedSiteIds.includes(option.id)
+    );
+  }
+  if (option.kind === "automation") {
+    const programId = option.id as AutomationProgramId;
+    return (state.automation.allocations[programId] ?? 0) >= option.count;
+  }
+  return (
+    crew.filter((survivor) =>
+      (survivor.bioadaptations ?? []).some((record) => record.id === option.id),
+    ).length >= option.count
+  );
+}
+
+export function getExpeditionPreparationStatus(
+  state: GameState,
+  site: ExpeditionSiteDefinition,
+  crew: readonly Survivor[],
+  loadout: readonly ExpeditionLoadoutEntry[],
+): ExpeditionPreparationStatus[] {
+  return site.preparations.map((preparation) => ({
+    id: preparation.id,
+    label: preparation.label,
+    detail: preparation.detail,
+    required: preparation.required,
+    met: preparation.options.some((option) =>
+      expeditionPreparationOptionMet(state, crew, loadout, option),
+    ),
+  }));
+}
 
 export function getExpeditionLaunchQuote(
   state: GameState,
@@ -2427,11 +2511,18 @@ export function getExpeditionLaunchQuote(
     difficulty: site.difficulty,
     projectedOutcome: null,
     loadout: [],
+    preparations: site.preparations.map((preparation) => ({
+      id: preparation.id,
+      label: preparation.label,
+      detail: preparation.detail,
+      required: preparation.required,
+      met: false,
+    })),
   });
   if (state.transit.active) return blocked("transit");
   const availability = getExpeditionAvailability(
     state.expeditions,
-    getCampaignWorldIndex(state),
+    state.settlement.currentWorldId,
     state.settlement.currentWorldId === null && !state.transit.active,
   ).find((entry) => entry.site.id === siteId);
   if (!availability?.available) {
@@ -2470,6 +2561,26 @@ export function getExpeditionLaunchQuote(
     getLoadoutStrengthBonus(plan.loadout) +
     researchSupport.strengthBonus +
     bioadaptationSupport.strengthBonus;
+  const preparations = getExpeditionPreparationStatus(
+    state,
+    site,
+    roster,
+    plan.loadout,
+  );
+  if (preparations.some((preparation) => preparation.required && !preparation.met)) {
+    return {
+      ...blocked("preparation"),
+      strength,
+      gearStrength: plan.strengthBonus,
+      researchStrengthBonus: researchSupport.strengthBonus,
+      researchRewardMultiplier: researchSupport.rewardMultiplier,
+      bioadaptationStrengthBonus: bioadaptationSupport.strengthBonus,
+      bioadaptationDurationMultiplier: bioadaptationSupport.durationMultiplier,
+      projectedOutcome: getProjectedExpeditionOutcome(strength, site.difficulty),
+      loadout: plan.loadout,
+      preparations,
+    };
+  }
   if (state.flux < fluxCost) {
     return {
       ...blocked("flux"),
@@ -2481,6 +2592,7 @@ export function getExpeditionLaunchQuote(
       bioadaptationDurationMultiplier: bioadaptationSupport.durationMultiplier,
       projectedOutcome: getProjectedExpeditionOutcome(strength, site.difficulty),
       loadout: plan.loadout,
+      preparations,
     };
   }
   return {
@@ -2496,6 +2608,7 @@ export function getExpeditionLaunchQuote(
     difficulty: site.difficulty,
     projectedOutcome: getProjectedExpeditionOutcome(strength, site.difficulty),
     loadout: plan.loadout,
+    preparations,
   };
 }
 
@@ -4245,6 +4358,7 @@ export function recalibrate(state: GameState, now = Date.now()) {
     equipment: { ...state.worldProgress.equipment },
     surveysCompleted: state.worldProgress.surveysCompleted,
     expeditionsCompleted: state.worldProgress.expeditionsCompleted,
+    completedExpeditionIds: [...state.worldProgress.completedExpeditionIds],
   };
   fresh.missions = {
     ...state.missions,
@@ -4687,6 +4801,33 @@ export function simulateGame(
       1e12,
       next.researchStock["null-traces"] + completed.nullTraces,
     );
+    next.researchStock["engineering-models"] = Math.min(
+      1e12,
+      next.researchStock["engineering-models"] + completed.engineeringModels,
+    );
+    next.researchStock["biological-samples"] = Math.min(
+      1e12,
+      next.researchStock["biological-samples"] + completed.biologicalSamples,
+    );
+    next.researchStock["cultural-records"] = Math.min(
+      1e12,
+      next.researchStock["cultural-records"] + completed.culturalRecords,
+    );
+    if (
+      completed.outcome === "success" &&
+      !completedSite.repeatable &&
+      completedSite.worldId === next.settlement.currentWorldId
+    ) {
+      next.worldProgress = {
+        ...next.worldProgress,
+        completedExpeditionIds: [
+          ...new Set([
+            ...next.worldProgress.completedExpeditionIds,
+            completed.siteId,
+          ]),
+        ],
+      };
+    }
     if (completed.surveyCredited) {
       next.worldProgress = {
         ...next.worldProgress,

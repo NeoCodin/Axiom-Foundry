@@ -110,6 +110,8 @@ export type CampaignWorldDefinition = {
   /** Readiness target; people, expertise, age balance, and infrastructure contribute. */
   communityReadiness: number;
   surveysRequired: number;
+  /** One-time field operations that must prove the settlement plan in practice. */
+  requiredExpeditionIds: readonly string[];
   infrastructure: readonly InfrastructureObjective[];
   roleRequirements: readonly RoleRequirement[];
   expertiseRequirements: readonly ExpertiseRequirement[];
@@ -146,6 +148,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     settlementRequired: false,
     communityReadiness: 0,
     surveysRequired: 0,
+    requiredExpeditionIds: [],
     infrastructure: [
       {
         id: "wake-axiom-chamber",
@@ -199,7 +202,8 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     },
     settlementRequired: true,
     communityReadiness: 18,
-    surveysRequired: 0,
+    surveysRequired: 1,
+    requiredExpeditionIds: ["pelagos-highwater-vault"],
     infrastructure: [
       {
         id: "pelagos-tidal-grid",
@@ -349,7 +353,8 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     },
     settlementRequired: true,
     communityReadiness: 26,
-    surveysRequired: 0,
+    surveysRequired: 2,
+    requiredExpeditionIds: ["viridia-seed-vault-descent"],
     infrastructure: [
       {
         id: "viridia-seed-vault",
@@ -478,6 +483,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     settlementRequired: true,
     communityReadiness: 34,
     surveysRequired: 2,
+    requiredExpeditionIds: ["cinder-foundry-nine-recovery"],
     infrastructure: [
       {
         id: "cinder-mantle-grid",
@@ -613,6 +619,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     settlementRequired: true,
     communityReadiness: 42,
     surveysRequired: 3,
+    requiredExpeditionIds: ["kestrel-relay"],
     infrastructure: [
       {
         id: "nox-relay",
@@ -767,6 +774,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     settlementRequired: true,
     communityReadiness: 50,
     surveysRequired: 3,
+    requiredExpeditionIds: ["causal-wreckage"],
     infrastructure: [
       {
         id: "vesper-observatory",

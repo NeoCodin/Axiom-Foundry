@@ -15,9 +15,10 @@ You awaken as AXIOM, the damaged caretaker intelligence of an empty interplaneta
 5. Let AXIOM staff adults into their strongest work, protect manual assignments, and study new professions while the game is open or closed.
 6. Manufacture science inputs and route them through the configurable Research Lattice.
 7. Advance through four research eras across eight connected disciplines, from emergency recovery to Axiom theory.
-8. Restore planetary infrastructure, resolve its crisis, and stock an independent settlement.
-9. Explicitly choose the trained founders who will remain on the planet.
-10. Depart only when the continuity forecast proves the world can survive without the Ark.
+8. Survey the current planet and prepare its difficult, lore-driven Critical expedition.
+9. Restore planetary infrastructure, resolve its crisis, and stock an independent settlement.
+10. Explicitly choose the trained founders who will remain on the planet.
+11. Depart only when the continuity forecast proves the world can survive without the Ark.
 
 The campaign moves through Cold Wake, Pelagos, Viridia, Cinder, Nox, and Vesper. Every restored colony remains in the record, transmits back to the Ark, and provides a modest permanent legacy benefit.
 
@@ -43,6 +44,7 @@ The campaign moves through Cold Wake, Pelagos, Viridia, Cinder, Nox, and Vesper.
 - Research that unlocks habitation, training, medicine, fabrication, settlement planning, Armory laws, and the Null mystery
 - Permanent Profile Elevation that can raise a favorite crew member's rarity through mastery, research, Axioms, and scarce evidence without replacing their identity
 - A six-frame Personnel Armory with shared auto-equipment, offline Mark projects, researched specializations, scarce material costs, and research-proven Axiom manufacturing laws
+- Planet-specific expedition campaigns with hidden future operations, repeatable surveys and resource routes, one-time story work, equipment/research/specialist preparation, projected offline outcomes, and one Critical operation per Continuity plan
 - Planet-specific Community Readiness, combined Expertise, infrastructure, supply, crisis, and research requirements
 - Live crisis-resolution checklists generated from every world's Foundry stages, infrastructure, research, and Flux gates
 - Explicit founder selection and detailed viability forecasts with fair research/equipment substitutions

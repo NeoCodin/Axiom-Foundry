@@ -201,10 +201,11 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
     category: "Page guide // expedition command",
     title: "Read the projection, pick the crew, launch",
     summary:
-      "From Cinder onward, crews of 2-4 fly surface missions for salvage, schematics, Null Traces, XP, and planetary certification. The bay always projects the outcome before launch - you are never ambushed.",
+      "Every inhabited world has its own operation board. Crews of 2-4 run surveys, one-time story operations, difficult Continuity work, and repeatable resource routes. Future-world operations stay hidden, and every launch projects its result first.",
     steps: [
-      { title: "Pick a destination", detail: "Planetary Surveys certify the world for departure and are repeatable. Other sites carry bigger rewards and higher difficulty." },
-      { title: "Build the crew", detail: "Each member adds their best profession level. Soldiers level 3+ add +2 strength, Researchers +1, Navigators 3+ shorten the trip. Gear from the Armory auto-equips." },
+      { title: "Read the current-world board", detail: "The Bay shows only the planet currently below the Ark. Survey routes certify terrain; story operations reveal local history; resource routes can be repeated; orange Critical operations are required for Continuity." },
+      { title: "Prepare before selecting strength", detail: "Required checks are hard deployment conditions: research, weapons, armor, a qualified specialist, a prior operation, automation, or a voluntary adaptation. Checks with several options accept any listed solution. Recommended checks improve safety but never block launch." },
+      { title: "Build the crew", detail: "Each member adds their best profession level. Security specialists level 3+ add +2 strength, Researchers +1, Navigators 3+ shorten the trip. Gear from the Armory auto-equips." },
       { title: "Use research support", detail: "Surface Reconnaissance improves recovered resources. Defensive Forecasting and Specialized Field Loadouts add bounded strength, while the loadout program also improves returns. The projection shows both bonuses before launch." },
       { title: "Respect the projection", detail: "SUCCESS and LEAN are safe. SETBACK sends everyone home wounded. DISTRESS strands the party at the site - launching into either warning takes an extra confirm." },
       { title: "Handle distress calmly", detail: "Stranded crews are stable forever and the signal never expires. Send a rescue party (strength of difficulty-4 extracts cleanly; weaker parties take wounds but still bring everyone home), or - only by explicit choice - abandon them to the memorial wall." },
@@ -213,7 +214,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
       { label: "Outcome bands", detail: "Success at strength >= difficulty; lean within 8 below; setback within 16; distress beyond that. Weapons add strength, armor absorbs wound damage." },
       { label: "XP", detail: "Members earn (60 + 6 x difficulty) XP to their profession, x1.5 when it matches the site's focus, scaled by outcome." },
     ],
-    tip: "Missions resolve fully offline. A rescue mission can never strand itself - the only way to lose someone is the Abandon button.",
+    tip: "Missions resolve fully offline. Later planets ask for more kinds of preparation, not merely larger numbers.",
   },
   armory: {
     id: "armory",
@@ -243,10 +244,11 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
     category: "Page guide // planetary continuity",
     title: "Leave only when a world can continue without the Ark",
     summary:
-      "Continuity combines Community Readiness, Expertise, infrastructure, supplies, research, crisis response, and your chosen founders into one departure forecast.",
+      "Continuity combines Community Readiness, Expertise, infrastructure, supplies, research, surveys, a critical planet-specific field operation, crisis response, and your chosen founders into one departure forecast.",
     steps: [
       { title: "Read the explicit deficits", detail: "Every unmet requirement names the direct fix and any research or equipment substitute." },
       { title: "Complete permanent world work", detail: "Infrastructure, stored supplies, and required research remain completed. Every crisis card lists its Foundry, infrastructure, research, and Flux prerequisites live." },
+      { title: "Prove the plan in the field", detail: "Every inhabited planet requires local surveys and one Critical expedition. Open its dossier in the Expedition Bay to see the exact preparation, crew, equipment, and research needed." },
       { title: "Connect world and laboratory", detail: "Completed infrastructure provides Engineering Models and Field Validation evidence. Planetary research can reduce selected construction costs, and independent colonies continue returning Cultural Records and biological reports." },
       { title: "Choose a founding community", detail: "Community Readiness replaces a raw population quota. Every person contributes; children, elders, social Expertise, profession diversity, and completed planetary works increase readiness." },
       { title: "Meet combined Expertise", detail: "Engineering, Medical, Ecology, and other requirements count combined levels, not numbers of job titles. One experienced specialist can contribute several points." },

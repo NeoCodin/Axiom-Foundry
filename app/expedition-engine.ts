@@ -3,7 +3,8 @@
  * crew launch to planetary sites for a fixed real-time duration and always
  * return in E2. Outcomes follow the strength-vs-difficulty margin: success,
  * lean, or setback (crew comes home wounded; armor absorbs the hit and loses
- * durability). Planetary surveys are a departure requirement from Cinder on.
+ * durability). Every inhabited world has its own survey route, story work,
+ * critical Continuity operation, and repeatable resource route.
  */
 
 import type { Survivor, SurvivorInjuryTier } from "./survivor-engine.ts";
@@ -22,14 +23,51 @@ import {
   type ExpeditionLoadoutEntry,
 } from "./armory-engine.ts";
 import { ARMORY_ITEM_DEFINITIONS } from "./armory-engine.ts";
+import type { CampaignWorldId } from "./campaign-content.ts";
 
 export type ExpeditionSiteId =
   | "planetary-survey"
+  | "pelagos-survey"
+  | "pelagos-breakwater-route"
+  | "pelagos-highwater-vault"
+  | "pelagos-tidal-salvage"
+  | "viridia-survey"
+  | "viridia-canopy-signal"
+  | "viridia-seed-vault-descent"
+  | "viridia-spore-sampler"
+  | "cinder-ashline-recovery"
+  | "cinder-foundry-nine-recovery"
+  | "cinder-mantle-salvage"
+  | "nox-survey"
+  | "nox-echo-bunker"
   | "kestrel-relay"
   | "lantern-null-bloom"
   | "null-sounding"
+  | "vesper-survey"
+  | "vesper-observatory-echo"
+  | "vesper-red-scar-sounding"
   | "causal-wreckage"
   | "palimpsest-origin";
+
+export type ExpeditionCategory = "survey" | "story" | "critical" | "resource";
+
+export type ExpeditionPreparationOption =
+  | { kind: "research"; id: string }
+  | { kind: "weapons"; count: number }
+  | { kind: "armor"; count: number }
+  | { kind: "role"; role: ProfessionalRole; level: number; count?: number }
+  | { kind: "completed-expedition"; id: ExpeditionSiteId }
+  | { kind: "automation"; id: string; count: number }
+  | { kind: "adaptation"; id: string; count: number };
+
+export type ExpeditionPreparation = {
+  id: string;
+  label: string;
+  detail: string;
+  required: boolean;
+  /** Any one option satisfies the preparation, allowing different solutions. */
+  options: readonly ExpeditionPreparationOption[];
+};
 
 export type ExpeditionOutcome =
   | "success"
@@ -42,19 +80,27 @@ export type ExpeditionSiteDefinition = {
   id: ExpeditionSiteId;
   name: string;
   description: string;
-  minWorldIndex: number;
+  worldId: CampaignWorldId | null;
+  category: ExpeditionCategory;
+  operationCode: string;
+  successReport: string;
   requiresCampaignComplete?: boolean;
   repeatable: boolean;
   countsAsSurvey: boolean;
+  requiredForContinuity: boolean;
   durationSeconds: number;
   difficulty: number; // strength required for a full success
   fluxCostBase: number; // x continuityScale at launch
   /** Primary roles earning bonus expedition XP at this site. */
   focusRoles: readonly ProfessionalRole[];
+  preparations: readonly ExpeditionPreparation[];
   rewards: {
     salvage: number;
     schematics: number;
     nullTraces: number;
+    engineeringModels?: number;
+    biologicalSamples?: number;
+    culturalRecords?: number;
     discoveryId?: string;
   };
 };
@@ -119,6 +165,9 @@ export type ExpeditionResult = {
   salvage: number;
   schematics: number;
   nullTraces: number;
+  engineeringModels: number;
+  biologicalSamples: number;
+  culturalRecords: number;
   discoveryId: string | null;
   surveyCredited: boolean;
   wounds: ExpeditionWound[];
@@ -140,10 +189,10 @@ export type ExpeditionState = {
   stats: { launched: number; completed: number; abandoned: number };
 };
 
-export const EXPEDITION_SCHEMA = 4;
+export const EXPEDITION_SCHEMA = 5;
 export const MIN_EXPEDITION_CREW = 2;
 export const MAX_EXPEDITION_CREW = 4;
-export const MAX_EXPEDITION_LOG = 10;
+export const MAX_EXPEDITION_LOG = 16;
 
 // Outcome bands on margin = strength - difficulty (docs/expedition-e2-spec.md section 2).
 export const LEAN_MARGIN = 8;
@@ -185,35 +234,344 @@ const REWARD_OUTCOME_SCALE: Record<ExpeditionOutcome, number> = {
 
 export const EXPEDITION_SITE_DEFINITIONS: readonly ExpeditionSiteDefinition[] = [
   {
-    id: "planetary-survey",
+    id: "pelagos-survey",
     name: "Planetary Survey",
     description:
-      "Chart shelter sites, hazards, and resources on the surface. Required before AXIOM can certify this world safe for departure.",
-    minWorldIndex: 3,
+      "Chart stable rooftops, tidal corridors, and freshwater access before committing a founding community.",
+    worldId: "pelagos",
+    category: "survey",
+    operationCode: "PLG-S01",
+    successReport: "The highwater charts now distinguish a temporary refuge from ground that can support a town.",
     repeatable: true,
     countsAsSurvey: true,
+    requiredForContinuity: false,
+    durationSeconds: 20 * 60,
+    difficulty: 5,
+    fluxCostBase: 70,
+    focusRoles: ["navigator", "researcher"],
+    preparations: [],
+    rewards: { salvage: 12, schematics: 5, nullTraces: 0, culturalRecords: 4 },
+  },
+  {
+    id: "pelagos-breakwater-route",
+    name: "Breakwater Signal Route",
+    description:
+      "Follow hand-built repeaters through a drowned transit district and identify the people keeping them alive.",
+    worldId: "pelagos",
+    category: "story",
+    operationCode: "PLG-O02",
+    successReport: "The repeaters are not distress beacons. They are a census, maintained by families who expected the Ark.",
+    repeatable: false,
+    countsAsSurvey: false,
+    requiredForContinuity: false,
+    durationSeconds: 25 * 60,
+    difficulty: 6,
+    fluxCostBase: 90,
+    focusRoles: ["navigator", "technician", "teacher"],
+    preparations: [],
+    rewards: { salvage: 20, schematics: 8, nullTraces: 0, culturalRecords: 18, discoveryId: "expedition.pelagos-breakwater" },
+  },
+  {
+    id: "pelagos-highwater-vault",
+    name: "Highwater Archive Recovery",
+    description:
+      "Enter the municipal archive beneath the storm line, recover its population ledger, and prove that Pelagos can distribute medicine without the Ark.",
+    worldId: "pelagos",
+    category: "critical",
+    operationCode: "PLG-C03",
+    successReport: "Pelagos now owns a complete public ledger and an independent medical route. Continuity can evaluate a real society instead of an estimate.",
+    repeatable: false,
+    countsAsSurvey: false,
+    requiredForContinuity: true,
+    durationSeconds: 35 * 60,
+    difficulty: 8,
+    fluxCostBase: 140,
+    focusRoles: ["doctor", "navigator", "teacher"],
+    preparations: [
+      {
+        id: "pelagos-medical-plan",
+        label: "Floodwater medical plan",
+        detail: "Bring one Doctor at level 2+, or complete Clinical Commons before entry.",
+        required: true,
+        options: [
+          { kind: "role", role: "doctor", level: 2 },
+          { kind: "research", id: "clinical-commons" },
+        ],
+      },
+      {
+        id: "pelagos-route-intelligence",
+        label: "Mapped approach",
+        detail: "The Breakwater Signal Route or Surface Reconnaissance gives the team a safer approach.",
+        required: false,
+        options: [
+          { kind: "completed-expedition", id: "pelagos-breakwater-route" },
+          { kind: "research", id: "surface-reconnaissance" },
+        ],
+      },
+    ],
+    rewards: { salvage: 35, schematics: 15, nullTraces: 2, culturalRecords: 35, biologicalSamples: 12, discoveryId: "expedition.pelagos-archive" },
+  },
+  {
+    id: "pelagos-tidal-salvage",
+    name: "Tidal Salvage Run",
+    description: "Recover sealed machinery during the low-tide window. The route repeats, but the water never opens the same way twice.",
+    worldId: "pelagos",
+    category: "resource",
+    operationCode: "PLG-R04",
+    successReport: "The shuttle returns with structural stock and waterlogged technical records.",
+    repeatable: true,
+    countsAsSurvey: false,
+    requiredForContinuity: false,
+    durationSeconds: 30 * 60,
+    difficulty: 6,
+    fluxCostBase: 100,
+    focusRoles: ["navigator", "technician", "fabricator"],
+    preparations: [],
+    rewards: { salvage: 28, schematics: 10, nullTraces: 0, engineeringModels: 6 },
+  },
+  {
+    id: "viridia-survey",
+    name: "Planetary Survey",
+    description: "Map safe canopy corridors, altered watersheds, and ground the forest has not reclaimed.",
+    worldId: "viridia",
+    category: "survey",
+    operationCode: "VRD-S01",
+    successReport: "The canopy map identifies where a settlement can grow without teaching the forest to attack it.",
+    repeatable: true,
+    countsAsSurvey: true,
+    requiredForContinuity: false,
+    durationSeconds: 30 * 60,
+    difficulty: 7,
+    fluxCostBase: 130,
+    focusRoles: ["navigator", "farmer", "researcher"],
+    preparations: [],
+    rewards: { salvage: 15, schematics: 7, nullTraces: 0, biologicalSamples: 12 },
+  },
+  {
+    id: "viridia-canopy-signal",
+    name: "Canopy Signal Trace",
+    description: "Track a school transmitter moving through the upper forest even though its coordinates never change.",
+    worldId: "viridia",
+    category: "story",
+    operationCode: "VRD-O02",
+    successReport: "The transmitter is rooted inside a living classroom. Its oldest lesson addresses AXIOM by name.",
+    repeatable: false,
+    countsAsSurvey: false,
+    requiredForContinuity: false,
+    durationSeconds: 40 * 60,
+    difficulty: 9,
+    fluxCostBase: 190,
+    focusRoles: ["researcher", "teacher", "farmer"],
+    preparations: [],
+    rewards: { salvage: 25, schematics: 16, nullTraces: 4, biologicalSamples: 24, culturalRecords: 20, discoveryId: "expedition.viridia-classroom" },
+  },
+  {
+    id: "viridia-seed-vault-descent",
+    name: "Seed Vault Descent",
+    description: "Descend through a contagious root network and recover the unaltered seed library needed to make settlement agriculture independent.",
+    worldId: "viridia",
+    category: "critical",
+    operationCode: "VRD-C03",
+    successReport: "The seed library is viable, but one drawer contains crops bred for a climate Viridia has never possessed.",
+    repeatable: false,
+    countsAsSurvey: false,
+    requiredForContinuity: true,
+    durationSeconds: 60 * 60,
+    difficulty: 11,
+    fluxCostBase: 260,
+    focusRoles: ["doctor", "farmer", "researcher"],
+    preparations: [
+      {
+        id: "viridia-pathogen-model",
+        label: "Pathogen model",
+        detail: "Clinical Commons must identify the vault's spore cycle before anyone enters.",
+        required: true,
+        options: [{ kind: "research", id: "clinical-commons" }],
+      },
+      {
+        id: "viridia-exposure-control",
+        label: "Exposure control",
+        detail: "Bring one armor frame, a level 4+ Doctor, or a volunteer with atmospheric adaptation.",
+        required: true,
+        options: [
+          { kind: "armor", count: 1 },
+          { kind: "role", role: "doctor", level: 4 },
+          { kind: "adaptation", id: "atmospheric-adaptation", count: 1 },
+        ],
+      },
+      {
+        id: "viridia-canopy-intelligence",
+        label: "Canopy intelligence",
+        detail: "Tracing the Canopy Signal or completing Surface Reconnaissance improves the approach.",
+        required: false,
+        options: [
+          { kind: "completed-expedition", id: "viridia-canopy-signal" },
+          { kind: "research", id: "surface-reconnaissance" },
+        ],
+      },
+    ],
+    rewards: { salvage: 45, schematics: 28, nullTraces: 8, biologicalSamples: 65, culturalRecords: 18, discoveryId: "expedition.viridia-seed-vault" },
+  },
+  {
+    id: "viridia-spore-sampler",
+    name: "Spore-Line Sampling",
+    description: "Run a repeatable clinic route through the changing forest and return fresh biological evidence.",
+    worldId: "viridia",
+    category: "resource",
+    operationCode: "VRD-R04",
+    successReport: "The clinic receives a clean comparison set from the newest growth line.",
+    repeatable: true,
+    countsAsSurvey: false,
+    requiredForContinuity: false,
+    durationSeconds: 45 * 60,
+    difficulty: 9,
+    fluxCostBase: 210,
+    focusRoles: ["doctor", "farmer", "researcher"],
+    preparations: [],
+    rewards: { salvage: 18, schematics: 12, nullTraces: 2, biologicalSamples: 35 },
+  },
+  {
+    id: "planetary-survey",
+    name: "Planetary Survey",
+    description: "Chart ash movement, shelter corridors, and thermal fractures before certifying permanent construction zones.",
+    worldId: "cinder",
+    category: "survey",
+    operationCode: "CND-S01",
+    successReport: "The new thermal chart separates stable industrial ground from rock that only appears dormant.",
+    repeatable: true,
+    countsAsSurvey: true,
+    requiredForContinuity: false,
     durationSeconds: 90 * 60,
     difficulty: 10,
     fluxCostBase: 300,
     focusRoles: ["navigator", "researcher"],
-    rewards: { salvage: 25, schematics: 20, nullTraces: 0 },
+    preparations: [],
+    rewards: { salvage: 25, schematics: 20, nullTraces: 0, engineeringModels: 15 },
+  },
+  {
+    id: "cinder-ashline-recovery",
+    name: "Ashline Worker Recovery",
+    description: "Reach a mantle crew cut off beyond the charged ash front and recover their hand-built regulator plans.",
+    worldId: "cinder",
+    category: "story",
+    operationCode: "CND-O02",
+    successReport: "The workers return with a regulator design that assumes Foundry Nine has already been recommissioned.",
+    repeatable: false,
+    countsAsSurvey: false,
+    requiredForContinuity: false,
+    durationSeconds: 65 * 60,
+    difficulty: 12,
+    fluxCostBase: 360,
+    focusRoles: ["engineer", "fabricator", "doctor"],
+    preparations: [
+      { id: "cinder-ash-protection", label: "Ash protection", detail: "An armor frame or level 4+ Doctor is recommended against particulate burns.", required: false, options: [{ kind: "armor", count: 1 }, { kind: "role", role: "doctor", level: 4 }] },
+    ],
+    rewards: { salvage: 65, schematics: 35, nullTraces: 5, engineeringModels: 45, discoveryId: "expedition.cinder-ashline" },
+  },
+  {
+    id: "cinder-foundry-nine-recovery",
+    name: "Foundry Nine Recovery",
+    description: "Cross the mantle galleries, isolate the recursive control line, and return Foundry Nine to human authority.",
+    worldId: "cinder",
+    category: "critical",
+    operationCode: "CND-C03",
+    successReport: "Foundry Nine accepts a public shutdown key. Its maintenance ledger lists the Ark as its original operator.",
+    repeatable: false,
+    countsAsSurvey: false,
+    requiredForContinuity: true,
+    durationSeconds: 80 * 60,
+    difficulty: 15,
+    fluxCostBase: 520,
+    focusRoles: ["engineer", "fabricator", "technician"],
+    preparations: [
+      { id: "cinder-digital-twin", label: "Mantle digital twin", detail: "Predictive Fabrication must model the gallery before entry.", required: true, options: [{ kind: "research", id: "predictive-fabrication" }] },
+      { id: "cinder-thermal-frame", label: "Thermal protection", detail: "Bring at least one armor frame, or allocate an Expedition Support drone.", required: true, options: [{ kind: "armor", count: 1 }, { kind: "automation", id: "expedition-support", count: 1 }] },
+      { id: "cinder-full-protection", label: "Full-team protection", detail: "Two armor frames sharply reduce the projected injury burden.", required: false, options: [{ kind: "armor", count: 2 }] },
+    ],
+    rewards: { salvage: 95, schematics: 55, nullTraces: 10, engineeringModels: 90, discoveryId: "expedition.cinder-foundry-nine" },
+  },
+  {
+    id: "cinder-mantle-salvage",
+    name: "Mantle Salvage Circuit",
+    description: "Repeat the stabilized gallery loop for alloys, discarded machine logic, and intact forge patterns.",
+    worldId: "cinder",
+    category: "resource",
+    operationCode: "CND-R04",
+    successReport: "The circuit returns a compact industrial cache without disturbing the mantle grid.",
+    repeatable: true,
+    countsAsSurvey: false,
+    requiredForContinuity: false,
+    durationSeconds: 60 * 60,
+    difficulty: 12,
+    fluxCostBase: 420,
+    focusRoles: ["engineer", "fabricator", "technician"],
+    preparations: [],
+    rewards: { salvage: 75, schematics: 35, nullTraces: 2, engineeringModels: 40 },
+  },
+  {
+    id: "nox-survey",
+    name: "Planetary Survey",
+    description: "Cross-check surface routes against three contradictory maps and certify only locations all three can physically reach.",
+    worldId: "nox",
+    category: "survey",
+    operationCode: "NOX-S01",
+    successReport: "The route exists in every verified account, even though no archive agrees on who built it.",
+    repeatable: true,
+    countsAsSurvey: true,
+    requiredForContinuity: false,
+    durationSeconds: 75 * 60,
+    difficulty: 14,
+    fluxCostBase: 520,
+    focusRoles: ["navigator", "researcher", "security"],
+    preparations: [],
+    rewards: { salvage: 30, schematics: 24, nullTraces: 12, culturalRecords: 18 },
+  },
+  {
+    id: "nox-echo-bunker",
+    name: "Echo Bunker Mediation",
+    description: "Enter two shelters that each claim the other is a fabricated signal and establish one verifiable record between them.",
+    worldId: "nox",
+    category: "story",
+    operationCode: "NOX-O02",
+    successReport: "Both shelters sign the same record. Each copy contains a different final witness: AXIOM.",
+    repeatable: false,
+    countsAsSurvey: false,
+    requiredForContinuity: false,
+    durationSeconds: 90 * 60,
+    difficulty: 16,
+    fluxCostBase: 650,
+    focusRoles: ["teacher", "researcher", "security"],
+    preparations: [
+      { id: "nox-authentication", label: "Authenticated spectrum", detail: "Discarded Spectrum is required to distinguish a person from a copied signal.", required: true, options: [{ kind: "research", id: "discarded-spectrum" }] },
+    ],
+    rewards: { salvage: 40, schematics: 38, nullTraces: 35, culturalRecords: 65, discoveryId: "expedition.nox-echo-bunker" },
   },
   {
     id: "kestrel-relay",
     name: "Kestrel Relay Survey",
     description:
-      "Investigate Uncharted Relay 31, a dead transmitter that answers before it is powered.",
-    minWorldIndex: 3,
+      "Secure Uncharted Relay 31, a dead transmitter that answers before it is powered, and use it to authenticate Nox's shared network.",
+    worldId: "nox",
+    category: "critical",
+    operationCode: "NOX-C03",
+    successReport: "Relay 31 now signs the public network. Its first authenticated message was transmitted eleven minutes before launch.",
     repeatable: false,
     countsAsSurvey: false,
-    durationSeconds: 60 * 60,
-    difficulty: 12,
-    fluxCostBase: 450,
-    focusRoles: ["technician", "researcher"],
+    requiredForContinuity: true,
+    durationSeconds: 2 * 60 * 60,
+    difficulty: 18,
+    fluxCostBase: 800,
+    focusRoles: ["technician", "researcher", "security"],
+    preparations: [
+      { id: "nox-relay-model", label: "Relay authentication model", detail: "Discarded Spectrum must identify the relay's impossible carrier pattern.", required: true, options: [{ kind: "research", id: "discarded-spectrum" }] },
+      { id: "nox-armed-entry", label: "Armed entry team", detail: "Relay drones are actively hostile. Auto-equip at least two weapons before launch.", required: true, options: [{ kind: "weapons", count: 2 }] },
+      { id: "nox-impact-protection", label: "Impact protection", detail: "Two armor frames, a level 5+ Security specialist, or Defensive Forecasting reduces the risk of a hard return.", required: false, options: [{ kind: "armor", count: 2 }, { kind: "role", role: "security", level: 5 }, { kind: "research", id: "defensive-forecasting" }] },
+    ],
     rewards: {
-      salvage: 60,
-      schematics: 30,
-      nullTraces: 10,
+      salvage: 110,
+      schematics: 70,
+      nullTraces: 70,
+      culturalRecords: 55,
       discoveryId: "expedition.dead-relay",
     },
   },
@@ -222,17 +580,26 @@ export const EXPEDITION_SITE_DEFINITIONS: readonly ExpeditionSiteDefinition[] = 
     name: "Lantern Null-Bloom Study",
     description:
       "Instrument a dormant Null bloom up close. The richest known source of Null Traces.",
-    minWorldIndex: 4,
+    worldId: "nox",
+    category: "story",
+    operationCode: "NOX-X04",
+    successReport: "The bloom opens around the instruments but refuses to touch the crew. Its center contains a map of Vesper.",
     repeatable: false,
     countsAsSurvey: false,
+    requiredForContinuity: false,
     durationSeconds: 2 * 60 * 60,
-    difficulty: 16,
-    fluxCostBase: 700,
+    difficulty: 20,
+    fluxCostBase: 900,
     focusRoles: ["researcher", "navigator"],
+    preparations: [
+      { id: "nox-null-baseline", label: "Null baseline", detail: "Null Signal Baseline must be complete before instrumentation can distinguish evidence from sensor loss.", required: true, options: [{ kind: "research", id: "null-signal-baseline" }] },
+      { id: "nox-bloom-armor", label: "Exposure protection", detail: "Two armor frames or one Null-resistant volunteer is recommended.", required: false, options: [{ kind: "armor", count: 2 }, { kind: "adaptation", id: "null-resistance", count: 1 }] },
+    ],
     rewards: {
-      salvage: 40,
-      schematics: 20,
-      nullTraces: 70,
+      salvage: 55,
+      schematics: 45,
+      nullTraces: 110,
+      culturalRecords: 20,
       discoveryId: "expedition.null-bloom",
     },
   },
@@ -241,43 +608,120 @@ export const EXPEDITION_SITE_DEFINITIONS: readonly ExpeditionSiteDefinition[] = 
     name: "Null Sounding",
     description:
       "A repeatable instrumented dive along the Null boundary. Steady Null Traces for a steady crew.",
-    minWorldIndex: 4,
+    worldId: "nox",
+    category: "resource",
+    operationCode: "NOX-R05",
+    successReport: "The team returns with a clean boundary sample and another timestamp that cannot be reconciled.",
     repeatable: true,
     countsAsSurvey: false,
+    requiredForContinuity: false,
     durationSeconds: 90 * 60,
-    difficulty: 14,
+    difficulty: 17,
     fluxCostBase: 600,
     focusRoles: ["researcher", "navigator"],
-    rewards: { salvage: 15, schematics: 10, nullTraces: 25 },
+    preparations: [],
+    rewards: { salvage: 22, schematics: 18, nullTraces: 32, culturalRecords: 10 },
+  },
+  {
+    id: "vesper-survey",
+    name: "Planetary Survey",
+    description: "Triangulate safe routes between observatories while red storm bands rewrite the visible horizon.",
+    worldId: "vesper",
+    category: "survey",
+    operationCode: "VSP-S01",
+    successReport: "The route remains stable only when the Ark records every discarded version beside the accepted one.",
+    repeatable: true,
+    countsAsSurvey: true,
+    requiredForContinuity: false,
+    durationSeconds: 2 * 60 * 60,
+    difficulty: 18,
+    fluxCostBase: 850,
+    focusRoles: ["navigator", "researcher", "engineer"],
+    preparations: [],
+    rewards: { salvage: 38, schematics: 32, nullTraces: 28, engineeringModels: 20, culturalRecords: 18 },
+  },
+  {
+    id: "vesper-observatory-echo",
+    name: "Observatory Echo Audit",
+    description: "Visit three observatories that remember different planetary histories and build one accountable comparison record.",
+    worldId: "vesper",
+    category: "story",
+    operationCode: "VSP-O02",
+    successReport: "The observatories agree to preserve contradictions instead of voting one history out of existence.",
+    repeatable: false,
+    countsAsSurvey: false,
+    requiredForContinuity: false,
+    durationSeconds: 150 * 60,
+    difficulty: 21,
+    fluxCostBase: 1_000,
+    focusRoles: ["researcher", "teacher", "navigator"],
+    preparations: [
+      { id: "vesper-observer-model", label: "Observer model", detail: "Observer Recursion is required to compare records without collapsing them into one answer.", required: true, options: [{ kind: "research", id: "observer-recursion" }] },
+    ],
+    rewards: { salvage: 70, schematics: 55, nullTraces: 85, engineeringModels: 35, culturalRecords: 90, discoveryId: "expedition.vesper-observatory-echo" },
   },
   {
     id: "causal-wreckage",
     name: "Causal Wreckage Recovery",
     description:
       "Board a contact wreck caught between two arrival times. Its systems identify Ark crew as ancestors, then reject the current date.",
-    minWorldIndex: 5,
+    worldId: "vesper",
+    category: "critical",
+    operationCode: "VSP-C03",
+    successReport: "The wreck recognizes the crew as ancestors, then erases the recognition. Vesper receives enough material to expose the Continuity Array safely.",
     repeatable: false,
     countsAsSurvey: false,
+    requiredForContinuity: true,
     durationSeconds: 3 * 60 * 60,
-    difficulty: 22,
+    difficulty: 24,
     fluxCostBase: 1_050,
     focusRoles: ["researcher", "navigator", "engineer", "security"],
+    preparations: [
+      { id: "vesper-temporal-model", label: "Temporal signal model", detail: "Temporal Signal Analysis must identify which arrival is physically current.", required: true, options: [{ kind: "research", id: "temporal-signal-analysis" }] },
+      { id: "vesper-armed-boarding", label: "Armed boarding team", detail: "Auto-equip at least two weapons before entering the wreck.", required: true, options: [{ kind: "weapons", count: 2 }] },
+      { id: "vesper-shear-protection", label: "Causal-shear protection", detail: "Bring two armor frames, a Null-resistant volunteer, or an Expedition Support drone.", required: true, options: [{ kind: "armor", count: 2 }, { kind: "adaptation", id: "null-resistance", count: 1 }, { kind: "automation", id: "expedition-support", count: 1 }] },
+      { id: "vesper-causal-map", label: "Causal route map", detail: "Causal Cartography is recommended and improves confidence in the return corridor.", required: false, options: [{ kind: "research", id: "causal-cartography" }] },
+    ],
     rewards: {
       salvage: 120,
       schematics: 70,
       nullTraces: 90,
+      engineeringModels: 80,
+      culturalRecords: 75,
       discoveryId: "expedition.causal-wreckage",
     },
+  },
+  {
+    id: "vesper-red-scar-sounding",
+    name: "Red Scar Sounding",
+    description: "Repeat an instrumented pass through the outer anomaly scars and return whatever evidence still agrees with itself.",
+    worldId: "vesper",
+    category: "resource",
+    operationCode: "VSP-R04",
+    successReport: "The sounding returns a small cache of mutually compatible evidence and a much larger archive of contradictions.",
+    repeatable: true,
+    countsAsSurvey: false,
+    requiredForContinuity: false,
+    durationSeconds: 2 * 60 * 60,
+    difficulty: 20,
+    fluxCostBase: 900,
+    focusRoles: ["researcher", "navigator", "engineer"],
+    preparations: [],
+    rewards: { salvage: 45, schematics: 36, nullTraces: 55, engineeringModels: 30, culturalRecords: 28 },
   },
   {
     id: "palimpsest-origin",
     name: "Palimpsest Origin Run",
     description:
       "Follow the Foundry's oldest coordinate to whatever was there before the Ark.",
-    minWorldIndex: 5,
+    worldId: null,
+    category: "story",
+    operationCode: "ARK-X01",
+    successReport: "The coordinate is empty. The Foundry records a successful arrival anyway.",
     requiresCampaignComplete: true,
     repeatable: false,
     countsAsSurvey: false,
+    requiredForContinuity: false,
     durationSeconds: 4 * 60 * 60,
     difficulty: 20,
     fluxCostBase: 1_200,
@@ -292,10 +736,13 @@ export const EXPEDITION_SITE_DEFINITIONS: readonly ExpeditionSiteDefinition[] = 
       "teacher",
       "security",
     ],
+    preparations: [],
     rewards: {
       salvage: 150,
       schematics: 80,
       nullTraces: 60,
+      engineeringModels: 60,
+      culturalRecords: 60,
       discoveryId: "expedition.first-foundry",
     },
   },
@@ -584,6 +1031,12 @@ export function sanitizeExpeditionState(value: unknown): ExpeditionState {
           // legacy logs stored this reward as engineeringModels
           schematics: finite(raw.schematics ?? raw.engineeringModels, 0, 1e9),
           nullTraces: finite(raw.nullTraces, 0, 1e9),
+          engineeringModels:
+            raw.schematics === undefined
+              ? 0
+              : finite(raw.engineeringModels, 0, 1e9),
+          biologicalSamples: finite(raw.biologicalSamples, 0, 1e9),
+          culturalRecords: finite(raw.culturalRecords, 0, 1e9),
           discoveryId:
             typeof raw.discoveryId === "string" ? raw.discoveryId : null,
           surveyCredited: raw.surveyCredited === true,
@@ -636,18 +1089,32 @@ export function getExpeditionDurationSeconds(
 export type ExpeditionAvailability = {
   site: ExpeditionSiteDefinition;
   available: boolean;
-  reason: "locked-world" | "campaign-incomplete" | "already-completed" | "busy" | null;
+  reason: "campaign-incomplete" | "already-completed" | "busy" | null;
 };
+
+/** Only current-world work is exposed; future-world names and lore stay hidden. */
+export function getExpeditionSitesForWorld(
+  worldId: CampaignWorldId | string | null,
+  campaignComplete: boolean,
+) {
+  if (worldId === null) {
+    return campaignComplete
+      ? EXPEDITION_SITE_DEFINITIONS.filter((site) => site.worldId === null)
+      : [];
+  }
+  return EXPEDITION_SITE_DEFINITIONS.filter(
+    (site) => site.worldId === worldId && !site.requiresCampaignComplete,
+  );
+}
 
 export function getExpeditionAvailability(
   state: ExpeditionState,
-  worldIndex: number,
+  worldId: CampaignWorldId | string | null,
   campaignComplete: boolean,
 ): ExpeditionAvailability[] {
-  return EXPEDITION_SITE_DEFINITIONS.map((site) => {
+  return getExpeditionSitesForWorld(worldId, campaignComplete).map((site) => {
     let reason: ExpeditionAvailability["reason"] = null;
-    if (worldIndex < site.minWorldIndex) reason = "locked-world";
-    else if (site.requiresCampaignComplete && !campaignComplete)
+    if (site.requiresCampaignComplete && !campaignComplete)
       reason = "campaign-incomplete";
     else if (!site.repeatable && state.completedSiteIds.includes(site.id))
       reason = "already-completed";
@@ -879,6 +1346,9 @@ export function advanceExpeditions(
       salvage: 0,
       schematics: 0,
       nullTraces: 0,
+      engineeringModels: 0,
+      biologicalSamples: 0,
+      culturalRecords: 0,
       discoveryId: null,
       surveyCredited: false,
       wounds,
@@ -965,6 +1435,24 @@ export function advanceExpeditions(
       site.rewards.schematics * scale * recoveryMultiplier * researchRecoveryMultiplier,
     ),
     nullTraces: Math.round(site.rewards.nullTraces * scale),
+    engineeringModels: Math.round(
+      (site.rewards.engineeringModels ?? 0) *
+        scale *
+        recoveryMultiplier *
+        researchRecoveryMultiplier,
+    ),
+    biologicalSamples: Math.round(
+      (site.rewards.biologicalSamples ?? 0) *
+        scale *
+        recoveryMultiplier *
+        researchRecoveryMultiplier,
+    ),
+    culturalRecords: Math.round(
+      (site.rewards.culturalRecords ?? 0) *
+        scale *
+        recoveryMultiplier *
+        researchRecoveryMultiplier,
+    ),
     discoveryId: outcome === "success" ? site.rewards.discoveryId ?? null : null,
     surveyCredited,
     wounds,

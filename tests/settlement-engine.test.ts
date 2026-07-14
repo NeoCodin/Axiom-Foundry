@@ -45,6 +45,8 @@ function completeProgress(worldId: CampaignWorldId): WorldProgressSummary {
     ),
     surveysCompleted: world.surveysRequired,
     equipment: {},
+    expeditionsCompleted: world.requiredExpeditionIds.length,
+    completedExpeditionIds: [...world.requiredExpeditionIds],
   };
 }
 

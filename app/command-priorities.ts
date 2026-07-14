@@ -55,7 +55,7 @@ export type CommandPriority = {
 function deficitTarget(deficit: ViabilityDeficit): PrimaryView {
   if (["community", "expertise", "profile"].includes(deficit.kind)) return "population";
   if (deficit.kind === "research") return "research";
-  if (deficit.kind === "survey") return "expeditions";
+  if (deficit.kind === "survey" || deficit.kind === "operation") return "expeditions";
   return "settlement";
 }
 

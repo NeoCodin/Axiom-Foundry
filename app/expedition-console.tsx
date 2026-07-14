@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import type { ExpeditionSiteId, ExpeditionState } from "./expedition-engine";
+import type {
+  ExpeditionSiteDefinition,
+  ExpeditionSiteId,
+  ExpeditionState,
+} from "./expedition-engine";
 import {
-  EXPEDITION_SITE_DEFINITIONS,
   MAX_EXPEDITION_CREW,
   MIN_EXPEDITION_CREW,
   getExpeditionSite,
@@ -32,6 +35,8 @@ export type ExpeditionPreview = {
   bioadaptationStrengthBonus: number;
   bioadaptationDurationMultiplier: number;
   difficulty: number;
+  canLaunch: boolean;
+  reason: string | null;
   projectedOutcome: "success" | "lean" | "setback" | "distress" | null;
   weapons: number;
   armor: number;
@@ -39,6 +44,13 @@ export type ExpeditionPreview = {
     crewId: string;
     weaponId: string | null;
     armorId: string | null;
+  }[];
+  preparations: readonly {
+    id: string;
+    label: string;
+    detail: string;
+    required: boolean;
+    met: boolean;
   }[];
 };
 
@@ -70,8 +82,9 @@ export type ExpeditionConsoleProps = {
   survivors: SurvivorSystemState;
   expeditions: ExpeditionState;
   currentWorldName: string;
+  sites: readonly ExpeditionSiteDefinition[];
   recon: SurfaceReconView;
-  expeditionAccess: Readonly<Record<ExpeditionSiteId, ExpeditionAccessView>>;
+  expeditionAccess: Readonly<Partial<Record<ExpeditionSiteId, ExpeditionAccessView>>>;
   surveyStatus: { completed: number; required: number };
   getExpeditionPreview: (
     siteId: ExpeditionSiteId,
@@ -89,6 +102,7 @@ function ExpeditionConsole({
   survivors: state,
   expeditions,
   currentWorldName,
+  sites,
   recon,
   expeditionAccess,
   surveyStatus,
@@ -100,11 +114,17 @@ function ExpeditionConsole({
   onOpenHelp,
   onBack,
 }: ExpeditionConsoleProps) {
-  const [expeditionSiteId, setExpeditionSiteId] = useState<ExpeditionSiteId>("planetary-survey");
+  const [expeditionSiteId, setExpeditionSiteId] = useState<ExpeditionSiteId | null>(null);
   const [expeditionCrewIds, setExpeditionCrewIds] = useState<string[]>([]);
   const [confirmingSetback, setConfirmingSetback] = useState(false);
   const [rescueCrewIds, setRescueCrewIds] = useState<string[]>([]);
   const [confirmingAbandon, setConfirmingAbandon] = useState(false);
+  const selectedSiteId =
+    sites.find((site) => site.id === expeditionSiteId)?.id ?? sites[0]?.id ?? null;
+  const criticalSites = sites.filter((site) => site.requiredForContinuity);
+  const criticalComplete = criticalSites.filter((site) =>
+    expeditions.completedSiteIds.includes(site.id),
+  ).length;
 
   return (
     <section className="continuity-console expedition-console" aria-labelledby="expedition-console-title">
@@ -120,6 +140,7 @@ function ExpeditionConsole({
       <div className="continuity-summary-band">
         <div><span>Status</span><strong>{expeditions.stranded ? "DISTRESS" : expeditions.active ? (expeditions.active.kind === "rescue" ? "Rescue underway" : "Mission underway") : "Bay ready"}</strong></div>
         <div><span>Surveys certified</span><strong>{surveyStatus.required > 0 ? `${Math.min(surveyStatus.completed, surveyStatus.required)}/${surveyStatus.required}` : "—"}</strong></div>
+        <div><span>Critical operation</span><strong>{criticalSites.length > 0 ? `${criticalComplete}/${criticalSites.length}` : "—"}</strong></div>
         <div><span>Missions completed</span><strong>{expeditions.stats.completed}</strong></div>
         <div title={`Every successful mission charts this world. SOS scans currently take ${recon.scanLabel}; recon can cut them to a third of the uncharted rate.`}>
           <span>Surface Recon</span>
@@ -255,7 +276,7 @@ function ExpeditionConsole({
                 <p>{site.description}</p>
                 <ul className="expedition-stat-list">
                   <li><span>Group strength</span><strong>{expeditions.active!.strength} vs {site.difficulty}</strong></li>
-                  <li><span>Guarantee</span><strong>The crew always returns</strong></li>
+                  <li><span>Guarantee</span><strong>No random death; distress signals remain stable</strong></li>
                 </ul>
               </div>
               <div className="expedition-manifest">
@@ -278,8 +299,21 @@ function ExpeditionConsole({
             </div>
           );
         })() : (() => {
-          const site = getExpeditionSite(expeditionSiteId);
-          const access = expeditionAccess[expeditionSiteId];
+          if (!selectedSiteId) {
+            return (
+              <div className="continuity-empty-state">
+                <strong>No surface operations during transit.</strong>
+                <p>The Expedition Bay reopens automatically after the Ark reaches orbit.</p>
+              </div>
+            );
+          }
+          const site = getExpeditionSite(selectedSiteId);
+          const access = expeditionAccess[selectedSiteId] ?? {
+            available: false,
+            reason: "unavailable",
+            fluxLabel: "Unavailable",
+            canAffordFlux: false,
+          };
           const trainingIds = new Set(state.training.map((program) => program.survivorId));
           const woundedCount = state.survivors.filter(isSurvivorWounded).length;
           const eligible = state.survivors.filter(
@@ -293,21 +327,46 @@ function ExpeditionConsole({
             setConfirmingSetback(false);
             setExpeditionCrewIds((current) => current.includes(id) ? current.filter((existing) => existing !== id) : current.length >= MAX_EXPEDITION_CREW ? current : [...current, id]);
           };
-          const preview = chosen.length >= MIN_EXPEDITION_CREW ? getExpeditionPreview(expeditionSiteId, chosen) : null;
+          const preview = chosen.length >= MIN_EXPEDITION_CREW ? getExpeditionPreview(selectedSiteId, chosen) : null;
           const needsConfirm =
             preview?.projectedOutcome === "setback" ||
             preview?.projectedOutcome === "distress";
+          const preparationStatus = preview?.preparations ?? site.preparations.map((preparation) => ({
+            id: preparation.id,
+            label: preparation.label,
+            detail: preparation.detail,
+            required: preparation.required,
+            met: false,
+          }));
           return (
             <>
+              <nav className="expedition-operation-board" aria-label={`${currentWorldName} operations`}>
+                {sites.map((candidate) => {
+                  const candidateAccess = expeditionAccess[candidate.id];
+                  const completed = expeditions.completedSiteIds.includes(candidate.id);
+                  const selected = candidate.id === selectedSiteId;
+                  return (
+                    <button
+                      type="button"
+                      className={`${selected ? "is-selected" : ""} ${completed ? "is-complete" : ""} expedition-category-${candidate.category}`}
+                      key={candidate.id}
+                      aria-pressed={selected}
+                      onClick={() => {
+                        setConfirmingSetback(false);
+                        setExpeditionSiteId(candidate.id);
+                      }}
+                    >
+                      <span>{candidate.operationCode} · {candidate.category}</span>
+                      <strong>{candidate.name}</strong>
+                      <small>{completed ? "COMPLETED" : candidate.requiredForContinuity ? "CONTINUITY REQUIRED" : candidate.repeatable ? "REPEATABLE" : candidateAccess?.available === false ? "LOCKED" : "AVAILABLE"}</small>
+                    </button>
+                  );
+                })}
+              </nav>
               <div className="expedition-planning-grid">
                 <div className="expedition-dossier">
-                  <span className="expedition-box-label">DESTINATION DOSSIER</span>
-                  <select aria-label="Destination" value={expeditionSiteId} onChange={(event) => { setConfirmingSetback(false); setExpeditionSiteId(event.target.value as ExpeditionSiteId); }}>
-                    {EXPEDITION_SITE_DEFINITIONS.map((candidate) => {
-                      const candidateAccess = expeditionAccess[candidate.id];
-                      return <option key={candidate.id} value={candidate.id} disabled={!candidateAccess.available}>{candidate.name}{candidateAccess.available ? "" : candidateAccess.reason === "in-transit" ? " · Ark in transit" : candidateAccess.reason === "locked-world" ? " · later worlds" : candidateAccess.reason === "already-completed" ? " · completed" : candidateAccess.reason === "campaign-incomplete" ? " · after the campaign" : ""}</option>;
-                    })}
-                  </select>
+                  <span className="expedition-box-label">{site.operationCode} · {site.category.toUpperCase()} OPERATION</span>
+                  <h4>{site.name}</h4>
                   <p className="expedition-lore">{site.description}</p>
                   <ul className="expedition-stat-list">
                     <li><span>Difficulty</span><strong>{site.difficulty}</strong></li>
@@ -315,7 +374,20 @@ function ExpeditionConsole({
                     <li><span>Launch cost</span><strong>{access.fluxLabel}</strong></li>
                     <li><span>Favors</span><strong>{site.focusRoles.length >= 9 ? "Every profession" : site.focusRoles.map(titleCase).join(", ")} · +50% XP</strong></li>
                     {site.countsAsSurvey && <li><span>Certification</span><strong>Counts toward planetary surveys</strong></li>}
+                    {site.requiredForContinuity && <li><span>Continuity</span><strong>Required before departure</strong></li>}
                   </ul>
+                  {preparationStatus.length > 0 && (
+                    <div className="expedition-preparation-list">
+                      <span>PREPARATION CHECKS</span>
+                      {preparationStatus.map((preparation) => (
+                        <div className={preparation.met ? "is-met" : preparation.required ? "is-blocked" : ""} key={preparation.id}>
+                          <i>{preparation.met ? "✓" : preparation.required ? "!" : "+"}</i>
+                          <p><strong>{preparation.required ? "Required" : "Recommended"}: {preparation.label}</strong><small>{preparation.detail}</small></p>
+                          <em>{preparation.met ? "READY" : preparation.required ? "MISSING" : "OPTIONAL"}</em>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div className="expedition-request">
                     <span>MISSION PROFILE</span>
                     Requests strength {site.difficulty}+ for full success. {Math.max(1, site.difficulty - 7)}+ still returns unharmed with lean rewards; below that the crew comes home wounded{site.difficulty > 16 ? ", and far below it they would be stranded" : ""}. Weapons add strength; Navigators level 3+ fly faster.
@@ -349,9 +421,11 @@ function ExpeditionConsole({
                 </div>
               </div>
               {preview && (
-                <div className={`expedition-projection ${preview.projectedOutcome === "setback" || preview.projectedOutcome === "distress" ? "is-warning" : ""}`} aria-live="polite">
+                <div className={`expedition-projection ${preview.reason === "preparation" || preview.projectedOutcome === "setback" || preview.projectedOutcome === "distress" ? "is-warning" : ""}`} aria-live="polite">
                   <strong>
-                    {preview.projectedOutcome === "success"
+                    {preview.reason === "preparation"
+                      ? `Deployment blocked: ${preview.preparations.filter((preparation) => preparation.required && !preparation.met).map((preparation) => preparation.label).join(", ")}`
+                      : preview.projectedOutcome === "success"
                       ? `Projected: SUCCESS (strength ${preview.strength} vs ${preview.difficulty})`
                       : preview.projectedOutcome === "lean"
                         ? `Projected: LEAN RETURN (strength ${preview.strength} vs ${preview.difficulty}) — reduced rewards, nobody hurt`
@@ -372,21 +446,25 @@ function ExpeditionConsole({
               <button
                 className="forecast-action"
                 type="button"
-                disabled={!access.available || !access.canAffordFlux || chosen.length < MIN_EXPEDITION_CREW}
+                disabled={!access.available || !access.canAffordFlux || chosen.length < MIN_EXPEDITION_CREW || preview?.reason === "preparation"}
                 onClick={() => {
                   if (needsConfirm && !confirmingSetback) {
                     setConfirmingSetback(true);
                     return;
                   }
                   setConfirmingSetback(false);
-                  onLaunchExpedition(expeditionSiteId, chosen);
+                  onLaunchExpedition(selectedSiteId, chosen);
                   setExpeditionCrewIds([]);
                 }}
               >
-                 {!access.available && access.reason === "in-transit"
+                 {!access.available && access.reason === "already-completed"
+                   ? "Operation already completed"
+                   : !access.available && access.reason === "in-transit"
                    ? "Launches resume after orbital arrival"
                    : chosen.length < MIN_EXPEDITION_CREW
                      ? `Select ${MIN_EXPEDITION_CREW}-${MAX_EXPEDITION_CREW} crew`
+                  : preview?.reason === "preparation"
+                    ? "Complete the required preparation checks"
                   : !access.canAffordFlux
                     ? `Needs ${access.fluxLabel}`
                     : needsConfirm
@@ -423,7 +501,8 @@ function ExpeditionConsole({
               return (
                 <li key={`${entry.resolvedAtSeconds}-${index}`}>
                   <strong>{site.name} · {outcomeLabel} (strength {Math.round(entry.strength)} vs {entry.difficulty})</strong>
-                  <span>{entry.salvage > 0 ? `+${entry.salvage} Salvage · ` : ""}{entry.schematics > 0 ? `+${entry.schematics} Schematics · ` : ""}{entry.nullTraces > 0 ? `+${entry.nullTraces} Null Traces · ` : ""}{entry.surveyCredited ? "survey certified · " : ""}{crewNote}</span>
+                  <span>{entry.salvage > 0 ? `+${entry.salvage} Salvage · ` : ""}{entry.schematics > 0 ? `+${entry.schematics} Schematics · ` : ""}{entry.engineeringModels > 0 ? `+${entry.engineeringModels} Engineering Models · ` : ""}{entry.biologicalSamples > 0 ? `+${entry.biologicalSamples} Biological Samples · ` : ""}{entry.culturalRecords > 0 ? `+${entry.culturalRecords} Cultural Records · ` : ""}{entry.nullTraces > 0 ? `+${entry.nullTraces} Null Traces · ` : ""}{entry.surveyCredited ? "survey certified · " : ""}{crewNote}</span>
+                  {entry.outcome === "success" && <small className="expedition-debrief">{site.successReport}</small>}
                 </li>
               );
             })}

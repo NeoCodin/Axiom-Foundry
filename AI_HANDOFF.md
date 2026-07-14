@@ -1,10 +1,10 @@
 # Axiom Foundry — AI Project Handoff
 
-Last updated: July 13, 2026
+Last updated: July 14, 2026
 
 Current development branch: `codex/axiom-foundry-game`
 
-Handoff baseline: current `codex/axiom-foundry-game` tip (offline Transit + Defense Marks release)
+Handoff baseline: current `codex/axiom-foundry-game` tip (planet-specific Expedition Campaign release)
 
 This document is the portable source of truth for Codex, Claude, future AI assistants, and human collaborators. Read it before changing the game. Update it whenever a decision materially changes the vision, lore, progression, architecture, save format, or collaboration workflow.
 
@@ -66,12 +66,13 @@ Every major feature should reinforce at least one of these pillars:
 7. Assign qualified crew or train civilians into professions.
 8. Generate and route research inputs through the Research Lattice.
 9. Complete Ark Engineering, Human Continuity, and Null Studies projects.
-10. Finish planetary infrastructure, supplies, crisis resolution, and founder requirements.
-11. Select the exact founders who will remain on the planet.
-12. Depart only when the Continuity forecast proves the world can survive without the Ark.
-13. After Pelagos, cross a timed interplanetary corridor. Travel, Foundry production, Research, training, construction, repairs, and Defense all advance offline; destination directives wait for orbital arrival.
-14. Prepare separate environmental and hostile-contact doctrines, build Ark Defense installations through Mark I-IV projects, and inspect deterministic incident reports.
-15. Carry research, colonies, Axioms, and permanent legacy effects into later worlds.
+10. Survey the current planet, prepare its Critical field operation, and complete planet-specific story or resource routes.
+11. Finish planetary infrastructure, supplies, crisis resolution, and founder requirements.
+12. Select the exact founders who will remain on the planet.
+13. Depart only when the Continuity forecast proves the world can survive without the Ark.
+14. After Pelagos, cross a timed interplanetary corridor. Travel, Foundry production, Research, training, construction, repairs, and Defense all advance offline; destination directives wait for orbital arrival.
+15. Prepare separate environmental and hostile-contact doctrines, build Ark Defense installations through Mark I-IV projects, and inspect deterministic incident reports.
+16. Carry research, colonies, Axioms, and permanent legacy effects into later worlds.
 
 ## 5. Current campaign order
 
@@ -404,13 +405,13 @@ Future visual defense progression on the Ark page may include shield arcs, inter
 - `tests/transit-engine.test.ts`
 - `tests/rendered-html.test.mjs`
 
-At the current handoff baseline, 173 automated tests pass.
+At the current handoff baseline, 180 automated tests pass.
 
 ## 15. Save compatibility rules
 
 Current identifiers at the handoff baseline:
 
-- `SAVE_VERSION = 10`
+- `SAVE_VERSION = 12`
 - `SAVE_KEY = "axiom-foundry-save-v5"`
 
 Rules for all assistants:
@@ -723,7 +724,22 @@ The next implementation should begin with a written mechanic specification and b
 - Adaptations can add bounded expedition strength, duration reduction, personal injury resistance, on-duty Research support, Defense readiness, or identification. They never alter rarity, Profile Elevation, profession levels, Continuity Expertise, founder requirements, or colony viability. Founder history preserves the choices as biography only.
 - Full rules and balance table: `docs/causal-archive-and-bioadaptation-spec.md`.
 - Validation baseline: 178 automated tests, lint, production build, and static hosting build passing.
-- Roadmap items 3-9 are now implemented. The next major milestone is the postponed full-campaign think-aloud human playtest, followed by evidence-based balance and guidance fixes.
+- Roadmap items 3-9 are now implemented. The Expedition Campaign rework below supersedes the old global-site expedition notes elsewhere in this file.
+
+### Implemented July 14, 2026 — Planet-specific Expedition Campaigns
+
+- `SAVE_VERSION = 12` and `EXPEDITION_SCHEMA = 5` are additive. The public save key is unchanged; no player progress is reset.
+- The Expedition Bay exposes only the current planet. Future-world operation names, rewards, and lore are hidden until arrival. After the authored campaign, only Palimpsest Origin remains available.
+- Every inhabited planet now has a repeatable Planetary Survey, optional one-time story work, one Critical operation required by Continuity, and a repeatable local resource route. Nox and Vesper contain additional high-risk mystery operations.
+- Survey requirements are now Pelagos 1, Viridia 2, Cinder 2, Nox 3, and Vesper 3. Required Critical operations are Highwater Archive Recovery, Seed Vault Descent, Foundry Nine Recovery, Kestrel Relay Survey, and Causal Wreckage Recovery.
+- Launch preparation is explicit and solution-based. A requirement may accept Research, weapons, armor, a qualified specialist, a prior expedition, an allocated drone, or a voluntary adaptation. Required checks block deployment; Recommended checks remain optional and visible.
+- Nox and Vesper Critical operations deliberately require armed teams. Earlier worlds teach medical, environmental, and industrial preparation first, so guns do not become the solution to every expedition.
+- Expedition rewards now include planet-appropriate Engineering Models, Biological Samples, and Cultural Records in addition to Salvage, Schematics, and Null Traces. This connects field work directly to Research without replacing staffed passive generation.
+- Successful one-time operations enter both the permanent expedition ledger and the current world's Continuity progress. Lean returns remain safe but do not certify a Critical operation; the player must prepare for a full success.
+- The Expedition UI is an operation board rather than a global future-spoiling dropdown. It labels Survey, Story, Critical, and Resource routes, shows Continuity status, preparation checks, projected outcomes, equipment, and a narrative debrief.
+- Full design and balance table: `docs/planetary-expedition-campaign-spec.md`.
+- Validation baseline: 180 automated tests, lint, production build, and static hosting build passing.
+- Next product milestone requested by the owner: plan and execute the full visual/graphic reset, then run the postponed fresh Cold Wake-to-Vesper think-aloud playtest and perform evidence-based balance and guidance fixes.
 
 ## 22. Maintaining this handoff
 

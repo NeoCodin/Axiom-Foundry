@@ -46,7 +46,7 @@ export function getProgressiveDisclosure(state: GameState): ProgressiveDisclosur
           survivor.health < getSurvivorHealthCap(survivor) || survivor.injury !== null,
         ) || state.research.completedProjectIds.includes("clinical-commons")),
     expeditions:
-      worldIndex >= 3 || state.expeditions.active !== null ||
+      worldIndex >= 1 || state.expeditions.active !== null ||
       state.expeditions.stranded !== null || state.expeditions.stats.completed > 0,
     defense: isThreatOperationsActivated(state),
     armory:
@@ -70,4 +70,3 @@ export function getProgressiveDisclosure(state: GameState): ProgressiveDisclosur
       state.lifetimeAxioms > 0 || getRecalibrationGain(state) > 0,
   };
 }
-

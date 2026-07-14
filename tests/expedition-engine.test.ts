@@ -40,8 +40,10 @@ import {
 } from "../app/armory-engine.ts";
 import {
   getExpeditionSite,
+  getExpeditionSitesForWorld,
   sanitizeExpeditionState,
 } from "../app/expedition-engine.ts";
+import { CAMPAIGN_WORLDS } from "../app/campaign-content.ts";
 
 function cinderStateWithCrew() {
   const state = setTutorialComplete(createInitialState(0), true);
@@ -66,6 +68,77 @@ function cinderStateWithCrew() {
   state.flux = 1e12;
   return state;
 }
+
+test("the Expedition Bay exposes only current-world operations", () => {
+  const pelagos = getExpeditionSitesForWorld("pelagos", false);
+  assert.ok(pelagos.some((site) => site.id === "pelagos-survey"));
+  assert.ok(pelagos.some((site) => site.id === "pelagos-highwater-vault"));
+  assert.ok(pelagos.every((site) => site.worldId === "pelagos"));
+  assert.equal(pelagos.some((site) => site.id === "kestrel-relay"), false);
+
+  const nox = getExpeditionSitesForWorld("nox", false);
+  assert.ok(nox.some((site) => site.id === "kestrel-relay"));
+  assert.equal(nox.some((site) => site.id === "causal-wreckage"), false);
+
+  const postCampaign = getExpeditionSitesForWorld(null, true);
+  assert.deepEqual(postCampaign.map((site) => site.id), ["palimpsest-origin"]);
+
+  for (const world of CAMPAIGN_WORLDS.filter((candidate) => candidate.kind === "planet")) {
+    const sites = getExpeditionSitesForWorld(world.id, false);
+    assert.ok(sites.some((site) => site.category === "survey" && site.repeatable));
+    assert.ok(sites.some((site) => site.category === "resource" && site.repeatable));
+    assert.ok(sites.some((site) => site.category === "story" && !site.repeatable));
+    assert.deepEqual(
+      sites.filter((site) => site.requiredForContinuity).map((site) => site.id),
+      world.requiredExpeditionIds,
+    );
+  }
+});
+
+test("critical operations enforce preparation and satisfy Continuity only on success", () => {
+  const state = cinderStateWithCrew();
+  let quote = getExpeditionLaunchQuote(
+    state,
+    "cinder-foundry-nine-recovery",
+    ["scout-1", "scout-2", "scout-3"],
+  );
+  assert.equal(quote.canLaunch, false);
+  assert.equal(quote.reason, "preparation");
+  assert.ok(quote.preparations.some((entry) => entry.required && !entry.met));
+
+  state.research.completedProjectIds.push(
+    "predictive-fabrication",
+    "composite-plating",
+  );
+  state.researchStock["engineering-models"] = 1_000;
+  const protectedState = craftArmoryItem(state, "composite-weave");
+  quote = getExpeditionLaunchQuote(
+    protectedState,
+    "cinder-foundry-nine-recovery",
+    ["scout-1", "scout-2", "scout-3"],
+  );
+  assert.equal(quote.canLaunch, true);
+  assert.ok(quote.preparations.filter((entry) => entry.required).every((entry) => entry.met));
+
+  const launched = startExpedition(
+    protectedState,
+    "cinder-foundry-nine-recovery",
+    ["scout-1", "scout-2", "scout-3"],
+  );
+  const completed = simulateGame(launched, 3 * 3_600, 240, false);
+  assert.ok(
+    completed.worldProgress.completedExpeditionIds.includes(
+      "cinder-foundry-nine-recovery",
+    ),
+  );
+  assert.equal(
+    getCurrentViabilityForecast(completed)?.lines.find(
+      (line) => line.kind === "operation",
+    )?.met,
+    true,
+  );
+  assert.ok(completed.researchStock["engineering-models"] > 1_000);
+});
 
 test("surveys gate departure and expeditions credit them on completion", () => {
   const state = cinderStateWithCrew();

@@ -232,6 +232,7 @@ import { getCampaignWorld, type CampaignWorldId } from "./campaign-content";
 import {
   EXPEDITION_SITE_DEFINITIONS,
   getExpeditionAvailability,
+  getExpeditionSitesForWorld,
   type ExpeditionSiteId,
 } from "./expedition-engine";
 import {
@@ -663,11 +664,17 @@ export default function Home() {
   };
 
   const rescueQuote = getArkRescueQuote(game);
+  const campaignComplete =
+    game.settlement.currentWorldId === null && !activeTransit;
+  const expeditionSites = getExpeditionSitesForWorld(
+    game.settlement.currentWorldId,
+    campaignComplete,
+  );
   const expeditionAccess = Object.fromEntries(
     getExpeditionAvailability(
       game.expeditions,
-      campaignWorldIndex,
-      game.settlement.currentWorldId === null && !activeTransit,
+      game.settlement.currentWorldId,
+      campaignComplete,
     ).map((entry) => {
       const quote = getExpeditionLaunchQuote(game, entry.site.id, [
         "placeholder-a",
@@ -683,7 +690,7 @@ export default function Home() {
         },
       ];
     }),
-  ) as Record<ExpeditionSiteId, { available: boolean; reason: string | null; fluxLabel: string; canAffordFlux: boolean }>;
+  ) as Partial<Record<ExpeditionSiteId, { available: boolean; reason: string | null; fluxLabel: string; canAffordFlux: boolean }>>;
   const rescueDetailActive = hasRescueDetail(game);
   const surfaceRecon = getSurfaceRecon(game);
   const scanDurationSeconds = getScanDurationSeconds(
@@ -2204,6 +2211,7 @@ export default function Home() {
           survivors={game.survivors}
           expeditions={game.expeditions}
           currentWorldName={campaignWorld.name}
+          sites={expeditionSites}
           recon={{
             expeditions: surfaceRecon.expeditions,
             multiplier: surfaceRecon.multiplier,
@@ -2225,9 +2233,12 @@ export default function Home() {
               bioadaptationDurationMultiplier: quote.bioadaptationDurationMultiplier,
               difficulty: quote.difficulty,
               projectedOutcome: quote.projectedOutcome === "rescue" ? null : quote.projectedOutcome,
+              canLaunch: quote.canLaunch,
+              reason: quote.reason,
               weapons: quote.loadout.filter((entry) => entry.weaponId).length,
               armor: quote.loadout.filter((entry) => entry.armorId).length,
               loadout: quote.loadout,
+              preparations: quote.preparations,
             };
           }}
           onLaunchExpedition={handleLaunchExpedition}
