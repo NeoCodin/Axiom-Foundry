@@ -535,6 +535,16 @@ Owner-approved order as of July 14, 2026:
 9. **Implemented:** opt-in Bioadaptation around Vesper/Convergence. Six consent-based protocols support expeditions, Research, and Defense; they never change rarity, contribute to Continuity, become a settlement requirement, or treat people as disposable stats.
 10. **After items 3-9 are complete:** run the documented think-aloud human playtest across the whole current campaign. The owner explicitly postponed the major playtest until the version is feature-complete through Bioadaptation. Mechanical audits and regression tests continue after every item, but they do not substitute for that final observation.
 
+### Post-playtest agenda (confirmed July 14, 2026)
+
+Keep these items queued after the current expedition/full-campaign playtest. Do not let them disappear into feature notes, and do not begin them until the owner finishes the playtest or explicitly asks to move one forward:
+
+1. **Planet-arrival story screens and stronger transition lore.** Every first arrival should feel like a chapter break, briefly establish the world, reveal why it matters, and preserve mystery without becoming a long exposition screen.
+2. **A proper star map.** Show the Ark's authored route and explain, through discoverable intelligence, why AXIOM selects Pelagos, Viridia, Cinder, Nox, and Vesper in that order.
+3. **Warp-gate research and return travel.** Research, construct, and fund gates that make restored planets meaningfully revisitable without invalidating the first real-time journey to each new world.
+4. **More visible Ark evolution.** Defense Marks, restored rooms, Robotics, Research, and other system improvements should visibly change the Ark presentation so progress is a visual reward as well as a numerical one.
+5. **Endless/post-Vesper planets remain postponed.** Finish and playtest the authored version before designing procedural or endless worlds.
+
 Endless/post-Vesper planets are intentionally out of scope until this version and its full-campaign playtest are complete.
 
 Implemented July 13, 2026 (consolidation release):
