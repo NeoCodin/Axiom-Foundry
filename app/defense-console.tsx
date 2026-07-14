@@ -19,6 +19,7 @@ import {
   type DefenseState,
   type EnvironmentalDoctrine,
 } from "./defense-engine";
+import type { CausalArchiveView } from "./causal-archive-engine";
 
 export type DefenseInstallationQuoteView = {
   mark: number;
@@ -33,6 +34,7 @@ export type DefenseInstallationQuoteView = {
 };
 export type DefenseConsoleProps = {
   state: DefenseState;
+  causalArchive: CausalArchiveView;
   crew: DefenseCrewContext;
   crewNames: Readonly<Record<string, string>>;
   currentLocationName: string;
@@ -60,6 +62,7 @@ const titleCase = (value: string) => value.replaceAll("-", " ").replace(/\b\w/g,
 
 function DefenseConsole({
   state,
+  causalArchive,
   crew,
   crewNames,
   currentLocationName,
@@ -116,6 +119,30 @@ function DefenseConsole({
           <article><span>Armory + interceptors</span><strong>+{readiness.equipment + readiness.interceptors}</strong></article>
         </div>
       </section>
+
+      {(state.firstContactResolved || causalArchive.score > 0) && (
+        <section className="continuity-panel causal-archive-status">
+          <header>
+            <div><span>CAUSAL ARCHIVE // {causalArchive.activeClassification.code}</span><h3>{causalArchive.activeClassification.label}</h3></div>
+            <small>{causalArchive.recoveredEvidence.length}/{causalArchive.totalEvidence} evidence entries indexed</small>
+          </header>
+          <p>{causalArchive.activeClassification.summary}</p>
+          <div className="causal-classification-track">
+            {causalArchive.classifications.map((classification) => (
+              <article className={classification.unlocked ? "is-unlocked" : "is-locked"} key={classification.id}>
+                <span>{classification.code}</span>
+                <strong>{classification.unlocked ? classification.label : "CLASSIFIED"}</strong>
+                <small>{classification.unlocked ? classification.operationalBenefit : `${classification.threshold} evidence + supporting analysis`}</small>
+              </article>
+            ))}
+          </div>
+          {causalArchive.nextClassification ? (
+            <div className="causal-next-stage"><span>Next classification</span><strong>{causalArchive.evidenceToNext} more evidence {causalArchive.evidenceToNext === 1 ? "entry" : "entries"}, plus its Research prerequisites</strong></div>
+          ) : (
+            <div className="causal-next-stage"><span>Current boundary</span><strong>The archive has a name, not an answer. Motive remains unresolved.</strong></div>
+          )}
+        </section>
+      )}
 
       {state.compromise && (
         <section className="continuity-panel defense-compromise is-compromised">

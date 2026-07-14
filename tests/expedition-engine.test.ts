@@ -49,7 +49,7 @@ function cinderStateWithCrew() {
   state.settlement.currentWorldId = "cinder";
   state.missions.currentIndex = 3;
   state.survivors = sanitizeSurvivorSystemState({
-    schema: 3,
+    schema: 4,
     berthSections: 10,
     lifeSupport: { atmosphere: 90, water: 90, nutrition: 90, medical: 90 },
     survivors: Array.from({ length: 4 }, (_, index) => ({

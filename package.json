@@ -10,7 +10,7 @@
     "build": "vinext build",
     "build:pages": "vite build --config vite.pages.config.ts",
     "start": "vinext start",
-    "test": "npm run build && node --test tests/game-engine.test.ts tests/command-priorities.test.ts tests/automation-engine.test.ts tests/defense-engine.test.ts tests/transit-engine.test.ts tests/planetary-defense-engine.test.ts tests/expedition-engine.test.ts tests/living-foundry-engine.test.ts tests/discovery-engine.test.ts tests/survivor-engine.test.ts tests/research-engine.test.ts tests/settlement-engine.test.ts tests/rendered-html.test.mjs",
+    "test": "npm run build && node --test tests/game-engine.test.ts tests/command-priorities.test.ts tests/automation-engine.test.ts tests/defense-engine.test.ts tests/transit-engine.test.ts tests/planetary-defense-engine.test.ts tests/expedition-engine.test.ts tests/living-foundry-engine.test.ts tests/discovery-engine.test.ts tests/survivor-engine.test.ts tests/research-engine.test.ts tests/settlement-engine.test.ts tests/causal-archive-engine.test.ts tests/bioadaptation-engine.test.ts tests/rendered-html.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern pages-dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate"
   },

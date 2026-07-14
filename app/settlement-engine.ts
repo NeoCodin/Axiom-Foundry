@@ -25,6 +25,7 @@ export type CampaignCrewSummary = {
   level?: number;
   ageGroup?: "child" | "adult" | "elder";
   protectedForArk?: boolean;
+  adaptationIds?: readonly string[];
 };
 
 export type WorldProgressSummary = {
@@ -45,6 +46,7 @@ export type FounderSnapshot = {
   expertise: Record<string, number>;
   rarity: "standard" | "notable" | "exceptional" | "anomalous";
   ageGroup: "child" | "adult" | "elder";
+  adaptationIds: string[];
 };
 
 export type ColonyRecord = {
@@ -203,6 +205,7 @@ function normalizeCrew(member: CampaignCrewSummary): FounderSnapshot | null {
     expertise: cleanValueRecord(member.expertise),
     rarity: normalizeRarity(member.rarity),
     ageGroup: normalizeAgeGroup(member.ageGroup),
+    adaptationIds: uniqueIds(member.adaptationIds, 2),
   };
 }
 
@@ -231,6 +234,7 @@ function sanitizeFounder(value: unknown): FounderSnapshot | null {
     expertise: cleanValueRecord(value.expertise),
     rarity: normalizeRarity(value.rarity),
     ageGroup: normalizeAgeGroup(value.ageGroup),
+    adaptationIds: uniqueIds(value.adaptationIds, 2),
   };
 }
 
@@ -303,6 +307,7 @@ export function cloneSettlementState(state: SettlementState): SettlementState {
         ...founder,
         roles: [...founder.roles],
         expertise: { ...founder.expertise },
+        adaptationIds: [...founder.adaptationIds],
       })),
       legacyBenefitIds: [...colony.legacyBenefitIds],
     })),

@@ -85,6 +85,9 @@ import {
   getOperationalResearchExpertise,
   getResearchLeadStatus,
   getDefenseCrewContext,
+  getCausalArchiveStatus,
+  getBioadaptationQuote,
+  startBioadaptation,
   getActiveAutomationEffects,
   getActiveTransit,
   getDefenseEnvironment,
@@ -145,6 +148,10 @@ import SettlementConsole from "./settlement-console";
 import TransitConsole from "./transit-console";
 import AutomationConsole from "./automation-console";
 import {
+  BIOADAPTATION_DEFINITIONS,
+  type BioadaptationId,
+} from "./bioadaptation-engine";
+import {
   addDiscovery,
   getChosenDoctrine,
   getDiscoveredFragments,
@@ -188,7 +195,6 @@ import {
   type AutomationProgramId,
 } from "./automation-engine";
 import {
-  CAUSAL_FRAGMENT_DEFINITIONS,
   PLANETARY_INSTALLATION_DEFINITIONS,
   type PlanetaryDefenseDoctrine,
   type PlanetaryInstallationId,
@@ -229,7 +235,6 @@ import {
   type ExpeditionSiteId,
 } from "./expedition-engine";
 import {
-  DEFENSE_CAUSAL_FRAGMENTS,
   DEFENSE_INSTALLATION_DEFINITIONS,
   type DefenseDoctrine,
   type DefenseInstallationId,
@@ -810,6 +815,7 @@ export default function Home() {
 
   const defenseUnlocked = disclosure.defense;
   const defenseCrew = getDefenseCrewContext(game);
+  const causalArchive = getCausalArchiveStatus(game);
   const defenseInstallationQuotes = Object.fromEntries(
     (Object.keys(DEFENSE_INSTALLATION_DEFINITIONS) as DefenseInstallationId[]).map((id) => {
       const quote = getDefenseInstallationQuote(game, id);
@@ -1451,6 +1457,10 @@ export default function Home() {
     role: ProfessionalRole,
   ) => {
     const current = gameRef.current;
+    if (current.bioadaptation.active?.survivorId === survivorId) {
+      setAnnouncement("That volunteer is in the Bioadaptation Clinic. Training resumes after the procedure finishes.");
+      return;
+    }
     const survivors = startSurvivorTraining(
       current.survivors,
       survivorId,
@@ -1478,6 +1488,10 @@ export default function Home() {
     role: SurvivorRole | null,
   ) => {
     const current = gameRef.current;
+    if (current.bioadaptation.active?.survivorId === survivorId) {
+      setAnnouncement("That volunteer is in the Bioadaptation Clinic and cannot take a station yet.");
+      return;
+    }
     commitGameState(
       {
         ...current,
@@ -1775,6 +1789,23 @@ export default function Home() {
     );
   };
 
+  const handleStartBioadaptation = (
+    survivorId: string,
+    adaptationId: BioadaptationId,
+  ) => {
+    const current = gameRef.current;
+    const quote = getBioadaptationQuote(current, survivorId, adaptationId);
+    if (!quote.canBegin) {
+      setAnnouncement("The elective procedure cannot begin yet. Review its research, health, availability, and resource requirements.");
+      return;
+    }
+    const definition = BIOADAPTATION_DEFINITIONS.find((entry) => entry.id === adaptationId)!;
+    commitGameState(
+      startBioadaptation(current, survivorId, adaptationId),
+      `${definition.name} started. The volunteer is off duty; clinical work continues while the game is closed.`,
+    );
+  };
+
   const handleToggleAutoAssignment = (enabled: boolean) => {
     const current = gameRef.current;
     let survivors = setAutoAssignmentEnabled(current.survivors, enabled);
@@ -2064,6 +2095,16 @@ export default function Home() {
             getProfileElevationQuote(game, survivorId)
           }
           onElevateProfile={handleElevateProfile}
+          bioadaptationState={game.bioadaptation}
+          getBioadaptationQuote={(survivorId, adaptationId) => {
+            const quote = getBioadaptationQuote(game, survivorId, adaptationId);
+            return {
+              ...quote,
+              fluxLabel: formatNumber(quote.fluxCost),
+              durationLabel: formatDuration(quote.durationSeconds),
+            };
+          }}
+          onStartBioadaptation={handleStartBioadaptation}
           onOpenHelp={setManualTopic}
           onBack={() => setPrimaryView("deck")}
         />
@@ -2086,6 +2127,7 @@ export default function Home() {
           unavailableIds={[
             ...(game.expeditions.active?.crewIds ?? []),
             ...(game.expeditions.stranded?.crewIds ?? []),
+            ...(game.bioadaptation.active ? [game.bioadaptation.active.survivorId] : []),
           ]}
           getProstheticQuote={(survivorId) => {
             const quote = getProstheticSurgeryQuote(game, survivorId);
@@ -2130,6 +2172,7 @@ export default function Home() {
       ) : primaryView === "defense" ? (
         <DefenseConsole
           state={game.defense}
+          causalArchive={causalArchive}
           crew={defenseCrew}
           crewNames={Object.fromEntries(game.survivors.survivors.map((survivor) => [survivor.id, survivor.callsign || survivor.name]))}
           currentLocationName={activeTransit ? `${activeTransit.originName} to ${activeTransit.destinationName}` : campaignWorld.name}
@@ -2178,8 +2221,10 @@ export default function Home() {
               gearStrength: quote.gearStrength,
               researchStrengthBonus: quote.researchStrengthBonus,
               researchRewardMultiplier: quote.researchRewardMultiplier,
+              bioadaptationStrengthBonus: quote.bioadaptationStrengthBonus,
+              bioadaptationDurationMultiplier: quote.bioadaptationDurationMultiplier,
               difficulty: quote.difficulty,
-              projectedOutcome: quote.projectedOutcome,
+              projectedOutcome: quote.projectedOutcome === "rescue" ? null : quote.projectedOutcome,
               weapons: quote.loadout.filter((entry) => entry.weaponId).length,
               armor: quote.loadout.filter((entry) => entry.armorId).length,
               loadout: quote.loadout,
@@ -2779,15 +2824,23 @@ export default function Home() {
                   ))}
                 </div>
               )}
-              {(game.defense.causalFragmentIds.length > 0 || game.planetaryDefense.causalFragmentIds.length > 0) && (
+              {causalArchive.score > 0 && (
                 <>
                   <section className="archive-prologue mystery-index">
-                    <p>Causal contact index // {game.defense.causalFragmentIds.length + game.planetaryDefense.causalFragmentIds.length} recovered</p>
-                    <span>These fragments were recovered from retrograde vessels and attacks on restored-world anchors. They suggest motive without resolving whether the contacts are invaders, survivors, or custodians from a damaged future.</span>
+                    <p>Causal Archive · {causalArchive.activeClassification.code} · {causalArchive.activeClassification.label}</p>
+                    <span>{causalArchive.activeClassification.summary} {causalArchive.nextClassification ? `${causalArchive.evidenceToNext} more indexed evidence ${causalArchive.evidenceToNext === 1 ? "entry" : "entries"} needed before the next provisional classification.` : "Every current classification has been reached; motive remains unproven."}</span>
                   </section>
+                  <div className="causal-classification-track">
+                    {causalArchive.classifications.map((classification) => (
+                      <article className={classification.unlocked ? "is-unlocked" : "is-locked"} key={classification.id}>
+                        <span>{classification.code}</span>
+                        <strong>{classification.unlocked ? classification.label : "CLASSIFIED"}</strong>
+                        <small>{classification.unlocked ? classification.operationalBenefit : `Requires ${classification.threshold} indexed evidence and supporting analysis.`}</small>
+                      </article>
+                    ))}
+                  </div>
                   <div className="lore-grid mystery-grid">
-                    {DEFENSE_CAUSAL_FRAGMENTS.filter((fragment) => game.defense.causalFragmentIds.includes(fragment.id)).map((fragment, index) => <article key={fragment.id}><span>Ark contact {String(index + 1).padStart(2, "0")} · causal evidence</span><h3>{fragment.title}</h3><p>{fragment.text}</p></article>)}
-                    {CAUSAL_FRAGMENT_DEFINITIONS.filter((fragment) => game.planetaryDefense.causalFragmentIds.includes(fragment.id)).map((fragment, index) => <article key={fragment.id}><span>World attack {String(index + 1).padStart(2, "0")} · causal evidence</span><h3>{fragment.title}</h3><p>{fragment.text}</p></article>)}
+                    {causalArchive.recoveredEvidence.map((evidence, index) => <article key={evidence.id}><span>Evidence {String(index + 1).padStart(2, "0")} · {evidence.source.replaceAll("-", " ")}</span><h3>{evidence.title}</h3><p>{evidence.finding}</p></article>)}
                   </div>
                 </>
               )}

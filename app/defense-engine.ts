@@ -132,6 +132,8 @@ export type DefenseCrewContext = {
   interceptorReadiness?: number;
   equipmentReadiness?: number;
   injuryMitigation?: number;
+  /** Per-person clinical resistance, applied after global armor/shield mitigation. */
+  injuryMultipliers?: Readonly<Record<string, number>>;
   eligibleDefenderIds?: readonly string[];
   threatIdentification?: number;
 };
@@ -236,6 +238,10 @@ export const DEFENSE_CAUSAL_FRAGMENTS = [
   { id: "protected-lifeboat", title: "The Protected Lifeboat", text: "A hostile vessel broke its own firing solution to avoid a civilian rescue craft." },
   { id: "returned-navigation", title: "Returned Navigation", text: "Recovered charts mark restored worlds as causal origins, not military targets." },
   { id: "ark-casualty-index", title: "Ark Casualty Index", text: "The enemy's casualty ledger lists entire futures. AXIOM appears in both the survivor and cause fields." },
+  { id: "chronology-wound", title: "Chronology Wound", text: "A section of hull reports impact damage four seconds before the hostile weapon discharges." },
+  { id: "preserved-archive", title: "Preserved Archive", text: "A boarding probe erases targeting data, then copies every civilian testimony without altering a word." },
+  { id: "unfired-salvo", title: "The Unfired Salvo", text: "A contact aborts a strike after predicting casualties AXIOM has not rescued yet." },
+  { id: "voiceprint-descendant", title: "Inherited Voiceprint", text: "The command voice shares familial markers with three Ark crew, but the relationship points forward." },
 ] as const;
 
 export const DEFENSE_DOCTRINE_DEFINITIONS: Record<
@@ -651,7 +657,11 @@ function resolveEvent(state: DefenseState, context: DefenseAdvanceContext, total
       const choice = Math.floor(nextRandom(state) * eligible.length);
       const crewId = eligible.splice(choice, 1)[0]!;
       const baseDamage = outcome === "battered" ? 32 + 12 * event.severity : 18 + 5 * event.severity;
-      const damage = Math.max(4, Math.round(baseDamage * mitigation));
+      const personalMitigation = Math.max(
+        0.7,
+        Math.min(1, context.injuryMultipliers?.[crewId] ?? 1),
+      );
+      const damage = Math.max(4, Math.round(baseDamage * mitigation * personalMitigation));
       injuries.push({ crewId, damage, injuryTier: damage >= 45 ? "major" : damage >= 25 ? "minor" : null });
     }
   }

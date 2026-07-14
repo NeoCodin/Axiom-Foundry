@@ -1,3 +1,8 @@
+import {
+  sanitizeBioadaptationRecords,
+  type BioadaptationRecord,
+} from "./bioadaptation-engine.ts";
+
 export const PROFESSIONAL_ROLES = [
   "engineer",
   "doctor",
@@ -83,6 +88,8 @@ export type Survivor = {
   rarityFloor: "notable" | "exceptional" | "anomalous" | null;
   /** Permanent profile milestones. Name, history, traits, and XP are preserved. */
   profileElevations: ProfileElevationRecord[];
+  /** Permanent, voluntary late-game procedures. Never affects rarity or Continuity. */
+  bioadaptations: BioadaptationRecord[];
   /** 0-100. Only expedition setbacks/distress ever lower it (E2). */
   health: number;
   /** Permanent until Prosthetic Surgery; caps max health (see INJURY_HEALTH_CAPS). */
@@ -494,7 +501,7 @@ export const TRAINING_DURATIONS_SECONDS: Record<ProfessionalRole, number> = {
   security: 25 * 60,
 };
 
-export const SURVIVOR_SCHEMA = 6;
+export const SURVIVOR_SCHEMA = 7;
 export const SOS_WORLD_ID = "pelagos";
 export const SOS_WORLD_IDS = [
   "pelagos",
@@ -911,6 +918,7 @@ function cloneSurvivor(survivor: Survivor): Survivor {
     traits: [...survivor.traits],
     skillXp: { ...survivor.skillXp },
     profileElevations: survivor.profileElevations.map((record) => ({ ...record })),
+    bioadaptations: (survivor.bioadaptations ?? []).map((record) => ({ ...record })),
   };
 }
 
@@ -1128,6 +1136,7 @@ function createProceduralSurvivor(
     storyHookId: null,
     rarityFloor: null,
     profileElevations: [],
+    bioadaptations: [],
     health: MAX_SURVIVOR_HEALTH,
     injury: null,
   };
@@ -2472,6 +2481,7 @@ function sanitizeSurvivor(
           }))
           .slice(-3)
       : [],
+    bioadaptations: sanitizeBioadaptationRecords(value.bioadaptations),
     health: MAX_SURVIVOR_HEALTH,
     injury:
       value.injury === "minor" ||

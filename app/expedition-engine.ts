@@ -28,6 +28,7 @@ export type ExpeditionSiteId =
   | "kestrel-relay"
   | "lantern-null-bloom"
   | "null-sounding"
+  | "causal-wreckage"
   | "palimpsest-origin";
 
 export type ExpeditionOutcome =
@@ -66,6 +67,10 @@ export type ActiveExpedition = {
   durationSeconds: number;
   strength: number;
   loadout: ExpeditionLoadoutEntry[];
+  /** Per-volunteer permanent support captured at launch for deterministic offline resolution. */
+  injuryMultipliers: Record<string, number>;
+  bioadaptationStrengthBonus: number;
+  bioadaptationDurationMultiplier: number;
   /** Rescue missions retrieve a stranded party instead of working a site. */
   kind: "expedition" | "rescue";
 };
@@ -135,7 +140,7 @@ export type ExpeditionState = {
   stats: { launched: number; completed: number; abandoned: number };
 };
 
-export const EXPEDITION_SCHEMA = 3;
+export const EXPEDITION_SCHEMA = 4;
 export const MIN_EXPEDITION_CREW = 2;
 export const MAX_EXPEDITION_CREW = 4;
 export const MAX_EXPEDITION_LOG = 10;
@@ -246,6 +251,25 @@ export const EXPEDITION_SITE_DEFINITIONS: readonly ExpeditionSiteDefinition[] = 
     rewards: { salvage: 15, schematics: 10, nullTraces: 25 },
   },
   {
+    id: "causal-wreckage",
+    name: "Causal Wreckage Recovery",
+    description:
+      "Board a contact wreck caught between two arrival times. Its systems identify Ark crew as ancestors, then reject the current date.",
+    minWorldIndex: 5,
+    repeatable: false,
+    countsAsSurvey: false,
+    durationSeconds: 3 * 60 * 60,
+    difficulty: 22,
+    fluxCostBase: 1_050,
+    focusRoles: ["researcher", "navigator", "engineer", "security"],
+    rewards: {
+      salvage: 120,
+      schematics: 70,
+      nullTraces: 90,
+      discoveryId: "expedition.causal-wreckage",
+    },
+  },
+  {
     id: "palimpsest-origin",
     name: "Palimpsest Origin Run",
     description:
@@ -313,6 +337,7 @@ export function cloneExpeditionState(state: ExpeditionState): ExpeditionState {
           ...state.active,
           crewIds: [...state.active.crewIds],
           loadout: state.active.loadout.map((entry) => ({ ...entry })),
+          injuryMultipliers: { ...state.active.injuryMultipliers },
         }
       : null,
     stranded: state.stranded
@@ -497,6 +522,9 @@ export function sanitizeExpeditionState(value: unknown): ExpeditionState {
           .slice(0, MAX_EXPEDITION_CREW)
       : [];
     if (crewIds.length >= 1) {
+      const injuryMultipliersSource = isRecord(value.active.injuryMultipliers)
+        ? value.active.injuryMultipliers
+        : null;
       const duration = finite(
         value.active.durationSeconds,
         site.durationSeconds,
@@ -511,6 +539,16 @@ export function sanitizeExpeditionState(value: unknown): ExpeditionState {
         durationSeconds: Math.max(60, duration),
         strength: finite(value.active.strength, 0, 10_000),
         loadout: sanitizeLoadout(value.active.loadout, crewIds),
+        injuryMultipliers: injuryMultipliersSource
+          ? Object.fromEntries(
+              crewIds.map((crewId) => [
+                crewId,
+                Math.max(0.7, Math.min(1, finite(injuryMultipliersSource[crewId], 1, 1))),
+              ]),
+            )
+          : {},
+        bioadaptationStrengthBonus: finite(value.active.bioadaptationStrengthBonus, 0, 8),
+        bioadaptationDurationMultiplier: Math.max(0.85, Math.min(1, finite(value.active.bioadaptationDurationMultiplier, 1, 1))),
         kind: value.active.kind === "rescue" ? "rescue" : "expedition",
       };
     }
@@ -672,6 +710,11 @@ export function launchExpedition(
   worldId: string | null,
   loadout: readonly ExpeditionLoadoutEntry[] = [],
   researchStrengthBonus = 0,
+  bioadaptationSupport: {
+    strengthBonus?: number;
+    durationMultiplier?: number;
+    injuryMultipliers?: Readonly<Record<string, number>>;
+  } = {},
 ): ExpeditionState {
   if (state.active) return state;
   if (crew.length < MIN_EXPEDITION_CREW || crew.length > MAX_EXPEDITION_CREW) {
@@ -684,12 +727,27 @@ export function launchExpedition(
     worldId,
     crewIds: crew.map((survivor) => survivor.id),
     startedAtSeconds: next.clockSeconds,
-    durationSeconds: getExpeditionDurationSeconds(site, crew),
+    durationSeconds: Math.max(
+      60,
+      Math.ceil(
+        getExpeditionDurationSeconds(site, crew) *
+          Math.max(0.85, Math.min(1, bioadaptationSupport.durationMultiplier ?? 1)),
+      ),
+    ),
     strength:
       getExpeditionGroupStrength(crew) +
       getLoadoutStrengthBonus(loadout) +
-      Math.min(2, Math.max(0, researchStrengthBonus)),
+      Math.min(2, Math.max(0, researchStrengthBonus)) +
+      Math.min(8, Math.max(0, bioadaptationSupport.strengthBonus ?? 0)),
     loadout: loadout.map((entry) => ({ ...entry })),
+    injuryMultipliers: Object.fromEntries(
+      crew.map((survivor) => [
+        survivor.id,
+        Math.max(0.7, Math.min(1, bioadaptationSupport.injuryMultipliers?.[survivor.id] ?? 1)),
+      ]),
+    ),
+    bioadaptationStrengthBonus: Math.min(8, Math.max(0, bioadaptationSupport.strengthBonus ?? 0)),
+    bioadaptationDurationMultiplier: Math.max(0.85, Math.min(1, bioadaptationSupport.durationMultiplier ?? 1)),
     kind: "expedition",
   };
   next.stats.launched += 1;
@@ -701,6 +759,11 @@ export function launchRescueMission(
   state: ExpeditionState,
   crew: readonly Survivor[],
   loadout: readonly ExpeditionLoadoutEntry[] = [],
+  bioadaptationSupport: {
+    strengthBonus?: number;
+    durationMultiplier?: number;
+    injuryMultipliers?: Readonly<Record<string, number>>;
+  } = {},
 ): ExpeditionState {
   if (state.active || !state.stranded) return state;
   if (crew.length < MIN_EXPEDITION_CREW || crew.length > MAX_EXPEDITION_CREW) {
@@ -716,12 +779,21 @@ export function launchRescueMission(
     durationSeconds: Math.max(
       60,
       Math.ceil(
-        getExpeditionDurationSeconds(site, crew) * RESCUE_DURATION_RATIO,
+        getExpeditionDurationSeconds(site, crew) *
+          RESCUE_DURATION_RATIO *
+          Math.max(0.85, Math.min(1, bioadaptationSupport.durationMultiplier ?? 1)),
       ),
     ),
     strength:
-      getExpeditionGroupStrength(crew) + getLoadoutStrengthBonus(loadout),
+      getExpeditionGroupStrength(crew) +
+      getLoadoutStrengthBonus(loadout) +
+      Math.min(8, Math.max(0, bioadaptationSupport.strengthBonus ?? 0)),
     loadout: loadout.map((entry) => ({ ...entry })),
+    injuryMultipliers: Object.fromEntries(
+      crew.map((survivor) => [survivor.id, Math.max(0.7, Math.min(1, bioadaptationSupport.injuryMultipliers?.[survivor.id] ?? 1))]),
+    ),
+    bioadaptationStrengthBonus: Math.min(8, Math.max(0, bioadaptationSupport.strengthBonus ?? 0)),
+    bioadaptationDurationMultiplier: Math.max(0.85, Math.min(1, bioadaptationSupport.durationMultiplier ?? 1)),
     kind: "rescue",
   };
   next.stats.launched += 1;
@@ -789,6 +861,7 @@ export function advanceExpeditions(
               Math.round(
                 setbackDamageRoll(active, index) *
                   getEntryDamageMultiplier(entry) *
+                  (active.injuryMultipliers[crewId] ?? 1) *
                   10,
               ) / 10,
             injuryTier: "minor",
@@ -844,6 +917,7 @@ export function advanceExpeditions(
               Math.round(
                 setbackDamageRoll(active, index) *
                   getEntryDamageMultiplier(entry) *
+                  (active.injuryMultipliers[crewId] ?? 1) *
                   10,
               ) / 10,
             // Setback wounds inflict at most a minor permanent injury; the

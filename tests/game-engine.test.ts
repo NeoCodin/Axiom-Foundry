@@ -110,6 +110,7 @@ function testCrewMember(
     storyHookId: null,
     rarityFloor: null,
     profileElevations: [],
+    bioadaptations: [],
     assignmentLocked: false,
     preferredRole: assignedRole,
     settlementProtected: false,
@@ -625,7 +626,7 @@ test("v2 saves enter the expanded campaign without replaying old Flux progress",
       statuses: MISSIONS.map(() => "saved"),
     },
   }, 100);
-  assert.equal(migrated.version, 10);
+  assert.equal(migrated.version, 11);
   assert.equal(migrated.missions.currentIndex, 0);
   assert.equal(migrated.missions.stageIndex, 0);
   assert.equal(migrated.missions.worldsSaved, 0);
@@ -650,7 +651,7 @@ test("v3 timed saves recover lost worlds under the untimed campaign", () => {
     },
   }, 100);
 
-  assert.equal(migrated.version, 10);
+  assert.equal(migrated.version, 11);
   assert.equal(migrated.missions.schema, 3);
   assert.deepEqual(migrated.missions.statuses.slice(0, 4), [
     "saved",
@@ -1152,7 +1153,7 @@ test("economy v2 migration dissolves produced stockpiles into bought counts", ()
       { amount: 0, bought: 0 },
     ],
   }, 100);
-  assert.equal(migrated.version, 10);
+  assert.equal(migrated.version, 11);
   for (const tier of migrated.tiers) {
     assert.equal(tier.amount, tier.bought, "amount mirrors bought after v2");
   }

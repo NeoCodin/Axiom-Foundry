@@ -29,6 +29,8 @@ export type ExpeditionPreview = {
   gearStrength: number;
   researchStrengthBonus: number;
   researchRewardMultiplier: number;
+  bioadaptationStrengthBonus: number;
+  bioadaptationDurationMultiplier: number;
   difficulty: number;
   projectedOutcome: "success" | "lean" | "setback" | "distress" | null;
   weapons: number;
@@ -361,6 +363,9 @@ function ExpeditionConsole({
                   Auto-equip: {preview.weapons > 0 ? `${preview.weapons} weapon${preview.weapons === 1 ? "" : "s"} (+${preview.gearStrength} strength)` : "no weapons"} · {preview.armor > 0 ? `${preview.armor} armor` : "no armor"}. Forge more in the Armory.
                   {(preview.researchStrengthBonus > 0 || preview.researchRewardMultiplier > 1) && (
                     <><br />Research support: +{preview.researchStrengthBonus} strength · +{Math.round((preview.researchRewardMultiplier - 1) * 100)}% recovered resources.</>
+                  )}
+                  {(preview.bioadaptationStrengthBonus > 0 || preview.bioadaptationDurationMultiplier < 1) && (
+                    <><br />Volunteer adaptations: +{preview.bioadaptationStrengthBonus} strength · {Math.round((1 - preview.bioadaptationDurationMultiplier) * 100)}% shorter route · individual injury resistance is applied automatically.</>
                   )}
                 </div>
               )}

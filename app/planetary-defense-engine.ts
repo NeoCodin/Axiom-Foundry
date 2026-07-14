@@ -167,6 +167,10 @@ export const CAUSAL_FRAGMENT_DEFINITIONS = [
   { id: "civilian-exclusion", title: "Civilian Exclusion", text: "A retrograde strike aborts when a refugee shuttle crosses its firing solution. The contact is hostile, but not indiscriminate." },
   { id: "future-authentication", title: "Future Authentication", text: "The vessel answers an Ark cipher that AXIOM has not generated yet. Authentication date: three centuries ahead." },
   { id: "foundry-event-reference", title: "Foundry Event Reference", text: "Recovered telemetry names a multiversal casualty boundary: FOUNDRY EVENT. Origin and perpetrator fields both resolve to this Ark." },
+  { id: "anchor-priority", title: "Anchor Priority", text: "The vessel ignores every strategic target until the colony's reality anchor comes online." },
+  { id: "evacuation-window", title: "Evacuation Window", text: "Before attacking infrastructure, the contact opens a corridor wide enough for every civilian shuttle." },
+  { id: "colony-memory", title: "Colony Memory", text: "The vessel broadcasts the settlement's future anthem before its first verse has been written." },
+  { id: "multiverse-scar", title: "Adjacent Absence", text: "The retreat vector crosses a region where neighboring histories appear not ruined, but removed." },
 ] as const;
 
 const INSTALLATION_IDS = Object.keys(PLANETARY_INSTALLATION_DEFINITIONS) as PlanetaryInstallationId[];

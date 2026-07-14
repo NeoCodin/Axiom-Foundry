@@ -159,6 +159,7 @@ import {
   transferSurvivorsToSettlement,
   type RareSurvivorHookId,
   type SurvivorRarityId,
+  type Survivor,
   type SurvivorSystemState,
 } from "./survivor-engine.ts";
 import {
@@ -198,8 +199,24 @@ import {
   getQualifiedSurvivorRoles,
   getSurvivorContinuityExpertise,
 } from "./continuity-expertise.ts";
+import {
+  advanceBioadaptation,
+  beginBioadaptationProcedure,
+  cloneBioadaptationState,
+  createBioadaptationState,
+  getBioadaptationDefinition,
+  getBioadaptationEffects,
+  MAX_BIOADAPTATIONS_PER_SURVIVOR,
+  sanitizeBioadaptationState,
+  type BioadaptationId,
+  type BioadaptationState,
+} from "./bioadaptation-engine.ts";
+import {
+  getCausalArchive,
+  type CausalArchiveView,
+} from "./causal-archive-engine.ts";
 
-export const SAVE_VERSION = 10;
+export const SAVE_VERSION = 11;
 export const SAVE_KEY = "axiom-foundry-save-v5";
 export const RETIRED_SAVE_KEYS = [
   "axiom-foundry-save-v1",
@@ -280,6 +297,7 @@ export type GameState = {
   automation: AutomationState;
   planetaryDefense: PlanetaryDefenseState;
   transit: TransitState;
+  bioadaptation: BioadaptationState;
   settings: GameSettings;
   manualPulses: number;
   playTime: number;
@@ -814,6 +832,7 @@ export function createInitialState(now = Date.now()): GameState {
     automation: createAutomationState(),
     planetaryDefense: createPlanetaryDefenseState(),
     transit: createTransitState(),
+    bioadaptation: createBioadaptationState(),
     settings: {
       buyMode: "1",
       autoEnabled: false,
@@ -1035,6 +1054,10 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
     automation: sanitizeAutomationState(value.automation),
     planetaryDefense: sanitizePlanetaryDefenseState(value.planetaryDefense, settlement.colonies),
     transit,
+    bioadaptation: sanitizeBioadaptationState(
+      value.bioadaptation,
+      new Set(survivors.survivors.map((survivor) => survivor.id)),
+    ),
     settings: {
       buyMode:
         rawSettings.buyMode === "10" || rawSettings.buyMode === "max"
@@ -1090,6 +1113,7 @@ export function cloneGameState(state: GameState): GameState {
     automation: cloneAutomationState(state.automation),
     planetaryDefense: clonePlanetaryDefenseState(state.planetaryDefense),
     transit: cloneTransitState(state.transit),
+    bioadaptation: cloneBioadaptationState(state.bioadaptation),
     settings: {
       ...state.settings,
       autoTiers: [...state.settings.autoTiers],
@@ -1138,6 +1162,19 @@ export function getDefenseEnvironment(state: GameState): DefenseEnvironment | nu
   return defenseEnvironmentForWorldId(state.settlement.currentWorldId);
 }
 
+/** A retroactive, evidence-derived archive: old saves gain classifications from work already completed. */
+export function getCausalArchiveStatus(state: GameState): CausalArchiveView {
+  return getCausalArchive({
+    defenseFragmentIds: state.defense.causalFragmentIds,
+    planetaryFragmentIds: state.planetaryDefense.causalFragmentIds,
+    completedResearchIds: state.research.completedProjectIds,
+    completedExpeditionIds: state.expeditions.completedSiteIds,
+    completedWorldIds: state.settlement.completedWorldIds,
+    firstContactResolved: state.defense.firstContactResolved,
+    hostileEventsResolved: state.defense.causalFragmentIds.length,
+  });
+}
+
 export function getCampaignCrewSummaries(
   state: GameState,
 ): CampaignCrewSummary[] {
@@ -1145,12 +1182,14 @@ export function getCampaignCrewSummaries(
     state.survivors.training.map((program) => program.survivorId),
   );
   const deployedIds = getDeployedCrewIds(state.expeditions);
+  const adaptingId = state.bioadaptation.active?.survivorId ?? null;
   return state.survivors.survivors.map((survivor) => {
     const rarity = getSurvivorRarity(survivor);
     const busy =
       trainingIds.has(survivor.id) ||
       deployedIds.has(survivor.id) ||
-      isSurvivorAdmitted(state.survivors, survivor.id);
+      isSurvivorAdmitted(state.survivors, survivor.id) ||
+      survivor.id === adaptingId;
     return {
       id: survivor.id,
       name: survivor.callsign
@@ -1170,6 +1209,7 @@ export function getCampaignCrewSummaries(
       rarityDescription: rarity.description,
       ageGroup: survivor.ageGroup,
       protectedForArk: survivor.settlementProtected,
+      adaptationIds: (survivor.bioadaptations ?? []).map((record) => record.id),
       level:
         survivor.role === "civilian"
           ? 0
@@ -1349,6 +1389,7 @@ function getUnavailableResearchCrewIds(state: GameState) {
     ...state.survivors.training.map((program) => program.survivorId),
     ...state.survivors.medBayIds,
     ...getDeployedCrewIds(state.expeditions),
+    ...(state.bioadaptation.active ? [state.bioadaptation.active.survivorId] : []),
   ]);
 }
 
@@ -1375,6 +1416,12 @@ export function getOperationalResearchExpertise(state: GameState): ResearchExper
   };
   for (const survivor of state.survivors.survivors) {
     add(survivor, "researcher", "research");
+    if (
+      !unavailable.has(survivor.id) &&
+      isSurvivorOnDuty(survivor, "researcher")
+    ) {
+      totals.research += getBioadaptationEffects(survivor.bioadaptations).researchExpertise;
+    }
     add(survivor, "engineer", "engineering");
     add(survivor, "technician", "engineering", 0.5);
     add(survivor, "fabricator", "fabrication");
@@ -1580,6 +1627,8 @@ export function getDefenseCrewContext(state: GameState): DefenseCrewContext {
   const causalProjection = completed.has("causal-threat-projection");
   const repairSwarms = completed.has("autonomous-repair-swarms");
   const automation = getActiveAutomationEffects(state);
+  const archive = getCausalArchiveStatus(state);
+  const adaptingId = state.bioadaptation.active?.survivorId ?? null;
   const readyWeapons = ARMORY_ITEM_DEFINITIONS.filter((item) => item.kind === "weapon").reduce(
     (total, item) => total + getArmoryReadyCount(state.armory, item.id) * item.tier,
     0,
@@ -1592,15 +1641,39 @@ export function getDefenseCrewContext(state: GameState): DefenseCrewContext {
     .filter(
       (survivor) =>
         survivor.ageGroup === "adult" &&
+        survivor.id !== adaptingId &&
         !isSurvivorWounded(survivor) &&
         !isSurvivorAdmitted(state.survivors, survivor.id) &&
         (isSurvivorOnDuty(survivor, "security") ||
           isSurvivorOnDuty(survivor, "engineer")),
     )
     .map((survivor) => survivor.id);
+  const adaptedDefenders = state.survivors.survivors.filter((survivor) =>
+    defenderIds.includes(survivor.id),
+  );
+  const adaptationReadiness = Math.min(
+    8,
+    adaptedDefenders.reduce(
+      (total, survivor) => total + getBioadaptationEffects(survivor.bioadaptations).defenseReadiness,
+      0,
+    ),
+  );
+  const adaptationIdentification = Math.min(
+    4,
+    adaptedDefenders.reduce(
+      (total, survivor) => total + getBioadaptationEffects(survivor.bioadaptations).threatIdentification,
+      0,
+    ),
+  );
+  const defenderInjuryMultipliers = Object.fromEntries(
+    adaptedDefenders.map((survivor) => [
+      survivor.id,
+      survivor.bioadaptations.some((record) => record.id === "null-resistance") ? 0.9 : 1,
+    ]),
+  );
   return {
     security: state.survivors.survivors.reduce(
-      (total, survivor) => total + (isSurvivorOnDuty(survivor, "security") ? getSurvivorSkillLevel(survivor, "security") : 0),
+      (total, survivor) => total + (survivor.id !== adaptingId && isSurvivorOnDuty(survivor, "security") ? getSurvivorSkillLevel(survivor, "security") : 0),
       0,
     ),
     engineers: getAssignedEngineeringExpertise(state),
@@ -1608,18 +1681,28 @@ export function getDefenseCrewContext(state: GameState): DefenseCrewContext {
       (total, survivor) => total + (isSurvivorOnDuty(survivor, "navigator") ? getSurvivorSkillLevel(survivor, "navigator") : 0),
       0,
     ),
-    researchReadiness: (defensiveForecasting ? 6 : 0) + (causalProjection ? 8 : 0),
-    researchForecastSeconds: (defensiveForecasting ? 30 * 60 : 0) + (temporalAnalysis ? 30 * 60 : 0),
+    researchReadiness:
+      (defensiveForecasting ? 6 : 0) +
+      (causalProjection ? 8 : 0) +
+      archive.readinessBonus +
+      adaptationReadiness,
+    researchForecastSeconds:
+      (defensiveForecasting ? 30 * 60 : 0) +
+      (temporalAnalysis ? 30 * 60 : 0) +
+      archive.forecastSeconds,
     researchRepairMultiplier:
       (repairSwarms ? 1.25 : 1) * automation.hullRepairMultiplier,
     interceptorReadiness: automation.interceptorReadiness,
     equipmentReadiness: Math.min(12, readyWeapons * 1.5 + readyArmor),
     injuryMitigation: Math.max(0.35, 1 - Math.min(0.65, readyArmor * 0.06)),
+    injuryMultipliers: defenderInjuryMultipliers,
     eligibleDefenderIds: defenderIds,
     threatIdentification:
       (defensiveForecasting ? 1 : 0) +
       (temporalAnalysis ? 1 : 0) +
-      (causalProjection ? 1 : 0),
+      (causalProjection ? 1 : 0) +
+      archive.identificationBonus +
+      adaptationIdentification,
   };
 }
 
@@ -2183,6 +2266,121 @@ export function elevateCrewProfile(state: GameState, survivorId: string) {
   return next;
 }
 
+export type BioadaptationQuote = {
+  adaptationId: BioadaptationId;
+  canBegin: boolean;
+  reason:
+    | "missing-crew"
+    | "child"
+    | "charter"
+    | "research"
+    | "already-adapted"
+    | "limit"
+    | "clinic-busy"
+    | "crew-busy"
+    | "crew-wounded"
+    | "resources"
+    | null;
+  fluxCost: number;
+  axiomCost: number;
+  biologicalSampleCost: number;
+  culturalRecordCost: number;
+  nullTraceCost: number;
+  engineeringModelCost: number;
+  durationSeconds: number;
+};
+
+export function getBioadaptationQuote(
+  state: GameState,
+  survivorId: string,
+  adaptationId: BioadaptationId,
+): BioadaptationQuote {
+  const definition = getBioadaptationDefinition(adaptationId);
+  const materialMultiplier = 1 + Math.max(0, getCampaignWorldIndex(state) - 3) * 0.2;
+  const quote = {
+    adaptationId,
+    fluxCost: bounded(
+      definition.cost.flux *
+        continuityScale(state) *
+        getColonyLegacyEffects(state).fabricationCostMultiplier,
+    ),
+    axiomCost: definition.cost.axioms,
+    biologicalSampleCost: Math.ceil(definition.cost.biologicalSamples * materialMultiplier),
+    culturalRecordCost: Math.ceil(definition.cost.culturalRecords * materialMultiplier),
+    nullTraceCost: Math.ceil(definition.cost.nullTraces * materialMultiplier),
+    engineeringModelCost: Math.ceil(definition.cost.engineeringModels * materialMultiplier),
+    durationSeconds: definition.baseDurationSeconds,
+  };
+  const survivor = state.survivors.survivors.find((candidate) => candidate.id === survivorId);
+  let reason: BioadaptationQuote["reason"] = null;
+  if (!survivor) reason = "missing-crew";
+  else if (survivor.ageGroup === "child") reason = "child";
+  else if (!state.research.completedProjectIds.includes("voluntary-adaptation-charter")) reason = "charter";
+  else if (!state.research.completedProjectIds.includes(definition.requiredResearchId as ResearchProjectId)) reason = "research";
+  else if (survivor.bioadaptations.some((record) => record.id === adaptationId)) reason = "already-adapted";
+  else if (survivor.bioadaptations.length >= MAX_BIOADAPTATIONS_PER_SURVIVOR) reason = "limit";
+  else if (state.bioadaptation.active) reason = "clinic-busy";
+  else if (
+    state.survivors.training.some((program) => program.survivorId === survivorId) ||
+    isSurvivorAdmitted(state.survivors, survivorId) ||
+    getDeployedCrewIds(state.expeditions).has(survivorId)
+  ) reason = "crew-busy";
+  else if (isSurvivorWounded(survivor)) reason = "crew-wounded";
+  else if (
+    state.flux < quote.fluxCost ||
+    state.axioms < quote.axiomCost ||
+    state.researchStock["biological-samples"] < quote.biologicalSampleCost ||
+    state.researchStock["cultural-records"] < quote.culturalRecordCost ||
+    state.researchStock["null-traces"] < quote.nullTraceCost ||
+    state.researchStock["engineering-models"] < quote.engineeringModelCost
+  ) reason = "resources";
+  return { ...quote, canBegin: reason === null, reason };
+}
+
+export function startBioadaptation(
+  state: GameState,
+  survivorId: string,
+  adaptationId: BioadaptationId,
+): GameState {
+  const quote = getBioadaptationQuote(state, survivorId, adaptationId);
+  if (!quote.canBegin) return state;
+  const next = cloneGameState(state);
+  next.flux -= quote.fluxCost;
+  next.axioms -= quote.axiomCost;
+  next.researchStock["biological-samples"] -= quote.biologicalSampleCost;
+  next.researchStock["cultural-records"] -= quote.culturalRecordCost;
+  next.researchStock["null-traces"] -= quote.nullTraceCost;
+  next.researchStock["engineering-models"] -= quote.engineeringModelCost;
+  next.bioadaptation = beginBioadaptationProcedure(
+    next.bioadaptation,
+    survivorId,
+    adaptationId,
+    next.survivors.operationalSeconds,
+  );
+  const survivor = next.survivors.survivors.find((candidate) => candidate.id === survivorId)!;
+  survivor.assignedRole = null;
+  return next;
+}
+
+function getExpeditionBioadaptationSupport(
+  crew: readonly Survivor[],
+) {
+  let strengthBonus = 0;
+  let durationMultiplier = 1;
+  const injuryMultipliers: Record<string, number> = {};
+  for (const survivor of crew) {
+    const effects = getBioadaptationEffects(survivor.bioadaptations);
+    strengthBonus += effects.expeditionStrength;
+    durationMultiplier *= effects.expeditionDurationMultiplier;
+    injuryMultipliers[survivor.id] = effects.injuryMultiplier;
+  }
+  return {
+    strengthBonus: Math.min(8, strengthBonus),
+    durationMultiplier: Math.max(0.85, durationMultiplier),
+    injuryMultipliers,
+  };
+}
+
 export type ExpeditionLaunchQuote = {
   fluxCost: number;
   canLaunch: boolean;
@@ -2200,6 +2398,8 @@ export type ExpeditionLaunchQuote = {
   gearStrength: number;
   researchStrengthBonus: number;
   researchRewardMultiplier: number;
+  bioadaptationStrengthBonus: number;
+  bioadaptationDurationMultiplier: number;
   difficulty: number;
   /** Always projected before launch - the player is never ambushed. */
   projectedOutcome: ExpeditionOutcome | null;
@@ -2222,6 +2422,8 @@ export function getExpeditionLaunchQuote(
     gearStrength: 0,
     researchStrengthBonus: researchSupport.strengthBonus,
     researchRewardMultiplier: researchSupport.rewardMultiplier,
+    bioadaptationStrengthBonus: 0,
+    bioadaptationDurationMultiplier: 1,
     difficulty: site.difficulty,
     projectedOutcome: null,
     loadout: [],
@@ -2251,6 +2453,7 @@ export function getExpeditionLaunchQuote(
         !member ||
         member.ageGroup === "child" ||
         trainingIds.has(member.id) ||
+        state.bioadaptation.active?.survivorId === member.id ||
         isSurvivorAdmitted(state.survivors, member.id),
     )
   ) {
@@ -2261,10 +2464,12 @@ export function getExpeditionLaunchQuote(
     return blocked("crew-wounded");
   }
   const plan = planExpeditionLoadout(state.armory, roster);
+  const bioadaptationSupport = getExpeditionBioadaptationSupport(roster);
   const strength =
     getExpeditionGroupStrength(roster) +
     getLoadoutStrengthBonus(plan.loadout) +
-    researchSupport.strengthBonus;
+    researchSupport.strengthBonus +
+    bioadaptationSupport.strengthBonus;
   if (state.flux < fluxCost) {
     return {
       ...blocked("flux"),
@@ -2272,6 +2477,8 @@ export function getExpeditionLaunchQuote(
       gearStrength: plan.strengthBonus,
       researchStrengthBonus: researchSupport.strengthBonus,
       researchRewardMultiplier: researchSupport.rewardMultiplier,
+      bioadaptationStrengthBonus: bioadaptationSupport.strengthBonus,
+      bioadaptationDurationMultiplier: bioadaptationSupport.durationMultiplier,
       projectedOutcome: getProjectedExpeditionOutcome(strength, site.difficulty),
       loadout: plan.loadout,
     };
@@ -2284,6 +2491,8 @@ export function getExpeditionLaunchQuote(
     gearStrength: plan.strengthBonus,
     researchStrengthBonus: researchSupport.strengthBonus,
     researchRewardMultiplier: researchSupport.rewardMultiplier,
+    bioadaptationStrengthBonus: bioadaptationSupport.strengthBonus,
+    bioadaptationDurationMultiplier: bioadaptationSupport.durationMultiplier,
     difficulty: site.difficulty,
     projectedOutcome: getProjectedExpeditionOutcome(strength, site.difficulty),
     loadout: plan.loadout,
@@ -2304,6 +2513,7 @@ export function startExpedition(
   // Auto-equip: check the planned loadout out of the armory for the trip.
   const plan = planExpeditionLoadout(state.armory, crew);
   const researchSupport = getExpeditionResearchSupport(state);
+  const bioadaptationSupport = getExpeditionBioadaptationSupport(crew);
   const expeditions = launchExpedition(
     state.expeditions,
     getExpeditionSite(siteId),
@@ -2311,6 +2521,7 @@ export function startExpedition(
     state.settlement.currentWorldId,
     plan.loadout,
     researchSupport.strengthBonus,
+    bioadaptationSupport,
   );
   if (expeditions === state.expeditions) return state;
   const next = cloneGameState(state);
@@ -2376,6 +2587,7 @@ export function getCommandTeamStatus(state: GameState): CommandTeamStatus {
       Boolean(survivor) &&
       !isSurvivorWounded(survivor!) &&
       !away.has(survivor!.id) &&
+      survivor!.id !== state.bioadaptation.active?.survivorId &&
       !isSurvivorAdmitted(state.survivors, survivor!.id),
   );
   const rating = contributors.reduce(
@@ -2661,6 +2873,7 @@ export function getRescueMissionQuote(
         member.ageGroup === "child" ||
         trainingIds.has(member.id) ||
         strandedIds.has(member.id) ||
+        state.bioadaptation.active?.survivorId === member.id ||
         isSurvivorAdmitted(state.survivors, member.id),
     )
   ) {
@@ -2671,8 +2884,11 @@ export function getRescueMissionQuote(
     return blocked("crew-wounded");
   }
   const plan = planExpeditionLoadout(state.armory, roster);
+  const bioadaptationSupport = getExpeditionBioadaptationSupport(roster);
   const strength =
-    getExpeditionGroupStrength(roster) + getLoadoutStrengthBonus(plan.loadout);
+    getExpeditionGroupStrength(roster) +
+    getLoadoutStrengthBonus(plan.loadout) +
+    bioadaptationSupport.strengthBonus;
   const projectedExtraction = strength >= rescueDifficulty ? "clean" : "hard";
   if (state.flux < fluxCost) {
     return {
@@ -2706,7 +2922,12 @@ export function startRescueMission(
     (id) => state.survivors.survivors.find((survivor) => survivor.id === id)!,
   );
   const plan = planExpeditionLoadout(state.armory, crew);
-  const expeditions = launchRescueMission(state.expeditions, crew, plan.loadout);
+  const expeditions = launchRescueMission(
+    state.expeditions,
+    crew,
+    plan.loadout,
+    getExpeditionBioadaptationSupport(crew),
+  );
   if (expeditions === state.expeditions) return state;
   const next = cloneGameState(state);
   next.flux = Math.max(0, next.flux - quote.fluxCost);
@@ -2753,6 +2974,7 @@ export function abandonStrandedCrew(state: GameState): GameState {
 
 export function getAssignedEngineerCount(state: GameState) {
   return state.survivors.survivors.filter((survivor) =>
+    survivor.id !== state.bioadaptation.active?.survivorId &&
     isSurvivorOnDuty(survivor, "engineer"),
   ).length;
 }
@@ -2761,7 +2983,8 @@ export function getAssignedEngineeringExpertise(state: GameState) {
   return state.survivors.survivors.reduce(
     (total, survivor) =>
       total +
-      (isSurvivorOnDuty(survivor, "engineer")
+      (survivor.id !== state.bioadaptation.active?.survivorId &&
+      isSurvivorOnDuty(survivor, "engineer")
         ? getSurvivorSkillLevel(survivor, "engineer")
         : 0),
     0,
@@ -4198,14 +4421,12 @@ export function simulateGame(
   );
   // Team Alpha's doctrine fills empty training slots with idle crew, and
   // the command rating multiplies crew-wide training/XP speed (bounded).
-  next.survivors = runTrainingDoctrine(
-    next.survivors,
-    getDeployedCrewIds(next.expeditions),
-  );
-  next.survivors = autoAssignSurvivors(
-    next.survivors,
-    getDeployedCrewIds(next.expeditions),
-  );
+  const unavailableForRoutine = new Set([
+    ...getDeployedCrewIds(next.expeditions),
+    ...(next.bioadaptation.active ? [next.bioadaptation.active.survivorId] : []),
+  ]);
+  next.survivors = runTrainingDoctrine(next.survivors, unavailableForRoutine);
+  next.survivors = autoAssignSurvivors(next.survivors, unavailableForRoutine);
   const commandMultiplier = getCommandTeamStatus(next).multiplier;
   next.survivors = advanceSurvivorSystem(next.survivors, seconds, {
     trainingSpeedMultiplier:
@@ -4238,10 +4459,7 @@ export function simulateGame(
       colony.founders.map((founder) => founder.name.replace(/\s*“.*$/u, "")),
     ),
   });
-  next.survivors = autoAssignSurvivors(
-    next.survivors,
-    getDeployedCrewIds(next.expeditions),
-  );
+  next.survivors = autoAssignSurvivors(next.survivors, unavailableForRoutine);
   autoTransferResearchInputs(next);
   const researchExpertise = getOperationalResearchExpertise(next);
   const researchLead = getResearchLeadStatus(next);
@@ -4257,6 +4475,26 @@ export function simulateGame(
     exceptionalLeadAvailable: researchLead.exceptional,
   });
   next.research = researchAdvance.state;
+  const adaptationAdvance = advanceBioadaptation(
+    next.bioadaptation,
+    seconds,
+    1 + Math.min(0.6, researchExpertise.medicine * 0.03),
+  );
+  next.bioadaptation = adaptationAdvance.state;
+  if (adaptationAdvance.completed && adaptationAdvance.survivorId) {
+    const volunteer = next.survivors.survivors.find(
+      (survivor) => survivor.id === adaptationAdvance.survivorId,
+    );
+    if (
+      volunteer &&
+      !volunteer.bioadaptations.some(
+        (record) => record.id === adaptationAdvance.completed!.id,
+      ) &&
+      volunteer.bioadaptations.length < MAX_BIOADAPTATIONS_PER_SURVIVOR
+    ) {
+      volunteer.bioadaptations.push(adaptationAdvance.completed);
+    }
+  }
   // Armory Mark projects use the same offline-safe elapsed time as research.
   // Resources are committed up front; completion is deterministic and cannot
   // be lost by closing the game.
@@ -4293,6 +4531,7 @@ export function simulateGame(
       survivor.assignedRole === null &&
       !trainingIds.has(survivor.id) &&
       !deployedIds.has(survivor.id) &&
+      survivor.id !== next.bioadaptation.active?.survivorId &&
       !isSurvivorAdmitted(next.survivors, survivor.id) &&
       !isSurvivorWounded(survivor),
   ).length;

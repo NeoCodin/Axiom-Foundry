@@ -530,8 +530,8 @@ Owner-approved order as of July 14, 2026:
 6. **Implemented:** Threat Operations Phase 2. Nox introduces Retrograde Vessel encounters, beacon exposure, visible targeted forecasts, equipment/interceptor influence, bounded crew injuries, temporary system compromises, incident reports, and Causal Fragments under the existing idle-first doctrines.
 7. **Implemented:** persistent planetary defense networks. Every restored world receives permanent Reality Anchors, Shields, Interceptors, Shelters, and Repair Yards; Conservation/Guard/Fortress postures divert 1.5%/2.5%/3.5% production per colony. Breaches cause only temporary instability and repair load; worlds and founders are never deleted.
    **Implemented modernization:** departures after Pelagos now use real offline Transit; location-specific environmental hazards replace Cinder weather leaking into later worlds; the Ark Defense Grid now uses separate environmental/contact orders and four expensive installation Marks rather than five quick instant levels.
-8. **Then:** the Enemy Mystery/Causal Fragment storyline: Unknown Contacts -> Retrograde Vessels -> Causal Interdictors -> The Returned. Reveal the damaged-future origin and possible Foundry Event responsibility only through fragments and contradictions, not a current-campaign exposition dump.
-9. **Then:** opt-in Bioadaptation around Vesper/Convergence. It never changes rarity, becomes a Continuity requirement, or treats people as disposable stats; every enhancement creates moral and lore consequences.
+8. **Implemented:** the Enemy Mystery/Causal Archive storyline: Unknown Contacts -> Retrograde Vessels -> Causal Interdictors -> The Returned. Cross-system evidence advances provisional classifications and bounded Defense analysis without turning the current campaign into an exposition dump.
+9. **Implemented:** opt-in Bioadaptation around Vesper/Convergence. Six consent-based protocols support expeditions, Research, and Defense; they never change rarity, contribute to Continuity, become a settlement requirement, or treat people as disposable stats.
 10. **After items 3-9 are complete:** run the documented think-aloud human playtest across the whole current campaign. The owner explicitly postponed the major playtest until the version is feature-complete through Bioadaptation. Mechanical audits and regression tests continue after every item, but they do not substitute for that final observation.
 
 Endless/post-Vesper planets are intentionally out of scope until this version and its full-campaign playtest are complete.
@@ -712,6 +712,18 @@ The next implementation should begin with a written mechanic specification and b
 - Ark installations now progress through Mark I-IV offline projects. Flux growth factors are 1/6/30/150 and material factors 1/3/7/15; later Marks additionally consume Schematics and Null Traces and require Defensive Forecasting, Autonomous Repair Swarms, and Causal Threat Projection.
 - Legacy Defense saves migrate additively: any previous positive 1-5 installation level becomes Mark I. Existing players keep useful hardware but must earn the new late-game progression.
 - Validation baseline: 173 automated tests, lint, production build, and static hosting build passing. Full balance and migration rules: `docs/transit-and-defense-marks-spec.md`.
+
+### Implemented July 14, 2026 — Causal Archive and voluntary Bioadaptation
+
+- `SAVE_VERSION = 11`, `SURVIVOR_SCHEMA = 7`, and `EXPEDITION_SCHEMA = 4` add only sanitized defaults. The public save key remains unchanged and no player progress is reset.
+- Causal evidence is cross-indexed retroactively from Ark and planetary fragments, completed Research, expedition sites, and founded colonies. Four provisional classifications grant bounded, visible Defense analysis: Unknown Contacts, Retrograde Vessels, Causal Interdictors, and The Returned.
+- Ark and planetary contact pools expand from eight total fragments to sixteen. Retrograde Material Analysis, Causal Cartography, Returned Origin Hypothesis, and the Vesper Causal Wreckage expedition connect the mystery to active play.
+- The current campaign still does not resolve the enemy's exact identity or motive. It establishes damaged futures, civilian-protective contradictions, Ark-adjacent ancestry/authentication, and a possible future Foundry Event without declaring that future inevitable.
+- The Voluntary Adaptation Charter unlocks an elective clinic inside each adult Personnel File. One offline-safe procedure runs at a time; a volunteer is temporarily off duty; each person may choose at most two of six permanent protocols.
+- Adaptations can add bounded expedition strength, duration reduction, personal injury resistance, on-duty Research support, Defense readiness, or identification. They never alter rarity, Profile Elevation, profession levels, Continuity Expertise, founder requirements, or colony viability. Founder history preserves the choices as biography only.
+- Full rules and balance table: `docs/causal-archive-and-bioadaptation-spec.md`.
+- Validation baseline: 178 automated tests, lint, production build, and static hosting build passing.
+- Roadmap items 3-9 are now implemented. The next major milestone is the postponed full-campaign think-aloud human playtest, followed by evidence-based balance and guidance fixes.
 
 ## 22. Maintaining this handoff
 

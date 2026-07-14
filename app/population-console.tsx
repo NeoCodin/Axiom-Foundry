@@ -8,6 +8,12 @@ import {
   getSurvivorContinuityExpertise,
 } from "./continuity-expertise";
 import type { ExpertiseId } from "./campaign-content";
+import {
+  BIOADAPTATION_DEFINITIONS,
+  MAX_BIOADAPTATIONS_PER_SURVIVOR,
+  type BioadaptationId,
+  type BioadaptationState,
+} from "./bioadaptation-engine";
 
 import {
   BACKGROUND_DEFINITIONS,
@@ -81,6 +87,18 @@ export type ProfileElevationView = {
   reason: "missing" | "child" | "maximum" | "research" | "mastery" | "resources" | null;
 };
 
+export type BioadaptationQuoteView = {
+  canBegin: boolean;
+  reason: "missing-crew" | "child" | "charter" | "research" | "already-adapted" | "limit" | "clinic-busy" | "crew-busy" | "crew-wounded" | "resources" | null;
+  fluxLabel: string;
+  axiomCost: number;
+  biologicalSampleCost: number;
+  culturalRecordCost: number;
+  nullTraceCost: number;
+  engineeringModelCost: number;
+  durationLabel: string;
+};
+
 export type PopulationConsoleProps = {
   state: SurvivorSystemState;
   salvage: number;
@@ -113,6 +131,9 @@ export type PopulationConsoleProps = {
   onRenameCallsign: (survivorId: string, callsign: string) => void;
   getProfileElevation: (survivorId: string) => ProfileElevationView;
   onElevateProfile: (survivorId: string) => void;
+  bioadaptationState: BioadaptationState;
+  getBioadaptationQuote: (survivorId: string, adaptationId: BioadaptationId) => BioadaptationQuoteView;
+  onStartBioadaptation: (survivorId: string, adaptationId: BioadaptationId) => void;
   onOpenHelp: (topicId: ManualTopicId) => void;
   onBack: () => void;
 };
@@ -167,6 +188,9 @@ function PopulationConsole({
   onRenameCallsign,
   getProfileElevation,
   onElevateProfile,
+  bioadaptationState,
+  getBioadaptationQuote,
+  onStartBioadaptation,
   onOpenHelp,
   onBack,
 }: PopulationConsoleProps) {
@@ -195,6 +219,7 @@ function PopulationConsole({
   const selectedElevation = selectedCrew
     ? getProfileElevation(selectedCrew.id)
     : null;
+  const selectedAdapting = selectedCrew?.id === bioadaptationState.active?.survivorId;
   const selectedJobRole =
     selectedCrew?.assignedRole && selectedCrew.assignedRole !== "civilian"
       ? selectedCrew.assignedRole
@@ -450,7 +475,7 @@ function PopulationConsole({
           {(() => {
             const trainingIds = new Set(state.training.map((program) => program.survivorId));
             const reserveCount = state.survivors.filter(
-              (survivor) => !survivor.assignedRole && !trainingIds.has(survivor.id),
+              (survivor) => !survivor.assignedRole && !trainingIds.has(survivor.id) && survivor.id !== bioadaptationState.active?.survivorId,
             ).length;
             return (
               <header><div><span>CREW ROSTER</span><h3>{state.survivors.length > 0 ? `${state.survivors.length} people aboard` : "The Ark is empty"}</h3></div><small>{reserveCount > 0 ? `${reserveCount} in Ark Reserve` : "Everyone has a station"}</small></header>
@@ -464,16 +489,18 @@ function PopulationConsole({
                 const training = state.training.find((program) => program.survivorId === survivor.id);
                 const rarity = getSurvivorRarity(survivor);
                 const wounded = isSurvivorWounded(survivor);
-                const reserve = !training && !survivor.assignedRole && !wounded;
+                const adapting = bioadaptationState.active?.survivorId === survivor.id;
+                const reserve = !training && !survivor.assignedRole && !wounded && !adapting;
                 return (
                   <button className={`crew-rarity-${rarity.id} ${selectedCrew?.id === survivor.id ? "is-selected" : ""} ${reserve ? "is-idle" : ""}`} type="button" key={survivor.id} onClick={() => setSelectedCrewId(survivor.id)}>
                     <span className="crew-avatar">{survivor.name.slice(0, 1)}</span>
-                    <span><strong>{survivor.callsign ? `“${survivor.callsign}” ${survivor.name}` : survivor.name}</strong><small>{titleCase(survivor.ageGroup)} · {training ? `Studying ${titleCase(training.targetRole)} · ${Math.round((training.progressSeconds / training.durationSeconds) * 100)}%` : survivor.role === "civilian" ? titleCase(survivor.assignedRole ?? "Ark Reserve") : `${titleCase(survivor.role)} · Level ${getSurvivorSkillLevel(survivor, survivor.role)} · ${titleCase(survivor.assignedRole ?? "Ark Reserve")}`}</small>{(wounded || survivor.injury || survivor.health < MAX_SURVIVOR_HEALTH) && <HealthBar survivor={survivor} />}</span>
+                    <span><strong>{survivor.callsign ? `“${survivor.callsign}” ${survivor.name}` : survivor.name}</strong><small>{titleCase(survivor.ageGroup)} · {adapting ? "Bioadaptation procedure" : training ? `Studying ${titleCase(training.targetRole)} · ${Math.round((training.progressSeconds / training.durationSeconds) * 100)}%` : survivor.role === "civilian" ? titleCase(survivor.assignedRole ?? "Ark Reserve") : `${titleCase(survivor.role)} · Level ${getSurvivorSkillLevel(survivor, survivor.role)} · ${titleCase(survivor.assignedRole ?? "Ark Reserve")}`}</small>{(wounded || survivor.injury || survivor.health < MAX_SURVIVOR_HEALTH) && <HealthBar survivor={survivor} />}</span>
                     <span className="crew-roster-status">
                       <em className="crew-rarity-badge" title={rarity.description}>{rarity.label}</em>
                       {wounded && <em className="crew-wounded-badge" title={`Health below ${WOUNDED_HEALTH_THRESHOLD}. Recovering aboard the Ark - no work, training, expeditions, or founding until healed.`}>RECOVERING</em>}
                       {survivor.injury && !wounded && <em className="crew-injured-badge" title={`Permanent ${survivor.injury} injury caps health at ${getSurvivorHealthCap(survivor)}. Founding requires ${FOUNDER_HEALTH_THRESHOLD}+.`}>INJURED</em>}
                       {survivor.settlementProtected && <em className="crew-idle-badge" title="Protected for the Ark. This person cannot be selected for planetary departure.">ARK PROTECTED</em>}
+                      {adapting && <em className="crew-adapting-badge" title="Voluntary clinical procedure in progress. This person is temporarily off duty.">CLINIC</em>}
                       {reserve && <em className="crew-idle-badge" title="Ark Reserve automatically covers absences and performs light maintenance.">RESERVE</em>}
                     </span>
                   </button>
@@ -540,7 +567,7 @@ function PopulationConsole({
                 {teamAlpha.leaderId === selectedCrew.id ? (
                   <button type="button" onClick={() => onAppointLeader(null)}>Stand down as Crew Leader</button>
                 ) : (
-                  <button type="button" disabled={selectedCrew.ageGroup === "child"} onClick={() => onAppointLeader(selectedCrew.id)}>{selectedCrew.ageGroup === "child" ? "Children cannot join command" : "Appoint as Crew Leader"}</button>
+                  <button type="button" disabled={selectedCrew.ageGroup === "child" || selectedAdapting} onClick={() => onAppointLeader(selectedCrew.id)}>{selectedCrew.ageGroup === "child" ? "Children cannot join command" : selectedAdapting ? "Volunteer is in the clinic" : "Appoint as Crew Leader"}</button>
                 )}
                 {teamAlpha.leaderId !== selectedCrew.id && (
                   teamAlpha.memberIds.includes(selectedCrew.id) ? (
@@ -548,10 +575,10 @@ function PopulationConsole({
                   ) : (
                     <button
                       type="button"
-                      disabled={teamAlpha.memberIds.length >= 3 || selectedCrew.ageGroup === "child"}
+                      disabled={teamAlpha.memberIds.length >= 3 || selectedCrew.ageGroup === "child" || selectedAdapting}
                       onClick={() => onToggleTeamMember(selectedCrew.id)}
                     >
-                      {selectedCrew.ageGroup === "child" ? "Children cannot join command" : teamAlpha.memberIds.length >= 3 ? "Team Alpha is full (3 officers)" : "Add to Team Alpha"}
+                      {selectedCrew.ageGroup === "child" ? "Children cannot join command" : selectedAdapting ? "Volunteer is in the clinic" : teamAlpha.memberIds.length >= 3 ? "Team Alpha is full (3 officers)" : "Add to Team Alpha"}
                     </button>
                   )
                 )}
@@ -614,6 +641,83 @@ function PopulationConsole({
                   )}
                 </section>
               )}
+              {(selectedCrew.bioadaptations.length > 0 || selectedAdapting || getBioadaptationQuote(selectedCrew.id, "atmospheric-adaptation").reason !== "charter") && (
+                <section className="bioadaptation-clinic" aria-label="Voluntary bioadaptation">
+                  <header>
+                    <div><span>BIOADAPTATION CLINIC // VOLUNTARY</span><strong>{selectedCrew.bioadaptations.length}/{MAX_BIOADAPTATIONS_PER_SURVIVOR} permanent choices</strong></div>
+                    <small>Never required for rarity, service, settlement, or Continuity</small>
+                  </header>
+                  <p>Each adult may freely choose up to two permanent protocols. Procedures preserve name, identity, history, profession levels, rarity, and the right to refuse.</p>
+                  {selectedAdapting && bioadaptationState.active && (() => {
+                    const definition = BIOADAPTATION_DEFINITIONS.find((entry) => entry.id === bioadaptationState.active!.adaptationId)!;
+                    const progress = Math.min(1, bioadaptationState.active.progressSeconds / bioadaptationState.active.totalSeconds);
+                    return (
+                      <div className="active-bioadaptation">
+                        <span>CLINICAL PROCEDURE ACTIVE</span>
+                        <strong>{definition.name} · {Math.round(progress * 100)}%</strong>
+                        <div><i style={{ width: `${progress * 100}%` }} /></div>
+                        <small>{formatTime(Math.max(0, bioadaptationState.active.totalSeconds - bioadaptationState.active.progressSeconds))} base work remaining · continues offline · volunteer off duty</small>
+                      </div>
+                    );
+                  })()}
+                  <div className="bioadaptation-grid">
+                    {BIOADAPTATION_DEFINITIONS.map((definition) => {
+                      const completed = selectedCrew.bioadaptations.some((record) => record.id === definition.id);
+                      const quote = getBioadaptationQuote(selectedCrew.id, definition.id);
+                      const locked = quote.reason === "research" || quote.reason === "charter";
+                      return (
+                        <article className={completed ? "is-complete" : locked ? "is-locked" : ""} key={definition.id}>
+                          <header><span>{definition.code}</span><strong>{definition.name}</strong></header>
+                          <p>{definition.summary}</p>
+                          <small>{definition.completedSummary}</small>
+                          {completed ? (
+                            <><em>ADAPTATION RECORDED</em><blockquote>{definition.contradiction}</blockquote></>
+                          ) : (
+                            <>
+                              <div className="bioadaptation-costs">
+                                <span>{quote.durationLabel}</span><span>{quote.fluxLabel} Flux</span><span>{quote.axiomCost} Axiom{quote.axiomCost === 1 ? "" : "s"}</span>
+                                {quote.biologicalSampleCost > 0 && <span>{quote.biologicalSampleCost} Bio</span>}
+                                {quote.culturalRecordCost > 0 && <span>{quote.culturalRecordCost} Culture</span>}
+                                {quote.engineeringModelCost > 0 && <span>{quote.engineeringModelCost} Models</span>}
+                                {quote.nullTraceCost > 0 && <span>{quote.nullTraceCost} Null</span>}
+                              </div>
+                              <button
+                                type="button"
+                                disabled={!quote.canBegin}
+                                onClick={() => {
+                                  if (window.confirm(`${definition.consent}\n\nAuthorize ${definition.name} for ${selectedCrew.callsign || selectedCrew.name}? This permanent choice cannot be reversed.`)) {
+                                    onStartBioadaptation(selectedCrew.id, definition.id);
+                                  }
+                                }}
+                              >
+                                {quote.canBegin
+                                  ? "Review consent and begin"
+                                  : quote.reason === "research"
+                                    ? `Requires ${definition.requiredResearchName}`
+                                    : quote.reason === "charter"
+                                      ? "Requires Voluntary Adaptation Charter"
+                                      : quote.reason === "limit"
+                                        ? "Personal limit reached"
+                                        : quote.reason === "already-adapted"
+                                          ? "Adaptation recorded"
+                                          : quote.reason === "child"
+                                            ? "Adults may volunteer"
+                                            : quote.reason === "clinic-busy"
+                                              ? "Clinic occupied"
+                                              : quote.reason === "crew-busy"
+                                                ? "Volunteer unavailable"
+                                                : quote.reason === "crew-wounded"
+                                                  ? "Recovery required first"
+                                                  : "Resources unavailable"}
+                              </button>
+                            </>
+                          )}
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
               <div className="team-alpha-actions">
                 <button type="button" disabled={!selectedCrew.assignmentLocked || selectedCrew.ageGroup === "child"} onClick={() => onReturnToAutoAssignment(selectedCrew.id)}>{selectedCrew.assignmentLocked ? "Return assignment to AXIOM" : "Assignment managed by AXIOM"}</button>
                 <button type="button" onClick={() => onProtectForArk(selectedCrew.id, !selectedCrew.settlementProtected)}>{selectedCrew.settlementProtected ? "Allow planetary selection" : "Protect for the Ark"}</button>
@@ -657,6 +761,11 @@ function PopulationConsole({
                 <div className="active-training-card"><span>STUDY IN PROGRESS</span><strong>{titleCase(selectedTraining.targetRole)}</strong><div><i style={{ width: `${Math.min(100, (selectedTraining.progressSeconds / selectedTraining.durationSeconds) * 100)}%` }} /></div><small>{formatTime((selectedTraining.durationSeconds - selectedTraining.progressSeconds) / crewGrowthMultiplier)} remaining · ×{(getSurvivorLearningMultiplier(selectedCrew) * crewGrowthMultiplier).toFixed(2)} total learning · continues offline</small><button type="button" onClick={() => onCancelTraining(selectedCrew.id)}>Pause study</button></div>
               ) : selectedCrew.ageGroup === "child" ? (
                 <div className="continuity-empty-state"><strong>Education program active.</strong><p>Children occupy living space and contribute to Community Readiness, but never work, train for a profession, join command, or enter an expedition. Growth advances through planetary chapters, never a real-time deadline.</p></div>
+              ) : selectedAdapting ? (
+                <div className="crew-actions-grid">
+                  <label>Working assignment<select disabled value=""><option value="">Bioadaptation clinic · temporarily off duty</option></select></label>
+                  <label>Training program<select disabled value=""><option value="">Clinical procedure continues offline</option></select></label>
+                </div>
               ) : isSurvivorWounded(selectedCrew) ? (
                 <div className="crew-actions-grid">
                   <label>Working assignment<select disabled value=""><option value="">{`Recovering — available again at ${WOUNDED_HEALTH_THRESHOLD} health`}</option></select></label>
