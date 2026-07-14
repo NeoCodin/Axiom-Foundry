@@ -13,7 +13,7 @@ You awaken as AXIOM, the damaged caretaker intelligence of an empty interplaneta
 3. Reach a fallen planet and activate its SOS beacon.
 4. Rescue persistent procedural survivor groups with names, histories, traits, aptitudes, and occasional mystery characters.
 5. Let AXIOM staff adults into their strongest work, protect manual assignments, and study new professions while the game is open or closed.
-6. Manufacture science inputs and route them through the configurable Research Lattice.
+6. Manufacture science inputs while AXIOM routes them through the Research Lattice.
 7. Advance through four research eras across eight connected disciplines, from emergency recovery to Axiom theory.
 8. Survey the current planet and prepare its difficult, lore-driven Critical expedition.
 9. Restore planetary infrastructure, resolve its crisis, and stock an independent settlement.

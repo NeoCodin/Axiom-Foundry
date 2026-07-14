@@ -381,17 +381,6 @@ export function getCommandPriorities(state: GameState): CommandPriority[] {
           target: "population",
           cadence: "action",
         };
-      } else if (network.missingInputs.length > 0) {
-        const name = getResearchInputDefinition(network.missingInputs[0]!)?.name ?? "required evidence";
-        guidance = {
-          detail: `${network.stageLabel} is stopped because ${name} has no enabled processor route.`,
-          missing: `Enabled ${name} route`,
-          nextAction: `Reconnect ${name}, or restore AXIOM Assist`,
-          actionLabel: "Repair Lattice route",
-          target: "research",
-          panel: "research-lattice",
-          cadence: "action",
-        };
       } else if (network.stalledReason === "No lattice power") {
         guidance = {
           detail: `${network.stageLabel} has no operating power. Foundry machines expand the Analysis Deck's power envelope.`,

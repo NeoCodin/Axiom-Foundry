@@ -168,8 +168,6 @@ export type ResearchRoute = {
 
 export type ResearchLatticeState = {
   schema: number;
-  autoRoute: boolean;
-  routes: ResearchRoute[];
   assignedCrew: number;
   inventory: ResearchInputBundle;
   activeProjectId: ResearchProjectId | null;
@@ -313,15 +311,6 @@ const INPUT_IDS: readonly ResearchInputId[] = [
   "schematics",
   "null-traces",
   "axiom-proofs",
-] as const;
-
-const PROCESSOR_IDS: readonly ResearchProcessorId[] = [
-  "signal-decoder",
-  "spectral-separator",
-  "phase-amplifier",
-  "vector-buffer",
-  "proof-synthesizer",
-  "null-interferometer",
 ] as const;
 
 export const RESEARCH_INPUT_DEFINITIONS: readonly ResearchInputDefinition[] = [
@@ -1370,13 +1359,6 @@ const clampFinite = (value: unknown, minimum: number, maximum: number) => {
   return Math.min(maximum, Math.max(minimum, value));
 };
 
-const isInputId = (value: unknown): value is ResearchInputId =>
-  typeof value === "string" && INPUT_IDS.includes(value as ResearchInputId);
-
-const isProcessorId = (value: unknown): value is ResearchProcessorId =>
-  typeof value === "string" &&
-  PROCESSOR_IDS.includes(value as ResearchProcessorId);
-
 const isProjectId = (value: unknown): value is ResearchProjectId =>
   typeof value === "string" && PROJECT_IDS.includes(value as ResearchProjectId);
 
@@ -1399,8 +1381,6 @@ export const getResearchProjectDefinition = (id: ResearchProjectId) =>
 
 export const createResearchLatticeState = (): ResearchLatticeState => ({
   schema: RESEARCH_SCHEMA,
-  autoRoute: true,
-  routes: routeTemplate(),
   assignedCrew: 0,
   inventory: emptyInputs(),
   activeProjectId: null,
@@ -1478,40 +1458,6 @@ export const sanitizeResearchLatticeState = (
     inventory[id] = clampFinite(inventorySource[id], 0, 1e15);
   }
 
-  const rawRoutes = Array.isArray(source.routes) ? source.routes : [];
-  const routes = routeTemplate();
-  const usedProcessors = new Set<ResearchProcessorId>();
-  for (let slot = 0; slot < RESEARCH_ROUTE_SLOTS; slot += 1) {
-    const candidate = rawRoutes.find(
-      (route) =>
-        route &&
-        typeof route === "object" &&
-        (route as { slot?: unknown }).slot === slot,
-    ) as Partial<ResearchRoute> | undefined;
-    if (!candidate) continue;
-    const sourceId = isInputId(candidate.sourceId) ? candidate.sourceId : null;
-    const processorId = isProcessorId(candidate.processorId)
-      ? candidate.processorId
-      : null;
-    const processor = processorId
-      ? getResearchProcessorDefinition(processorId)
-      : undefined;
-    if (
-      sourceId &&
-      processorId &&
-      processor?.accepts.includes(sourceId) &&
-      !usedProcessors.has(processorId)
-    ) {
-      routes[slot] = {
-        slot,
-        sourceId,
-        processorId,
-        enabled: candidate.enabled !== false,
-      };
-      usedProcessors.add(processorId);
-    }
-  }
-
   const unlockedEchoIds = Array.isArray(source.unlockedEchoIds)
     ? source.unlockedEchoIds.filter(
         (id, index, ids): id is string =>
@@ -1540,8 +1486,6 @@ export const sanitizeResearchLatticeState = (
 
   return {
     schema: RESEARCH_SCHEMA,
-    autoRoute: source.autoRoute !== false,
-    routes,
     assignedCrew: Math.floor(
       clampFinite(source.assignedCrew, 0, MAX_RESEARCH_CREW),
     ),
@@ -1564,7 +1508,6 @@ export const cloneResearchLatticeState = (
   state: ResearchLatticeState,
 ): ResearchLatticeState => ({
   ...state,
-  routes: state.routes.map((route) => ({ ...route })),
   inventory: { ...state.inventory },
   progress: { ...state.progress },
   repeatCounts: { ...state.repeatCounts },
@@ -1600,83 +1543,6 @@ export const setResearchCrew = (
   );
   if (nextAmount === state.assignedCrew) return state;
   return { ...state, assignedCrew: nextAmount };
-};
-
-export const setResearchAutoRoute = (
-  state: ResearchLatticeState,
-  enabled: boolean,
-): ResearchLatticeState => {
-  if (state.autoRoute === enabled) return state;
-  const hasManualLayout = state.routes.some(
-    (route) => route.sourceId && route.processorId,
-  );
-  if (!enabled && !hasManualLayout) {
-    const project = state.activeProjectId
-      ? getResearchProjectDefinition(state.activeProjectId)
-      : null;
-    return {
-      ...state,
-      autoRoute: false,
-      routes: getAutoResearchRoutes(project),
-    };
-  }
-  return { ...state, autoRoute: enabled };
-};
-
-export const configureResearchRoute = (
-  state: ResearchLatticeState,
-  slot: number,
-  sourceId: ResearchInputId | null,
-  processorId: ResearchProcessorId | null,
-): ResearchLatticeState => {
-  if (!Number.isInteger(slot) || slot < 0 || slot >= RESEARCH_ROUTE_SLOTS) {
-    return state;
-  }
-  if ((sourceId === null) !== (processorId === null)) return state;
-  if (sourceId && processorId) {
-    const processor = getResearchProcessorDefinition(processorId);
-    if (!processor?.accepts.includes(sourceId)) return state;
-    if (
-      state.routes.some(
-        (route) => route.slot !== slot && route.processorId === processorId,
-      )
-    ) {
-      return state;
-    }
-  }
-  const current = state.routes[slot];
-  if (
-    current.sourceId === sourceId &&
-    current.processorId === processorId &&
-    !state.autoRoute
-  ) {
-    return state;
-  }
-  return {
-    ...state,
-    autoRoute: false,
-    routes: state.routes.map((route) =>
-      route.slot === slot
-        ? { ...route, sourceId, processorId, enabled: true }
-        : route,
-    ),
-  };
-};
-
-export const setResearchRouteEnabled = (
-  state: ResearchLatticeState,
-  slot: number,
-  enabled: boolean,
-): ResearchLatticeState => {
-  const route = state.routes[slot];
-  if (!route || route.enabled === enabled) return state;
-  return {
-    ...state,
-    autoRoute: false,
-    routes: state.routes.map((candidate) =>
-      candidate.slot === slot ? { ...candidate, enabled } : candidate,
-    ),
-  };
 };
 
 export const canStartResearchProject = (
@@ -1751,10 +1617,7 @@ export const getResolvedResearchRoutes = (
   project = state.activeProjectId
     ? getResearchProjectDefinition(state.activeProjectId)
     : null,
-) =>
-  state.autoRoute
-    ? getAutoResearchRoutes(project)
-    : state.routes.map((route) => ({ ...route }));
+) => getAutoResearchRoutes(project);
 
 export const getResearchBonuses = (
   state: Pick<ResearchLatticeState, "completedProjectIds"> &

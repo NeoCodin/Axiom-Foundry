@@ -6,12 +6,10 @@ import {
   MAX_RESEARCH_CREW,
   RESEARCH_INPUT_DEFINITIONS,
   RESEARCH_PROJECT_DEFINITIONS,
-  RESEARCH_ROUTE_SLOTS,
   addResearchInputs,
   advanceResearch,
   advanceResearchToTime,
   canStartResearchProject,
-  configureResearchRoute,
   createResearchLatticeState,
   getResearchBonuses,
   getResearchCapabilities,
@@ -27,16 +25,13 @@ import {
   getResolvedResearchRoutes,
   sanitizeResearchLatticeState,
   selectResearchProject,
-  setResearchAutoRoute,
   setResearchCrew,
   type ResearchLatticeState,
 } from "../app/research-engine.ts";
 
-test("a new Research Lattice is safe, empty, and auto-routed by default", () => {
+test("a new Research Lattice is safe, empty, and ready for AXIOM routing", () => {
   const state = createResearchLatticeState();
 
-  assert.equal(state.autoRoute, true);
-  assert.equal(state.routes.length, RESEARCH_ROUTE_SLOTS);
   assert.equal(state.assignedCrew, 0);
   assert.equal(state.activeProjectId, null);
   assert.deepEqual(state.completedProjectIds, []);
@@ -93,9 +88,8 @@ test("sanitization repairs malformed inventory, routes, progress, and identifier
   assert.equal(state.inventory["calibration-data"], 0);
   assert.equal(state.inventory["engineering-models"], 0);
   assert.equal(state.inventory["biological-samples"], 77.5);
-  assert.equal(state.routes[0].processorId, "signal-decoder");
-  assert.equal(state.routes[1].processorId, null, "processors are physical and unique");
-  assert.equal(state.routes[2].processorId, null, "incompatible pair is discarded");
+  assert.equal("autoRoute" in state, false);
+  assert.equal("routes" in state, false);
   assert.deepEqual(state.completedProjectIds, [
     "auxiliary-power-routing",
     "closed-loop-atmosphere",
@@ -138,38 +132,16 @@ test("auto-route creates a complete forgiving route for every project input", ()
   );
 });
 
-test("manual routing is immutable and rejects incompatible or duplicate processors", () => {
-  const original = createResearchLatticeState();
-  const configured = configureResearchRoute(
-    original,
-    0,
-    "calibration-data",
-    "signal-decoder",
-  );
+test("AXIOM routing selects the strongest safe processor automatically", () => {
+  const state: ResearchLatticeState = {
+    ...createResearchLatticeState(),
+    activeProjectId: "auxiliary-power-routing",
+  };
 
-  assert.notEqual(configured, original);
-  assert.equal(original.routes[0].sourceId, null);
-  assert.equal(configured.autoRoute, false);
-  assert.equal(configured.routes[0].sourceId, "calibration-data");
-
-  assert.equal(
-    configureResearchRoute(
-      configured,
-      1,
-      "biological-samples",
-      "signal-decoder",
-    ),
-    configured,
-  );
-  assert.equal(
-    configureResearchRoute(
-      configured,
-      1,
-      "cultural-records",
-      "signal-decoder",
-    ),
-    configured,
-  );
+  const routes = getResolvedResearchRoutes(state);
+  assert.equal(routes[0].sourceId, "calibration-data");
+  assert.equal(routes[0].processorId, "vector-buffer");
+  assert.equal(routes[0].enabled, true);
 });
 
 test("power, crew, route throughput, and inventory all govern progress", () => {
@@ -374,21 +346,23 @@ test("Null completions unlock contradictions without changing canonical definiti
   assert.match(project.summary, /Pelagos/i);
 });
 
-test("manual layouts visibly report missing required routes", () => {
-  let state = createResearchLatticeState();
-  state = selectResearchProject(state, "auxiliary-power-routing");
-  state = setResearchAutoRoute(state, false);
-  assert.equal(
-    state.routes[0].sourceId,
-    "calibration-data",
-    "manual mode begins from the safe auto layout",
-  );
-  state = configureResearchRoute(state, 0, null, null);
+test("sanitization converts hand-patched saves to automatic routing", () => {
+  const state = sanitizeResearchLatticeState({
+    autoRoute: false,
+    activeProjectId: "auxiliary-power-routing",
+    routes: [{
+      slot: 0,
+      sourceId: "calibration-data",
+      processorId: "signal-decoder",
+      enabled: false,
+    }],
+  });
   const status = getResearchNetworkStatus(state, { powerAvailable: 99 });
 
-  assert.deepEqual(status.missingInputs, ["calibration-data"]);
-  assert.equal(status.progressPerSecond, 0);
-  assert.match(status.stalledReason ?? "", /route/i);
+  assert.equal("autoRoute" in state, false);
+  assert.equal("routes" in state, false);
+  assert.deepEqual(status.missingInputs, []);
+  assert.doesNotMatch(status.stalledReason ?? "", /route/i);
 });
 
 test("research eras reveal through prerequisites instead of exposing the whole tree", () => {

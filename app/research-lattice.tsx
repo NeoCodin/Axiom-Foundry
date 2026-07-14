@@ -7,10 +7,8 @@ import {
   RESEARCH_INPUT_DEFINITIONS,
   RESEARCH_BRANCHES,
   RESEARCH_ERAS,
-  RESEARCH_PROCESSOR_DEFINITIONS,
   RESEARCH_PROJECT_DEFINITIONS,
   canStartResearchProject,
-  configureResearchRoute,
   getAvailableResearchEras,
   getCurrentResearchEra,
   getResearchEraProgress,
@@ -27,16 +25,13 @@ import {
   getResolvedResearchRoutes,
   getResearchRepeatCount,
   selectResearchProject,
-  setResearchAutoRoute,
   setResearchCrew,
-  setResearchRouteEnabled,
   type ResearchBranch,
   type ResearchEra,
   type ResearchExpertise,
   type ResearchInputBundle,
   type ResearchInputId,
   type ResearchLatticeState,
-  type ResearchProcessorId,
 } from "./research-engine";
 
 import "./research-lattice.css";
@@ -186,46 +181,6 @@ export function ResearchLattice({
     onTransferInput(inputId, transferred);
   };
 
-  const updateSource = (slot: number, inputId: ResearchInputId | null) => {
-    if (!inputId) {
-      onStateChange(configureResearchRoute(state, slot, null, null));
-      return;
-    }
-    const route = state.routes[slot];
-    const currentProcessor = route.processorId
-      ? getResearchProcessorDefinition(route.processorId)
-      : undefined;
-    const occupied = new Set(
-      state.routes
-        .filter((candidate) => candidate.slot !== slot)
-        .map((candidate) => candidate.processorId)
-        .filter(Boolean),
-    );
-    const processor = currentProcessor?.accepts.includes(inputId)
-      ? currentProcessor
-      : RESEARCH_PROCESSOR_DEFINITIONS.find(
-          (candidate) =>
-            candidate.accepts.includes(inputId) && !occupied.has(candidate.id),
-        );
-    if (processor) {
-      onStateChange(configureResearchRoute(state, slot, inputId, processor.id));
-    }
-  };
-
-  const updateProcessor = (
-    slot: number,
-    processorId: ResearchProcessorId | null,
-  ) => {
-    const route = state.routes[slot];
-    if (!processorId || !route.sourceId) {
-      onStateChange(configureResearchRoute(state, slot, null, null));
-      return;
-    }
-    onStateChange(
-      configureResearchRoute(state, slot, route.sourceId, processorId),
-    );
-  };
-
   const projectStartedAt = state.lastAdvancedAt ?? now;
   const completedResearch = state.completedProjectIds.length;
   const availableEras = getAvailableResearchEras(state);
@@ -327,10 +282,6 @@ export function ResearchLattice({
       </div>
 
       <div className="research-lattice-telemetry" aria-label="Lattice limits">
-        <div>
-          <span>Patch mode</span>
-          <strong>{state.autoRoute ? "AXIOM ASSIST" : "HAND PATCHED"}</strong>
-        </div>
         <div>
           <span>Core power</span>
           <strong className={network.powerUsed > powerAvailable ? "is-warning" : ""}>
@@ -474,22 +425,6 @@ export function ResearchLattice({
               <span>02</span>
               <h2>Analysis machine</h2>
             </div>
-            <div className="research-lattice-mode-switch" role="group" aria-label="Routing mode">
-              <button
-                type="button"
-                className={state.autoRoute ? "is-active" : ""}
-                onClick={() => onStateChange(setResearchAutoRoute(state, true))}
-              >
-                AXIOM assist
-              </button>
-              <button
-                type="button"
-                className={!state.autoRoute ? "is-active" : ""}
-                onClick={() => onStateChange(setResearchAutoRoute(state, false))}
-              >
-                Hand patch
-              </button>
-            </div>
           </div>
 
           <div
@@ -562,27 +497,6 @@ export function ResearchLattice({
                     <span className="research-lattice-conduit is-output" aria-hidden="true">
                       <i />
                     </span>
-                    {!state.autoRoute && state.routes[resolvedRoute.slot]?.sourceId ? (
-                      <button
-                        type="button"
-                        className="research-lattice-route-toggle"
-                        aria-label={`${resolvedRoute.enabled ? "Disable" : "Enable"} route ${
-                          resolvedRoute.slot + 1
-                        }`}
-                        aria-pressed={resolvedRoute.enabled}
-                        onClick={() =>
-                          onStateChange(
-                            setResearchRouteEnabled(
-                              state,
-                              resolvedRoute.slot,
-                              !resolvedRoute.enabled,
-                            ),
-                          )
-                        }
-                      >
-                        {resolvedRoute.enabled ? "ON" : "OFF"}
-                      </button>
-                    ) : null}
                   </div>
                 );
               })}
@@ -623,75 +537,6 @@ export function ResearchLattice({
               </div>
             </article>
           </div>
-
-          {!state.autoRoute ? (
-            <details className="research-lattice-route-editor">
-              <summary>
-                <span>Open manual patch panel</span>
-                <small>Advanced: pair every required source with one compatible processor</small>
-              </summary>
-              <div className="research-lattice-route-editor-grid">
-                {state.routes.map((route) => {
-                  const occupiedProcessors = new Set(
-                    state.routes
-                      .filter((candidate) => candidate.slot !== route.slot)
-                      .map((candidate) => candidate.processorId)
-                      .filter(Boolean),
-                  );
-                  const processors = route.sourceId
-                    ? RESEARCH_PROCESSOR_DEFINITIONS.filter(
-                        (processor) =>
-                          processor.accepts.includes(route.sourceId as ResearchInputId) &&
-                          !occupiedProcessors.has(processor.id),
-                      )
-                    : [];
-                  return (
-                    <label key={route.slot}>
-                      <span>PORT {String.fromCharCode(65 + route.slot)}</span>
-                      <select
-                        value={route.sourceId ?? ""}
-                        onChange={(event) =>
-                          updateSource(
-                            route.slot,
-                            (event.target.value || null) as ResearchInputId | null,
-                          )
-                        }
-                      >
-                        <option value="">Open source</option>
-                        {RESEARCH_INPUT_DEFINITIONS.map((input) => (
-                          <option value={input.id} key={input.id}>
-                            {input.name}
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        value={route.processorId ?? ""}
-                        disabled={!route.sourceId}
-                        onChange={(event) =>
-                          updateProcessor(
-                            route.slot,
-                            (event.target.value || null) as ResearchProcessorId | null,
-                          )
-                        }
-                      >
-                        <option value="">Choose processor</option>
-                        {processors.map((processor) => (
-                          <option value={processor.id} key={processor.id}>
-                            {processor.code} · {processor.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  );
-                })}
-              </div>
-            </details>
-          ) : (
-            <p className="research-lattice-auto-note">
-              <b>AXIOM assist is active.</b> Required evidence is being paired with safe
-              processors automatically. Hand patching can run faster, but is never required.
-            </p>
-          )}
 
           <div className="research-lattice-crew-control">
             <div>
