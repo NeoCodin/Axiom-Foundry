@@ -72,18 +72,23 @@ export type ResearchProjectId =
   | "surface-reconnaissance"
   | "planetary-epidemiology"
   | "automated-personnel-logistics"
+  | "medical-assistance-drones"
   | "defensive-forecasting"
   | "human-potential-mapping"
   | "pattern-architecture"
   | "recursive-manufacturing"
   | "specialized-field-loadouts"
   | "autonomous-repair-swarms"
+  | "lattice-routing-automata"
+  | "expedition-support-drones"
+  | "planetary-construction-machines"
   | "continuity-scaffolding"
   | "synthetic-ecosystem-design"
   | "resonant-weapon-dynamics"
   | "impossible-material-synthesis"
   | "temporal-signal-analysis"
   | "causal-threat-projection"
+  | "interceptor-control-systems"
   | "axiomatic-identity-preservation"
   | "equipment-stress-tests"
   | "colony-data-integration"
@@ -175,6 +180,8 @@ export type ResearchEnvironment = {
    * without becoming a hidden prerequisite.
    */
   fieldValidationMultiplier?: number;
+  /** Utility drones support Prototype and Field Validation work only. */
+  automationMultiplier?: number;
   expertise?: Partial<ResearchExpertise>;
   leadResearcherLevel?: number;
   exceptionalLeadAvailable?: boolean;
@@ -197,6 +204,7 @@ export type ResearchNetworkStatus = {
   expertiseTotal: number;
   expertiseMultiplier: number;
   fieldValidationMultiplier: number;
+  automationMultiplier: number;
   leadRequirementLevel: number;
   leadRequirementMet: boolean;
   progressPerSecond: number;
@@ -781,6 +789,19 @@ export const RESEARCH_PROJECT_DEFINITIONS: readonly ResearchProjectDefinition[] 
     bonuses: { trainingSpeedMultiplier: 1.03 },
   },
   {
+    id: "medical-assistance-drones",
+    branch: "robotics-automation",
+    era: "integration",
+    name: "Medical Assistance Drones",
+    summary: "Teach sterile utility frames to hold instruments, monitor patients, and follow a Doctor's orders.",
+    completedSummary: "Allocated medical drones multiply staffed care without diagnosing or treating anyone alone.",
+    workRequired: 4_200,
+    costs: { "engineering-models": 480, "biological-samples": 320, schematics: 100 },
+    prerequisites: ["automated-personnel-logistics", "clinical-commons"],
+    unlocks: ["drone-program-medical-assistance"],
+    bonuses: {},
+  },
+  {
     id: "defensive-forecasting",
     branch: "threat-operations",
     era: "integration",
@@ -859,6 +880,45 @@ export const RESEARCH_PROJECT_DEFINITIONS: readonly ResearchProjectDefinition[] 
     bonuses: { habitationCapacityMultiplier: 1.02 },
   },
   {
+    id: "lattice-routing-automata",
+    branch: "robotics-automation",
+    era: "synthesis",
+    name: "Lattice Routing Automata",
+    summary: "Let utility frames reconfigure physical evidence routes while Researchers interpret the result.",
+    completedSummary: "Allocated routing drones accelerate Prototype and Field Validation stages beside active researchers.",
+    workRequired: 11_800,
+    costs: { "engineering-models": 1_100, schematics: 310, "calibration-data": 520 },
+    prerequisites: ["automated-personnel-logistics", "recursive-manufacturing"],
+    unlocks: ["drone-program-research-routing"],
+    bonuses: {},
+  },
+  {
+    id: "expedition-support-drones",
+    branch: "robotics-automation",
+    era: "synthesis",
+    name: "Expedition Support Drones",
+    summary: "Package recovery line, instruments, and emergency material into a field-safe utility frame.",
+    completedSummary: "One allocated drone can support an expedition without taking a crew position.",
+    workRequired: 12_600,
+    costs: { "engineering-models": 1_020, schematics: 360, "biological-samples": 260 },
+    prerequisites: ["specialized-field-loadouts", "autonomous-repair-swarms"],
+    unlocks: ["drone-program-expedition-support"],
+    bonuses: {},
+  },
+  {
+    id: "planetary-construction-machines",
+    branch: "robotics-automation",
+    era: "synthesis",
+    name: "Planetary Construction Machines",
+    summary: "Rebuild utility frames for anchor foundations, orbital shield relays, and local repair yards.",
+    completedSummary: "Allocated construction frames shorten planetary defense projects directed by Engineers.",
+    workRequired: 14_500,
+    costs: { "engineering-models": 1_350, schematics: 420, "cultural-records": 420 },
+    prerequisites: ["autonomous-repair-swarms", "synthetic-ecosystem-design"],
+    unlocks: ["drone-program-planetary-construction"],
+    bonuses: {},
+  },
+  {
     id: "continuity-scaffolding",
     branch: "human-continuity",
     era: "synthesis",
@@ -926,6 +986,20 @@ export const RESEARCH_PROJECT_DEFINITIONS: readonly ResearchProjectDefinition[] 
     costs: { "engineering-models": 1_500, "null-traces": 1_200, schematics: 420, "axiom-proofs": 90 },
     prerequisites: ["temporal-signal-analysis", "defensive-forecasting"],
     unlocks: ["planetary-defense-doctrine", "causal-threat-model"],
+    bonuses: {},
+  },
+  {
+    id: "interceptor-control-systems",
+    branch: "robotics-automation",
+    era: "convergence",
+    name: "Interceptor Control Systems",
+    summary: "Coordinate drone wingmates against vessels whose trajectories begin after their arrival.",
+    completedSummary: "Allocated interceptor frames add bounded readiness to hostile-vessel operations.",
+    contradiction: "TARGET-PREDICTION MODEL SOURCE: RETURNED VESSEL TELEMETRY. MODEL CREATION DATE: TOMORROW.",
+    workRequired: 28_000,
+    costs: { "engineering-models": 1_650, schematics: 480, "null-traces": 1_100, "axiom-proofs": 80 },
+    prerequisites: ["causal-threat-projection", "planetary-construction-machines"],
+    unlocks: ["drone-program-interceptor-control"],
     bonuses: {},
   },
   {
@@ -1722,6 +1796,10 @@ export const getResearchNetworkStatus = (
     stage.id === "validation"
       ? clampFinite(environment.fieldValidationMultiplier ?? 1, 1, 1.25)
       : 1;
+  const automationMultiplier =
+    stage.id === "prototype" || stage.id === "validation"
+      ? clampFinite(environment.automationMultiplier ?? 1, 1, 1.09)
+      : 1;
   const progressPerSecond = project
     ? (leadRequirementMet ? 1 : 0) *
       routeEfficiency *
@@ -1729,6 +1807,7 @@ export const getResearchNetworkStatus = (
       crewEfficiency *
       expertiseMultiplier *
       fieldValidationMultiplier *
+      automationMultiplier *
       bonuses.researchSpeedMultiplier *
       externalSpeed
     : 0;
@@ -1769,6 +1848,7 @@ export const getResearchNetworkStatus = (
     expertiseTotal,
     expertiseMultiplier,
     fieldValidationMultiplier,
+    automationMultiplier,
     leadRequirementLevel,
     leadRequirementMet,
     progressPerSecond,

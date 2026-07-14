@@ -615,7 +615,7 @@ textarea {
 .foundry-telemetry {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   overflow: hidden;
   border: 1px solid rgb(var(--world-accent-rgb) / 0.24);
   border-radius: 8px 8px 16px 16px;

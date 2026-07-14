@@ -2924,6 +2924,466 @@ input[type="checkbox"]:disabled {
   }
 }
 
+/* Utility Drone Operations, hostile incidents, and restored-world defense */
+.header-metrics {
+  gap: 16px;
+}
+
+.header-metrics div:last-child strong {
+  color: var(--brass);
+}
+
+.drone-operations-panel {
+  border-color: rgba(240, 186, 91, 0.34);
+  background:
+    radial-gradient(circle at 100% 0, rgba(240, 186, 91, 0.08), transparent 18rem),
+    linear-gradient(145deg, rgba(20, 27, 40, 0.98), rgba(10, 16, 27, 0.98));
+}
+
+.drone-operations-panel .panel-copy {
+  margin: 0;
+  padding: 12px 14px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.drone-frame-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  margin: 0 12px 12px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--line);
+}
+
+.drone-frame-summary > div {
+  display: grid;
+  gap: 3px;
+  padding: 9px;
+  background: rgba(8, 13, 22, 0.94);
+}
+
+.drone-frame-summary span,
+.drone-maintenance-policy > span,
+.operational-load-readout header span {
+  color: var(--text-dim);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.drone-frame-summary strong {
+  font-family: var(--font-number);
+  font-size: 14px;
+}
+
+.drone-frame-summary > button {
+  grid-column: 1 / -1;
+  min-height: 36px;
+  border: 0;
+  background: linear-gradient(135deg, #d69d3d, var(--brass));
+  color: #1a1207;
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.drone-frame-summary > button:disabled {
+  background: rgba(24, 37, 56, 0.9);
+  color: var(--text-dim);
+}
+
+.drone-program-list {
+  display: grid;
+  gap: 6px;
+  padding: 0 12px 12px;
+}
+
+.drone-program-list article {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid rgba(70, 97, 127, 0.48);
+  border-radius: 7px;
+  background: rgba(7, 12, 21, 0.54);
+}
+
+.drone-program-list article.locked {
+  opacity: 0.58;
+}
+
+.drone-program-list article.is-compromised,
+.defense-compromise.is-compromised {
+  border-color: rgba(255, 120, 130, 0.48);
+  background: rgba(255, 120, 130, 0.07);
+}
+
+.drone-program-list article > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.drone-program-list article span {
+  color: var(--brass);
+  font-family: var(--font-number);
+  font-size: 8px;
+}
+
+.drone-program-list article strong {
+  font-size: 11px;
+}
+
+.drone-program-list article small {
+  color: var(--text-dim);
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.drone-allocation-controls {
+  display: grid;
+  grid-template-columns: 27px 22px 27px;
+  align-items: center;
+  text-align: center;
+}
+
+.drone-allocation-controls button {
+  width: 27px;
+  height: 27px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface-2);
+  cursor: pointer;
+}
+
+.drone-allocation-controls b {
+  font-family: var(--font-number);
+}
+
+.drone-maintenance-policy,
+.operational-load-readout {
+  display: grid;
+  gap: 7px;
+  margin: 0 12px 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(7, 12, 21, 0.48);
+}
+
+.drone-maintenance-policy > div {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+
+.drone-maintenance-policy button {
+  min-height: 29px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 9px;
+}
+
+.drone-maintenance-policy button.active {
+  border-color: rgba(240, 186, 91, 0.55);
+  background: var(--brass-soft);
+  color: var(--brass);
+}
+
+.drone-maintenance-policy small,
+.operational-load-readout small {
+  color: var(--text-dim);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.operational-load-readout header {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.operational-load-readout header strong {
+  color: var(--brass);
+  font-family: var(--font-number);
+  font-size: 10px;
+}
+
+.operational-load-readout > div {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 9px;
+  background: rgba(70, 97, 127, 0.3);
+}
+
+.operational-load-readout > div i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--brass), var(--danger));
+}
+
+.defense-compromise p {
+  margin: 0;
+  padding: 14px;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.causal-fragment-grid,
+.planetary-fragment-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+  padding: 12px;
+}
+
+.causal-fragment-grid article,
+.planetary-fragment-list article {
+  padding: 11px;
+  border: 1px solid rgba(170, 146, 255, 0.35);
+  border-radius: 7px;
+  background: rgba(170, 146, 255, 0.07);
+}
+
+.causal-fragment-grid span,
+.planetary-fragment-list span {
+  color: var(--axiom);
+  font-family: var(--font-number);
+  font-size: 8px;
+}
+
+.causal-fragment-grid strong,
+.planetary-fragment-list strong {
+  display: block;
+  margin-top: 5px;
+}
+
+.causal-fragment-grid p,
+.planetary-fragment-list p {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.planetary-defense-panel {
+  border-color: rgba(170, 146, 255, 0.4);
+  background:
+    radial-gradient(circle at 90% 0, rgba(170, 146, 255, 0.1), transparent 25rem),
+    rgba(11, 18, 30, 0.96);
+}
+
+.planetary-doctrine-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+  padding: 0 14px 14px;
+}
+
+.planetary-doctrine-grid button {
+  display: grid;
+  gap: 4px;
+  min-height: 90px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(7, 12, 21, 0.56);
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: left;
+}
+
+.planetary-doctrine-grid button.active {
+  border-color: rgba(170, 146, 255, 0.62);
+  background: var(--axiom-soft);
+}
+
+.planetary-doctrine-grid span {
+  color: var(--axiom);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.planetary-doctrine-grid strong {
+  color: var(--text);
+  font-family: var(--font-number);
+  font-size: 12px;
+}
+
+.planetary-doctrine-grid small {
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.planetary-attack-forecast,
+.planetary-construction-status {
+  display: grid;
+  gap: 5px;
+  margin: 0 14px 12px;
+  padding: 11px 12px;
+  border: 1px solid rgba(255, 120, 130, 0.4);
+  border-left: 3px solid var(--danger);
+  border-radius: 6px;
+  background: rgba(255, 120, 130, 0.06);
+}
+
+.planetary-construction-status {
+  border-color: rgba(240, 186, 91, 0.38);
+  border-left-color: var(--brass);
+  background: var(--brass-soft);
+}
+
+.planetary-attack-forecast span,
+.planetary-construction-status span {
+  color: var(--danger);
+  font-family: var(--font-number);
+  font-size: 8px;
+}
+
+.planetary-construction-status span {
+  color: var(--brass);
+}
+
+.planetary-attack-forecast p,
+.planetary-construction-status small {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.planetary-network-list {
+  display: grid;
+  gap: 10px;
+  padding: 0 14px 14px;
+}
+
+.planetary-network-list > article {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(7, 12, 21, 0.54);
+}
+
+.planetary-network-list > article > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.planetary-network-list > article > header div {
+  display: grid;
+  gap: 3px;
+}
+
+.planetary-network-list > article > header span {
+  color: var(--axiom);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+}
+
+.planetary-network-list > article > header b {
+  color: var(--success);
+  font-family: var(--font-number);
+}
+
+.network-instability {
+  margin: 0;
+  padding: 8px 12px;
+  background: rgba(255, 120, 130, 0.07);
+  color: var(--danger);
+  font-size: 9px;
+}
+
+.planetary-installation-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1px;
+  background: var(--line);
+}
+
+.planetary-installation-grid > div {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 5px;
+  min-height: 148px;
+  padding: 10px;
+  background: rgba(10, 16, 27, 0.98);
+}
+
+.planetary-installation-grid span {
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.planetary-installation-grid strong {
+  color: var(--axiom);
+  font-family: var(--font-number);
+  font-size: 10px;
+}
+
+.planetary-installation-grid small {
+  color: var(--text-dim);
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.planetary-installation-grid button {
+  min-height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface-2);
+  cursor: pointer;
+  font-size: 8px;
+}
+
+.planetary-installation-grid button:not(:disabled):hover {
+  border-color: var(--axiom);
+}
+
+.planetary-incident-log {
+  margin: 0 14px 14px;
+}
+
+.planetary-incident-log p {
+  margin: 0;
+  padding: 8px 10px;
+  border-top: 1px solid rgba(70, 97, 127, 0.35);
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+@media (max-width: 900px) {
+  .planetary-doctrine-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 767px) {
+  .drone-frame-summary {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .planetary-installation-grid,
+  .causal-fragment-grid,
+  .planetary-fragment-list {
+    grid-template-columns: 1fr;
+  }
+}
+
 .mystery-index {
   display: grid;
   gap: 10px;

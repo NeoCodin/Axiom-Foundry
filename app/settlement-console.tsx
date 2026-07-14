@@ -12,6 +12,18 @@ import type {
 } from "./settlement-engine";
 import { getCommunityReadinessContribution } from "./settlement-engine";
 import { MAX_FOUNDING_COMMUNITY_SIZE } from "./settlement-engine";
+import {
+  CAUSAL_FRAGMENT_DEFINITIONS,
+  MAX_PLANETARY_INSTALLATION_LEVEL,
+  PLANETARY_DEFENSE_DOCTRINES,
+  PLANETARY_INSTALLATION_DEFINITIONS,
+  getPlanetaryIncomingForecast,
+  getPlanetaryNetworkReadiness,
+  type PlanetaryDefenseDoctrine,
+  type PlanetaryDefenseState,
+  type PlanetaryInstallationId,
+} from "./planetary-defense-engine";
+import type { CampaignWorldId } from "./campaign-content";
 
 export type ContinuityActionQuote = {
   canAfford: boolean;
@@ -26,6 +38,14 @@ export type ContinuityActionQuote = {
   }[];
 };
 
+export type PlanetaryConstructionQuoteView = {
+  level: number;
+  maxed: boolean;
+  busy: boolean;
+  canBuild: boolean;
+  costLabel: string;
+};
+
 export type SettlementConsoleProps = {
   world: CampaignWorldDefinition;
   forecast: ViabilityForecast;
@@ -37,6 +57,10 @@ export type SettlementConsoleProps = {
   equipmentQuotes: Readonly<Record<string, ContinuityActionQuote>>;
   crisisQuotes: Readonly<Record<string, ContinuityActionQuote>>;
   pendingTransmission: { colonyName: string; transmission: string } | null;
+  planetaryDefense: PlanetaryDefenseState;
+  planetaryDefenseActive: boolean;
+  planetaryDefenseLoad: number;
+  planetaryDefenseQuotes: Partial<Record<CampaignWorldId, Record<PlanetaryInstallationId, PlanetaryConstructionQuoteView>>>;
   onToggleSettler: (crewId: string) => void;
   onCompleteInfrastructure: (objectiveId: string) => void;
   onFabricateSupply: (supplyId: string) => void;
@@ -44,6 +68,8 @@ export type SettlementConsoleProps = {
   onResolveCrisis: (crisisId: string) => void;
   onDepart: (colonyName: string) => void;
   onAcknowledgeTransmission: () => void;
+  onPlanetaryDoctrine: (doctrine: PlanetaryDefenseDoctrine) => void;
+  onPlanetaryConstruction: (worldId: CampaignWorldId, installationId: PlanetaryInstallationId) => void;
   onOpenPopulation: () => void;
   onOpenResearch: () => void;
   onOpenHelp: (topicId: ManualTopicId) => void;
@@ -120,6 +146,10 @@ function SettlementConsole({
   equipmentQuotes,
   crisisQuotes,
   pendingTransmission,
+  planetaryDefense,
+  planetaryDefenseActive,
+  planetaryDefenseLoad,
+  planetaryDefenseQuotes,
   onToggleSettler,
   onCompleteInfrastructure,
   onFabricateSupply,
@@ -127,6 +157,8 @@ function SettlementConsole({
   onResolveCrisis,
   onDepart,
   onAcknowledgeTransmission,
+  onPlanetaryDoctrine,
+  onPlanetaryConstruction,
   onOpenPopulation,
   onOpenResearch,
   onOpenHelp,
@@ -134,6 +166,8 @@ function SettlementConsole({
 }: SettlementConsoleProps) {
   const [colonyName, setColonyName] = useState(`${world.name} Continuity Settlement`);
   const selected = new Set(forecast.selectedSettlerIds);
+  const planetaryForecast = getPlanetaryIncomingForecast(planetaryDefense);
+  const planetaryInstallationIds = Object.keys(PLANETARY_INSTALLATION_DEFINITIONS) as PlanetaryInstallationId[];
 
   return (
     <section className="continuity-console settlement-console" aria-labelledby="settlement-console-title">
@@ -333,6 +367,76 @@ function SettlementConsole({
         {world.settlementRequired && <input className="colony-name-input" value={colonyName} maxLength={64} onChange={(event) => setColonyName(event.target.value)} aria-label="Settlement name" />}
         <button className="settlement-action" type="button" disabled={!forecast.canDepart} onClick={() => onDepart(colonyName)}>{world.settlementRequired ? `Establish settlement and depart ${world.name}` : "Commit Pelagos orbital insertion"}</button>
       </section>
+
+      {planetaryDefenseActive && colonies.length > 0 && (
+        <section className="continuity-panel planetary-defense-panel">
+          <header>
+            <div><span>RESTORED-WORLD DEFENSE</span><h3>Planetary reality-anchor network</h3></div>
+            <small>{Math.round(planetaryDefenseLoad * 10_000) / 100}% Foundry output diverted</small>
+          </header>
+          <p className="crew-rarity-note">The contacts have recognized that restored worlds create new futures. They target reality anchors and continuity cores, not territory. Every attack resolves automatically; a breach causes temporary instability, never colony deletion.</p>
+
+          <div className="planetary-doctrine-grid">
+            {(Object.keys(PLANETARY_DEFENSE_DOCTRINES) as PlanetaryDefenseDoctrine[]).map((id) => {
+              const definition = PLANETARY_DEFENSE_DOCTRINES[id];
+              const active = planetaryDefense.doctrine === id;
+              return <button type="button" className={active ? "active" : ""} aria-pressed={active} onClick={() => onPlanetaryDoctrine(id)} key={id}><span>{definition.label}</span><strong>{definition.upkeepPerColony * 100}% per world</strong><small>{definition.summary}</small></button>;
+            })}
+          </div>
+
+          {planetaryForecast ? (
+            <div className="planetary-attack-forecast">
+              <span>INCOMING // {titleCase(planetaryForecast.signature)}</span>
+              <strong>{planetaryForecast.colonyName} · severity {planetaryForecast.severity}</strong>
+              <p>Readiness {planetaryForecast.readiness}/100. Arrival in {Math.ceil(planetaryForecast.secondsUntil / 60)} minutes. The standing network resolves it automatically.</p>
+            </div>
+          ) : (
+            <div className="continuity-empty-state"><strong>No restored world is under active interdiction.</strong><p>The network remains powered and attacks will be forecast here before they resolve.</p></div>
+          )}
+
+          {planetaryDefense.construction && (
+            <div className="planetary-construction-status">
+              <span>CONSTRUCTION IN PROGRESS</span>
+              <strong>{PLANETARY_INSTALLATION_DEFINITIONS[planetaryDefense.construction.installationId].name} · {getCampaignWorld(planetaryDefense.construction.worldId)?.name}</strong>
+              <small>{Math.ceil(planetaryDefense.construction.remainingSeconds / 60)} minutes of base work remain; Engineers and construction drones accelerate it offline.</small>
+            </div>
+          )}
+
+          <div className="planetary-network-list">
+            {colonies.map((colony) => {
+              const network = planetaryDefense.networks[colony.worldId];
+              if (!network) return null;
+              const quotes = planetaryDefenseQuotes[colony.worldId];
+              return (
+                <article key={colony.worldId}>
+                  <header><div><span>{getCampaignWorld(colony.worldId)?.name.toUpperCase()}</span><strong>{colony.name}</strong></div><b>{getPlanetaryNetworkReadiness(network, planetaryDefense.doctrine)}/100</b></header>
+                  {network.recoveryRemainingSeconds > 0 && <p className="network-instability">Temporary instability: +{Math.round(network.instability * 1000) / 10}% operational load for {Math.ceil(network.recoveryRemainingSeconds / 60)} more minutes.</p>}
+                  <div className="planetary-installation-grid">
+                    {planetaryInstallationIds.map((installationId) => {
+                      const definition = PLANETARY_INSTALLATION_DEFINITIONS[installationId];
+                      const quote = quotes?.[installationId];
+                      return <div key={installationId}><span>{definition.name}</span><strong>Level {network.installations[installationId]}/{MAX_PLANETARY_INSTALLATION_LEVEL}</strong><small>{definition.description}</small><button type="button" disabled={!quote?.canBuild} onClick={() => onPlanetaryConstruction(colony.worldId, installationId)}>{quote?.maxed ? "MAXED" : quote?.busy ? "Another project active" : quote?.costLabel ?? "Unavailable"}</button></div>;
+                    })}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+
+          {planetaryDefense.causalFragmentIds.length > 0 && (
+            <div className="planetary-fragment-list">
+              {CAUSAL_FRAGMENT_DEFINITIONS.filter((fragment) => planetaryDefense.causalFragmentIds.includes(fragment.id)).map((fragment) => <article key={fragment.id}><span>CAUSAL FRAGMENT</span><strong>{fragment.title}</strong><p>{fragment.text}</p></article>)}
+            </div>
+          )}
+
+          {planetaryDefense.eventLog.length > 0 && (
+            <details className="forecast-line-detail planetary-incident-log">
+              <summary>{planetaryDefense.eventLog.length} restored-world incident reports</summary>
+              {[...planetaryDefense.eventLog].reverse().map((event, index) => <p key={`${event.resolvedAtSeconds}-${index}`}><strong>{event.colonyName}: {event.outcome.toUpperCase()}</strong> · {titleCase(event.signature)} · margin {event.margin >= 0 ? "+" : ""}{Math.round(event.margin)} · {event.repairSeconds > 0 ? `${Math.ceil(event.repairSeconds / 3600)}h temporary recovery` : "network stable"} · +{event.salvage} Salvage</p>)}
+            </details>
+          )}
+        </section>
+      )}
 
       {colonies.length > 0 && (
         <section className="continuity-panel">

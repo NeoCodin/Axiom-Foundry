@@ -84,6 +84,18 @@ import {
   getOperationalResearchExpertise,
   getResearchLeadStatus,
   getDefenseCrewContext,
+  getActiveAutomationEffects,
+  getAutomationFrameQuote,
+  getOperationalLoad,
+  isAutomationProgramUnlocked,
+  fabricateAutomationFrame,
+  setAutomationAllocation,
+  setAutomationMaintenancePolicy,
+  isHostileThreatOperationsActivated,
+  isPlanetaryDefenseActivated,
+  getPlanetaryDefenseConstructionQuote,
+  beginPlanetaryDefenseConstruction,
+  choosePlanetaryDefenseDoctrine,
   getProfileElevationQuote,
   elevateCrewProfile,
   getResearchPowerAvailable,
@@ -127,6 +139,7 @@ import ExpeditionConsole from "./expedition-console";
 import MedicalConsole from "./medical-console";
 import ResearchLattice, { type ResearchView } from "./research-lattice";
 import SettlementConsole from "./settlement-console";
+import AutomationConsole from "./automation-console";
 import {
   addDiscovery,
   getChosenDoctrine,
@@ -166,6 +179,17 @@ import {
   type SurvivorRole,
 } from "./survivor-engine";
 import {
+  AUTOMATION_PROGRAM_DEFINITIONS,
+  type AutomationMaintenancePolicy,
+  type AutomationProgramId,
+} from "./automation-engine";
+import {
+  CAUSAL_FRAGMENT_DEFINITIONS,
+  PLANETARY_INSTALLATION_DEFINITIONS,
+  type PlanetaryDefenseDoctrine,
+  type PlanetaryInstallationId,
+} from "./planetary-defense-engine";
+import {
   ARMORY_LAWS,
   ARMORY_MODIFICATIONS,
   ARMORY_ITEM_DEFINITIONS,
@@ -193,13 +217,14 @@ import {
   getAllPendingColonyTransmissions,
   toggleSettlerSelection,
 } from "./settlement-engine";
-import { getCampaignWorld } from "./campaign-content";
+import { getCampaignWorld, type CampaignWorldId } from "./campaign-content";
 import {
   EXPEDITION_SITE_DEFINITIONS,
   getExpeditionAvailability,
   type ExpeditionSiteId,
 } from "./expedition-engine";
 import {
+  DEFENSE_CAUSAL_FRAGMENTS,
   DEFENSE_INSTALLATION_DEFINITIONS,
   type DefenseDoctrine,
   type DefenseInstallationId,
@@ -509,6 +534,8 @@ export default function Home() {
   }, [persistGame, ready]);
 
   const production = useMemo(() => getProductionSnapshot(game), [game]);
+  const automationEffects = useMemo(() => getActiveAutomationEffects(game), [game]);
+  const operationalLoad = useMemo(() => getOperationalLoad(game), [game]);
   const manualGain = useMemo(() => getManualGain(game), [game]);
   const recalibrationGain = useMemo(
     () => getRecalibrationGain(game),
@@ -667,6 +694,7 @@ export default function Home() {
         leadResearcherLevel: researchLead.level,
         exceptionalLeadAvailable: researchLead.exceptional,
         fieldValidationMultiplier: researchFieldValidation.multiplier,
+        automationMultiplier: automationEffects.researchRoutingMultiplier,
       }),
     [
       colonyLegacyEffects.researchSpeedMultiplier,
@@ -674,6 +702,7 @@ export default function Home() {
       researchExpertise,
       researchLead,
       researchFieldValidation.multiplier,
+      automationEffects.researchRoutingMultiplier,
       researchCrewAvailable,
       researchPowerAvailable,
     ],
@@ -784,6 +813,47 @@ export default function Home() {
       ];
     }),
   ) as Record<DefenseInstallationId, { cost: number; level: number; maxed: boolean; canAfford: boolean; costLabel: string }>;
+
+  const automationFrameQuote = getAutomationFrameQuote(game);
+  const automationFrameQuoteView = {
+    maxed: automationFrameQuote.maxed,
+    researchMet: automationFrameQuote.researchMet,
+    canBuild: automationFrameQuote.canBuild,
+    costLabel: `${formatNumber(automationFrameQuote.fluxCost)} Flux · ${automationFrameQuote.salvageCost} Salvage · ${automationFrameQuote.modelCost} Models${automationFrameQuote.schematicCost > 0 ? ` · ${automationFrameQuote.schematicCost} Schematics` : ""}${automationFrameQuote.nullTraceCost > 0 ? ` · ${automationFrameQuote.nullTraceCost} Null Traces` : ""}`,
+  };
+  const automationProgramUnlocks = Object.fromEntries(
+    AUTOMATION_PROGRAM_DEFINITIONS.map((program) => [
+      program.id,
+      isAutomationProgramUnlocked(game, program.id),
+    ]),
+  ) as Record<AutomationProgramId, boolean>;
+  const planetaryDefenseActive = isPlanetaryDefenseActivated(game);
+  const planetaryDefenseQuotes = Object.fromEntries(
+    game.settlement.colonies.map((colony) => [
+      colony.worldId,
+      Object.fromEntries(
+        (Object.keys(PLANETARY_INSTALLATION_DEFINITIONS) as PlanetaryInstallationId[]).map((installationId) => {
+          const quote = getPlanetaryDefenseConstructionQuote(game, colony.worldId, installationId);
+          return [
+            installationId,
+            {
+              level: quote.level,
+              maxed: quote.maxed,
+              busy: quote.busy,
+              canBuild: quote.canBuild,
+              costLabel: `${formatNumber(quote.fluxCost)} Flux · ${quote.salvageCost} Salvage · ${quote.modelCost} Models`,
+            },
+          ];
+        }),
+      ),
+    ]),
+  ) as Partial<Record<CampaignWorldId, Record<PlanetaryInstallationId, {
+    level: number;
+    maxed: boolean;
+    busy: boolean;
+    canBuild: boolean;
+    costLabel: string;
+  }>>>;
 
   const expeditionsUnlocked = disclosure.expeditions;
   const armoryUnlocked = disclosure.armory;
@@ -1193,6 +1263,47 @@ export default function Home() {
     const next = chooseDefenseDoctrine(current, doctrine);
     if (next === current) return;
     commitGameState(next, `Standing doctrine set: ${doctrine}. It applies to every event, even offline.`);
+  };
+
+  const handleBuildAutomationFrame = () => {
+    const current = gameRef.current;
+    const next = fabricateAutomationFrame(current);
+    if (next === current) return;
+    commitGameState(next, "Utility drone frame fabricated. Assign it to a support program on the Foundry floor.");
+  };
+
+  const handleAutomationAllocation = (
+    programId: AutomationProgramId,
+    amount: number,
+  ) => {
+    const current = gameRef.current;
+    const next = setAutomationAllocation(current, programId, amount);
+    if (next === current) return;
+    commitGameState(next, `${programId.replaceAll("-", " ")} allocation updated. Operational load recalculated.`);
+  };
+
+  const handleAutomationPolicy = (policy: AutomationMaintenancePolicy) => {
+    const current = gameRef.current;
+    const next = setAutomationMaintenancePolicy(current, policy);
+    if (next === current) return;
+    commitGameState(next, `Automated equipment maintenance set to ${policy}.`);
+  };
+
+  const handlePlanetaryDefenseDoctrine = (doctrine: PlanetaryDefenseDoctrine) => {
+    const current = gameRef.current;
+    const next = choosePlanetaryDefenseDoctrine(current, doctrine);
+    if (next === current) return;
+    commitGameState(next, `Planetary network posture set to ${doctrine}. Flux diversion updated across every restored world.`);
+  };
+
+  const handlePlanetaryDefenseConstruction = (
+    worldId: Parameters<typeof beginPlanetaryDefenseConstruction>[1],
+    installationId: PlanetaryInstallationId,
+  ) => {
+    const current = gameRef.current;
+    const next = beginPlanetaryDefenseConstruction(current, worldId, installationId);
+    if (next === current) return;
+    commitGameState(next, `${PLANETARY_INSTALLATION_DEFINITIONS[installationId].name} construction started. Work continues offline.`);
   };
 
   const handleUpgradeSupport = (key: LifeSupportKey) => {
@@ -1709,6 +1820,7 @@ export default function Home() {
         fluxPerSecondLabel={formatNumber(production.fluxPerSecond)}
         axiomsLabel={formatNumber(game.axioms)}
         resonanceLabel={formatNumber(production.resonance.multiplier)}
+        operationalLoadLabel={`${Math.round(operationalLoad.total * 10_000) / 100}%`}
         saveStatus={saveStatus}
         ready={ready}
         focusWelcome={currentTour?.target === "welcome"}
@@ -1944,6 +2056,7 @@ export default function Home() {
           externalSpeedMultiplier={
             colonyLegacyEffects.researchSpeedMultiplier
           }
+          automationMultiplier={automationEffects.researchRoutingMultiplier}
           expertise={researchExpertise}
           leadResearcher={researchLead}
           fieldValidation={researchFieldValidation}
@@ -1960,8 +2073,10 @@ export default function Home() {
         <DefenseConsole
           state={game.defense}
           crew={defenseCrew}
+          crewNames={Object.fromEntries(game.survivors.survivors.map((survivor) => [survivor.id, survivor.callsign || survivor.name]))}
           currentWorldName={campaignWorld.name}
           stormsEnabled={defenseUnlocked}
+          hostilesEnabled={isHostileThreatOperationsActivated(game)}
           installationQuotes={defenseInstallationQuotes}
           onBuyInstallation={handleBuyDefenseInstallation}
           onChooseDoctrine={handleChooseDefenseDoctrine}
@@ -2043,6 +2158,10 @@ export default function Home() {
             colonyName: pendingColonyTransmission.colonyName,
             transmission: pendingColonyTransmission.transmission,
           } : null}
+          planetaryDefense={game.planetaryDefense}
+          planetaryDefenseActive={planetaryDefenseActive}
+          planetaryDefenseLoad={operationalLoad.planetaryDefense}
+          planetaryDefenseQuotes={planetaryDefenseQuotes}
           onToggleSettler={handleToggleSettler}
           onCompleteInfrastructure={handleCompleteInfrastructure}
           onFabricateSupply={handleFabricateSupply}
@@ -2050,6 +2169,8 @@ export default function Home() {
           onResolveCrisis={handleResolveCrisis}
           onDepart={handleCampaignDeparture}
           onAcknowledgeTransmission={handleAcknowledgeTransmission}
+          onPlanetaryDoctrine={handlePlanetaryDefenseDoctrine}
+          onPlanetaryConstruction={handlePlanetaryDefenseConstruction}
           onOpenPopulation={() => setPrimaryView("population")}
           onOpenResearch={() => setPrimaryView("research")}
           onOpenHelp={setManualTopic}
@@ -2086,6 +2207,10 @@ export default function Home() {
           <div>
             <span>Chain depth</span>
             <strong>{Math.max(1, visibleGeneratorCount)}<small> / {GENERATORS.length}</small></strong>
+          </div>
+          <div title="The share of production currently diverted to medical care, utility drones, restored-world defenses, and hostile compromises.">
+            <span>Operational load</span>
+            <strong>{Math.round(operationalLoad.total * 10_000) / 100}<small>%</small></strong>
           </div>
           <span className="foundry-telemetry-flow" aria-hidden="true"><i /><i /><i /><i /></span>
         </section>
@@ -2313,6 +2438,21 @@ export default function Home() {
               <span><b>{Math.round(production.hazardShield * 100)}%</b> relay shielding</span>
             </div>
           </section>
+          )}
+
+          {(automationFrameQuote.researchMet || game.automation.framesBuilt > 0) && (
+            <AutomationConsole
+              state={game.automation}
+              effects={automationEffects}
+              operationalLoad={operationalLoad}
+              frameQuote={automationFrameQuoteView}
+              unlockedPrograms={automationProgramUnlocks}
+              suppressedProgram={game.defense.compromise?.suppressedAutomationProgram ?? null}
+              onBuildFrame={handleBuildAutomationFrame}
+              onAllocation={handleAutomationAllocation}
+              onPolicy={handleAutomationPolicy}
+              onOpenHelp={setManualTopic}
+            />
           )}
 
           {protocolsUnlocked && (
@@ -2571,6 +2711,18 @@ export default function Home() {
                     </article>
                   ))}
                 </div>
+              )}
+              {(game.defense.causalFragmentIds.length > 0 || game.planetaryDefense.causalFragmentIds.length > 0) && (
+                <>
+                  <section className="archive-prologue mystery-index">
+                    <p>Causal contact index // {game.defense.causalFragmentIds.length + game.planetaryDefense.causalFragmentIds.length} recovered</p>
+                    <span>These fragments were recovered from retrograde vessels and attacks on restored-world anchors. They suggest motive without resolving whether the contacts are invaders, survivors, or custodians from a damaged future.</span>
+                  </section>
+                  <div className="lore-grid mystery-grid">
+                    {DEFENSE_CAUSAL_FRAGMENTS.filter((fragment) => game.defense.causalFragmentIds.includes(fragment.id)).map((fragment, index) => <article key={fragment.id}><span>Ark contact {String(index + 1).padStart(2, "0")} · causal evidence</span><h3>{fragment.title}</h3><p>{fragment.text}</p></article>)}
+                    {CAUSAL_FRAGMENT_DEFINITIONS.filter((fragment) => game.planetaryDefense.causalFragmentIds.includes(fragment.id)).map((fragment, index) => <article key={fragment.id}><span>World attack {String(index + 1).padStart(2, "0")} · causal evidence</span><h3>{fragment.title}</h3><p>{fragment.text}</p></article>)}
+                  </div>
+                </>
               )}
               <section className="planetary-ledger">
                 <div className="ledger-heading">

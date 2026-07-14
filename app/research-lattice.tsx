@@ -47,6 +47,7 @@ export type ResearchLatticeProps = {
   availableCrew: number;
   powerAvailable: number;
   externalSpeedMultiplier?: number;
+  automationMultiplier?: number;
   expertise: ResearchExpertise;
   leadResearcher: { level: number; exceptional: boolean; name: string | null };
   fieldValidation: {
@@ -111,6 +112,7 @@ export function ResearchLattice({
   availableCrew,
   powerAvailable,
   externalSpeedMultiplier = 1,
+  automationMultiplier = 1,
   expertise,
   leadResearcher,
   fieldValidation,
@@ -146,11 +148,12 @@ export function ResearchLattice({
         crewAvailable: availableCrew,
         externalSpeedMultiplier,
         fieldValidationMultiplier: fieldValidation.multiplier,
+        automationMultiplier,
         expertise,
         leadResearcherLevel: leadResearcher.level,
         exceptionalLeadAvailable: leadResearcher.exceptional,
       }),
-    [availableCrew, expertise, externalSpeedMultiplier, fieldValidation.multiplier, leadResearcher, powerAvailable, state],
+    [automationMultiplier, availableCrew, expertise, externalSpeedMultiplier, fieldValidation.multiplier, leadResearcher, powerAvailable, state],
   );
   const echoes = getResearchNullEchoes(state);
   const activeProgress = activeDefinition
@@ -360,7 +363,7 @@ export function ResearchLattice({
         <div>
           <span>ACTIVE STAGE</span>
           <strong>{activeDefinition ? network.stageLabel : "Awaiting a program"}</strong>
-          <small>{activeDefinition ? `${network.expertiseId.replaceAll("-", " ")} expertise ×${network.expertiseMultiplier.toFixed(2)}` : "Choose work from the Technology Map."}</small>
+          <small>{activeDefinition ? `${network.expertiseId.replaceAll("-", " ")} expertise ×${network.expertiseMultiplier.toFixed(2)}${network.automationMultiplier > 1 ? ` · routing drones ×${network.automationMultiplier.toFixed(2)}` : ""}` : "Choose work from the Technology Map."}</small>
         </div>
         <div>
           <span>RESEARCH LEAD</span>

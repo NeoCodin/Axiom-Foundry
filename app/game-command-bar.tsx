@@ -19,6 +19,7 @@ type GameCommandBarProps = {
   fluxPerSecondLabel: string;
   axiomsLabel: string;
   resonanceLabel: string;
+  operationalLoadLabel: string;
   saveStatus: string;
   ready: boolean;
   focusWelcome: boolean;
@@ -32,7 +33,7 @@ type GameCommandBarProps = {
 
 export function GameCommandBar({
   worldName, cycle, arrival, fluxLabel, fluxExact, fluxPerSecondLabel,
-  axiomsLabel, resonanceLabel, saveStatus, ready, focusWelcome, focusFlux,
+  axiomsLabel, resonanceLabel, operationalLoadLabel, saveStatus, ready, focusWelcome, focusFlux,
   objective, onOpenHelp, onOpenLore, onSave, onOpenDirective,
 }: GameCommandBarProps) {
   return (
@@ -47,6 +48,7 @@ export function GameCommandBar({
       <div className="header-metrics">
         <div title="Axioms are portable, permanent laws of physics forged by Recalibration."><span>Axioms</span><strong>{axiomsLabel}</strong></div>
         <div><span>Resonance</span><strong>×{resonanceLabel}</strong></div>
+        <div title="Medical care, active drones, restored-world defenses, and hostile compromises divert this share of Foundry output."><span>Operations</span><strong>{operationalLoadLabel}</strong></div>
       </div>
       <div className="header-actions">
         <span className="save-status">{ready ? saveStatus : "Restoring local cycle…"}</span>

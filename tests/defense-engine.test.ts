@@ -154,3 +154,29 @@ test("sanitization repairs malformed defense saves without losing structure", ()
   const roundTrip = sanitizeDefenseState(JSON.parse(JSON.stringify(damaged)));
   assert.deepEqual(roundTrip.installations, damaged.installations);
 });
+
+test("Nox introduces deterministic hostile contacts, bounded injuries, and recoverable compromises", () => {
+  const context: DefenseAdvanceContext = {
+    stormsEnabled: false,
+    hostilesEnabled: true,
+    worldIndex: 4,
+    security: 0,
+    engineers: 0,
+    navigators: 0,
+    eligibleDefenderIds: ["guard-1", "engineer-1"],
+    injuryMitigation: 1,
+  };
+  const first = advanceDefense(createDefenseState(71), 2 * 3_600, context);
+  const replay = advanceDefense(createDefenseState(71), 2 * 3_600, context);
+  assert.deepEqual(first.state, replay.state);
+  assert.equal(first.resolvedEvents[0]!.kind, "retrograde-probe");
+  assert.equal(first.state.firstContactResolved, true);
+  assert.ok(first.resolvedEvents[0]!.injuries.length > 0);
+  assert.ok(first.resolvedEvents[0]!.injuries.every((injury) => injury.damage > 0 && injury.damage <= 80));
+  assert.ok((first.state.compromise?.remainingSeconds ?? 0) <= 6 * 3_600);
+  assert.ok(first.state.causalFragmentIds.length >= 1);
+
+  const evading = setDefenseDoctrine(createDefenseState(71), "evade");
+  const evaded = advanceDefense(evading, 2 * 3_600, context);
+  assert.equal(evaded.resolvedEvents[0]!.injuries.length, 0);
+});

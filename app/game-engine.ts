@@ -61,10 +61,28 @@ import {
   type ExpeditionLoadoutEntry,
 } from "./armory-engine.ts";
 import {
+  AUTOMATED_REPAIR_INTERVAL_SECONDS,
+  AUTOMATION_PROGRAM_DEFINITIONS,
+  MAX_UTILITY_DRONE_FRAMES,
+  buildAutomationFrame,
+  cloneAutomationState,
+  createAutomationState,
+  getAutomationEffects,
+  getAutomationProgramDefinition,
+  sanitizeAutomationState,
+  setAutomationAllocation as setAutomationStateAllocation,
+  setAutomationMaintenancePolicy as setAutomationStateMaintenancePolicy,
+  type AutomationMaintenancePolicy,
+  type AutomationProgramId,
+  type AutomationState,
+} from "./automation-engine.ts";
+import {
   advanceDefense,
   cloneDefenseState,
   createDefenseState,
   getDefenseProductionMultiplier,
+  getDefenseCompromiseLoad,
+  getSuppressedAutomationProgram,
   getInstallationCost,
   sanitizeDefenseState,
   setDefenseDoctrine,
@@ -74,6 +92,21 @@ import {
   type DefenseInstallationId,
   type DefenseState,
 } from "./defense-engine.ts";
+import {
+  MAX_PLANETARY_INSTALLATION_LEVEL,
+  PLANETARY_INSTALLATION_DEFINITIONS,
+  advancePlanetaryDefense,
+  clonePlanetaryDefenseState,
+  createPlanetaryDefenseState,
+  getPlanetaryDefenseOperationalLoad,
+  sanitizePlanetaryDefenseState,
+  setPlanetaryDefenseDoctrine as setPlanetaryDefenseStateDoctrine,
+  startPlanetaryDefenseConstruction,
+  syncPlanetaryDefenseNetworks,
+  type PlanetaryDefenseDoctrine,
+  type PlanetaryDefenseState,
+  type PlanetaryInstallationId,
+} from "./planetary-defense-engine.ts";
 import {
   admitToMedBay,
   advanceCrewAgesAfterChapter,
@@ -154,7 +187,7 @@ import {
   getSurvivorContinuityExpertise,
 } from "./continuity-expertise.ts";
 
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 9;
 export const SAVE_KEY = "axiom-foundry-save-v5";
 export const RETIRED_SAVE_KEYS = [
   "axiom-foundry-save-v1",
@@ -232,6 +265,8 @@ export type GameState = {
   defense: DefenseState;
   expeditions: ExpeditionState;
   armory: ArmoryState;
+  automation: AutomationState;
+  planetaryDefense: PlanetaryDefenseState;
   settings: GameSettings;
   manualPulses: number;
   playTime: number;
@@ -763,6 +798,8 @@ export function createInitialState(now = Date.now()): GameState {
     defense: createDefenseState(),
     expeditions: createExpeditionState(),
     armory: createArmoryState(),
+    automation: createAutomationState(),
+    planetaryDefense: createPlanetaryDefenseState(),
     settings: {
       buyMode: "1",
       autoEnabled: false,
@@ -979,6 +1016,8 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
     defense: sanitizeDefenseState(value.defense),
     expeditions: sanitizeExpeditionState(value.expeditions),
     armory: sanitizeArmoryState(value.armory),
+    automation: sanitizeAutomationState(value.automation),
+    planetaryDefense: sanitizePlanetaryDefenseState(value.planetaryDefense, settlement.colonies),
     settings: {
       buyMode:
         rawSettings.buyMode === "10" || rawSettings.buyMode === "max"
@@ -1031,6 +1070,8 @@ export function cloneGameState(state: GameState): GameState {
     defense: cloneDefenseState(state.defense),
     expeditions: cloneExpeditionState(state.expeditions),
     armory: cloneArmoryState(state.armory),
+    automation: cloneAutomationState(state.automation),
+    planetaryDefense: clonePlanetaryDefenseState(state.planetaryDefense),
     settings: {
       ...state.settings,
       autoTiers: [...state.settings.autoTiers],
@@ -1489,9 +1530,15 @@ export function getExpeditionResearchSupport(state: GameState): ExpeditionResear
     strengthBonus += 1;
     rewardBonus += 0.1;
   }
+  const automation = getActiveAutomationEffects(state);
+  if (automation.expeditionStrengthBonus > 0) {
+    activeProtocols.push("Expedition Support Drone");
+    strengthBonus += automation.expeditionStrengthBonus;
+    rewardBonus += automation.expeditionRewardMultiplier - 1;
+  }
   return {
-    strengthBonus: Math.min(2, strengthBonus),
-    rewardMultiplier: 1 + Math.min(0.15, rewardBonus),
+    strengthBonus: Math.min(3, strengthBonus),
+    rewardMultiplier: 1 + Math.min(0.2, rewardBonus),
     activeProtocols,
   };
 }
@@ -1502,6 +1549,25 @@ export function getDefenseCrewContext(state: GameState): DefenseCrewContext {
   const temporalAnalysis = completed.has("temporal-signal-analysis");
   const causalProjection = completed.has("causal-threat-projection");
   const repairSwarms = completed.has("autonomous-repair-swarms");
+  const automation = getActiveAutomationEffects(state);
+  const readyWeapons = ARMORY_ITEM_DEFINITIONS.filter((item) => item.kind === "weapon").reduce(
+    (total, item) => total + getArmoryReadyCount(state.armory, item.id) * item.tier,
+    0,
+  );
+  const readyArmor = ARMORY_ITEM_DEFINITIONS.filter((item) => item.kind === "armor").reduce(
+    (total, item) => total + getArmoryReadyCount(state.armory, item.id) * item.tier,
+    0,
+  );
+  const defenderIds = state.survivors.survivors
+    .filter(
+      (survivor) =>
+        survivor.ageGroup === "adult" &&
+        !isSurvivorWounded(survivor) &&
+        !isSurvivorAdmitted(state.survivors, survivor.id) &&
+        (isSurvivorOnDuty(survivor, "security") ||
+          isSurvivorOnDuty(survivor, "engineer")),
+    )
+    .map((survivor) => survivor.id);
   return {
     security: state.survivors.survivors.reduce(
       (total, survivor) => total + (isSurvivorOnDuty(survivor, "security") ? getSurvivorSkillLevel(survivor, "security") : 0),
@@ -1514,7 +1580,16 @@ export function getDefenseCrewContext(state: GameState): DefenseCrewContext {
     ),
     researchReadiness: (defensiveForecasting ? 6 : 0) + (causalProjection ? 8 : 0),
     researchForecastSeconds: (defensiveForecasting ? 30 * 60 : 0) + (temporalAnalysis ? 30 * 60 : 0),
-    researchRepairMultiplier: repairSwarms ? 1.25 : 1,
+    researchRepairMultiplier:
+      (repairSwarms ? 1.25 : 1) * automation.hullRepairMultiplier,
+    interceptorReadiness: automation.interceptorReadiness,
+    equipmentReadiness: Math.min(12, readyWeapons * 1.5 + readyArmor),
+    injuryMitigation: Math.max(0.35, 1 - Math.min(0.65, readyArmor * 0.06)),
+    eligibleDefenderIds: defenderIds,
+    threatIdentification:
+      (defensiveForecasting ? 1 : 0) +
+      (temporalAnalysis ? 1 : 0) +
+      (causalProjection ? 1 : 0),
   };
 }
 
@@ -2753,6 +2828,244 @@ export function chooseDefenseDoctrine(
   return next;
 }
 
+function isAutomationProgramId(value: string | null): value is AutomationProgramId {
+  return Boolean(value && AUTOMATION_PROGRAM_DEFINITIONS.some((program) => program.id === value));
+}
+
+export function isAutomationUnlocked(state: GameState) {
+  return (
+    state.research.completedProjectIds.includes("automated-personnel-logistics") ||
+    state.automation.framesBuilt > 0
+  );
+}
+
+export function getActiveAutomationEffects(state: GameState) {
+  const suppressed = getSuppressedAutomationProgram(state.defense);
+  return getAutomationEffects(
+    state.automation,
+    isAutomationProgramId(suppressed) ? suppressed : null,
+  );
+}
+
+export function isAutomationProgramUnlocked(
+  state: GameState,
+  programId: AutomationProgramId,
+) {
+  const definition = getAutomationProgramDefinition(programId);
+  return state.research.completedProjectIds.includes(
+    definition.requiredResearchId as ResearchProjectId,
+  );
+}
+
+export function getAutomationFrameQuote(state: GameState) {
+  const frame = state.automation.framesBuilt;
+  const maxed = frame >= MAX_UTILITY_DRONE_FRAMES;
+  const fluxCost = maxed
+    ? 0
+    : bounded(
+        250 *
+          continuityScale(state) *
+          Math.pow(1.8, frame) *
+          getColonyLegacyEffects(state).fabricationCostMultiplier,
+      );
+  const salvageCost = maxed ? 0 : Math.ceil(80 + 35 * frame + getCampaignWorldIndex(state) * 20);
+  const modelCost = maxed ? 0 : Math.ceil(120 + 60 * frame);
+  const schematicCost = maxed || frame < 3 ? 0 : Math.ceil(25 + 15 * (frame - 3));
+  const nullTraceCost = maxed || frame < 5 ? 0 : Math.ceil(20 + 20 * (frame - 5));
+  const researchMet = isAutomationUnlocked(state);
+  return {
+    frame,
+    maxed,
+    researchMet,
+    fluxCost,
+    salvageCost,
+    modelCost,
+    schematicCost,
+    nullTraceCost,
+    canBuild:
+      researchMet &&
+      !maxed &&
+      state.flux >= fluxCost &&
+      state.living.salvage >= salvageCost &&
+      state.researchStock["engineering-models"] >= modelCost &&
+      state.researchStock.schematics >= schematicCost &&
+      state.researchStock["null-traces"] >= nullTraceCost,
+  };
+}
+
+export function fabricateAutomationFrame(state: GameState) {
+  const quote = getAutomationFrameQuote(state);
+  if (!quote.canBuild) return state;
+  const next = cloneGameState(state);
+  next.flux -= quote.fluxCost;
+  next.living.salvage -= quote.salvageCost;
+  next.researchStock["engineering-models"] -= quote.modelCost;
+  next.researchStock.schematics -= quote.schematicCost;
+  next.researchStock["null-traces"] -= quote.nullTraceCost;
+  next.automation = buildAutomationFrame(next.automation);
+  return next;
+}
+
+export function setAutomationAllocation(
+  state: GameState,
+  programId: AutomationProgramId,
+  amount: number,
+) {
+  if (!isAutomationProgramUnlocked(state, programId)) return state;
+  const automation = setAutomationStateAllocation(state.automation, programId, amount);
+  if (automation === state.automation) return state;
+  const next = cloneGameState(state);
+  next.automation = automation;
+  return next;
+}
+
+export function setAutomationMaintenancePolicy(
+  state: GameState,
+  policy: AutomationMaintenancePolicy,
+) {
+  const automation = setAutomationStateMaintenancePolicy(state.automation, policy);
+  if (automation === state.automation) return state;
+  const next = cloneGameState(state);
+  next.automation = automation;
+  return next;
+}
+
+export function isHostileThreatOperationsActivated(state: GameState) {
+  return getCampaignWorldIndex(state) >= 4 || state.defense.firstContactResolved;
+}
+
+export function isPlanetaryDefenseActivated(state: GameState) {
+  return (
+    state.settlement.colonies.length > 0 &&
+    (isHostileThreatOperationsActivated(state) || state.planetaryDefense.stats.resolved > 0)
+  );
+}
+
+export function getPlanetaryDefenseConstructionQuote(
+  state: GameState,
+  worldId: CampaignWorldId,
+  installationId: PlanetaryInstallationId,
+) {
+  const network = state.planetaryDefense.networks[worldId];
+  const definition = PLANETARY_INSTALLATION_DEFINITIONS[installationId];
+  const level = network?.installations[installationId] ?? 0;
+  const maxed = level >= MAX_PLANETARY_INSTALLATION_LEVEL;
+  const scale = Math.pow(1.55, level) * Math.max(1, continuityScale(state) / 100);
+  const fluxCost = maxed ? 0 : bounded(definition.baseFluxCost * scale);
+  const salvageCost = maxed ? 0 : Math.ceil(definition.baseSalvageCost * Math.pow(1.35, level));
+  const modelCost = maxed ? 0 : Math.ceil(definition.baseModelCost * Math.pow(1.3, level));
+  const durationSeconds = Math.ceil(definition.baseSeconds * Math.pow(1.2, level));
+  const locked = !isPlanetaryDefenseActivated(state) || !network;
+  return {
+    worldId,
+    installationId,
+    level,
+    maxed,
+    locked,
+    busy: state.planetaryDefense.construction !== null,
+    fluxCost,
+    salvageCost,
+    modelCost,
+    durationSeconds,
+    canBuild:
+      !locked &&
+      !maxed &&
+      !state.planetaryDefense.construction &&
+      state.flux >= fluxCost &&
+      state.living.salvage >= salvageCost &&
+      state.researchStock["engineering-models"] >= modelCost,
+  };
+}
+
+export function beginPlanetaryDefenseConstruction(
+  state: GameState,
+  worldId: CampaignWorldId,
+  installationId: PlanetaryInstallationId,
+) {
+  const quote = getPlanetaryDefenseConstructionQuote(state, worldId, installationId);
+  if (!quote.canBuild) return state;
+  const next = cloneGameState(state);
+  next.flux -= quote.fluxCost;
+  next.living.salvage -= quote.salvageCost;
+  next.researchStock["engineering-models"] -= quote.modelCost;
+  next.planetaryDefense = startPlanetaryDefenseConstruction(
+    next.planetaryDefense,
+    worldId,
+    installationId,
+    quote.durationSeconds,
+  );
+  return next;
+}
+
+export function choosePlanetaryDefenseDoctrine(
+  state: GameState,
+  doctrine: PlanetaryDefenseDoctrine,
+) {
+  const planetaryDefense = setPlanetaryDefenseStateDoctrine(state.planetaryDefense, doctrine);
+  if (planetaryDefense === state.planetaryDefense) return state;
+  const next = cloneGameState(state);
+  next.planetaryDefense = planetaryDefense;
+  return next;
+}
+
+export type OperationalLoad = {
+  medical: number;
+  automation: number;
+  planetaryDefense: number;
+  compromise: number;
+  total: number;
+  available: number;
+};
+
+export function getOperationalLoad(state: GameState): OperationalLoad {
+  const medical = getMedBayDiversion(state);
+  const automation = getActiveAutomationEffects(state).operationalLoad;
+  const planetaryDefense = isPlanetaryDefenseActivated(state)
+    ? getPlanetaryDefenseOperationalLoad(state.planetaryDefense)
+    : 0;
+  const compromise = getDefenseCompromiseLoad(state.defense);
+  const total = Math.min(0.65, medical + automation + planetaryDefense + compromise);
+  return { medical, automation, planetaryDefense, compromise, total, available: 1 - total };
+}
+
+function runAutomatedEquipmentMaintenance(state: GameState, elapsedSeconds: number) {
+  if (state.automation.maintenancePolicy === "off") return;
+  const suppressed = getSuppressedAutomationProgram(state.defense) === "hull-maintenance";
+  const frames = suppressed ? 0 : state.automation.allocations["hull-maintenance"];
+  if (frames <= 0) return;
+  state.automation.repairProgressSeconds = Math.min(
+    AUTOMATED_REPAIR_INTERVAL_SECONDS * 64,
+    state.automation.repairProgressSeconds + elapsedSeconds * frames,
+  );
+  let attempts = Math.min(
+    64,
+    Math.floor(state.automation.repairProgressSeconds / AUTOMATED_REPAIR_INTERVAL_SECONDS),
+  );
+  while (attempts > 0) {
+    const item = ARMORY_ITEM_DEFINITIONS.find(
+      (definition) => getArmoryDamagedCount(state.armory, definition.id) > 0,
+    );
+    if (!item) {
+      state.automation.repairProgressSeconds = Math.min(
+        state.automation.repairProgressSeconds,
+        AUTOMATED_REPAIR_INTERVAL_SECONDS,
+      );
+      break;
+    }
+    const quote = getArmoryRepairQuote(state, item.id);
+    const reserveSatisfied =
+      state.automation.maintenancePolicy === "priority"
+        ? state.flux >= quote.fluxCost
+        : state.flux >= quote.fluxCost * 2;
+    if (!quote.canRepair || !reserveSatisfied) break;
+    state.flux = Math.max(0, state.flux - quote.fluxCost);
+    state.armory = repairArmoryStockItem(state.armory, item.id);
+    state.automation.stats.equipmentRepaired += 1;
+    state.automation.repairProgressSeconds -= AUTOMATED_REPAIR_INTERVAL_SECONDS;
+    attempts -= 1;
+  }
+}
+
 export function startArkBerthConstruction(state: GameState) {
   const quote = getBerthConstructionQuote(state);
   if (
@@ -3039,6 +3352,10 @@ export function departCurrentWorld(
   const next = cloneGameState(state);
   const index = Math.min(MISSIONS.length - 1, next.missions.currentIndex);
   next.settlement = result.state;
+  next.planetaryDefense = syncPlanetaryDefenseNetworks(
+    next.planetaryDefense,
+    result.state.colonies,
+  );
   next.survivors = transferSurvivorsToSettlement(
     next.survivors,
     result.settledCrewIds,
@@ -3364,8 +3681,7 @@ export function getProductionSnapshot(state: GameState) {
   const researchBonuses = getResearchBonuses(state.research);
   const colonyLegacyEffects = getColonyLegacyEffects(state);
   const defenseMultiplier = getDefenseProductionMultiplier(state.defense);
-  // Occupied Medical Bay beds divert a percentage of ALL production.
-  const medBayMultiplier = 1 - getMedBayDiversion(state);
+  const operationalLoad = getOperationalLoad(state);
   const globalMultiplier = safeMultiply(
     safeMultiply(
       safeMultiply(flowMultiplier, legacyMultiplier),
@@ -3377,7 +3693,7 @@ export function getProductionSnapshot(state: GameState) {
       relayMultiplier *
       colonyLegacyEffects.cohesionProductionMultiplier *
       defenseMultiplier *
-      medBayMultiplier,
+      operationalLoad.available,
   );
   const resonance = getResonanceDetails(state);
   const higherTierMultiplier = 1 + 0.3 * state.runUpgrades[2];
@@ -3424,6 +3740,7 @@ export function getProductionSnapshot(state: GameState) {
     livingBonuses,
     researchBonuses,
     colonyLegacyEffects,
+    operationalLoad,
   };
 }
 
@@ -3598,6 +3915,8 @@ export function recalibrate(state: GameState, now = Date.now()) {
   fresh.expeditions = cloneExpeditionState(state.expeditions);
   // The armory is Ark structure: it survives Recalibration like the crew.
   fresh.armory = cloneArmoryState(state.armory);
+  fresh.automation = cloneAutomationState(state.automation);
+  fresh.planetaryDefense = clonePlanetaryDefenseState(state.planetaryDefense);
   fresh.worldProgress = {
     completedInfrastructureIds: [...state.worldProgress.completedInfrastructureIds],
     completedResearchIds: [...state.worldProgress.completedResearchIds],
@@ -3750,6 +4069,7 @@ export function simulateGame(
   next.living = advanceLivingFoundry(next.living, seconds);
   const survivorBonuses = getResearchBonuses(next.research);
   const colonyBonuses = getColonyLegacyEffects(next);
+  const automationEffects = getActiveAutomationEffects(next);
   next.survivors = setTrainingSlots(
     next.survivors,
     Math.min(
@@ -3791,7 +4111,10 @@ export function simulateGame(
         survivorBonuses.habitationCapacityMultiplier,
       ).shortages.medical > 0,
     medicalRecoveryMultiplier:
-      getMedicalResearchEffects(next).recoveryMultiplier,
+      getMedicalResearchEffects(next).recoveryMultiplier *
+      (getMedBayCarePool(next.survivors) > 0
+        ? automationEffects.medicalRecoveryMultiplier
+        : 1),
     // Stranded crew shelter off-ship: health frozen, never decaying.
     recoveryExemptIds: next.expeditions.stranded?.crewIds ?? [],
     scanDurationMultiplier: getSurfaceRecon(next).multiplier,
@@ -3812,6 +4135,7 @@ export function simulateGame(
     crewAvailable: getResearchCrewAvailable(next),
     externalSpeedMultiplier: colonyBonuses.researchSpeedMultiplier,
     fieldValidationMultiplier: fieldValidation.multiplier,
+    automationMultiplier: automationEffects.researchRoutingMultiplier,
     expertise: researchExpertise,
     leadResearcherLevel: researchLead.level,
     exceptionalLeadAvailable: researchLead.exceptional,
@@ -3821,6 +4145,7 @@ export function simulateGame(
   // Resources are committed up front; completion is deterministic and cannot
   // be lost by closing the game.
   next.armory = advanceArmoryProject(next.armory, seconds);
+  runAutomatedEquipmentMaintenance(next, seconds);
   next.worldProgress = {
     ...next.worldProgress,
     completedResearchIds: [
@@ -3858,7 +4183,7 @@ export function simulateGame(
   const reserveSupportMultiplier = next.research.completedProjectIds.includes(
     "automated-personnel-logistics",
   )
-    ? 1.25
+    ? 1.25 * automationEffects.reserveSalvageMultiplier
     : 1;
   next.living.salvage = Math.min(
     1e12,
@@ -3875,6 +4200,8 @@ export function simulateGame(
 
   const defenseAdvance = advanceDefense(next.defense, seconds, {
     stormsEnabled: isThreatOperationsActivated(next),
+    hostilesEnabled: isHostileThreatOperationsActivated(next),
+    beaconOnline: next.survivors.beaconOnline,
     worldIndex: getCampaignWorldIndex(next),
     ...getDefenseCrewContext(next),
   });
@@ -3894,6 +4221,48 @@ export function simulateGame(
   next.researchStock["null-traces"] = Math.min(
     1e12,
     next.researchStock["null-traces"] + defenseAdvance.nullTraces,
+  );
+  for (const event of defenseAdvance.resolvedEvents) {
+    for (const wound of event.injuries) {
+      const survivor = next.survivors.survivors.find(
+        (candidate) => candidate.id === wound.crewId,
+      );
+      if (!survivor) continue;
+      applySurvivorWound(survivor, wound.damage, wound.injuryTier);
+      if (isSurvivorWounded(survivor)) survivor.assignedRole = null;
+    }
+  }
+
+  next.planetaryDefense = syncPlanetaryDefenseNetworks(
+    next.planetaryDefense,
+    next.settlement.colonies,
+  );
+  const planetaryAdvance = advancePlanetaryDefense(
+    next.planetaryDefense,
+    seconds,
+    {
+      threatsEnabled: isPlanetaryDefenseActivated(next),
+      worldIndex: getCampaignWorldIndex(next),
+      constructionSpeedMultiplier: automationEffects.constructionSpeedMultiplier,
+      engineerExpertise: getAssignedEngineeringExpertise(next),
+    },
+  );
+  next.planetaryDefense = planetaryAdvance.state;
+  next.living.salvage = Math.min(
+    1e12,
+    next.living.salvage + planetaryAdvance.salvage,
+  );
+  next.researchStock["engineering-models"] = Math.min(
+    1e12,
+    next.researchStock["engineering-models"] + planetaryAdvance.engineeringModels,
+  );
+  next.researchStock["cultural-records"] = Math.min(
+    1e12,
+    next.researchStock["cultural-records"] + planetaryAdvance.culturalRecords,
+  );
+  next.researchStock["null-traces"] = Math.min(
+    1e12,
+    next.researchStock["null-traces"] + planetaryAdvance.nullTraces,
   );
 
   if (

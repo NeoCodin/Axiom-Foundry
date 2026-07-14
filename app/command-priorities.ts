@@ -9,6 +9,7 @@ import {
   getResearchFieldValidation,
   getResearchLeadStatus,
   getResearchPowerAvailable,
+  getActiveAutomationEffects,
   MISSIONS,
   type GameState,
 } from "./game-engine.ts";
@@ -22,6 +23,9 @@ import {
 import { getProgressiveDisclosure } from "./progressive-disclosure.ts";
 import type { PrimaryView } from "./game-navigation.tsx";
 import type { ViabilityDeficit } from "./settlement-engine.ts";
+import { DEFENSE_EVENT_DEFINITIONS } from "./defense-engine.ts";
+import { getPlanetaryIncomingForecast } from "./planetary-defense-engine.ts";
+import { isSurvivorWounded } from "./survivor-engine.ts";
 
 export type CommandPriorityTone = "critical" | "active" | "opportunity";
 export type CommandPriorityCadence = "action" | "offline" | "automatic";
@@ -152,6 +156,38 @@ export function getCommandPriorities(state: GameState): CommandPriority[] {
     });
   }
 
+  if (state.defense.compromise) {
+    const compromise = state.defense.compromise;
+    add({
+      id: "hostile-compromise",
+      eyebrow: "Automatic quarantine",
+      title: `${compromise.kind.replaceAll("-", " ")} is being purged`,
+      detail: `The ${compromise.target.replaceAll("-", " ")} system is temporarily isolated. Nothing was deleted. ${Math.ceil(compromise.remainingSeconds / 60)} minutes of automatic offline recovery remain.`,
+      actionLabel: "Open incident report",
+      target: "defense",
+      missing: "Automatic purge completion",
+      nextAction: "No action is required; review the report or wait for offline recovery",
+      cadence: "automatic",
+      tone: "critical",
+    });
+  }
+
+  const injuredDefender = state.survivors.survivors.find((survivor) => isSurvivorWounded(survivor));
+  if (injuredDefender) {
+    add({
+      id: "injured-crew",
+      eyebrow: "Medical attention",
+      title: `${injuredDefender.callsign || injuredDefender.name} is off duty`,
+      detail: `Health ${Math.round(injuredDefender.health)}. They were automatically removed from duty and will not be exposed to another defense event while wounded.`,
+      actionLabel: "Open Medical Bay",
+      target: "medical",
+      missing: "Recovery above the on-duty threshold",
+      nextAction: "Admit the injured crew member and keep at least one Doctor on duty",
+      cadence: "action",
+      tone: "critical",
+    });
+  }
+
   const mission = MISSIONS[state.missions.currentIndex];
   if (mission && !state.missions.awaitingAcknowledgement) {
     const stage = mission.stages[state.missions.stageIndex] ?? mission.stages[0];
@@ -230,16 +266,32 @@ export function getCommandPriorities(state: GameState): CommandPriority[] {
       tone: "active",
     });
   } else if (state.defense.incoming) {
+    const definition = DEFENSE_EVENT_DEFINITIONS[state.defense.incoming.kind];
     add({
       id: "defense-forecast",
       eyebrow: "Threat forecast",
-      title: `Severity ${state.defense.incoming.severity} ash storm detected`,
-      detail: "Your standing doctrine resolves it automatically, online or offline. Review readiness if you want a different outcome.",
+      title: `Severity ${state.defense.incoming.severity} ${definition.label} detected`,
+      detail: `${definition.summary} Target: ${state.defense.incoming.target.replaceAll("-", " ")}. Your standing doctrine resolves it automatically online or offline.`,
       actionLabel: "Review readiness",
       target: "defense",
       nextAction: "Review the projected margin or leave the standing doctrine to resolve it",
       cadence: "automatic",
       tone: "opportunity",
+    });
+  }
+
+  const planetaryForecast = getPlanetaryIncomingForecast(state.planetaryDefense);
+  if (planetaryForecast) {
+    add({
+      id: "planetary-defense-forecast",
+      eyebrow: "Restored-world forecast",
+      title: `${planetaryForecast.colonyName} is under ${planetaryForecast.signature.replaceAll("-", " ")}`,
+      detail: `Severity ${planetaryForecast.severity}; network readiness ${planetaryForecast.readiness}/100. The standing planetary doctrine resolves it automatically and the colony cannot be deleted.`,
+      actionLabel: "Open planetary network",
+      target: "settlement",
+      nextAction: "Review the target network or let the standing doctrine resolve it offline",
+      cadence: "automatic",
+      tone: "active",
     });
   }
 
@@ -283,6 +335,7 @@ export function getCommandPriorities(state: GameState): CommandPriority[] {
         leadResearcherLevel: lead.level,
         exceptionalLeadAvailable: lead.exceptional,
         fieldValidationMultiplier: fieldValidation.multiplier,
+        automationMultiplier: getActiveAutomationEffects(state).researchRoutingMultiplier,
       });
       let guidance: {
         detail: string;
