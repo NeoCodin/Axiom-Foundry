@@ -169,6 +169,12 @@ export type ResearchEnvironment = {
   powerAvailable?: number;
   crewAvailable?: number;
   externalSpeedMultiplier?: number;
+  /**
+   * Evidence produced by real Ark, expedition, defense, and colony work.
+   * Applied only during Field Validation so other systems support research
+   * without becoming a hidden prerequisite.
+   */
+  fieldValidationMultiplier?: number;
   expertise?: Partial<ResearchExpertise>;
   leadResearcherLevel?: number;
   exceptionalLeadAvailable?: boolean;
@@ -190,6 +196,7 @@ export type ResearchNetworkStatus = {
   expertiseId: ResearchExpertiseId;
   expertiseTotal: number;
   expertiseMultiplier: number;
+  fieldValidationMultiplier: number;
   leadRequirementLevel: number;
   leadRequirementMet: boolean;
   progressPerSecond: number;
@@ -1711,12 +1718,17 @@ export const getResearchNetworkStatus = (
     0,
     10,
   );
+  const fieldValidationMultiplier =
+    stage.id === "validation"
+      ? clampFinite(environment.fieldValidationMultiplier ?? 1, 1, 1.25)
+      : 1;
   const progressPerSecond = project
     ? (leadRequirementMet ? 1 : 0) *
       routeEfficiency *
       powerEfficiency *
       crewEfficiency *
       expertiseMultiplier *
+      fieldValidationMultiplier *
       bonuses.researchSpeedMultiplier *
       externalSpeed
     : 0;
@@ -1756,6 +1768,7 @@ export const getResearchNetworkStatus = (
     expertiseId,
     expertiseTotal,
     expertiseMultiplier,
+    fieldValidationMultiplier,
     leadRequirementLevel,
     leadRequirementMet,
     progressPerSecond,

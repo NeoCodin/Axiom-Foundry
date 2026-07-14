@@ -500,14 +500,20 @@ Use this when opening the repository with Claude or another assistant:
 
 ## 21. Near-term roadmap
 
-Recommended order, subject to owner approval:
+Owner-approved order as of July 14, 2026:
 
-1. Complete the documented think-aloud human playtest from Cold Wake through Cinder and record comprehension/return-session friction. The July 14 Research v2 mechanical wall audit is complete and regression-tested, but it does not replace human observation.
-2. Refine the Ark priority board from that evidence; every new blocker must route to one exact action and destination.
-3. Add deeper interactions among existing Medical, Expedition, Armory, Defense, Research, and colony systems before adding another permanent page.
-4. Introduce Nox Retrograde Vessel encounters and Causal Fragments only after the consolidated Cinder flow is proven readable.
-5. Add persistent planetary defense networks around restored world cores.
-6. Expand post-Vesper worlds only after the current campaign pacing is observed in real play.
+1. **Implemented:** Research v2, operational Expertise, Profile Elevation, and the Armory progression rework.
+2. **Implemented:** crew caps, generations, AXIOM staffing, and combined Continuity Expertise/Community Readiness.
+3. **Implemented:** Command Briefing and guidance refinement. Every live card now distinguishes ACTION REQUIRED, SAFE TO WAIT, and AUTOMATIC; identifies what is missing; names one exact action; and routes to the correct page and Foundry/Research sub-panel. Facility locks and every active research stage explain themselves.
+4. **Implemented:** deeper system connections. Field Validation uses bounded evidence from Ark work, medicine, expeditions, defense, infrastructure, colonies, and generations. Research now has visible bounded effects on Medical recovery/power, Defense readiness/forecast/repairs, Expedition strength/rewards, planetary construction, Cultural Records/Biological Samples, and Ark Reserve logistics. Armory's existing research gates remain intact.
+5. **Next:** Robotics and Automation branch gameplay. The research programs exist, but equipment maintenance, assistance drones, routing automation, logistics, planetary machines, interceptors, fabrication support, and advanced recovery need their full visible support/cost layer. Robotics must multiply people, not replace them.
+6. **Then:** Threat Operations Phase 2: Nox Retrograde Vessel encounters, SOS exposure, visible forecasts, interceptors, boarding defense, threat intelligence, equipment influence, Causal Fragments, and nonlethal temporary setbacks under idle-first standing doctrines.
+7. **Then:** persistent planetary defense networks for every restored world: reality anchors, world-core stabilizers, shields, interceptors, shelters, local personnel, startup equipment, colony reports, and repair requests. Worlds are never permanently destroyed offline.
+8. **Then:** the Enemy Mystery/Causal Fragment storyline: Unknown Contacts -> Retrograde Vessels -> Causal Interdictors -> The Returned. Reveal the damaged-future origin and possible Foundry Event responsibility only through fragments and contradictions, not a current-campaign exposition dump.
+9. **Then:** opt-in Bioadaptation around Vesper/Convergence. It never changes rarity, becomes a Continuity requirement, or treats people as disposable stats; every enhancement creates moral and lore consequences.
+10. **After items 3-9 are complete:** run the documented think-aloud human playtest across the whole current campaign. The owner explicitly postponed the major playtest until the version is feature-complete through Bioadaptation. Mechanical audits and regression tests continue after every item, but they do not substitute for that final observation.
+
+Endless/post-Vesper planets are intentionally out of scope until this version and its full-campaign playtest are complete.
 
 Implemented July 13, 2026 (consolidation release):
 
@@ -649,6 +655,17 @@ The next implementation should begin with a written mechanic specification and b
 - Levels still cap at 10 with increasingly expensive XP requirements. Rarity keeps its current visual identity and learning-cap role; Elevation is a difficult long-term investment, not a replacement for finding rare survivors.
 - Validation baseline for this release: 157 automated tests, lint, production build, and static hosting build. The browser-based human walkthrough was interrupted, so `docs/human-playtest-protocol.md` records the completed mechanical audit separately and does not pretend it produced comprehension evidence.
 - No global save reset. All changes are additive and existing players keep campaign, crew, Armory, colony, and research progress.
+
+### Implemented July 14, 2026 — exact guidance and connected systems
+
+- Command Briefing cards now expose cadence (`ACTION REQUIRED`, `SAFE TO WAIT`, or `AUTOMATIC`), the exact missing condition, and the next concrete action. Research guidance understands Theory/Prototype/Field Validation/Synthesis, lead requirements, disabled Lattice routes, exhausted Ark Supply vs untransferred evidence, power stalls, and offline-safe active work. Buttons route to the exact Foundry machine/campaign panel or Research Core/Technology/Lattice workspace.
+- Field Validation is now a real stage connection. Branch-specific evidence from infrastructure, habitation, Armory Marks, colonies, children/elders, Team Alpha, crises, Medical practice, expeditions, Defense events, and Axioms provides up to +25% Validation speed. It is visible in Research and never a hard gate.
+- Medical research provides bounded admitted-patient recovery bonuses (up to +30%) and can reduce bed diversion from 5% to 3.5%; the Medical page displays both values and names active protocols.
+- Threat/Robotics research adds visible Defense readiness, forecast lead, and repair speed. Defense crew contribution now consistently uses on-duty Expertise levels in both simulation and UI.
+- Expedition research adds at most +2 strength and +15% Salvage/Schematic recovery. The launch projection states the bonuses before the player commits.
+- Planetary research can reduce infrastructure Flux costs by at most 12%. Infrastructure, crises, expeditions, and colonies return research value instead of living in isolated tabs.
+- Children, elders, and colonies now generate differentiated Cultural Records; colony health reports generate Biological Samples. Automated Personnel Logistics improves the useful Ark Reserve's maintenance Salvage without replacing Fabricator/Technician expertise.
+- The Field Manual is synchronized with the new cadence, Field Validation, and cross-system effects. Saves remain compatible; no reset is required.
 
 ## 22. Maintaining this handoff
 

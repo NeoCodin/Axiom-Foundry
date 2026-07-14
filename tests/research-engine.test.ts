@@ -427,6 +427,36 @@ test("on-duty stage expertise is meaningful but bounded", () => {
   assert.ok(mastered.progressPerSecond <= base.progressPerSecond * 1.35 + 1e-8);
 });
 
+test("field evidence accelerates only Field Validation and remains capped", () => {
+  let state = createResearchLatticeState();
+  state = addResearchInputs(state, { "calibration-data": 1_000 });
+  state = setResearchCrew(state, MAX_RESEARCH_CREW, MAX_RESEARCH_CREW);
+  state = selectResearchProject(state, "auxiliary-power-routing");
+  const definition = RESEARCH_PROJECT_DEFINITIONS.find(
+    (project) => project.id === "auxiliary-power-routing",
+  )!;
+
+  const theoryBase = getResearchNetworkStatus(state, { powerAvailable: 100 });
+  const theoryWithEvidence = getResearchNetworkStatus(state, {
+    powerAvailable: 100,
+    fieldValidationMultiplier: 9,
+  });
+  assert.equal(theoryBase.stage, "theory");
+  assert.equal(theoryWithEvidence.progressPerSecond, theoryBase.progressPerSecond);
+
+  state.progress[definition.id] = getResearchProjectWorkRequired(state, definition) * 0.6;
+  const validationBase = getResearchNetworkStatus(state, { powerAvailable: 100 });
+  const validationWithEvidence = getResearchNetworkStatus(state, {
+    powerAvailable: 100,
+    fieldValidationMultiplier: 9,
+  });
+  assert.equal(validationWithEvidence.stage, "validation");
+  assert.equal(validationWithEvidence.fieldValidationMultiplier, 1.25);
+  assert.ok(
+    Math.abs(validationWithEvidence.progressPerSecond - validationBase.progressPerSecond * 1.25) < 1e-8,
+  );
+});
+
 test("advanced eras require an actual research lead", () => {
   let state = createResearchLatticeState();
   state = {

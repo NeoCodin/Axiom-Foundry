@@ -671,6 +671,7 @@ export function launchExpedition(
   crew: readonly Survivor[],
   worldId: string | null,
   loadout: readonly ExpeditionLoadoutEntry[] = [],
+  researchStrengthBonus = 0,
 ): ExpeditionState {
   if (state.active) return state;
   if (crew.length < MIN_EXPEDITION_CREW || crew.length > MAX_EXPEDITION_CREW) {
@@ -685,7 +686,9 @@ export function launchExpedition(
     startedAtSeconds: next.clockSeconds,
     durationSeconds: getExpeditionDurationSeconds(site, crew),
     strength:
-      getExpeditionGroupStrength(crew) + getLoadoutStrengthBonus(loadout),
+      getExpeditionGroupStrength(crew) +
+      getLoadoutStrengthBonus(loadout) +
+      Math.min(2, Math.max(0, researchStrengthBonus)),
     loadout: loadout.map((entry) => ({ ...entry })),
     kind: "expedition",
   };
@@ -751,6 +754,7 @@ export function advanceExpeditions(
   state: ExpeditionState,
   elapsedSeconds: number,
   currentWorldId: string | null,
+  rewardMultiplier = 1,
 ): ExpeditionAdvanceResult {
   const elapsed = finite(elapsedSeconds, 0, 90 * 24 * 3_600);
   if (elapsed <= 0) return { state, completed: null };
@@ -869,6 +873,10 @@ export function advanceExpeditions(
           })
         : [];
   const recoveryMultiplier = getLoadoutRecoveryMultiplier(active.loadout);
+  const researchRecoveryMultiplier = Math.min(
+    1.15,
+    Math.max(1, rewardMultiplier),
+  );
   const result: ExpeditionResult = {
     siteId: site.id,
     outcome,
@@ -876,8 +884,12 @@ export function advanceExpeditions(
     difficulty: site.difficulty,
     crewIds: [...active.crewIds],
     resolvedAtSeconds: next.clockSeconds,
-    salvage: Math.round(site.rewards.salvage * scale * recoveryMultiplier),
-    schematics: Math.round(site.rewards.schematics * scale * recoveryMultiplier),
+    salvage: Math.round(
+      site.rewards.salvage * scale * recoveryMultiplier * researchRecoveryMultiplier,
+    ),
+    schematics: Math.round(
+      site.rewards.schematics * scale * recoveryMultiplier * researchRecoveryMultiplier,
+    ),
     nullTraces: Math.round(site.rewards.nullTraces * scale),
     discoveryId: outcome === "success" ? site.rewards.discoveryId ?? null : null,
     surveyCredited,

@@ -27,6 +27,8 @@ export type ExpeditionAccessView = {
 export type ExpeditionPreview = {
   strength: number;
   gearStrength: number;
+  researchStrengthBonus: number;
+  researchRewardMultiplier: number;
   difficulty: number;
   projectedOutcome: "success" | "lean" | "setback" | "distress" | null;
   weapons: number;
@@ -357,6 +359,9 @@ function ExpeditionConsole({
                   </strong>
                   <br />
                   Auto-equip: {preview.weapons > 0 ? `${preview.weapons} weapon${preview.weapons === 1 ? "" : "s"} (+${preview.gearStrength} strength)` : "no weapons"} · {preview.armor > 0 ? `${preview.armor} armor` : "no armor"}. Forge more in the Armory.
+                  {(preview.researchStrengthBonus > 0 || preview.researchRewardMultiplier > 1) && (
+                    <><br />Research support: +{preview.researchStrengthBonus} strength · +{Math.round((preview.researchRewardMultiplier - 1) * 100)}% recovered resources.</>
+                  )}
                 </div>
               )}
               <button

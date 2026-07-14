@@ -8,6 +8,7 @@ import {
   setTutorialComplete,
 } from "../app/game-engine.ts";
 import { getProgressiveDisclosure } from "../app/progressive-disclosure.ts";
+import { selectResearchProject } from "../app/research-engine.ts";
 
 test("orientation is the only priority before the game begins", () => {
   const state = createInitialState(0);
@@ -65,4 +66,34 @@ test("facilities reveal in a teachable Cinder sequence", () => {
 
   state.expeditions.stats.completed = 2;
   assert.equal(getProgressiveDisclosure(state).defense, true);
+});
+
+test("research blockers name the missing evidence and open its exact destination", () => {
+  const state = setTutorialComplete(createInitialState(0), true);
+  state.missions.currentIndex = 99;
+  state.settlement.currentWorldId = null;
+  state.tiers[0].bought = 1;
+  state.research = selectResearchProject(
+    state.research,
+    "auxiliary-power-routing",
+  );
+  state.research.inventory["calibration-data"] = 0;
+  state.researchStock["calibration-data"] = 0;
+
+  const priority = getCommandPriorities(state).find(
+    (entry) => entry.id === "active-research",
+  );
+  assert.ok(priority);
+  assert.equal(priority.cadence, "action");
+  assert.equal(priority.target, "deck");
+  assert.match(priority.missing ?? "", /Calibration Data/i);
+  assert.match(priority.nextAction ?? "", /Tune the Axiom Chamber/i);
+
+  state.researchStock["calibration-data"] = 100;
+  const transfer = getCommandPriorities(state).find(
+    (entry) => entry.id === "active-research",
+  );
+  assert.equal(transfer?.target, "research");
+  assert.equal(transfer?.panel, "research-lattice");
+  assert.match(transfer?.nextAction ?? "", /Transfer Calibration Data/i);
 });

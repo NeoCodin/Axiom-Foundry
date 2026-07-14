@@ -25,11 +25,15 @@ import {
   getCrisisReadiness,
   getEquipmentFabricationQuote,
   getCurrentViabilityForecast,
+  getDefenseCrewContext,
   getEffectiveCohesion,
+  getExpeditionResearchSupport,
+  getMedBayStatus,
   getMaxAffordableCount,
   getProductionSnapshot,
   getResearchCrewAvailable,
   getResearchPowerAvailable,
+  getResearchFieldValidation,
   getProfileElevationQuote,
   elevateCrewProfile,
   getTierCost,
@@ -335,6 +339,88 @@ test("completed lattice research provides modest final economy support", () => {
       getProductionSnapshot(baseline).fluxPerSecond,
   );
   assert.ok(getTierCost(researched, 0, 1) < getTierCost(baseline, 0, 1));
+});
+
+test("completed research visibly supports medicine, defense, expeditions, and field validation", () => {
+  const baseline = createInitialState(0);
+  const doctor = testCrewMember("doctor", "doctor", { doctor: 500 });
+  const patient = testCrewMember("patient", "engineer");
+  patient.health = 40;
+  baseline.survivors.survivors = [doctor, patient];
+  baseline.survivors.medBayIds = [patient.id];
+  baseline.research.activeProjectId = "auxiliary-power-routing";
+  baseline.survivors.berthSections = 10;
+
+  const baseMedical = getMedBayStatus(baseline);
+  const field = getResearchFieldValidation(baseline);
+  assert.ok(field.multiplier > 1);
+  assert.ok(field.multiplier <= 1.25);
+
+  const researched = cloneGameState(baseline);
+  researched.research.completedProjectIds = [
+    "clinical-commons",
+    "planetary-epidemiology",
+    "synthetic-ecosystem-design",
+    "defensive-forecasting",
+    "temporal-signal-analysis",
+    "causal-threat-projection",
+    "autonomous-repair-swarms",
+    "surface-reconnaissance",
+    "specialized-field-loadouts",
+  ];
+  const researchedMedical = getMedBayStatus(researched);
+  assert.ok(researchedMedical.recoveryPerHour > baseMedical.recoveryPerHour);
+  assert.ok(
+    researchedMedical.diversionPerPatientPercent <
+      baseMedical.diversionPerPatientPercent,
+  );
+  assert.equal(researchedMedical.activeProtocols.length, 3);
+
+  const defense = getDefenseCrewContext(researched);
+  assert.equal(defense.researchReadiness, 14);
+  assert.equal(defense.researchForecastSeconds, 3_600);
+  assert.equal(defense.researchRepairMultiplier, 1.25);
+
+  const expedition = getExpeditionResearchSupport(researched);
+  assert.equal(expedition.strengthBonus, 2);
+  assert.equal(expedition.rewardMultiplier, 1.15);
+});
+
+test("generations, colonies, and logistics feed the Ark's idle support systems", () => {
+  const plain = createInitialState(0);
+  const firstAdult = testCrewMember("first-adult", "teacher", {}, [], null);
+  const secondAdult = testCrewMember("second-adult", "teacher", {}, [], null);
+  plain.survivors.survivors = [firstAdult, secondAdult];
+  plain.survivors.autoAssignmentEnabled = false;
+
+  const connected = cloneGameState(plain);
+  connected.survivors.survivors[0]!.ageGroup = "child";
+  connected.survivors.survivors[1]!.ageGroup = "elder";
+  connected.settlement.colonies = [{
+    worldId: "pelagos",
+    name: "Pelagos Test Colony",
+    establishedAt: 1,
+    viabilityScore: 100,
+    founders: [],
+    legacyBenefitIds: [],
+    transmissionsRead: 0,
+  }];
+  connected.research.completedProjectIds = [
+    "adaptive-instruction",
+    "colony-data-integration",
+  ];
+
+  const plainAfter = simulateGame(plain, 3_600, 240, false);
+  const connectedAfter = simulateGame(connected, 3_600, 240, false);
+  assert.ok(
+    connectedAfter.researchStock["cultural-records"] >
+      plainAfter.researchStock["cultural-records"],
+  );
+
+  const logistics = cloneGameState(plain);
+  logistics.research.completedProjectIds = ["automated-personnel-logistics"];
+  const logisticsAfter = simulateGame(logistics, 3_600, 240, false);
+  assert.ok(logisticsAfter.living.salvage > plainAfter.living.salvage);
 });
 
 test("malformed saves recover to finite nonnegative state", () => {

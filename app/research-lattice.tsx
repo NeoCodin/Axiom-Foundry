@@ -49,6 +49,12 @@ export type ResearchLatticeProps = {
   externalSpeedMultiplier?: number;
   expertise: ResearchExpertise;
   leadResearcher: { level: number; exceptional: boolean; name: string | null };
+  fieldValidation: {
+    points: number;
+    multiplier: number;
+    sources: readonly { id: string; label: string; detail: string; points: number }[];
+  };
+  initialView?: ResearchView;
   now?: number;
   onStateChange: (state: ResearchLatticeState) => void;
   onTransferInput: (inputId: ResearchInputId, amount: number) => void;
@@ -60,7 +66,7 @@ export type ResearchLatticeProps = {
 
 const BRANCHES = RESEARCH_BRANCHES;
 
-type ResearchView = "core" | "technology" | "lattice" | "archive";
+export type ResearchView = "core" | "technology" | "lattice" | "archive";
 
 const INPUT_ACCENTS: Record<ResearchInputId, string> = {
   "calibration-data": "72 215 235",
@@ -107,6 +113,8 @@ export function ResearchLattice({
   externalSpeedMultiplier = 1,
   expertise,
   leadResearcher,
+  fieldValidation,
+  initialView,
   now = 0,
   onStateChange,
   onTransferInput,
@@ -122,7 +130,7 @@ export function ResearchLattice({
     activeDefinition?.branch ?? "ark-engineering",
   );
   const [view, setView] = useState<ResearchView>(
-    state.activeProjectId || state.completedProjectIds.length > 0 ? "core" : "technology",
+    initialView ?? (state.activeProjectId || state.completedProjectIds.length > 0 ? "core" : "technology"),
   );
   const [era, setEra] = useState<ResearchEra>(
     activeDefinition ? getResearchProjectEra(activeDefinition) : getCurrentResearchEra(state),
@@ -137,11 +145,12 @@ export function ResearchLattice({
         powerAvailable,
         crewAvailable: availableCrew,
         externalSpeedMultiplier,
+        fieldValidationMultiplier: fieldValidation.multiplier,
         expertise,
         leadResearcherLevel: leadResearcher.level,
         exceptionalLeadAvailable: leadResearcher.exceptional,
       }),
-    [availableCrew, expertise, externalSpeedMultiplier, leadResearcher, powerAvailable, state],
+    [availableCrew, expertise, externalSpeedMultiplier, fieldValidation.multiplier, leadResearcher, powerAvailable, state],
   );
   const echoes = getResearchNullEchoes(state);
   const activeProgress = activeDefinition
@@ -362,6 +371,15 @@ export function ResearchLattice({
           <span>ON-DUTY CONTRIBUTION</span>
           <strong>{Math.round(network.expertiseTotal)} {network.expertiseId.replaceAll("-", " ")}</strong>
           <small>Only healthy, assigned, aboard personnel contribute. Team Alpha&apos;s lean trains the workforce; it is not a free multiplier.</small>
+        </div>
+        <div>
+          <span>FIELD VALIDATION</span>
+          <strong>{fieldValidation.points > 0 ? `x${fieldValidation.multiplier.toFixed(2)} live evidence` : "No live evidence yet"}</strong>
+          <small>
+            {network.stage === "validation"
+              ? fieldValidation.sources.map((source) => source.label).join(" / ") || "Research continues at base speed; field work is helpful, never mandatory."
+              : `Applies only during Field Validation. ${fieldValidation.sources[0]?.detail ?? "Expeditions, planetary work, defense, medicine, and colonies can contribute."}`}
+          </small>
         </div>
       </section>
 

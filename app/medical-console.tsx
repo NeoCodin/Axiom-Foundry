@@ -18,6 +18,9 @@ export type MedicalConsoleProps = {
     carePool: number;
     recoveryPerHour: number;
     diversionPercent: number;
+    diversionPerPatientPercent: number;
+    researchBonusPercent: number;
+    activeProtocols: readonly string[];
     medicalOverCapacity: boolean;
   };
   /** Deployed or stranded crew - cannot be admitted until home. */
@@ -84,9 +87,14 @@ function MedicalConsole({
         <div title="Summed doctor levels of on-duty Doctors. One level-6 doctor tends like six level-1s.">
           <span>Care pool</span><strong>{medBay.carePool} doctor levels</strong>
         </div>
-        <div><span>Bay recovery</span><strong>+{medBay.recoveryPerHour.toFixed(1)}/h per patient</strong></div>
-        <div title="Each occupied bed diverts 5% of ALL Flux production to the bay, capped at 40%.">
+        <div title={medBay.activeProtocols.length > 0 ? `Research protocols: ${medBay.activeProtocols.join(", ")}` : "No Medical research protocol is active yet."}>
+          <span>Bay recovery</span>
+          <strong>+{medBay.recoveryPerHour.toFixed(1)}/h per patient</strong>
+          {medBay.researchBonusPercent > 0 && <small>Research +{medBay.researchBonusPercent}%</small>}
+        </div>
+        <div title={`Each occupied bed diverts ${medBay.diversionPerPatientPercent.toFixed(1)}% of ALL Flux production, capped at 40%. Medical research can lower the per-bed draw.`}>
           <span>Flux diversion</span><strong>−{medBay.diversionPercent}% production</strong>
+          <small>{medBay.diversionPerPatientPercent.toFixed(1)}% per patient</small>
         </div>
         <div className="continuity-summary-help">
           <span>Manual <HelpTrigger label="Explain the Medical Bay" onClick={() => onOpenHelp("medical")} /></span>
@@ -183,7 +191,7 @@ function MedicalConsole({
                     <button
                       type="button"
                       disabled={Boolean(blockedReason)}
-                      title={blockedReason ? `Cannot admit while ${blockedReason}` : `Admitting speeds recovery to +${medBay.recoveryPerHour.toFixed(1)}/h and diverts 5% production`}
+                      title={blockedReason ? `Cannot admit while ${blockedReason}` : `Admitting speeds recovery to +${medBay.recoveryPerHour.toFixed(1)}/h and diverts ${medBay.diversionPerPatientPercent.toFixed(1)}% production`}
                       onClick={() => onAdmit(survivor.id)}
                     >
                       {blockedReason ? `Away (${blockedReason})` : "Admit to bay"}

@@ -69,9 +69,21 @@ function DefenseConsole({
   onBack,
 }: DefenseConsoleProps) {
   const readiness = getDefenseReadiness(state, crew);
-  const forecast = getIncomingForecast(state, crew.navigators);
-  const leadSeconds = getForecastLeadSeconds(state, crew.navigators);
-  const repairSpeed = getRepairSpeedMultiplier(state, crew.engineers);
+  const forecast = getIncomingForecast(
+    state,
+    crew.navigators,
+    crew.researchForecastSeconds,
+  );
+  const leadSeconds = getForecastLeadSeconds(
+    state,
+    crew.navigators,
+    crew.researchForecastSeconds,
+  );
+  const repairSpeed = getRepairSpeedMultiplier(
+    state,
+    crew.engineers,
+    crew.researchRepairMultiplier,
+  );
 
   return (
     <section className="continuity-console defense-console" aria-labelledby="defense-console-title">
@@ -85,7 +97,7 @@ function DefenseConsole({
       </header>
 
       <div className="continuity-summary-band">
-        <div><span>Readiness</span><strong>{readiness}/100</strong></div>
+        <div title={crew.researchReadiness ? `Threat research contributes +${crew.researchReadiness} readiness.` : "Threat research has not added readiness yet."}><span>Readiness</span><strong>{readiness}/100</strong>{Boolean(crew.researchReadiness) && <small>Research +{crew.researchReadiness}</small>}</div>
         <div><span>Doctrine</span><strong>{DEFENSE_DOCTRINE_DEFINITIONS[state.doctrine].label}</strong></div>
         <div><span>Forecast lead</span><strong>{formatCountdown(leadSeconds)}</strong></div>
         <div><span>Repair speed</span><strong>×{repairSpeed.toFixed(2)}</strong></div>
@@ -162,7 +174,7 @@ function DefenseConsole({
             );
           })}
         </div>
-        <p className="crew-rarity-note">Crew contributions: assigned Soldiers +4 readiness each (and +2 Intercept margin), Engineers +3 readiness and faster repairs, Navigators +10 minutes of forecast each.</p>
+        <p className="crew-rarity-note">Crew contributions use on-duty expertise levels: Soldier levels add readiness (and Intercept margin), Engineer levels add readiness and repair speed, and Navigator levels extend the forecast. Completed threat and robotics research adds its own visible support above.</p>
       </section>
 
       <section className="continuity-panel">

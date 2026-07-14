@@ -58,6 +58,10 @@ export type DefenseCrewContext = {
   security: number;
   engineers: number;
   navigators: number;
+  /** Bounded bonuses proven in the Research Lattice. */
+  researchReadiness?: number;
+  researchForecastSeconds?: number;
+  researchRepairMultiplier?: number;
 };
 
 export type DefenseAdvanceContext = DefenseCrewContext & {
@@ -273,26 +277,34 @@ export function getDefenseReadiness(
     10 * Math.sqrt(state.installations.repairDrones) +
     6 * Math.sqrt(state.installations.pointDefense) +
     4 * Math.min(4, Math.max(0, crew.security)) +
-    3 * Math.min(4, Math.max(0, crew.engineers));
+    3 * Math.min(4, Math.max(0, crew.engineers)) +
+    Math.min(20, Math.max(0, crew.researchReadiness ?? 0));
   return Math.min(100, Math.round(value));
 }
 
 export function getForecastLeadSeconds(
   state: Pick<DefenseState, "installations">,
   navigators: number,
+  researchForecastSeconds = 0,
 ) {
   return (
     15 * 60 +
     45 * 60 * state.installations.earlyWarningRelay +
-    10 * 60 * Math.min(3, Math.max(0, navigators))
+    10 * 60 * Math.min(3, Math.max(0, navigators)) +
+    Math.min(2 * 3_600, Math.max(0, researchForecastSeconds))
   );
 }
 
 export function getRepairSpeedMultiplier(
   state: Pick<DefenseState, "installations">,
   engineers: number,
+  researchMultiplier = 1,
 ) {
-  return 1 + 0.5 * state.installations.repairDrones + 0.25 * Math.min(4, Math.max(0, engineers));
+  return (
+    1 +
+    0.5 * state.installations.repairDrones +
+    0.25 * Math.min(4, Math.max(0, engineers))
+  ) * Math.min(1.75, Math.max(1, researchMultiplier));
 }
 
 export function getInstallationCost(
@@ -454,7 +466,11 @@ export function advanceDefense(
         : remaining;
     // advance repairs across the step
     if (next.damage) {
-      const repairSpeed = getRepairSpeedMultiplier(next, context.engineers);
+      const repairSpeed = getRepairSpeedMultiplier(
+        next,
+        context.engineers,
+        context.researchRepairMultiplier,
+      );
       next.damage.repairRemainingSeconds -= boundary * repairSpeed;
       if (next.damage.repairRemainingSeconds <= 0) next.damage = null;
     }
@@ -489,9 +505,14 @@ export function getDefenseProductionMultiplier(state: Pick<DefenseState, "damage
 export function getIncomingForecast(
   state: DefenseState,
   navigators: number,
+  researchForecastSeconds = 0,
 ) {
   if (!state.incoming) return null;
-  const lead = getForecastLeadSeconds(state, navigators);
+  const lead = getForecastLeadSeconds(
+    state,
+    navigators,
+    researchForecastSeconds,
+  );
   const secondsUntil = state.incoming.arrivesAtSeconds - state.clockSeconds;
   return {
     ...state.incoming,

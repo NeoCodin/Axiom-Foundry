@@ -214,6 +214,8 @@ export type SurvivorAdvanceModifiers = {
   reservedNames?: readonly string[];
   /** Overloaded medical life support halves health recovery (never reverses it). */
   medicalOverCapacity?: boolean;
+  /** Bounded clinical-research support applied only to admitted patients. */
+  medicalRecoveryMultiplier?: number;
   /**
    * Crew who neither recover nor decay this tick - stranded expedition
    * parties sheltering off-ship. Their health is frozen, never lowered.
@@ -2202,6 +2204,7 @@ export function getMedBayCarePool(
 export function getMedBayRecoveryPerHour(
   state: Pick<SurvivorSystemState, "survivors" | "medBayIds">,
   medicalOverCapacity = false,
+  researchMultiplier = 1,
 ) {
   const patients = Math.max(1, state.medBayIds.length);
   const care =
@@ -2209,7 +2212,8 @@ export function getMedBayRecoveryPerHour(
   return (
     Math.min(
       MED_BAY_MAX_RECOVERY_PER_HOUR,
-      BASE_HEALTH_RECOVERY_PER_HOUR + care,
+      (BASE_HEALTH_RECOVERY_PER_HOUR + care) *
+        Math.min(1.3, Math.max(1, finite(researchMultiplier, 1, 1.3))),
     ) * (medicalOverCapacity ? 0.5 : 1)
   );
 }
@@ -2226,12 +2230,19 @@ function advanceHealthRecoveryMutable(
   elapsedSeconds: number,
   medicalOverCapacity: boolean,
   recoveryExemptIds: readonly string[] = [],
+  medicalRecoveryMultiplier = 1,
 ) {
   const exempt = new Set(recoveryExemptIds);
   const hours = elapsedSeconds / 3_600;
   const baseGain =
     hours * BASE_HEALTH_RECOVERY_PER_HOUR * (medicalOverCapacity ? 0.5 : 1);
-  const medBayGain = hours * getMedBayRecoveryPerHour(state, medicalOverCapacity);
+  const medBayGain =
+    hours *
+    getMedBayRecoveryPerHour(
+      state,
+      medicalOverCapacity,
+      medicalRecoveryMultiplier,
+    );
   for (const survivor of state.survivors) {
     if (exempt.has(survivor.id)) continue;
     const cap = getSurvivorHealthCap(survivor);
@@ -2295,6 +2306,7 @@ export function advanceSurvivorSystem(
     elapsed,
     modifiers.medicalOverCapacity === true,
     modifiers.recoveryExemptIds ?? [],
+    modifiers.medicalRecoveryMultiplier ?? 1,
   );
   if (next.berthConstruction) {
     const constructionSpeed = Math.min(

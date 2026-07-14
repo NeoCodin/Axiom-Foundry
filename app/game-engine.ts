@@ -69,6 +69,7 @@ import {
   sanitizeDefenseState,
   setDefenseDoctrine,
   upgradeDefenseInstallation,
+  type DefenseCrewContext,
   type DefenseDoctrine,
   type DefenseInstallationId,
   type DefenseState,
@@ -126,6 +127,7 @@ import {
   getResearchRepeatCount,
   sanitizeResearchLatticeState,
   type ResearchExpertise,
+  type ResearchBranch,
   type ResearchInputBundle,
   type ResearchLatticeState,
   type ResearchProjectId,
@@ -1160,11 +1162,20 @@ function continuityScale(state: GameState) {
     : safeMultiply(100, safePower(60, completed - 1));
 }
 
+export function getInfrastructureResearchMultiplier(state: GameState) {
+  let reduction = 0;
+  if (state.research.completedProjectIds.includes("surface-reconnaissance")) reduction += 0.03;
+  if (state.research.completedProjectIds.includes("synthetic-ecosystem-design")) reduction += 0.05;
+  if (state.research.completedProjectIds.includes("autonomous-repair-swarms")) reduction += 0.04;
+  return Math.max(0.88, 1 - reduction);
+}
+
 export function getInfrastructureFluxCost(state: GameState) {
   return bounded(
     500 *
       continuityScale(state) *
-      getColonyLegacyEffects(state).fabricationCostMultiplier,
+      getColonyLegacyEffects(state).fabricationCostMultiplier *
+      getInfrastructureResearchMultiplier(state),
   );
 }
 
@@ -1324,6 +1335,186 @@ export function getResearchLeadStatus(state: GameState) {
     exceptional:
       Boolean(lead) && (rarity === "exceptional" || rarity === "anomalous"),
     name: lead?.callsign || lead?.name || null,
+  };
+}
+
+export type ResearchFieldValidationSource = {
+  id: string;
+  label: string;
+  detail: string;
+  points: number;
+};
+
+export type ResearchFieldValidationStatus = {
+  branch: ResearchBranch | null;
+  points: number;
+  multiplier: number;
+  sources: ResearchFieldValidationSource[];
+};
+
+/**
+ * Field Validation is accelerated by things the Ark has actually done. The
+ * contribution is visible, branch-specific, capped at +25%, and never a hard
+ * gate, so idle research remains safe while the rest of the game matters.
+ */
+export function getResearchFieldValidation(
+  state: GameState,
+): ResearchFieldValidationStatus {
+  const project = state.research.activeProjectId
+    ? getResearchProjectDefinition(state.research.activeProjectId)
+    : null;
+  const branch = project?.branch ?? null;
+  const sources: ResearchFieldValidationSource[] = [];
+  const add = (id: string, label: string, detail: string, points: number) => {
+    const boundedPoints = Math.min(6, Math.max(0, points));
+    if (boundedPoints <= 0) return;
+    sources.push({ id, label, detail, points: boundedPoints });
+  };
+  const expeditions = state.worldProgress.expeditionsCompleted;
+  const infrastructure = state.worldProgress.completedInfrastructureIds.length;
+  const crises = state.worldProgress.resolvedCrisisIds.length;
+  const colonies = state.settlement.colonies.length;
+  const familyWitnesses = state.survivors.survivors.filter(
+    (survivor) => survivor.ageGroup === "child" || survivor.ageGroup === "elder",
+  ).length;
+  const armoryMarks = Object.values(state.armory.marks).reduce(
+    (total, mark) => total + Math.max(0, mark - 1),
+    0,
+  );
+  const installedDefense = Object.values(state.defense.installations).reduce(
+    (total, level) => total + level,
+    0,
+  );
+
+  switch (branch) {
+    case "ark-engineering":
+      add("infrastructure", "Built infrastructure", `${infrastructure} planetary works have survived deployment.`, infrastructure * 2);
+      add("habitation", "Habitation sections", `${state.survivors.berthSections} living-space sections provide full-scale load data.`, state.survivors.berthSections);
+      add("armory", "Armory stress history", `${armoryMarks} frame Mark advances have produced measured failures.`, armoryMarks);
+      break;
+    case "human-continuity":
+      add("colonies", "Living colonies", `${colonies} independent communities report outcomes to the Ark.`, colonies * 2);
+      add("generations", "Generational testimony", `${familyWitnesses} children and elders preserve future and memory aboard.`, familyWitnesses * 0.75);
+      add("command", "Team Alpha practice", `Command rating ${getCommandTeamStatus(state).rating} tests governance under real work.`, getCommandTeamStatus(state).rating / 20);
+      break;
+    case "medicine-biology":
+      add("crises", "Resolved planetary crises", `${crises} planetary emergencies provide clinical comparison data.`, crises * 2);
+      add("colonies", "Colony health reports", `${colonies} settlements return long-term population evidence.`, colonies * 1.5);
+      add("medical", "Medical Bay practice", `${getMedBayCarePool(state.survivors)} on-duty Doctor levels support controlled validation.`, getMedBayCarePool(state.survivors) / 2);
+      break;
+    case "planetary-sciences":
+      add("expeditions", "Surface expeditions", `${expeditions} successful field routes mapped the current world.`, expeditions * 2);
+      add("infrastructure", "Planetary works", `${infrastructure} completed works test the model at settlement scale.`, infrastructure * 2);
+      add("colonies", "Independent worlds", `${colonies} colonies provide long-duration telemetry.`, colonies * 2);
+      break;
+    case "robotics-automation":
+      add("defense", "Installed automation", `${installedDefense} Defense Grid installation levels operate under real load.`, installedDefense * 0.75);
+      add("armory", "Automated fixtures", `${armoryMarks} Armory Mark advances trained corrective machinery.`, armoryMarks);
+      add("habitation", "Ark maintenance", `${state.survivors.berthSections} inhabited sections exercise repair logistics.`, state.survivors.berthSections);
+      break;
+    case "threat-operations":
+      add("expeditions", "Expedition outcomes", `${state.expeditions.stats.completed} missions provide equipment and doctrine telemetry.`, state.expeditions.stats.completed * 0.75);
+      add("defense", "Resolved threats", `${state.defense.stats.resolved} Defense Grid events tested standing doctrine.`, state.defense.stats.resolved * 1.5);
+      add("armory", "Fielded equipment", `${armoryMarks} frame Mark advances have operational records.`, armoryMarks);
+      break;
+    case "null-studies":
+      add("crises", "Null-touched crises", `${crises} resolved crises left comparable absences.`, crises * 1.5);
+      add("observe", "Observed defense events", `${state.defense.eventLog.filter((event) => event.doctrine === "observe").length} events were instrumented rather than merely survived.`, state.defense.eventLog.filter((event) => event.doctrine === "observe").length * 2);
+      add("expeditions", "Deep-field routes", `${expeditions} current-world expeditions triangulate local signals.`, expeditions);
+      break;
+    case "axiom-theory":
+      add("axioms", "Proven Axioms", `${state.lifetimeAxioms} lifetime Axioms survived recalibration.`, state.lifetimeAxioms * 0.5);
+      add("cycles", "Recalibration cycles", `${Math.max(0, state.cycle - 1)} rebuilt assemblies provide causal comparisons.`, Math.max(0, state.cycle - 1));
+      add("laws", "Armory laws", `${Object.values(state.armory.laws).reduce((sum, level) => sum + level, 0)} permanent manufacturing laws are active.`, Object.values(state.armory.laws).reduce((sum, level) => sum + level, 0));
+      break;
+    default:
+      break;
+  }
+
+  const points = Math.min(10, sources.reduce((total, source) => total + source.points, 0));
+  return { branch, points, multiplier: 1 + points * 0.025, sources };
+}
+
+export type MedicalResearchEffects = {
+  recoveryMultiplier: number;
+  diversionPerPatient: number;
+  activeProtocols: string[];
+};
+
+export function getMedicalResearchEffects(state: GameState): MedicalResearchEffects {
+  const activeProtocols: string[] = [];
+  let recoveryBonus = 0;
+  let diversionReduction = 0;
+  if (state.research.completedProjectIds.includes("clinical-commons")) {
+    activeProtocols.push("Clinical Commons");
+    recoveryBonus += 0.1;
+  }
+  if (state.research.completedProjectIds.includes("planetary-epidemiology")) {
+    activeProtocols.push("Planetary Epidemiology");
+    recoveryBonus += 0.1;
+    diversionReduction += 0.01;
+  }
+  if (state.research.completedProjectIds.includes("synthetic-ecosystem-design")) {
+    activeProtocols.push("Synthetic Ecosystem Design");
+    recoveryBonus += 0.1;
+    diversionReduction += 0.005;
+  }
+  return {
+    recoveryMultiplier: 1 + Math.min(0.3, recoveryBonus),
+    diversionPerPatient: Math.max(0.035, MED_BAY_DIVERSION_PER_PATIENT - diversionReduction),
+    activeProtocols,
+  };
+}
+
+export type ExpeditionResearchSupport = {
+  strengthBonus: number;
+  rewardMultiplier: number;
+  activeProtocols: string[];
+};
+
+export function getExpeditionResearchSupport(state: GameState): ExpeditionResearchSupport {
+  const activeProtocols: string[] = [];
+  let strengthBonus = 0;
+  let rewardBonus = 0;
+  if (state.research.completedProjectIds.includes("surface-reconnaissance")) {
+    activeProtocols.push("Surface Reconnaissance");
+    rewardBonus += 0.05;
+  }
+  if (state.research.completedProjectIds.includes("defensive-forecasting")) {
+    activeProtocols.push("Defensive Forecasting");
+    strengthBonus += 1;
+  }
+  if (state.research.completedProjectIds.includes("specialized-field-loadouts")) {
+    activeProtocols.push("Specialized Field Loadouts");
+    strengthBonus += 1;
+    rewardBonus += 0.1;
+  }
+  return {
+    strengthBonus: Math.min(2, strengthBonus),
+    rewardMultiplier: 1 + Math.min(0.15, rewardBonus),
+    activeProtocols,
+  };
+}
+
+export function getDefenseCrewContext(state: GameState): DefenseCrewContext {
+  const completed = new Set(state.research.completedProjectIds);
+  const defensiveForecasting = completed.has("defensive-forecasting");
+  const temporalAnalysis = completed.has("temporal-signal-analysis");
+  const causalProjection = completed.has("causal-threat-projection");
+  const repairSwarms = completed.has("autonomous-repair-swarms");
+  return {
+    security: state.survivors.survivors.reduce(
+      (total, survivor) => total + (isSurvivorOnDuty(survivor, "security") ? getSurvivorSkillLevel(survivor, "security") : 0),
+      0,
+    ),
+    engineers: getAssignedEngineeringExpertise(state),
+    navigators: state.survivors.survivors.reduce(
+      (total, survivor) => total + (isSurvivorOnDuty(survivor, "navigator") ? getSurvivorSkillLevel(survivor, "navigator") : 0),
+      0,
+    ),
+    researchReadiness: (defensiveForecasting ? 6 : 0) + (causalProjection ? 8 : 0),
+    researchForecastSeconds: (defensiveForecasting ? 30 * 60 : 0) + (temporalAnalysis ? 30 * 60 : 0),
+    researchRepairMultiplier: repairSwarms ? 1.25 : 1,
   };
 }
 
@@ -1901,6 +2092,8 @@ export type ExpeditionLaunchQuote = {
   /** Base crew strength + weapon bonus, vs the site difficulty. */
   strength: number;
   gearStrength: number;
+  researchStrengthBonus: number;
+  researchRewardMultiplier: number;
   difficulty: number;
   /** Always projected before launch - the player is never ambushed. */
   projectedOutcome: ExpeditionOutcome | null;
@@ -1914,12 +2107,15 @@ export function getExpeditionLaunchQuote(
 ): ExpeditionLaunchQuote {
   const site = getExpeditionSite(siteId);
   const fluxCost = bounded(site.fluxCostBase * continuityScale(state));
+  const researchSupport = getExpeditionResearchSupport(state);
   const blocked = (reason: ExpeditionLaunchQuote["reason"]) => ({
     fluxCost,
     canLaunch: false,
     reason,
     strength: 0,
     gearStrength: 0,
+    researchStrengthBonus: researchSupport.strengthBonus,
+    researchRewardMultiplier: researchSupport.rewardMultiplier,
     difficulty: site.difficulty,
     projectedOutcome: null,
     loadout: [],
@@ -1959,12 +2155,16 @@ export function getExpeditionLaunchQuote(
   }
   const plan = planExpeditionLoadout(state.armory, roster);
   const strength =
-    getExpeditionGroupStrength(roster) + getLoadoutStrengthBonus(plan.loadout);
+    getExpeditionGroupStrength(roster) +
+    getLoadoutStrengthBonus(plan.loadout) +
+    researchSupport.strengthBonus;
   if (state.flux < fluxCost) {
     return {
       ...blocked("flux"),
       strength,
       gearStrength: plan.strengthBonus,
+      researchStrengthBonus: researchSupport.strengthBonus,
+      researchRewardMultiplier: researchSupport.rewardMultiplier,
       projectedOutcome: getProjectedExpeditionOutcome(strength, site.difficulty),
       loadout: plan.loadout,
     };
@@ -1975,6 +2175,8 @@ export function getExpeditionLaunchQuote(
     reason: null,
     strength,
     gearStrength: plan.strengthBonus,
+    researchStrengthBonus: researchSupport.strengthBonus,
+    researchRewardMultiplier: researchSupport.rewardMultiplier,
     difficulty: site.difficulty,
     projectedOutcome: getProjectedExpeditionOutcome(strength, site.difficulty),
     loadout: plan.loadout,
@@ -1994,12 +2196,14 @@ export function startExpedition(
   );
   // Auto-equip: check the planned loadout out of the armory for the trip.
   const plan = planExpeditionLoadout(state.armory, crew);
+  const researchSupport = getExpeditionResearchSupport(state);
   const expeditions = launchExpedition(
     state.expeditions,
     getExpeditionSite(siteId),
     crew,
     state.settlement.currentWorldId,
     plan.loadout,
+    researchSupport.strengthBonus,
   );
   if (expeditions === state.expeditions) return state;
   const next = cloneGameState(state);
@@ -2119,9 +2323,10 @@ export const MED_BAY_DIVERSION_PER_PATIENT = 0.05;
 export const MED_BAY_DIVERSION_CAP = 0.4;
 
 export function getMedBayDiversion(state: GameState) {
+  const perPatient = getMedicalResearchEffects(state).diversionPerPatient;
   return Math.min(
     MED_BAY_DIVERSION_CAP,
-    state.survivors.medBayIds.length * MED_BAY_DIVERSION_PER_PATIENT,
+    state.survivors.medBayIds.length * perPatient,
   );
 }
 
@@ -2130,9 +2335,13 @@ export type MedBayStatus = {
   carePool: number;
   recoveryPerHour: number;
   diversionPercent: number;
+  diversionPerPatientPercent: number;
+  researchBonusPercent: number;
+  activeProtocols: readonly string[];
 };
 
 export function getMedBayStatus(state: GameState): MedBayStatus {
+  const research = getMedicalResearchEffects(state);
   const medicalOverCapacity =
     getLifeSupportStatus(
       state.survivors,
@@ -2145,8 +2354,12 @@ export function getMedBayStatus(state: GameState): MedBayStatus {
     recoveryPerHour: getMedBayRecoveryPerHour(
       state.survivors,
       medicalOverCapacity,
+      research.recoveryMultiplier,
     ),
     diversionPercent: Math.round(getMedBayDiversion(state) * 100),
+    diversionPerPatientPercent: research.diversionPerPatient * 100,
+    researchBonusPercent: Math.round((research.recoveryMultiplier - 1) * 100),
+    activeProtocols: research.activeProtocols,
   };
 }
 
@@ -3452,6 +3665,13 @@ function generateResearchStock(state: GameState, elapsedSeconds: number) {
   const seconds = Math.max(0, elapsedSeconds);
   if (seconds <= 0) return;
   const population = state.survivors.survivors.length;
+  const children = state.survivors.survivors.filter(
+    (survivor) => survivor.ageGroup === "child",
+  ).length;
+  const elders = state.survivors.survivors.filter(
+    (survivor) => survivor.ageGroup === "elder",
+  ).length;
+  const colonies = state.settlement.colonies.length;
   const production = getProductionSnapshot(state).fluxPerSecond;
   const worldIndex = getCampaignWorldIndex(state);
   const bonuses = getResearchBonuses(state.research);
@@ -3470,13 +3690,28 @@ function generateResearchStock(state: GameState, elapsedSeconds: number) {
       ),
     "biological-samples":
       seconds *
-      (0.004 + expertise.medicine * 0.0018 + expertise.ecology * 0.0012),
+      (0.004 +
+        expertise.medicine * 0.0018 +
+        expertise.ecology * 0.0012 +
+        colonies *
+          (state.research.completedProjectIds.includes("planetary-epidemiology")
+            ? 0.0012
+            : 0.0004)),
     "cultural-records":
       seconds *
       (0.006 +
         expertise.education * 0.002 +
         expertise.research * 0.0005 +
-        population * 0.00025),
+        population * 0.00015 +
+        children *
+          (state.research.completedProjectIds.includes("adaptive-instruction")
+            ? 0.0008
+            : 0.00035) +
+        elders * 0.001 +
+        colonies *
+          (state.research.completedProjectIds.includes("colony-data-integration")
+            ? 0.0025
+            : 0.001)),
     // Schematics have NO passive source by design: rescues and
     // expeditions only (owner directive, July 13, 2026).
     schematics: 0,
@@ -3555,6 +3790,8 @@ export function simulateGame(
         [],
         survivorBonuses.habitationCapacityMultiplier,
       ).shortages.medical > 0,
+    medicalRecoveryMultiplier:
+      getMedicalResearchEffects(next).recoveryMultiplier,
     // Stranded crew shelter off-ship: health frozen, never decaying.
     recoveryExemptIds: next.expeditions.stranded?.crewIds ?? [],
     scanDurationMultiplier: getSurfaceRecon(next).multiplier,
@@ -3569,10 +3806,12 @@ export function simulateGame(
   autoTransferResearchInputs(next);
   const researchExpertise = getOperationalResearchExpertise(next);
   const researchLead = getResearchLeadStatus(next);
+  const fieldValidation = getResearchFieldValidation(next);
   const researchAdvance = advanceResearch(next.research, seconds, {
     powerAvailable: getResearchPowerAvailable(next),
     crewAvailable: getResearchCrewAvailable(next),
     externalSpeedMultiplier: colonyBonuses.researchSpeedMultiplier,
+    fieldValidationMultiplier: fieldValidation.multiplier,
     expertise: researchExpertise,
     leadResearcherLevel: researchLead.level,
     exceptionalLeadAvailable: researchLead.exceptional,
@@ -3616,6 +3855,11 @@ export function simulateGame(
       !isSurvivorAdmitted(next.survivors, survivor.id) &&
       !isSurvivorWounded(survivor),
   ).length;
+  const reserveSupportMultiplier = next.research.completedProjectIds.includes(
+    "automated-personnel-logistics",
+  )
+    ? 1.25
+    : 1;
   next.living.salvage = Math.min(
     1e12,
     next.living.salvage +
@@ -3624,7 +3868,7 @@ export function simulateGame(
           0.15,
           0.012 +
             salvageExpertise * 0.0024 +
-            reserveAdults * 0.0015 +
+            reserveAdults * 0.0015 * reserveSupportMultiplier +
             getCampaignWorldIndex(next) * 0.003,
         ),
   );
@@ -3632,17 +3876,7 @@ export function simulateGame(
   const defenseAdvance = advanceDefense(next.defense, seconds, {
     stormsEnabled: isThreatOperationsActivated(next),
     worldIndex: getCampaignWorldIndex(next),
-    security: next.survivors.survivors.reduce(
-      (total, survivor) =>
-        total + (isSurvivorOnDuty(survivor, "security") ? getSurvivorSkillLevel(survivor, "security") : 0),
-      0,
-    ),
-    engineers: getAssignedEngineeringExpertise(next),
-    navigators: next.survivors.survivors.reduce(
-      (total, survivor) =>
-        total + (isSurvivorOnDuty(survivor, "navigator") ? getSurvivorSkillLevel(survivor, "navigator") : 0),
-      0,
-    ),
+    ...getDefenseCrewContext(next),
   });
   next.defense = defenseAdvance.state;
   next.living.salvage = Math.min(
@@ -3675,6 +3909,7 @@ export function simulateGame(
     next.expeditions,
     seconds,
     next.settlement.currentWorldId,
+    getExpeditionResearchSupport(next).rewardMultiplier,
   );
   next.expeditions = expeditionAdvance.state;
   if (expeditionAdvance.completed) {

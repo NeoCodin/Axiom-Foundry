@@ -80,8 +80,10 @@ import {
   getPurchaseQuantity,
   getRecalibrationGain,
   getResearchCrewAvailable,
+  getResearchFieldValidation,
   getOperationalResearchExpertise,
   getResearchLeadStatus,
+  getDefenseCrewContext,
   getProfileElevationQuote,
   elevateCrewProfile,
   getResearchPowerAvailable,
@@ -116,14 +118,14 @@ import {
   type PrimaryView,
 } from "./game-navigation";
 import { CommandBriefing } from "./command-briefing";
-import { getCommandPriorities } from "./command-priorities";
+import { getCommandPriorities, type CommandPriority } from "./command-priorities";
 import { GameCommandBar } from "./game-command-bar";
 import PopulationConsole from "./population-console";
 import DefenseConsole from "./defense-console";
 import ArmoryConsole, { type ArmoryItemQuoteView } from "./armory-console";
 import ExpeditionConsole from "./expedition-console";
 import MedicalConsole from "./medical-console";
-import ResearchLattice from "./research-lattice";
+import ResearchLattice, { type ResearchView } from "./research-lattice";
 import SettlementConsole from "./settlement-console";
 import {
   addDiscovery,
@@ -311,6 +313,10 @@ export default function Home() {
   const [ready, setReady] = useState(false);
   const [primaryView, setPrimaryView] = useState<PrimaryView>("deck");
   const [mobileTab, setMobileTab] = useState<MobileTab>("machines");
+  const [researchEntry, setResearchEntry] = useState<{
+    view: ResearchView;
+    nonce: number;
+  } | null>(null);
   const [clockNow, setClockNow] = useState(0);
   const [announcement, setAnnouncement] = useState("");
   const [saveStatus, setSaveStatus] = useState("Local save pending");
@@ -649,6 +655,7 @@ export default function Home() {
   const researchCrewAvailable = getResearchCrewAvailable(game);
   const researchExpertise = getOperationalResearchExpertise(game);
   const researchLead = getResearchLeadStatus(game);
+  const researchFieldValidation = getResearchFieldValidation(game);
   const researchNetwork = useMemo(
     () =>
       getResearchNetworkStatus(game.research, {
@@ -659,12 +666,14 @@ export default function Home() {
         expertise: researchExpertise,
         leadResearcherLevel: researchLead.level,
         exceptionalLeadAvailable: researchLead.exceptional,
+        fieldValidationMultiplier: researchFieldValidation.multiplier,
       }),
     [
       colonyLegacyEffects.researchSpeedMultiplier,
       game.research,
       researchExpertise,
       researchLead,
+      researchFieldValidation.multiplier,
       researchCrewAvailable,
       researchPowerAvailable,
     ],
@@ -762,11 +771,7 @@ export default function Home() {
   );
 
   const defenseUnlocked = disclosure.defense;
-  const defenseCrew = {
-    security: game.survivors.survivors.filter((survivor) => survivor.assignedRole === "security").length,
-    engineers: game.survivors.survivors.filter((survivor) => survivor.assignedRole === "engineer").length,
-    navigators: game.survivors.survivors.filter((survivor) => survivor.assignedRole === "navigator").length,
-  };
+  const defenseCrew = getDefenseCrewContext(game);
   const defenseInstallationQuotes = Object.fromEntries(
     (Object.keys(DEFENSE_INSTALLATION_DEFINITIONS) as DefenseInstallationId[]).map((id) => {
       const quote = getDefenseInstallationQuote(game, id);
@@ -1018,6 +1023,25 @@ export default function Home() {
     }
     setPrimaryView(view);
     if (view === "engineering") setMobileTab("machines");
+  };
+
+  const handleCommandPriorityNavigate = (priority: CommandPriority) => {
+    setPrimaryView(priority.target);
+    if (priority.target === "engineering") {
+      setMobileTab(priority.panel === "systems" ? "systems" : "machines");
+    }
+    if (priority.target === "research") {
+      const view: ResearchView =
+        priority.panel === "research-lattice"
+          ? "lattice"
+          : priority.panel === "research-technology"
+            ? "technology"
+            : "core";
+      setResearchEntry((current) => ({
+        view,
+        nonce: (current?.nonce ?? 0) + 1,
+      }));
+    }
   };
 
   const handleStartBerthConstruction = () => {
@@ -1723,7 +1747,7 @@ export default function Home() {
 
       {primaryView === "deck" ? (
         <>
-        <CommandBriefing priorities={commandPriorities} onNavigate={setPrimaryView} />
+        <CommandBriefing priorities={commandPriorities} onNavigate={handleCommandPriorityNavigate} />
         <ArkDeck
           foundryName={game.living.foundryName}
           worldName={campaignWorld.name}
@@ -1883,6 +1907,9 @@ export default function Home() {
               carePool: status.carePool,
               recoveryPerHour: status.recoveryPerHour,
               diversionPercent: status.diversionPercent,
+              diversionPerPatientPercent: status.diversionPerPatientPercent,
+              researchBonusPercent: status.researchBonusPercent,
+              activeProtocols: status.activeProtocols,
               medicalOverCapacity: lifeSupport.shortages.medical > 0,
             };
           })()}
@@ -1909,6 +1936,7 @@ export default function Home() {
         />
       ) : primaryView === "research" ? (
         <ResearchLattice
+          key={`research-${researchEntry?.view ?? "default"}-${researchEntry?.nonce ?? 0}`}
           state={game.research}
           resources={game.researchStock}
           availableCrew={researchCrewAvailable}
@@ -1918,6 +1946,8 @@ export default function Home() {
           }
           expertise={researchExpertise}
           leadResearcher={researchLead}
+          fieldValidation={researchFieldValidation}
+          initialView={researchEntry?.view}
           now={clockNow || game.lastSaved}
           autoTransfer={getAutoTransferStatus(game)}
           onStateChange={handleResearchStateChange}
@@ -1972,6 +2002,8 @@ export default function Home() {
             return {
               strength: quote.strength,
               gearStrength: quote.gearStrength,
+              researchStrengthBonus: quote.researchStrengthBonus,
+              researchRewardMultiplier: quote.researchRewardMultiplier,
               difficulty: quote.difficulty,
               projectedOutcome: quote.projectedOutcome,
               weapons: quote.loadout.filter((entry) => entry.weaponId).length,
