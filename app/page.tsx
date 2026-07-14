@@ -36,6 +36,12 @@ import {
   chooseDefenseDoctrine,
   craftArmoryItem,
   repairArmoryItem,
+  beginArmoryUpgrade,
+  getArmoryUpgradeQuote,
+  getArmoryModificationQuote,
+  installArmoryModification,
+  getArmoryLawQuote,
+  purchaseArmoryLaw,
   abandonStrandedCrew,
   admitCrewToMedBay,
   chooseTrainingDoctrine,
@@ -154,8 +160,17 @@ import {
   type SurvivorRole,
 } from "./survivor-engine";
 import {
+  ARMORY_LAWS,
+  ARMORY_MODIFICATIONS,
   ARMORY_ITEM_DEFINITIONS,
+  getEffectiveArmorMultiplier,
+  getEffectiveArmoryDurability,
+  getEffectiveWeaponStrength,
   type ArmoryItemId,
+  type ArmoryArmorId,
+  type ArmoryLawId,
+  type ArmoryModificationId,
+  type ArmoryWeaponId,
 } from "./armory-engine";
 import {
   addResearchInputs,
@@ -760,6 +775,22 @@ export default function Home() {
     ARMORY_ITEM_DEFINITIONS.map((item) => {
       const craft = getArmoryCraftQuote(game, item.id);
       const repair = getArmoryRepairQuote(game, item.id);
+      const upgrade = getArmoryUpgradeQuote(game, item.id);
+      const upgradeResearch = upgrade.requiredResearchId
+        ? getResearchProjectDefinition(upgrade.requiredResearchId)
+        : null;
+      const upgradeReason =
+        upgrade.reason === "maxed"
+          ? "Maximum known Mark"
+          : upgrade.reason === "project"
+            ? "Another Armory project is active"
+            : upgrade.reason === "law"
+              ? "Requires Impossible Materials law"
+              : upgrade.reason === "research"
+                ? `Requires ${upgradeResearch?.name ?? "advanced research"}`
+                : upgrade.reason
+                  ? `Needs more ${upgrade.reason}`
+                  : null;
       return [
         item.id,
         {
@@ -778,10 +809,62 @@ export default function Home() {
           wielders: game.survivors.survivors.filter(
             (survivor) => getSurvivorBestSkillLevel(survivor) >= item.wieldLevel,
           ).length,
+          mark: game.armory.marks[item.id],
+          effectivePrimary:
+            item.kind === "weapon"
+              ? `+${getEffectiveWeaponStrength(game.armory, item.id as ArmoryWeaponId)} per carrier`
+              : `×${getEffectiveArmorMultiplier(game.armory, item.id as ArmoryArmorId).toFixed(2)}`,
+          effectiveDurability: getEffectiveArmoryDurability(game.armory, item.id),
+          modification: game.armory.modifications[item.id],
+          upgrade: {
+            targetMark: upgrade.targetMark,
+            canStart: upgrade.canStart,
+            reason: upgradeReason,
+            costLabel: `${formatNumber(upgrade.fluxCost)} Flux · ${upgrade.salvageCost} Salvage · ${upgrade.schematicCost} SCH · ${upgrade.modelCost} Models${upgrade.nullTraceCost ? ` · ${upgrade.nullTraceCost} Null` : ""}`,
+            durationLabel: formatDuration(upgrade.durationSeconds),
+            researchName: upgradeResearch?.name ?? null,
+          },
+          modifications: (Object.keys(ARMORY_MODIFICATIONS) as ArmoryModificationId[])
+            .filter((id) => ARMORY_MODIFICATIONS[id].kinds.includes(item.kind))
+            .map((id) => {
+              const modification = getArmoryModificationQuote(game, item.id, id);
+              return {
+                id,
+                available: modification.researchMet,
+                canInstall: modification.canInstall,
+                costLabel: `${modification.salvageCost} Salvage · ${modification.schematicCost} SCH`,
+                researchName:
+                  getResearchProjectDefinition(
+                    ARMORY_MODIFICATIONS[id]
+                      .requiredResearchId as Parameters<
+                      typeof getResearchProjectDefinition
+                    >[0],
+                  )?.name ?? ARMORY_MODIFICATIONS[id].requiredResearchId,
+              };
+            }),
         },
       ];
     }),
-  ) as Record<ArmoryItemId, ArmoryItemQuoteView>;
+  ) as unknown as Record<ArmoryItemId, ArmoryItemQuoteView>;
+  const armoryLaws = Object.fromEntries(
+    (Object.keys(ARMORY_LAWS) as ArmoryLawId[]).map((lawId) => [
+      lawId,
+      getArmoryLawQuote(game, lawId),
+    ]),
+  ) as Record<ArmoryLawId, ReturnType<typeof getArmoryLawQuote>>;
+  const activeArmoryProject = game.armory.activeProject
+    ? {
+        itemName: ARMORY_ITEM_DEFINITIONS.find(
+          (item) => item.id === game.armory.activeProject!.itemId,
+        )!.name,
+        targetMark: game.armory.activeProject.targetMark,
+        progress:
+          1 -
+          game.armory.activeProject.remainingSeconds /
+            game.armory.activeProject.totalSeconds,
+        remainingLabel: formatDuration(game.armory.activeProject.remainingSeconds),
+      }
+    : null;
 
   useEffect(() => {
     if (!ready) return;
@@ -1033,6 +1116,41 @@ export default function Home() {
     if (next === current) return;
     const item = ARMORY_ITEM_DEFINITIONS.find((entry) => entry.id === itemId)!;
     commitGameState(next, `${item.name} repaired to full durability.`);
+  };
+
+  const handleUpgradeArmoryItem = (itemId: ArmoryItemId) => {
+    const current = gameRef.current;
+    const quote = getArmoryUpgradeQuote(current, itemId);
+    const next = beginArmoryUpgrade(current, itemId);
+    if (next === current || !quote.targetMark) return;
+    const item = ARMORY_ITEM_DEFINITIONS.find((entry) => entry.id === itemId)!;
+    commitGameState(
+      next,
+      `${item.name} Mark ${quote.targetMark} development started. The Armory will continue while you are away.`,
+    );
+  };
+
+  const handleArmoryModification = (
+    itemId: ArmoryItemId,
+    modificationId: ArmoryModificationId | null,
+  ) => {
+    const current = gameRef.current;
+    const next = installArmoryModification(current, itemId, modificationId);
+    if (next === current) return;
+    const item = ARMORY_ITEM_DEFINITIONS.find((entry) => entry.id === itemId)!;
+    commitGameState(
+      next,
+      modificationId
+        ? `${ARMORY_MODIFICATIONS[modificationId].name} fitted to every ${item.name} pattern.`
+        : `${item.name} returned to its standard pattern.`,
+    );
+  };
+
+  const handleBuyArmoryLaw = (lawId: ArmoryLawId) => {
+    const current = gameRef.current;
+    const next = purchaseArmoryLaw(current, lawId);
+    if (next === current) return;
+    commitGameState(next, `${ARMORY_LAWS[lawId].name} has become a permanent Armory law.`);
   };
 
   const handleChooseDefenseDoctrine = (doctrine: DefenseDoctrine) => {
@@ -1797,10 +1915,15 @@ export default function Home() {
         <ArmoryConsole
           currentWorldName={campaignWorld.name}
           quotes={armoryQuotes}
+          activeProject={activeArmoryProject}
+          laws={armoryLaws}
           onCraft={handleCraftArmoryItem}
           onRepair={handleRepairArmoryItem}
+          onUpgrade={handleUpgradeArmoryItem}
+          onModification={handleArmoryModification}
+          onBuyLaw={handleBuyArmoryLaw}
           onOpenHelp={setManualTopic}
-          onBack={() => setPrimaryView("deck")}
+          onBack={() => setPrimaryView("population")}
         />
       ) : primaryView === "expeditions" ? (
         <ExpeditionConsole

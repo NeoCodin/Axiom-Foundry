@@ -414,10 +414,33 @@ label.expedition-manifest-row { grid-template-columns: auto auto minmax(0, 1fr) 
 .armory-item-stats span { color: #687f91; }
 .armory-item-stats strong { color: #a8bdca; text-align: right; }
 .armory-item-actions { display: grid; gap: 6px; }
+.armory-active-project { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(260px, 2fr); align-items: center; gap: 18px; padding: 14px 16px; border: 1px solid color-mix(in srgb, var(--world-accent, #55d6e8) 45%, #243a4b); background: color-mix(in srgb, var(--world-accent, #55d6e8) 8%, #071019); }
+.armory-active-project span, .armory-mark-project span, .armory-modification-list > span, .armory-law-grid article > span { display: block; color: var(--world-accent, #55d6e8); font-family: var(--font-mono, monospace); font-size: 7px; font-weight: 800; letter-spacing: .12em; }
+.armory-active-project strong { display: block; margin-top: 4px; color: #e5f0f5; font-size: 13px; }
+.armory-active-project small { color: #8297a7; font-size: 8px; }
+.armory-mark-project { display: grid; gap: 5px; padding: 10px; border: 1px solid #203646; background: #091620; }
+.armory-mark-project > div { display: flex; justify-content: space-between; gap: 10px; }
+.armory-mark-project > div strong { color: #dce7ee; font-size: 10px; }
+.armory-mark-project small { color: #718797; font-size: 8px; line-height: 1.4; }
+.armory-modification-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
+.armory-modification-list > span { grid-column: 1 / -1; margin-bottom: 2px; color: #718797; }
+.armory-modification-list button { display: grid; gap: 2px; padding: 7px 8px; text-align: left; border: 1px solid #263b4b; background: #08131c; cursor: pointer; }
+.armory-modification-list button strong { color: #aabecb; font-size: 8px; }
+.armory-modification-list button small { color: #61788a; font-size: 7px; }
+.armory-modification-list button.active { border-color: var(--world-accent, #55d6e8); background: color-mix(in srgb, var(--world-accent, #55d6e8) 10%, #08131c); }
+.armory-modification-list button.active strong { color: var(--world-accent, #55d6e8); }
+.armory-modification-list button:disabled { opacity: .52; cursor: default; }
+.armory-law-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.armory-law-grid article { display: grid; align-content: start; gap: 6px; min-height: 142px; padding: 11px; border: 1px solid #3e3560; background: linear-gradient(145deg, rgba(170,146,255,.09), #08121b 56%); }
+.armory-law-grid article > strong { color: #cbbcff; font-size: 11px; }
+.armory-law-grid article p { margin: 0; color: #8495a5; font-size: 8px; line-height: 1.45; }
+.armory-law-grid article button { align-self: end; margin-top: auto; padding: 7px; color: #cbbcff; border: 1px solid #55467d; background: rgba(170,146,255,.08); font-size: 8px; cursor: pointer; }
+.armory-law-grid article button:disabled { color: #665d7b; cursor: default; }
 
 @media (max-width: 1080px) {
   .support-upgrade-grid { grid-template-columns: repeat(3, 1fr); }
   .continuity-summary-band { grid-template-columns: repeat(3, 1fr); }
+  .armory-law-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 760px) {
@@ -438,9 +461,11 @@ label.expedition-manifest-row { grid-template-columns: auto auto minmax(0, 1fr) 
   .crew-actions-grid { grid-template-columns: 1fr; }
   .settlement-hero > * { max-width: 100%; }
   .settlement-hero::after { opacity: 0.35; }
+  .armory-active-project { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 560px) {
+  .armory-law-grid, .armory-modification-list { grid-template-columns: 1fr; }
   .crisis-action-heading { grid-template-columns: 1fr; }
   .crisis-action-heading > button { width: 100%; }
   .crisis-requirements li { grid-template-columns: 22px minmax(0, 1fr); }

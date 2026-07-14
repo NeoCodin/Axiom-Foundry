@@ -35,8 +35,12 @@ import {
 } from "./expedition-engine.ts";
 import {
   addArmoryItem,
+  advanceArmoryProject,
+  ARMORY_LAWS,
+  ARMORY_MODIFICATIONS,
   ARMORY_ITEM_DEFINITIONS,
   ARMORY_REPAIR_COST_RATIO,
+  buyArmoryLaw as buyArmoryStateLaw,
   cloneArmoryState,
   createArmoryState,
   getArmoryDamagedCount,
@@ -47,7 +51,12 @@ import {
   repairArmoryItem as repairArmoryStockItem,
   returnExpeditionGear,
   sanitizeArmoryState,
+  setArmoryModification as setArmoryStateModification,
+  startArmoryProject,
   type ArmoryItemId,
+  type ArmoryLawId,
+  type ArmoryMark,
+  type ArmoryModificationId,
   type ArmoryState,
   type ExpeditionLoadoutEntry,
 } from "./armory-engine.ts";
@@ -1501,6 +1510,157 @@ export function repairArmoryItem(state: GameState, itemId: ArmoryItemId) {
   const next = cloneGameState(state);
   next.flux = Math.max(0, next.flux - quote.fluxCost);
   next.armory = armory;
+  return next;
+}
+
+const ARMORY_MARK_FLUX_MULTIPLIER: Record<ArmoryMark, number> = {
+  1: 0,
+  2: 4,
+  3: 12,
+  4: 40,
+};
+
+const ARMORY_MARK_DURATION_SECONDS: Record<ArmoryMark, number> = {
+  1: 0,
+  2: 30 * 60,
+  3: 2 * 60 * 60,
+  4: 6 * 60 * 60,
+};
+
+const getMarkResearchId = (
+  kind: "weapon" | "armor",
+  targetMark: ArmoryMark,
+): ResearchProjectId => {
+  if (targetMark === 4) return "axiom-origin-proof";
+  if (kind === "weapon")
+    return targetMark === 2 ? "arc-discharge-weapons" : "null-edge-armaments";
+  return targetMark === 2 ? "reactive-shell" : "aegis-frame";
+};
+
+export type ArmoryUpgradeQuote = {
+  itemId: ArmoryItemId;
+  currentMark: ArmoryMark;
+  targetMark: ArmoryMark | null;
+  fluxCost: number;
+  salvageCost: number;
+  schematicCost: number;
+  modelCost: number;
+  nullTraceCost: number;
+  durationSeconds: number;
+  requiredResearchId: ResearchProjectId | null;
+  canStart: boolean;
+  reason:
+    | "maxed"
+    | "project"
+    | "law"
+    | "research"
+    | "flux"
+    | "salvage"
+    | "schematics"
+    | "models"
+    | "traces"
+    | null;
+};
+
+export function getArmoryUpgradeQuote(
+  state: GameState,
+  itemId: ArmoryItemId,
+): ArmoryUpgradeQuote {
+  const item = getArmoryItemDefinition(itemId);
+  const currentMark = state.armory.marks[itemId];
+  const targetMark = currentMark < 4 ? ((currentMark + 1) as ArmoryMark) : null;
+  if (!targetMark) {
+    return { itemId, currentMark, targetMark: null, fluxCost: 0, salvageCost: 0, schematicCost: 0, modelCost: 0, nullTraceCost: 0, durationSeconds: 0, requiredResearchId: null, canStart: false, reason: "maxed" };
+  }
+  const patternFactor = 1 - 0.1 * state.armory.laws["standardized-patterns"];
+  const forgingFactor = Math.pow(0.85, state.armory.laws["recursive-forging"]);
+  const tierFactor = 0.75 + item.tier * 0.25;
+  const fluxCost = bounded(item.fluxCostBase * ARMORY_MARK_FLUX_MULTIPLIER[targetMark] * continuityScale(state) * patternFactor);
+  const salvageCost = Math.ceil((targetMark === 2 ? 80 : targetMark === 3 ? 220 : 650) * item.tier * patternFactor);
+  const schematicCost = Math.ceil((targetMark === 2 ? 30 : targetMark === 3 ? 80 : 200) * item.tier * patternFactor);
+  const modelCost = Math.ceil(item.modelCost * (targetMark === 2 ? 2 : targetMark === 3 ? 4 : 8) * patternFactor);
+  const nullTraceCost = Math.ceil((targetMark === 2 ? 0 : targetMark === 3 ? 20 : 100) * item.tier * patternFactor);
+  const durationSeconds = Math.ceil(ARMORY_MARK_DURATION_SECONDS[targetMark] * tierFactor * forgingFactor);
+  const requiredResearchId = getMarkResearchId(item.kind, targetMark);
+  const reason = state.armory.activeProject
+    ? ("project" as const)
+    : targetMark === 4 && state.armory.laws["impossible-materials"] < 1
+      ? ("law" as const)
+      : !state.research.completedProjectIds.includes(requiredResearchId)
+        ? ("research" as const)
+        : state.flux < fluxCost
+          ? ("flux" as const)
+          : state.living.salvage < salvageCost
+            ? ("salvage" as const)
+            : state.researchStock.schematics < schematicCost
+              ? ("schematics" as const)
+              : state.researchStock["engineering-models"] < modelCost
+                ? ("models" as const)
+                : state.researchStock["null-traces"] < nullTraceCost
+                  ? ("traces" as const)
+                  : null;
+  return { itemId, currentMark, targetMark, fluxCost, salvageCost, schematicCost, modelCost, nullTraceCost, durationSeconds, requiredResearchId, canStart: reason === null, reason };
+}
+
+export function beginArmoryUpgrade(state: GameState, itemId: ArmoryItemId) {
+  const quote = getArmoryUpgradeQuote(state, itemId);
+  if (!quote.canStart || !quote.targetMark) return state;
+  const next = cloneGameState(state);
+  next.flux -= quote.fluxCost;
+  next.living.salvage -= quote.salvageCost;
+  next.researchStock.schematics -= quote.schematicCost;
+  next.researchStock["engineering-models"] -= quote.modelCost;
+  next.researchStock["null-traces"] -= quote.nullTraceCost;
+  next.armory = startArmoryProject(next.armory, itemId, quote.targetMark, quote.durationSeconds);
+  return next;
+}
+
+export type ArmoryModificationQuote = {
+  itemId: ArmoryItemId;
+  modificationId: ArmoryModificationId;
+  researchMet: boolean;
+  salvageCost: number;
+  schematicCost: number;
+  canInstall: boolean;
+};
+
+export function getArmoryModificationQuote(state: GameState, itemId: ArmoryItemId, modificationId: ArmoryModificationId): ArmoryModificationQuote {
+  const definition = ARMORY_MODIFICATIONS[modificationId];
+  const researchMet = state.research.completedProjectIds.includes(definition.requiredResearchId as ResearchProjectId);
+  const fitted = state.armory.modifications[itemId] === modificationId;
+  return { itemId, modificationId, researchMet, salvageCost: definition.salvageCost, schematicCost: definition.schematicCost, canInstall: !fitted && definition.kinds.includes(getArmoryItemDefinition(itemId).kind) && researchMet && state.living.salvage >= definition.salvageCost && state.researchStock.schematics >= definition.schematicCost };
+}
+
+export function installArmoryModification(state: GameState, itemId: ArmoryItemId, modificationId: ArmoryModificationId | null) {
+  if (modificationId === null) {
+    if (!state.armory.modifications[itemId]) return state;
+    const next = cloneGameState(state);
+    next.armory = setArmoryStateModification(next.armory, itemId, null);
+    return next;
+  }
+  const quote = getArmoryModificationQuote(state, itemId, modificationId);
+  if (!quote.canInstall) return state;
+  const next = cloneGameState(state);
+  next.living.salvage -= quote.salvageCost;
+  next.researchStock.schematics -= quote.schematicCost;
+  next.armory = setArmoryStateModification(next.armory, itemId, modificationId);
+  return next;
+}
+
+export function getArmoryLawQuote(state: GameState, lawId: ArmoryLawId) {
+  const definition = ARMORY_LAWS[lawId];
+  const level = state.armory.laws[lawId];
+  const maxed = level >= definition.maxLevel;
+  const cost = maxed ? 0 : Math.ceil(definition.baseCost * Math.pow(2, level));
+  return { lawId, level, maxed, cost, canBuy: !maxed && state.axioms >= cost };
+}
+
+export function purchaseArmoryLaw(state: GameState, lawId: ArmoryLawId) {
+  const quote = getArmoryLawQuote(state, lawId);
+  if (!quote.canBuy) return state;
+  const next = cloneGameState(state);
+  next.axioms -= quote.cost;
+  next.armory = buyArmoryStateLaw(next.armory, lawId);
   return next;
 }
 
@@ -3162,6 +3322,10 @@ export function simulateGame(
     externalSpeedMultiplier: colonyBonuses.researchSpeedMultiplier,
   });
   next.research = researchAdvance.state;
+  // Armory Mark projects use the same offline-safe elapsed time as research.
+  // Resources are committed up front; completion is deterministic and cannot
+  // be lost by closing the game.
+  next.armory = advanceArmoryProject(next.armory, seconds);
   next.worldProgress = {
     ...next.worldProgress,
     completedResearchIds: [

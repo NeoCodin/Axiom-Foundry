@@ -4,15 +4,21 @@ import test from "node:test";
 import {
   abandonStrandedCrew,
   admitCrewToMedBay,
+  beginArmoryUpgrade,
   craftArmoryItem,
   createInitialState,
   getCampaignCrewSummaries,
+  getArmoryLawQuote,
+  getArmoryModificationQuote,
+  getArmoryUpgradeQuote,
   getCurrentViabilityForecast,
   getExpeditionLaunchQuote,
   getProstheticSurgeryQuote,
   getRescueMissionQuote,
   getSurfaceRecon,
   performProstheticSurgery,
+  installArmoryModification,
+  purchaseArmoryLaw,
   repairArmoryItem,
   setTutorialComplete,
   simulateGame,
@@ -26,8 +32,11 @@ import {
   startSurvivorTraining,
 } from "../app/survivor-engine.ts";
 import {
+  getEffectiveArmoryDurability,
+  getEffectiveWeaponStrength,
   getArmoryDamagedCount,
   getArmoryReadyCount,
+  sanitizeArmoryState,
 } from "../app/armory-engine.ts";
 import {
   getExpeditionSite,
@@ -265,6 +274,106 @@ test("weapons and armor are research-gated, add strength, and armor breaks absor
   const repairedOnce = repairArmoryItem(done, "composite-weave");
   assert.equal(getArmoryDamagedCount(repairedOnce.armory, "composite-weave"), 1);
   assert.equal(getArmoryReadyCount(repairedOnce.armory, "composite-weave"), 1);
+});
+
+test("Armory Mark projects are costly, offline-safe, bounded upgrades", () => {
+  const state = cinderStateWithCrew();
+  state.research.completedProjectIds = [
+    ...state.research.completedProjectIds,
+    "expedition-armaments",
+    "arc-discharge-weapons",
+    "composite-plating",
+    "reactive-shell",
+  ];
+  state.researchStock["engineering-models"] = 100_000;
+  state.researchStock.schematics = 100_000;
+  state.researchStock["null-traces"] = 100_000;
+  state.living.salvage = 100_000;
+  let equipped = craftArmoryItem(state, "kinetic-pike");
+  equipped = craftArmoryItem(equipped, "composite-weave");
+
+  const weaponQuote = getArmoryUpgradeQuote(equipped, "kinetic-pike");
+  assert.equal(weaponQuote.targetMark, 2);
+  assert.equal(weaponQuote.canStart, true);
+  const upgrading = beginArmoryUpgrade(equipped, "kinetic-pike");
+  assert.ok(upgrading.armory.activeProject);
+  assert.ok(upgrading.flux < equipped.flux);
+  assert.ok(upgrading.living.salvage < equipped.living.salvage);
+  assert.equal(
+    getArmoryUpgradeQuote(upgrading, "composite-weave").reason,
+    "project",
+    "only one deliberate Armory project runs at once",
+  );
+
+  const finished = simulateGame(
+    upgrading,
+    weaponQuote.durationSeconds + 1,
+    240,
+    false,
+  );
+  assert.equal(finished.armory.activeProject, null);
+  assert.equal(finished.armory.marks["kinetic-pike"], 2);
+  assert.equal(getArmoryReadyCount(finished.armory, "kinetic-pike"), 1);
+  assert.equal(getEffectiveWeaponStrength(finished.armory, "kinetic-pike"), 3);
+
+  const armorQuote = getArmoryUpgradeQuote(finished, "composite-weave");
+  const armorDone = simulateGame(
+    beginArmoryUpgrade(finished, "composite-weave"),
+    armorQuote.durationSeconds + 1,
+    240,
+    false,
+  );
+  assert.equal(armorDone.armory.marks["composite-weave"], 2);
+  assert.equal(getEffectiveArmoryDurability(armorDone.armory, "composite-weave"), 2);
+});
+
+test("specializations create visible tradeoffs and Axiom laws stay hard-gated", () => {
+  const state = cinderStateWithCrew();
+  state.research.completedProjectIds = [
+    ...state.research.completedProjectIds,
+    "expedition-armaments",
+    "arc-discharge-weapons",
+    "observer-recursion",
+  ];
+  state.researchStock["engineering-models"] = 10_000;
+  state.researchStock.schematics = 10_000;
+  state.living.salvage = 10_000;
+  let armed = craftArmoryItem(state, "kinetic-pike");
+  const sensorQuote = getArmoryModificationQuote(
+    armed,
+    "kinetic-pike",
+    "sensor-link",
+  );
+  assert.equal(sensorQuote.canInstall, true);
+  armed = installArmoryModification(armed, "kinetic-pike", "sensor-link");
+  const preview = getExpeditionLaunchQuote(armed, "planetary-survey", [
+    "scout-1",
+    "scout-2",
+  ]);
+  assert.equal(preview.loadout.some((entry) => entry.weaponModification === "sensor-link"), true);
+
+  assert.equal(getArmoryLawQuote(armed, "recursive-forging").canBuy, false);
+  armed.axioms = 20;
+  const lawCost = getArmoryLawQuote(armed, "recursive-forging").cost;
+  const lawful = purchaseArmoryLaw(armed, "recursive-forging");
+  assert.equal(lawful.armory.laws["recursive-forging"], 1);
+  assert.equal(lawful.axioms, 20 - lawCost);
+  assert.ok(
+    getArmoryUpgradeQuote(lawful, "kinetic-pike").durationSeconds <
+      getArmoryUpgradeQuote(armed, "kinetic-pike").durationSeconds,
+  );
+});
+
+test("legacy Armory saves migrate into Mark I standardized frames", () => {
+  const migrated = sanitizeArmoryState({
+    schema: 1,
+    stock: { "kinetic-pike": [0, 3], "composite-weave": [1, 2] },
+  });
+  assert.equal(migrated.schema, 2);
+  assert.equal(migrated.marks["kinetic-pike"], 1);
+  assert.equal(getArmoryReadyCount(migrated, "kinetic-pike"), 3);
+  assert.equal(migrated.modifications["kinetic-pike"], null);
+  assert.equal(migrated.activeProject, null);
 });
 
 test("distress strands the party stable forever; rescue brings everyone home", () => {

@@ -61,7 +61,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
     steps: [
       { title: "Tune the Core", detail: "Click the Axiom Chamber to gain Flux and one Calibration Data per tune." },
       { title: "Follow the active directive", detail: "The strip above the Ark always names the next useful action and shows its progress." },
-      { title: "Enter awakened destinations", detail: "The five destinations are Ark, Foundry, Personnel, Research, and Planet. Medical belongs to Personnel; Expeditions, Defense, and Armory are facilities aboard the Ark." },
+      { title: "Enter awakened destinations", detail: "The five destinations are Ark, Foundry, Personnel, Research, and Planet. Medical and Armory management belong to Personnel; Expeditions and Defense remain Ark operations." },
       { title: "Read AXIOM's priorities", detail: "The command briefing names up to three useful actions, explains the blocker, and opens the exact destination. Every recommendation is safe to postpone." },
     ],
     sources: [
@@ -194,22 +194,24 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
   armory: {
     id: "armory",
     label: "Armory",
-    category: "Page guide // expedition outfitting",
-    title: "Forge the gear, and expeditions equip themselves",
+    category: "Personnel guide // equipment development",
+    title: "Improve six trusted frames instead of collecting clutter",
     summary:
-      "After your first Cinder expedition, the Armory wakes as shared Ark stock. Research a tier in the Threat Operations branch, forge pieces with Flux and Engineering Models, and every expedition auto-equips the best gear each member is leveled to use.",
+      "The Armory belongs to Personnel because equipment exists to support people. The Ark maintains three weapon frames and three armor frames; Research unlocks them, the forge stocks them, and long-running Mark projects improve every copy of a frame at once.",
     steps: [
-      { title: "Research a tier", detail: "Each weapon and armor tier is a Threat Operations research project. Tier 3 gear also costs Null Traces to forge." },
-      { title: "Forge pieces", detail: "One piece outfits one expedition member. Four of each covers a full crew." },
+      { title: "Unlock the frame", detail: "Threat Operations research unlocks each weapon and armor pattern. Schematics provide knowledge; Engineering Models and Flux manufacture it." },
+      { title: "Run Mark projects", detail: "Mark II-IV projects commit Flux, Salvage, Schematics, Models, and eventually Null Traces. Only one runs at once, it continues offline, and completion improves every stocked copy." },
+      { title: "Fit one specialization", detail: "Each frame accepts one researched modification. Stabilizers add reliability, Overchargers add power and risk, Sensor Links improve recovery, and Field Medic Kits improve protection." },
       { title: "Check wield levels", detail: "A survivor's best professional level decides what they can carry: Pike 2 / Carbine 4 / Lance 6, Weave 1 / Shell 3 / Frame 5." },
       { title: "Repair after setbacks", detail: "Armor that absorbs a hit loses durability and eventually reads DAMAGED. Repairs cost 40% of the forge price." },
+      { title: "Rewrite Armory laws", detail: "Axioms buy permanent laws that reduce project cost or time, reward veteran carriers, and eventually authorize Mark IV materials." },
     ],
     sources: [
-      { label: "Weapons", detail: "Add group strength per equipped member (+2/+4/+6 by tier) and never break." },
-      { label: "Armor", detail: "Multiplies setback wound damage (×0.5/×0.35/×0.2 by tier) and limits the worst possible permanent injury." },
+      { label: "Weapons", detail: "Marks add bounded strength rather than exponential damage. A qualified crew and good team composition remain essential." },
+      { label: "Armor", detail: "Marks improve mitigation and durability, but cannot remove expedition risk or replace medical preparation." },
       { label: "Health", detail: "Wounded crew (below 40 health) recover at +2/hour, faster with assigned Doctors. Only expedition setbacks ever deal damage." },
     ],
-    tip: "The armory survives Recalibration and travels between worlds. Gear you forge now protects every future crew.",
+    tip: "Marks, fitted specializations, stocked gear, active projects, and Armory Laws all survive Recalibration and travel between worlds.",
   },
   settlement: {
     id: "settlement",

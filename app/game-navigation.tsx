@@ -24,8 +24,8 @@ type GameNavigationProps = {
 type NavigationGroup = "ark" | "foundry" | "personnel" | "research" | "planet";
 
 function groupForView(view: PrimaryView): NavigationGroup {
-  if (["expeditions", "defense", "armory"].includes(view)) return "ark";
-  if (["population", "medical"].includes(view)) return "personnel";
+  if (["expeditions", "defense"].includes(view)) return "ark";
+  if (["population", "medical", "armory"].includes(view)) return "personnel";
   if (view === "engineering") return "foundry";
   if (view === "research") return "research";
   if (view === "settlement") return "planet";
@@ -37,7 +37,7 @@ export function GameNavigation({ currentView, unlocks, onNavigate }: GameNavigat
   const mainSystemsAwake =
     1 +
     [unlocks.engineering, unlocks.population, unlocks.research, unlocks.settlement].filter(Boolean).length;
-  const arkFacilities = [unlocks.expeditions, unlocks.defense, unlocks.armory].filter(Boolean).length;
+  const arkFacilities = [unlocks.expeditions, unlocks.defense].filter(Boolean).length;
 
   return (
     <>
@@ -87,18 +87,17 @@ export function GameNavigation({ currentView, unlocks, onNavigate }: GameNavigat
           <button className={currentView === "deck" ? "active" : ""} type="button" aria-current={currentView === "deck" ? "page" : undefined} onClick={() => onNavigate("deck")}>Command Deck</button>
           {unlocks.expeditions && <button className={currentView === "expeditions" ? "active" : ""} type="button" aria-current={currentView === "expeditions" ? "page" : undefined} onClick={() => onNavigate("expeditions")}>Expedition Bay</button>}
           {unlocks.defense && <button className={currentView === "defense" ? "active" : ""} type="button" aria-current={currentView === "defense" ? "page" : undefined} onClick={() => onNavigate("defense")}>Defense Grid</button>}
-          {unlocks.armory && <button className={currentView === "armory" ? "active" : ""} type="button" aria-current={currentView === "armory" ? "page" : undefined} onClick={() => onNavigate("armory")}>Armory</button>}
         </nav>
       )}
 
-      {activeGroup === "personnel" && unlocks.medical && (
+      {activeGroup === "personnel" && (unlocks.medical || unlocks.armory) && (
         <nav className="facility-navigation personnel-navigation" aria-label="Personnel facilities">
-          <div className="facility-navigation-label"><span>Personnel</span><small>People before inventory</small></div>
+          <div className="facility-navigation-label"><span>Personnel</span><small>Crew, care, and field equipment</small></div>
           <button className={currentView === "population" ? "active" : ""} type="button" aria-current={currentView === "population" ? "page" : undefined} onClick={() => onNavigate("population")}>Crew Roster</button>
-          <button className={currentView === "medical" ? "active" : ""} type="button" aria-current={currentView === "medical" ? "page" : undefined} onClick={() => onNavigate("medical")}>Medical Bay</button>
+          {unlocks.medical && <button className={currentView === "medical" ? "active" : ""} type="button" aria-current={currentView === "medical" ? "page" : undefined} onClick={() => onNavigate("medical")}>Medical Bay</button>}
+          {unlocks.armory && <button className={currentView === "armory" ? "active" : ""} type="button" aria-current={currentView === "armory" ? "page" : undefined} onClick={() => onNavigate("armory")}>Armory</button>}
         </nav>
       )}
     </>
   );
 }
-

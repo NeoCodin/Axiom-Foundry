@@ -15,7 +15,9 @@ import {
   getEntryDamageMultiplier,
   getEntryWorstInjury,
   getLoadoutStrengthBonus,
+  getLoadoutRecoveryMultiplier,
   type ArmoryArmorId,
+  type ArmoryModificationId,
   type ArmoryWeaponId,
   type ExpeditionLoadoutEntry,
 } from "./armory-engine.ts";
@@ -347,6 +349,12 @@ const isArmorId = (value: unknown): value is ArmoryArmorId =>
     (item) => item.kind === "armor" && item.id === value,
   );
 
+const isModificationId = (value: unknown): value is ArmoryModificationId =>
+  value === "stabilizer" ||
+  value === "overcharger" ||
+  value === "sensor-link" ||
+  value === "field-medic-kit";
+
 const isInjuryTier = (value: unknown): value is SurvivorInjuryTier =>
   value === "minor" || value === "major" || value === "severe";
 
@@ -367,6 +375,28 @@ const sanitizeLoadout = (
       weaponId: isWeaponId(raw.weaponId) ? raw.weaponId : null,
       armorId: isArmorId(raw.armorId) ? raw.armorId : null,
       armorDurability: Math.floor(finite(raw.armorDurability, 0, 10)),
+      weaponStrength: finite(
+        raw.weaponStrength,
+        isWeaponId(raw.weaponId)
+          ? ARMORY_ITEM_DEFINITIONS.find((item) => item.id === raw.weaponId)!
+              .strengthBonus
+          : 0,
+        100,
+      ),
+      weaponModification: isModificationId(raw.weaponModification)
+        ? raw.weaponModification
+        : null,
+      armorModification: isModificationId(raw.armorModification)
+        ? raw.armorModification
+        : null,
+      armorDamageMultiplier: finite(
+        raw.armorDamageMultiplier,
+        isArmorId(raw.armorId)
+          ? ARMORY_ITEM_DEFINITIONS.find((item) => item.id === raw.armorId)!
+              .damageMultiplier
+          : 1,
+        2,
+      ),
     });
   }
   return loadout;
@@ -838,6 +868,7 @@ export function advanceExpeditions(
             };
           })
         : [];
+  const recoveryMultiplier = getLoadoutRecoveryMultiplier(active.loadout);
   const result: ExpeditionResult = {
     siteId: site.id,
     outcome,
@@ -845,8 +876,8 @@ export function advanceExpeditions(
     difficulty: site.difficulty,
     crewIds: [...active.crewIds],
     resolvedAtSeconds: next.clockSeconds,
-    salvage: Math.round(site.rewards.salvage * scale),
-    schematics: Math.round(site.rewards.schematics * scale),
+    salvage: Math.round(site.rewards.salvage * scale * recoveryMultiplier),
+    schematics: Math.round(site.rewards.schematics * scale * recoveryMultiplier),
     nullTraces: Math.round(site.rewards.nullTraces * scale),
     discoveryId: outcome === "success" ? site.rewards.discoveryId ?? null : null,
     surveyCredited,

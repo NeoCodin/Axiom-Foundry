@@ -86,7 +86,7 @@ Do not add endless procedural planets yet. More planets can be authored later, b
 
 ## 6. Page responsibilities
 
-The primary navigation has exactly five destinations: **Ark, Foundry, Personnel, Research, and Planet**. Medical is a Personnel facility. Expedition Bay, Defense Grid, and Armory are Ark facilities. Contextual facility navigation appears only after those systems matter, so late-game depth does not become nine equal-weight top-level tabs.
+The primary navigation has exactly five destinations: **Ark, Foundry, Personnel, Research, and Planet**. Medical and the Armory are Personnel facilities; Expedition Bay and Defense Grid are Ark facilities. The physical Armory room still appears on the Ark cross-section, but its management surface opens under Personnel. Contextual facility navigation appears only after those systems matter, so late-game depth does not become nine equal-weight top-level tabs.
 
 ### Ark page
 
@@ -511,7 +511,7 @@ Recommended order, subject to owner approval:
 
 Implemented July 13, 2026 (consolidation release):
 
-- Navigation reduced from up to nine equal-weight tabs to five destinations: Ark, Foundry, Personnel, Research, and Planet. Medical sits within Personnel; Expedition Bay, Defense Grid, and Armory sit within the Ark.
+- Navigation reduced from up to nine equal-weight tabs to five destinations: Ark, Foundry, Personnel, Research, and Planet. Medical and Armory management sit within Personnel; Expedition Bay and Defense Grid sit within the Ark.
 - The Ark now opens with an AXIOM command briefing that chooses up to three live priorities, explains cross-system blockers, shows progress, and routes directly to the relevant screen.
 - Unlock pacing is staged: Medical becomes visible at Viridia, after Clinical Commons, or when someone actually needs care; Expeditions arrive at Cinder; Armory follows the first completed expedition or armament research; Defense and ash storms begin after two completed expeditions or immediately for saves with existing defense progress.
 - `page.tsx` began decomposition into dedicated navigation, command-bar, strategic-guidance, and briefing modules.
@@ -597,7 +597,7 @@ Implemented July 14, 2026 (crew capacity, families, and AXIOM staffing):
 - Raw `Stable founding population` and duplicate profession-headcount gates were retired. Planet departure now uses `Community Readiness`: each adult +1, each child/elder +2, social Expertise up to +2/person, profession diversity up to +4, and completed planetary works +2 each. Existing world targets remain 18/26/34/42/50, so later worlds demand stronger groups without requiring 34-50 separate people. Founding groups are hard-capped at 24 people (half the full Ark).
 - Continuity now displays only combined Expertise gates (`Engineering Expertise`, `Medical Expertise`, etc.). One level-four specialist visibly contributes four points. Equipment previously covering fictional "posts" now contributes directly to the matching Expertise total.
 - The Field Manual and Personnel/Planet interfaces explain the cap, age groups, Ark Reserve, assignment locks, readiness math, and Expertise contributors. Saves remain compatible and no crew is deleted.
-- Validation baseline after this pass: 148 tests, lint, vinext production build, and static hosting build passing.
+- Validation baseline after this pass: 151 tests, lint, vinext production build, and static hosting build passing.
 
 Implemented July 13, 2026 (Medical Bay tab):
 
@@ -625,6 +625,16 @@ Completed from this list:
 - Archive cross-index discoveries award Null Traces (15 + 10 × world index).
 
 The next implementation should begin with a written mechanic specification and balance table. Do not jump directly into random combat events; the idle-resolution and failure-safety rules must be decided first.
+
+### Implemented July 14, 2026 — standardized Armory progression
+
+- Armory management moved from the Ark facility strip to Personnel. The physical room remains visible on the Ark cross-section and routes to Personnel → Armory.
+- The inventory remains deliberately limited to three weapon frames and three armor frames. Each has a global Mark I-IV pattern; a completed Mark upgrades every ready copy while preserving damaged stock.
+- Mark projects are single-slot, deterministic, offline-safe jobs. Resources are committed at launch. Costs grow across Flux, Salvage, Recovered Schematics, Engineering Models, and late Marks' Null Traces. Mark II takes roughly 30-45 minutes before laws; Mark III 2-3 hours; Mark IV 6-9 hours.
+- Mark strength is bounded: weapons gain only +1 strength per Mark, while armor gains 10% relative mitigation and one durability per Mark. Crew level and composition remain important. Mark IV additionally requires Axiom Origin Proof plus the Impossible Materials law.
+- Each frame has one global specialization slot: Vector Stabilizer (+1 weapon strength), Unsafe Overcharger (+2 with +15% carrier wound damage), Sensor Link (+15% Salvage/Schematic expedition recovery once per party), or Field Medic Kit (15% additional armor mitigation). Unlocks reuse relevant Research projects; changing fits consumes modest Salvage and Schematics.
+- Four permanent Armory Laws spend Axioms: Standardized Patterns (material discounts), Recursive Forging (time reduction), Resonant Munitions (bounded veteran strength), and Impossible Materials (Mark IV authorization). Marks, fits, laws, active projects, and stock survive Recalibration.
+- `ARMORY_SCHEMA` is 2. Old schema-1 stock migrates intact as Mark I with standard patterns, no laws, and no active project. No save reset.
 
 ## 22. Maintaining this handoff
 
