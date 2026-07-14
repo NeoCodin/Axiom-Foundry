@@ -75,7 +75,7 @@ export type EquipmentDefinition = {
 export type ContinuitySubstitution = {
   id: string;
   label: string;
-  targetKind: "role" | "expertise";
+  targetKind: "expertise";
   targetId: string;
   sourceKind: "equipment" | "research";
   sourceId: string;
@@ -107,7 +107,8 @@ export type CampaignWorldDefinition = {
   environment: string;
   theme: CampaignTheme;
   settlementRequired: boolean;
-  minimumPopulation: number;
+  /** Readiness target; people, expertise, age balance, and infrastructure contribute. */
+  communityReadiness: number;
   surveysRequired: number;
   infrastructure: readonly InfrastructureObjective[];
   roleRequirements: readonly RoleRequirement[];
@@ -143,7 +144,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
       motion: "Rare relay blinks and a weak heartbeat from the core.",
     },
     settlementRequired: false,
-    minimumPopulation: 0,
+    communityReadiness: 0,
     surveysRequired: 0,
     infrastructure: [
       {
@@ -197,7 +198,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
       motion: "Tidal pulses and beacon responses ripple through the deck.",
     },
     settlementRequired: true,
-    minimumPopulation: 18,
+    communityReadiness: 18,
     surveysRequired: 0,
     infrastructure: [
       {
@@ -281,13 +282,13 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     substitutions: [
       {
         id: "pelagos-field-clinic-role",
-        label: "A mobile field clinic can cover one medical post",
-        targetKind: "role",
-        targetId: "medical-team",
+        label: "A mobile field clinic supplements medical expertise",
+        targetKind: "expertise",
+        targetId: "medicine",
         sourceKind: "equipment",
         sourceId: "mobile-field-clinic",
-        contribution: 1,
-        maxContribution: 1,
+        contribution: 2,
+        maxContribution: 2,
       },
       {
         id: "pelagos-field-clinic-skill",
@@ -301,13 +302,13 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
       },
       {
         id: "pelagos-curriculum-role",
-        label: "Adaptive curriculum can cover the first education post",
-        targetKind: "role",
-        targetId: "education-team",
+        label: "Adaptive curriculum supplements education expertise",
+        targetKind: "expertise",
+        targetId: "education",
         sourceKind: "research",
         sourceId: "adaptive-instruction",
-        contribution: 1,
-        maxContribution: 1,
+        contribution: 2,
+        maxContribution: 2,
       },
     ],
     legacyBenefits: [
@@ -347,7 +348,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
       motion: "Pollen motes, capillary lines, and slow botanical unfurling.",
     },
     settlementRequired: true,
-    minimumPopulation: 26,
+    communityReadiness: 26,
     surveysRequired: 0,
     infrastructure: [
       {
@@ -419,13 +420,13 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     substitutions: [
       {
         id: "viridia-auto-farms",
-        label: "Autonomous growbeds cover two ecology posts",
-        targetKind: "role",
-        targetId: "ecology-team",
+        label: "Autonomous growbeds supplement ecology expertise",
+        targetKind: "expertise",
+        targetId: "ecology",
         sourceKind: "equipment",
         sourceId: "autonomous-growbed",
-        contribution: 1,
-        maxContribution: 2,
+        contribution: 3,
+        maxContribution: 6,
       },
       {
         id: "viridia-diagnostic-model",
@@ -475,7 +476,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
       motion: "Piston strokes, ember trails, and deep geothermal tremors.",
     },
     settlementRequired: true,
-    minimumPopulation: 34,
+    communityReadiness: 34,
     surveysRequired: 2,
     infrastructure: [
       {
@@ -554,13 +555,13 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     substitutions: [
       {
         id: "cinder-fabricator-rigs",
-        label: "Automated fabrication rigs cover two fabrication posts",
-        targetKind: "role",
-        targetId: "fabrication-team",
+        label: "Automated fabrication rigs supplement fabrication expertise",
+        targetKind: "expertise",
+        targetId: "fabrication",
         sourceKind: "equipment",
         sourceId: "automated-fabricator-rig",
-        contribution: 1,
-        maxContribution: 2,
+        contribution: 3,
+        maxContribution: 6,
       },
       {
         id: "cinder-digital-twin",
@@ -610,7 +611,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
       motion: "Delayed signal echoes, checksum snow, and slow parallax errors.",
     },
     settlementRequired: true,
-    minimumPopulation: 42,
+    communityReadiness: 42,
     surveysRequired: 3,
     infrastructure: [
       {
@@ -708,13 +709,13 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     substitutions: [
       {
         id: "nox-relay-agents",
-        label: "Authenticated relay agents cover two signal posts",
-        targetKind: "role",
-        targetId: "communications-team",
+        label: "Authenticated relay agents supplement communications expertise",
+        targetKind: "expertise",
+        targetId: "communications",
         sourceKind: "equipment",
         sourceId: "relay-agent",
-        contribution: 1,
-        maxContribution: 2,
+        contribution: 3,
+        maxContribution: 6,
       },
       {
         id: "nox-public-ledger",
@@ -764,7 +765,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
       motion: "Reversing star trails, lensing fractures, and doubled crew shadows.",
     },
     settlementRequired: true,
-    minimumPopulation: 50,
+    communityReadiness: 50,
     surveysRequired: 3,
     infrastructure: [
       {
@@ -862,13 +863,13 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     substitutions: [
       {
         id: "vesper-analysis-cluster",
-        label: "Analysis clusters cover two research posts",
-        targetKind: "role",
-        targetId: "research-team",
+        label: "Analysis clusters supplement research expertise",
+        targetKind: "expertise",
+        targetId: "research",
         sourceKind: "equipment",
         sourceId: "analysis-cluster",
-        contribution: 1,
-        maxContribution: 2,
+        contribution: 4,
+        maxContribution: 8,
       },
       {
         id: "vesper-null-model",

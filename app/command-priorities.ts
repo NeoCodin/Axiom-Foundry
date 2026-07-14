@@ -28,7 +28,7 @@ export type CommandPriority = {
 };
 
 function deficitTarget(deficit: ViabilityDeficit): PrimaryView {
-  if (["population", "role", "expertise", "profile"].includes(deficit.kind)) return "population";
+  if (["community", "expertise", "profile"].includes(deficit.kind)) return "population";
   if (deficit.kind === "research") return "research";
   if (deficit.kind === "survey") return "expeditions";
   return "settlement";
@@ -39,7 +39,8 @@ function missionTarget(kind: string): PrimaryView {
 }
 
 function rescueBlockCopy(reason: ReturnType<typeof getArkRescueQuote>["reason"]) {
-  if (reason === "berths") return { detail: "The group is safe on signal. Build another quarters section before dispatch.", target: "population" as const };
+  if (reason === "roster-full") return { detail: "The Ark has reached its 48-person structural limit. Establish a founding community before accepting another signal.", target: "settlement" as const };
+  if (reason === "berths") return { detail: "The group is safe on signal. Expand the Ark's living space before dispatch.", target: "population" as const };
   if (reason === "life-support") return { detail: "The group is safe on signal. Expand the highlighted life-support reserve first.", target: "population" as const };
   if (reason === "salvage") return { detail: "The rescue shuttle needs more Salvage. Assign Fabricators or Technicians and let the Ark recover it.", target: "population" as const };
   if (reason === "flux") return { detail: "The shuttle is ready but its launch reserve needs more Flux.", target: "engineering" as const };

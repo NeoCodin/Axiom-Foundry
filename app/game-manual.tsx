@@ -117,12 +117,13 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
     category: "Page guide // human continuity",
     title: "Make the Ark safe, answer signals, then shape the crew",
     summary:
-      "Rescue groups never expire. Build safe capacity with Salvage, answer the SOS signal when ready, then assign specialists or train adaptable civilians.",
+      "Rescue groups never expire. The Ark holds at most 48 people; expand living space and life support, then let AXIOM handle routine staffing while you protect the assignments that matter.",
     steps: [
-      { title: "Build quarters and expand life support", detail: "Crew quarters come from Habitation Ring sections built with Flux (assigned engineers speed construction). Atmosphere, water, nutrition, and medical capacity expand with Salvage. Both must cover the incoming group." },
+      { title: "Expand living systems", detail: "Living-space sections cost Flux and Salvage, and assigned Engineers speed construction. Atmosphere, water, nutrition, and medical capacity also expand with Salvage. The Ark's absolute limit is 48 people." },
       { title: "Activate the SOS beacon", detail: "Once the Ark reaches a planetary orbit, the beacon finds a persistent group after 90 seconds." },
       { title: "Dispatch the rescue shuttle", detail: "Spend the listed Salvage to bring the entire group aboard. Each person also brings Biological Samples and Cultural Records." },
-      { title: "Assign or train", detail: "Assigned specialists earn profession XP offline. Standard profiles learn at ×1.00, Notable ×1.25, Exceptional ×1.60, and Anomalous ×2.00." },
+      { title: "Let AXIOM staff the Ark", detail: "Adults default to their strongest learned profession. Manual assignments stay locked; Ark Reserve covers absences and performs light maintenance. Optimize All Crew performs a complete reshuffle." },
+      { title: "Study a profession", detail: "Adults with an open profession slot can study new work. Standard profiles learn at ×1.00, Notable ×1.25, Exceptional ×1.60, and Anomalous ×2.00." },
     ],
     sources: [
       { label: "Profile rarity", detail: "Colors describe how scarce a recruit's aptitude, adaptability, trait, and archive combination is—not their human worth. Rarity accelerates training and job XP and sets profession capacity (Standard 1, Notable 2, Exceptional 3, Anomalous unlimited)." },
@@ -130,8 +131,10 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
       { label: "Training slots", detail: "One program can run per slot. Slots grow with population (+1 per 20 people) and the Adaptive Instruction and Clinical Commons research projects, up to 12." },
       { label: "Civilians", detail: "Highly adaptable recruits who can be trained around the exact needs of a future settlement." },
       { label: "Specialists", detail: "Arrive ready for a profession and improve through assigned work. Notable-or-better specialists can cross-train additional professions." },
+      { label: "Children and elders", detail: "Rescued family groups may include children and elders. Children attend school, never work or enter missions, and grow into adults after two planetary chapters. Elders may work, but AXIOM automatically places them only in medicine, research, navigation, or education." },
+      { label: "Ark protection", detail: "Use Protect for the Ark on a personnel file to keep a favorite or essential specialist off every planetary selection list until you remove the protection." },
       { label: "Expeditions & health", detail: "The Expedition Bay always projects the outcome before launch. Setbacks send crew home wounded (below 40 health = RECOVERING); a projected DISTRESS would strand them at the site. Stranded crews are stable forever - send a rescue party (it can never strand itself) or, only by explicit choice, abandon them to the memorial wall. Nothing in the game kills crew automatically." },
-      { label: "Team Alpha", detail: "Appoint a crew leader plus up to three officers from any personnel file. Their combined continuity expertise becomes a Command Rating that boosts crew-wide training and job XP (capped). With a leader appointed, set a Training Doctrine (a lean): empty training slots auto-fill with your best IDLE crew for that profession - it never cancels manual programs or pulls anyone off a station. Officers keep their jobs and can still deploy or found colonies; their contribution simply pauses while they are away or recovering." },
+      { label: "Team Alpha", detail: "Appoint a crew leader plus up to three adult officers. Their combined Continuity Expertise becomes a Command Rating that boosts crew-wide study and job XP. A Training Doctrine fills empty study slots from Ark Reserve without pulling anyone off a station." },
     ],
     tip: "Roster order stays chronological. Color and visible labels identify rare profiles without hiding anyone or changing rescue priority.",
   },
@@ -214,16 +217,19 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
     category: "Page guide // planetary continuity",
     title: "Leave only when a world can continue without the Ark",
     summary:
-      "Continuity combines population, expertise, infrastructure, supplies, research, crisis response, and your chosen founders into one departure forecast.",
+      "Continuity combines Community Readiness, Expertise, infrastructure, supplies, research, crisis response, and your chosen founders into one departure forecast.",
     steps: [
       { title: "Read the explicit deficits", detail: "Every unmet requirement names the direct fix and any research or equipment substitute." },
       { title: "Complete permanent world work", detail: "Infrastructure, stored supplies, and required research remain completed. Every crisis card lists its Foundry, infrastructure, research, and Flux prerequisites live." },
-      { title: "Choose eligible founders", detail: "Select enough people, profession coverage, combined Expertise, and—on later worlds—the visible Profile Depth requirement." },
+      { title: "Choose a founding community", detail: "Community Readiness replaces a raw population quota. Every person contributes; children, elders, social Expertise, profession diversity, and completed planetary works increase readiness." },
+      { title: "Meet combined Expertise", detail: "Engineering, Medical, Ecology, and other requirements count combined levels, not numbers of job titles. One experienced specialist can contribute several points." },
       { title: "Name and establish the settlement", detail: "Departure becomes available only when every requirement is met. There is no deadline." },
     ],
     sources: [
       { label: "Viability", detail: "A readable summary of how close the current world is to independent survival." },
       { label: "Expertise", detail: "Combined profession levels from selected founders. Open any requirement's ‘How this is counted’ row to see its formula and contributors." },
+      { label: "Community Readiness", detail: "Each adult contributes 1; each child or elder contributes 2. Medicine, Ecology, Education, and Leadership can add up to 2 more per person. Profession diversity adds up to 4, and completed planetary works add 2 each." },
+      { label: "Founding-group limit", detail: "A departure can take at most 24 people, half the Ark's full capacity. Protected personnel are never selectable." },
       { label: "Leadership", detail: "70% of Security level plus 40% of Navigator level, each rounded up. Even a level-one qualification contributes." },
       { label: "Profile Depth", detail: "Cinder requires 2 Notable-or-better founders; Nox requires 4 including 1 Exceptional; Vesper requires 6 including 3 Exceptional. Anomalous counts as Exceptional." },
       { label: "Substitutions", detail: "Research and fabricated equipment prevent unlucky recruitment from hard-locking a world." },
@@ -236,10 +242,11 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
     category: "Resource guide // recovery stores",
     title: "Salvage is the bridge between an empty Ark and its first crew",
     summary:
-      "Salvage pays for life-support capacity, rescue shuttles, and later Foundry upgrades. It recovers automatically and never requires a timer challenge.",
+      "Salvage pays for living-space construction, life-support capacity, rescue shuttles, and later repairs and upgrades. It recovers automatically and never requires a timer challenge.",
     steps: [
       { title: "Wait for base recovery", detail: "The Ark begins with 35 Salvage and automatically recovers 43.2 per hour, including offline time." },
       { title: "Assign recovery workers", detail: "Every assigned Fabricator or Technician adds 21.6 Salvage per hour." },
+      { title: "Keep an Ark Reserve", detail: "Available adults without a station perform light maintenance and recover a smaller amount of Salvage automatically." },
       { title: "Complete planetary work", detail: "Planetfall phase completions and stabilized worlds award extra Salvage caches." },
       { title: "Launch expeditions later", detail: "After enough worlds are secured, Expedition Bay routes return larger Salvage manifests." },
     ],

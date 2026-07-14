@@ -142,6 +142,7 @@ function ExpeditionConsole({
             const rescuers = state.survivors.filter(
               (survivor) =>
                 !trainingIds.has(survivor.id) &&
+                survivor.ageGroup !== "child" &&
                 !strandedIds.has(survivor.id) &&
                 !isSurvivorWounded(survivor) &&
                 !(expeditions.active?.crewIds.includes(survivor.id) ?? false),
@@ -278,7 +279,10 @@ function ExpeditionConsole({
           const trainingIds = new Set(state.training.map((program) => program.survivorId));
           const woundedCount = state.survivors.filter(isSurvivorWounded).length;
           const eligible = state.survivors.filter(
-            (survivor) => !trainingIds.has(survivor.id) && !isSurvivorWounded(survivor),
+            (survivor) =>
+              survivor.ageGroup !== "child" &&
+              !trainingIds.has(survivor.id) &&
+              !isSurvivorWounded(survivor),
           );
           const chosen = expeditionCrewIds.filter((id) => eligible.some((survivor) => survivor.id === id));
           const toggle = (id: string) => {

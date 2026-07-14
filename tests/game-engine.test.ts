@@ -756,14 +756,10 @@ test("continuity equipment is fabricated with Flux and feeds substitutions", () 
 
   // Owned units feed the viability forecast substitutions.
   const forecast = getCurrentViabilityForecast(bought);
-  const medicalRole = forecast?.lines.find(
-    (line) => line.kind === "role" && line.id === "medical-team",
-  );
   const medicineSkill = forecast?.lines.find(
     (line) => line.kind === "expertise" && line.id === "medicine",
   );
-  assert.equal(medicalRole?.substitutionValue, 1);
-  assert.equal(medicineSkill?.substitutionValue, 4);
+  assert.equal(medicineSkill?.substitutionValue, 6);
 
   // The unit limit is enforced.
   const limitQuote = getEquipmentFabricationQuote(bought, "mobile-field-clinic");

@@ -12,7 +12,7 @@ You awaken as AXIOM, the damaged caretaker intelligence of an empty interplaneta
 2. Restore stable atmosphere, water, nutrition, medical care, and habitation.
 3. Reach a fallen planet and activate its SOS beacon.
 4. Rescue persistent procedural survivor groups with names, histories, traits, aptitudes, and occasional mystery characters.
-5. Assign specialists or train adaptable civilians while the game is open or closed.
+5. Let AXIOM staff adults into their strongest work, protect manual assignments, and study new professions while the game is open or closed.
 6. Manufacture science inputs and route them through the configurable Research Lattice.
 7. Complete Ark Engineering, Human Continuity, and Null Studies projects.
 8. Restore planetary infrastructure, resolve its crisis, and stock an independent settlement.
@@ -36,11 +36,11 @@ The campaign moves through Cold Wake, Pelagos, Viridia, Cinder, Nox, and Vesper.
 - Procedural names, backgrounds, traits, aptitudes, professional roles, and rare authored story hooks
 - Stable profile-rarity colors across survivor signals, rosters, Ark previews, and founder selection
 - Stable life-support capacity with no hunger, death, punishment timers, or negative offline decay
-- Civilian education, specialist cross-training, callsigns, work assignments, and offline XP
+- A 48-person Ark limit, expandable living space, family groups, children, elders, Ark Reserve, automatic staffing, protected manual assignments, cross-training, callsigns, and offline XP
 - A visual Research Lattice with safe auto-routing and an optional manual patch panel
 - Six manufactured research inputs, six processors, crew/power limits, and three connected branches
 - Research that unlocks habitation, training, medicine, fabrication, settlement planning, and the Null mystery
-- Planet-specific population, expertise, infrastructure, supply, crisis, and research requirements
+- Planet-specific Community Readiness, combined Expertise, infrastructure, supply, crisis, and research requirements
 - Live crisis-resolution checklists generated from every world's Foundry stages, infrastructure, research, and Flux gates
 - Explicit founder selection and detailed viability forecasts with fair research/equipment substitutions
 - Persistent colonies, transmissions, legacy bonuses, and contradictory Continuity Protocol records

@@ -66,7 +66,9 @@ import {
 } from "./defense-engine.ts";
 import {
   admitToMedBay,
+  advanceCrewAgesAfterChapter,
   advanceSurvivorSystem,
+  autoAssignSurvivors,
   appointCommandLeader,
   applyStrandedCondition,
   applySurvivorWound,
@@ -88,6 +90,7 @@ import {
   getSurvivorSkillLevel,
   isSurvivorOnDuty,
   isSurvivorWounded,
+  ARK_CREW_HARD_CAP,
   MAX_BERTH_SECTIONS,
   RARE_SURVIVOR_HOOKS,
   getRescueReadiness,
@@ -351,7 +354,7 @@ export const MISSIONS = [
     epithet: "Interstellar Prologue",
     title: "Make the Ark habitable",
     briefing:
-      "AXIOM has awakened between stars with no crew and a failing hull. Restore emergency power, teach the fabrication chain to repeat, and prepare one safe berth before Pelagos orbit.",
+      "AXIOM has awakened between stars with no crew and a failing hull. Restore emergency power, teach the fabrication chain to repeat, and prepare living space before Pelagos orbit.",
     arrival:
       "The Ark drifts through black space. Pelagos is a blue point ahead; every inhabited deck behind the Axiom Chamber is dark.",
     hazardLabel: "Cold-wake damage",
@@ -386,7 +389,7 @@ export const MISSIONS = [
         target: 15_000,
         label: "Brake into Pelagos orbit",
         instruction: "Divert 15,000 Flux into propulsion and life-support wakeup.",
-        lore: "The maneuver also powers a sealed berth whose biometric log already contains an occupant ID.",
+        lore: "The maneuver also powers sealed quarters whose biometric log already contains an occupant ID.",
       },
     ],
     landingFlux: 100,
@@ -1070,10 +1073,15 @@ export function getCampaignCrewSummaries(
       expertise: getSurvivorContinuityExpertise(survivor),
       available: !busy && !isSurvivorWounded(survivor),
       // Founding a colony demands health of 80+ (E2 spec §1).
-      canSettle: !busy && canSurvivorFound(survivor),
+      canSettle:
+        !busy &&
+        !survivor.settlementProtected &&
+        canSurvivorFound(survivor),
       rarity: rarity.id,
       rarityLabel: rarity.label,
       rarityDescription: rarity.description,
+      ageGroup: survivor.ageGroup,
+      protectedForArk: survivor.settlementProtected,
       level:
         survivor.role === "civilian"
           ? 0
@@ -1555,6 +1563,7 @@ export function getExpeditionLaunchQuote(
     crew.some(
       (member) =>
         !member ||
+        member.ageGroup === "child" ||
         trainingIds.has(member.id) ||
         isSurvivorAdmitted(state.survivors, member.id),
     )
@@ -1616,7 +1625,9 @@ export function startExpedition(
   next.armory = plan.state;
   // deployed crew stand down from their stations for the duration
   for (const survivor of next.survivors.survivors) {
-    if (unique.includes(survivor.id)) survivor.assignedRole = null;
+    if (unique.includes(survivor.id)) {
+      survivor.assignedRole = null;
+    }
   }
   return next;
 }
@@ -1944,6 +1955,7 @@ export function getRescueMissionQuote(
     crew.some(
       (member) =>
         !member ||
+        member.ageGroup === "child" ||
         trainingIds.has(member.id) ||
         strandedIds.has(member.id) ||
         isSurvivorAdmitted(state.survivors, member.id),
@@ -1998,7 +2010,9 @@ export function startRescueMission(
   next.expeditions = expeditions;
   next.armory = plan.state;
   for (const survivor of next.survivors.survivors) {
-    if (unique.includes(survivor.id)) survivor.assignedRole = null;
+    if (unique.includes(survivor.id)) {
+      survivor.assignedRole = null;
+    }
   }
   return next;
 }
@@ -2046,6 +2060,7 @@ export function getBerthConstructionSpeed(state: GameState) {
 
 export type BerthConstructionQuote = {
   cost: number;
+  salvageCost: number;
   sections: number;
   capacity: number;
   berthsPerSection: number;
@@ -2070,12 +2085,18 @@ export function getBerthConstructionQuote(
       (1 + 0.08 * sections) *
       getColonyLegacyEffects(state).fabricationCostMultiplier,
   );
+  const salvageCost = Math.round(
+    12 + sections * 8 + getCampaignWorldIndex(state) * 6,
+  );
   return {
     cost,
+    salvageCost,
     sections,
     capacity: getBerthCapacity(state.survivors),
     berthsPerSection: BERTHS_PER_SECTION,
-    maxed: sections >= MAX_BERTH_SECTIONS,
+    maxed:
+      sections >= MAX_BERTH_SECTIONS ||
+      getBerthCapacity(state.survivors) >= ARK_CREW_HARD_CAP,
     inProgress: state.survivors.berthConstruction !== null,
     baseDurationSeconds: BERTH_CONSTRUCTION_BASE_SECONDS,
     engineerCount: getAssignedEngineerCount(state),
@@ -2127,11 +2148,20 @@ export function chooseDefenseDoctrine(
 
 export function startArkBerthConstruction(state: GameState) {
   const quote = getBerthConstructionQuote(state);
-  if (quote.maxed || quote.inProgress || state.flux < quote.cost) return state;
+  if (
+    quote.maxed ||
+    quote.inProgress ||
+    state.flux < quote.cost ||
+    state.living.salvage < quote.salvageCost
+  ) return state;
   const survivors = startBerthSectionConstruction(state.survivors);
   if (survivors === state.survivors) return state;
   const next = cloneGameState(state);
   next.flux = Math.max(0, next.flux - quote.cost);
+  next.living.salvage = Math.max(
+    0,
+    next.living.salvage - quote.salvageCost,
+  );
   next.survivors = survivors;
   next.researchStock["engineering-models"] = Math.min(
     1e12,
@@ -2406,6 +2436,7 @@ export function departCurrentWorld(
     next.survivors,
     result.settledCrewIds,
   );
+  next.survivors = advanceCrewAgesAfterChapter(next.survivors);
   next.survivors = setSosBeaconOnline(
     next.survivors,
     false,
@@ -3089,6 +3120,10 @@ export function simulateGame(
     next.survivors,
     getDeployedCrewIds(next.expeditions),
   );
+  next.survivors = autoAssignSurvivors(
+    next.survivors,
+    getDeployedCrewIds(next.expeditions),
+  );
   const commandMultiplier = getCommandTeamStatus(next).multiplier;
   next.survivors = advanceSurvivorSystem(next.survivors, seconds, {
     trainingSpeedMultiplier:
@@ -3116,6 +3151,10 @@ export function simulateGame(
       colony.founders.map((founder) => founder.name.replace(/\s*“.*$/u, "")),
     ),
   });
+  next.survivors = autoAssignSurvivors(
+    next.survivors,
+    getDeployedCrewIds(next.expeditions),
+  );
   autoTransferResearchInputs(next);
   const researchAdvance = advanceResearch(next.research, seconds, {
     powerAvailable: getResearchPowerAvailable(next),
@@ -3138,13 +3177,29 @@ export function simulateGame(
       isSurvivorOnDuty(survivor, "fabricator") ||
       isSurvivorOnDuty(survivor, "technician"),
   ).length;
+  const trainingIds = new Set(
+    next.survivors.training.map((program) => program.survivorId),
+  );
+  const deployedIds = getDeployedCrewIds(next.expeditions);
+  const reserveAdults = next.survivors.survivors.filter(
+    (survivor) =>
+      survivor.ageGroup !== "child" &&
+      survivor.assignedRole === null &&
+      !trainingIds.has(survivor.id) &&
+      !deployedIds.has(survivor.id) &&
+      !isSurvivorAdmitted(next.survivors, survivor.id) &&
+      !isSurvivorWounded(survivor),
+  ).length;
   next.living.salvage = Math.min(
     1e12,
     next.living.salvage +
       seconds *
         Math.min(
           0.15,
-          0.012 + salvageWorkers * 0.006 + getCampaignWorldIndex(next) * 0.003,
+          0.012 +
+            salvageWorkers * 0.006 +
+            reserveAdults * 0.0015 +
+            getCampaignWorldIndex(next) * 0.003,
         ),
   );
 

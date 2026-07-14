@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  ARK_CREW_HARD_CAP,
   BASE_BERTHS,
   BERTHS_PER_SECTION,
   admitToMedBay,
@@ -30,7 +31,9 @@ import {
   getScanDurationSeconds,
   SOS_SCAN_SECONDS,
   advanceSurvivorSystem,
+  advanceCrewAgesAfterChapter,
   assignSurvivorToRole,
+  autoAssignSurvivors,
   cancelSurvivorTraining,
   cloneSurvivorSystemState,
   createSurvivorSystemState,
@@ -50,6 +53,7 @@ import {
   rescueSurvivorSignal,
   sanitizeSurvivorSystemState,
   setLifeSupportCapacity,
+  setSurvivorSettlementProtected,
   setSosBeaconOnline,
   setTrainingSlots,
   startSurvivorTraining,
@@ -929,7 +933,10 @@ test("authored story-hook characters are rescued at most once per campaign", () 
     if (hooked) foundHooks.push(hooked.storyHookId!);
     const result = rescueSurvivorSignal(state, 1_000_000);
     assert.ok(result.rescued);
-    state = result.state;
+    state = transferSurvivorsToSettlement(
+      result.state,
+      result.state.survivors.map((survivor) => survivor.id),
+    );
   }
 
   assert.equal(new Set(foundHooks).size, foundHooks.length);
@@ -1574,4 +1581,75 @@ test("the Medical Bay admits only the hurt, stands them down, and divides care",
     medBayIds: [...bay.medBayIds, "ghost"],
   });
   assert.deepEqual(reloaded.medBayIds, bay.medBayIds);
+});
+
+test("the Ark has a 48-person structural limit that research cannot bypass", () => {
+  let state = detectSignal(888_222);
+  const template = structuredClone(state.activeSignal!.survivors[0]!);
+  state.survivors = Array.from({ length: ARK_CREW_HARD_CAP - 1 }, (_, index) => ({
+    ...structuredClone(template),
+    id: `capacity-${index + 1}`,
+    name: `Capacity ${index + 1}`,
+  }));
+  state.berthSections = 6;
+  state = setLifeSupportCapacity(state, {
+    atmosphere: 500,
+    water: 500,
+    nutrition: 500,
+    medical: 500,
+  });
+
+  assert.equal(getBerthCapacity(state, 10), ARK_CREW_HARD_CAP);
+  assert.equal(getRescueReadiness(state, 1_000_000, 10).reason, "roster-full");
+});
+
+test("AXIOM assigns strongest learned work while manual choices stay protected", () => {
+  const state = stateWithCivilian();
+  const survivor = state.survivors[0]!;
+  survivor.skillXp.engineer = 1_000;
+  survivor.skillXp.teacher = 200;
+  survivor.assignedRole = null;
+  survivor.assignmentLocked = false;
+
+  const staffed = autoAssignSurvivors(state);
+  assert.equal(staffed.survivors[0]!.assignedRole, "engineer");
+
+  const manual = assignSurvivorToRole(staffed, survivor.id, "teacher");
+  assert.equal(manual.survivors[0]!.assignmentLocked, true);
+  assert.equal(autoAssignSurvivors(manual).survivors[0]!.assignedRole, "teacher");
+  const away = autoAssignSurvivors(manual, new Set([survivor.id]));
+  assert.equal(away.survivors[0]!.assignedRole, null);
+  assert.equal(autoAssignSurvivors(away).survivors[0]!.assignedRole, "teacher");
+  assert.equal(
+    autoAssignSurvivors(manual, new Set(), true).survivors[0]!.assignedRole,
+    "engineer",
+  );
+  const protectedState = setSurvivorSettlementProtected(manual, survivor.id, true);
+  assert.equal(protectedState.survivors[0]!.settlementProtected, true);
+});
+
+test("children are protected from work and grow through story chapters", () => {
+  let state = sanitizeSurvivorSystemState({
+    survivors: [
+      {
+        id: "ark-child",
+        name: "Tali Venn",
+        origin: "pelagos",
+        role: "civilian",
+        ageGroup: "child",
+        aptitudes: { engineer: 5 },
+        traits: ["adaptable"],
+        skillXp: {},
+      },
+    ],
+  });
+  const child = state.survivors[0]!;
+  assert.equal(assignSurvivorToRole(state, child.id, "civilian"), state);
+  assert.equal(startSurvivorTraining(state, child.id, "engineer"), state);
+
+  state = advanceCrewAgesAfterChapter(state);
+  assert.equal(state.survivors[0]!.ageGroup, "child");
+  state = advanceCrewAgesAfterChapter(state);
+  assert.equal(state.survivors[0]!.ageGroup, "adult");
+  assert.equal(autoAssignSurvivors(state).survivors[0]!.assignedRole, null);
 });

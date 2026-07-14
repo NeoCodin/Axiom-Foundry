@@ -20,6 +20,7 @@ import {
   getNextColonyTransmission,
   getViabilityForecast,
   isCampaignComplete,
+  MAX_FOUNDING_COMMUNITY_SIZE,
   sanitizeSettlementState,
   sanitizeWorldProgress,
   setSelectedSettlers,
@@ -118,7 +119,7 @@ test("campaign content moves from a crewless Cold Wake through five distinct wor
 
   for (const world of CAMPAIGN_WORLDS.slice(1)) {
     assert.equal(world.kind, "planet");
-    assert.ok(world.minimumPopulation > 0);
+    assert.ok(world.communityReadiness > 0);
     assert.ok(world.infrastructure.length >= 3);
     assert.ok(world.roleRequirements.length > 0);
     assert.ok(world.expertiseRequirements.length > 0);
@@ -198,11 +199,11 @@ test("late Profile Depth gates count higher rarities without multiplying Experti
   assert.match(profileDeficit?.alternatives.join(" ") ?? "", /five quality misses/i);
 });
 
-test("Cold Wake requires Ark readiness but never invents a starting population", () => {
+test("Cold Wake requires Ark readiness but never invents a starting community", () => {
   const state = createSettlementState();
   const empty = getViabilityForecast(state, "cold-wake", [], {});
   assert.equal(empty.settlementRequired, false);
-  assert.equal(empty.lines.some((line) => line.kind === "population"), false);
+  assert.equal(empty.lines.some((line) => line.kind === "community"), false);
   assert.equal(empty.canDepart, false);
 
   const ready = getViabilityForecast(
@@ -253,7 +254,21 @@ test("settler selection is explicit, immutable, unique, and eligibility-aware", 
   assert.deepEqual(toggledOn.selectedSettlerIds, ["ready"]);
 });
 
-test("Pelagos forecast reports clear population, profession, skill, and project deficits", () => {
+test("a founding community can never take more than half the full Ark", () => {
+  const state = reachPelagos();
+  const crew = Array.from(
+    { length: MAX_FOUNDING_COMMUNITY_SIZE + 8 },
+    (_, index) => ({ id: `candidate-${index}`, name: `Candidate ${index}` }),
+  );
+  const selected = setSelectedSettlers(
+    state,
+    crew,
+    crew.map((member) => member.id),
+  );
+  assert.equal(selected.selectedSettlerIds.length, MAX_FOUNDING_COMMUNITY_SIZE);
+});
+
+test("Pelagos forecast reports clear community, expertise, and project deficits", () => {
   const state = reachPelagos();
   const forecast = getViabilityForecast(state, "pelagos", pelagosCrew(), {});
 
@@ -263,15 +278,13 @@ test("Pelagos forecast reports clear population, profession, skill, and project 
   assert.ok(
     forecast.deficits.some(
       (deficit) =>
-        deficit.kind === "population" &&
-        deficit.message === "Select 18 more eligible settlers.",
+        deficit.kind === "community" &&
+        deficit.message === "Build 18 more Community Readiness.",
     ),
   );
-  const medical = forecast.deficits.find(
-    (deficit) => deficit.id === "medical-team",
-  );
+  const medical = forecast.deficits.find((deficit) => deficit.id === "medicine");
   assert.ok(medical);
-  assert.match(medical.alternatives.join(" "), /doctor/);
+  assert.match(medical.message, /Medical expertise/i);
   assert.match(medical.alternatives.join(" "), /mobile field clinic/i);
   assert.ok(forecast.deficits.some((deficit) => deficit.kind === "research"));
   assert.ok(
@@ -279,7 +292,7 @@ test("Pelagos forecast reports clear population, profession, skill, and project 
   );
 });
 
-test("profession categories and expertise totals never depend on one lucky character", () => {
+test("community readiness and expertise totals reward a balanced founding group", () => {
   const crew = pelagosCrew();
   let state = reachPelagos();
   state = setSelectedSettlers(
@@ -297,9 +310,9 @@ test("profession categories and expertise totals never depend on one lucky chara
   assert.equal(forecast.canDepart, true);
   assert.equal(forecast.score, 100);
   assert.equal(forecast.selectedSettlerIds.length, 18);
-  assert.equal(
-    forecast.lines.find((line) => line.id === "engineering-team")?.baseValue,
-    3,
+  assert.ok(
+    (forecast.lines.find((line) => line.id === "community-readiness")?.currentValue ?? 0) >=
+      getCampaignWorld("pelagos")!.communityReadiness,
   );
   assert.equal(
     forecast.lines.find((line) => line.id === "engineering")?.baseValue,
@@ -315,7 +328,7 @@ test("profession categories and expertise totals never depend on one lucky chara
   );
 });
 
-test("equipment and research can cover bounded specialist gaps", () => {
+test("equipment and research cover bounded expertise gaps without fake headcounts", () => {
   const crew = pelagosCrew();
   const secondDoctorIndex = crew.findIndex((member) => member.id === "doctor-2");
   crew[secondDoctorIndex] = {
@@ -339,13 +352,10 @@ test("equipment and research can cover bounded specialist gaps", () => {
     equipment: { "mobile-field-clinic": 99 },
   };
   const forecast = getViabilityForecast(state, "pelagos", crew, progress);
-  const roleLine = forecast.lines.find((line) => line.id === "medical-team");
   const expertiseLine = forecast.lines.find((line) => line.id === "medicine");
 
-  assert.equal(roleLine?.baseValue, 1);
-  assert.equal(roleLine?.substitutionValue, 1);
   assert.equal(expertiseLine?.baseValue, 4);
-  assert.equal(expertiseLine?.substitutionValue, 4);
+  assert.equal(expertiseLine?.substitutionValue, 6);
   assert.equal(forecast.canDepart, true);
 });
 
@@ -542,7 +552,11 @@ test("the complete campaign can found five colonies without reusing or deleting 
     const everyExpertise = Object.fromEntries(
       world.expertiseRequirements.map((requirement) => [requirement.id, 10]),
     );
-    const crew = Array.from({ length: world.minimumPopulation }, (_, index) => ({
+    const founderCount = Math.min(
+      24,
+      Math.max(8, Math.ceil((world.communityReadiness - 10) / 3)),
+    );
+    const crew = Array.from({ length: founderCount }, (_, index) => ({
       id: `${worldId}-founder-${index + 1}`,
       name: `${world.name} Founder ${index + 1}`,
       roles: everyRole,
@@ -562,7 +576,7 @@ test("the complete campaign can found five colonies without reusing or deleting 
       world.chapter + 1,
     );
     assert.equal(departure.ok, true, `Expected ${world.name} to be viable`);
-    assert.equal(departure.settledCrewIds.length, world.minimumPopulation);
+    assert.equal(departure.settledCrewIds.length, founderCount);
     state = departure.state;
   }
 
@@ -572,11 +586,6 @@ test("the complete campaign can found five colonies without reusing or deleting 
     colony.founders.map((founder) => founder.crewId),
   );
   assert.equal(new Set(allFounderIds).size, allFounderIds.length);
-  assert.equal(
-    state.colonies.reduce((total, colony) => total + colony.founders.length, 0),
-    CAMPAIGN_WORLDS.slice(1).reduce(
-      (total, world) => total + world.minimumPopulation,
-      0,
-    ),
-  );
+  assert.ok(allFounderIds.length > 0);
+  assert.ok(allFounderIds.length <= 24 * 5);
 });

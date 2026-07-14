@@ -133,14 +133,18 @@ import {
 } from "./living-foundry-engine";
 import {
   assignSurvivorToRole,
+  autoAssignSurvivors,
   getBerthCapacity,
   getScanDurationSeconds,
   getSurvivorBestSkillLevel,
   setAutoRescueEnabled,
+  setAutoAssignmentEnabled,
   getLifeSupportStatus,
   getSurvivorRarity,
   getSurvivorSkillLevel,
   renameSurvivorCallsign,
+  returnSurvivorToAutoAssignment,
+  setSurvivorSettlementProtected,
   setLifeSupportCapacity,
   setSosBeaconOnline,
   startSurvivorTraining,
@@ -563,8 +567,10 @@ export default function Home() {
   );
   const berthConstruction = game.survivors.berthConstruction;
   const berthPanelQuote = {
-    canAfford: game.flux >= berthConstructionQuote.cost,
-    costLabel: `${formatNumber(berthConstructionQuote.cost)} Flux`,
+    canAfford:
+      game.flux >= berthConstructionQuote.cost &&
+      game.living.salvage >= berthConstructionQuote.salvageCost,
+    costLabel: `${formatNumber(berthConstructionQuote.cost)} Flux + ${berthConstructionQuote.salvageCost} Salvage`,
     capacity: berthCapacity,
     berthsPerSection: berthConstructionQuote.berthsPerSection,
     maxed: berthConstructionQuote.maxed,
@@ -924,7 +930,7 @@ export default function Home() {
     const current = gameRef.current;
     const next = startArkBerthConstruction(current);
     if (next === current) {
-      setAnnouncement("Berth construction needs more Flux, or a section is already underway.");
+      setAnnouncement("Living-space construction needs more Flux and Salvage, or a section is already underway.");
       return;
     }
     commitGameState(
@@ -1080,8 +1086,10 @@ export default function Home() {
     const next = performArkRescue(current);
     if (next === current) {
       setAnnouncement(
-        quote.reason === "berths"
-          ? "The signal is holding. Build another quarters section before dispatching the shuttle."
+        quote.reason === "roster-full"
+          ? "The signal is holding. The Ark has reached its 48-person limit; establish a founding community before accepting more people."
+          : quote.reason === "berths"
+          ? "The signal is holding. Expand the Ark's living space before dispatching the shuttle."
           : quote.reason === "life-support"
             ? "The signal is holding. Expand every life-support category before dispatching the shuttle."
             : quote.reason === "flux"
@@ -1441,6 +1449,82 @@ export default function Home() {
     settlement: settlementUnlocked,
   };
 
+  const handleToggleAutoAssignment = (enabled: boolean) => {
+    const current = gameRef.current;
+    let survivors = setAutoAssignmentEnabled(current.survivors, enabled);
+    if (enabled) {
+      survivors = autoAssignSurvivors(
+        survivors,
+        new Set([
+          ...(current.expeditions.active?.crewIds ?? []),
+          ...(current.expeditions.stranded?.crewIds ?? []),
+        ]),
+      );
+    }
+    commitGameState(
+      { ...current, survivors },
+      enabled
+        ? "AXIOM staffing active. Available crew return to their strongest learned work automatically."
+        : "Automatic staffing paused. Current assignments remain in place.",
+    );
+  };
+
+  const handleOptimizeAssignments = () => {
+    const current = gameRef.current;
+    const enabled = setAutoAssignmentEnabled(current.survivors, true);
+    const survivors = autoAssignSurvivors(
+      enabled,
+      new Set([
+        ...(current.expeditions.active?.crewIds ?? []),
+        ...(current.expeditions.stranded?.crewIds ?? []),
+      ]),
+      true,
+    );
+    commitGameState(
+      { ...current, survivors },
+      "AXIOM optimized the roster. Every available adult now serves in their strongest suitable profession.",
+    );
+  };
+
+  const handleReturnToAutoAssignment = (survivorId: string) => {
+    const current = gameRef.current;
+    const unavailableCrewIds = new Set([
+      ...(current.expeditions.active?.crewIds ?? []),
+      ...(current.expeditions.stranded?.crewIds ?? []),
+    ]);
+    const survivors = autoAssignSurvivors(
+      returnSurvivorToAutoAssignment(
+        setAutoAssignmentEnabled(current.survivors, true),
+        survivorId,
+      ),
+      unavailableCrewIds,
+    );
+    commitGameState(
+      {
+        ...current,
+        survivors,
+      },
+      "Manual lock removed. AXIOM now manages this assignment.",
+    );
+  };
+
+  const handleProtectForArk = (survivorId: string, protectedForArk: boolean) => {
+    const current = gameRef.current;
+    commitGameState(
+      {
+        ...current,
+        survivors: setSurvivorSettlementProtected(
+          current.survivors,
+          survivorId,
+          protectedForArk,
+        ),
+      },
+      protectedForArk
+        ? "Personnel file protected. This person cannot be selected for planetary departure."
+        : "Ark protection removed. This person is eligible for a founding community again.",
+    );
+  };
+
   return (
     <main
       className={`game-shell world-theme-${worldVisual.slug}`}
@@ -1617,6 +1701,10 @@ export default function Home() {
             enabled: game.survivors.autoRescueEnabled,
           }}
           onToggleAutoRescue={handleToggleAutoRescue}
+          onToggleAutoAssignment={handleToggleAutoAssignment}
+          onOptimizeAssignments={handleOptimizeAssignments}
+          onReturnToAutoAssignment={handleReturnToAutoAssignment}
+          onProtectForArk={handleProtectForArk}
           teamAlpha={(() => {
             const status = getCommandTeamStatus(game);
             return {
@@ -1935,7 +2023,7 @@ export default function Home() {
               <div className="mission-outcome saved">
                 <p>Engineering directive complete</p>
                 <h3>{activeMission.world}</h3>
-                <span>The Ark has solved the mechanical problem. Departure still requires infrastructure, research, supplies, crisis resolution, and a viable founding population.</span>
+                <span>The Ark has solved the mechanical problem. Departure still requires infrastructure, research, supplies, crisis resolution, Community Readiness, and the required Expertise.</span>
                 <button type="button" onClick={() => setPrimaryView("settlement")}>Open continuity forecast</button>
                 <small>No timer is running. This world waits until its settlement can survive without AXIOM.</small>
               </div>

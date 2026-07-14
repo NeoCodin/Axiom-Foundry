@@ -10,6 +10,8 @@ import type {
   ViabilityForecast,
   WorldProgressSummary,
 } from "./settlement-engine";
+import { getCommunityReadinessContribution } from "./settlement-engine";
+import { MAX_FOUNDING_COMMUNITY_SIZE } from "./settlement-engine";
 
 export type ContinuityActionQuote = {
   canAfford: boolean;
@@ -74,8 +76,7 @@ function candidatesForDeficit(
   selected: ReadonlySet<string>,
 ): DeficitCandidate[] | null {
   if (
-    deficit.kind !== "population" &&
-    deficit.kind !== "role" &&
+    deficit.kind !== "community" &&
     deficit.kind !== "expertise" &&
     deficit.kind !== "profile"
   ) {
@@ -90,14 +91,8 @@ function candidatesForDeficit(
   const scored = available
     .map((member) => {
       let value = 0;
-      if (deficit.kind === "population") {
-        value = 1;
-      } else if (deficit.kind === "role") {
-        const requirement = world.roleRequirements.find(
-          (candidate) => candidate.id === deficit.id,
-        );
-        const accepted = new Set(requirement?.acceptedRoles ?? []);
-        value = (member.roles ?? []).some((role) => accepted.has(role)) ? 1 : 0;
+      if (deficit.kind === "community") {
+        value = getCommunityReadinessContribution(member);
       } else if (deficit.kind === "expertise") {
         value = member.expertise?.[deficit.id] ?? 0;
       } else if (deficit.kind === "profile") {
@@ -177,7 +172,7 @@ function SettlementConsole({
                 <article className={`forecast-line ${line.met ? "is-met" : ""}`} key={`${line.kind}-${line.id}`}>
                   <header><span>{line.label}</span><strong>{line.currentValue}/{line.requiredValue}</strong></header>
                   <div className="forecast-line-meter"><i style={{ width: `${ratio * 100}%` }} /></div>
-                  <small>{line.met ? "Requirement secured" : line.substitutionValue > 0 ? `${line.substitutionValue} supplied by research or equipment` : titleCase(line.kind)}</small>
+                  <small>{line.met ? "Requirement secured" : line.kind === "community" && line.substitutionValue > 0 ? `${line.substitutionValue} from profession diversity and planetary works` : line.substitutionValue > 0 ? `${line.substitutionValue} supplied by research or equipment` : titleCase(line.kind)}</small>
                   {(line.detail || line.contributors.length > 0) && (
                     <details className="forecast-line-detail">
                       <summary>How this is counted</summary>
@@ -314,15 +309,15 @@ function SettlementConsole({
         </section>
 
         <section className="continuity-panel">
-          <header><div><span>{world.settlementRequired ? "FOUNDING POPULATION" : "ORBITAL TRANSITION"}</span><h3>{world.settlementRequired ? `${forecast.selectedSettlerIds.length} founders selected` : "No founders required in deep space"}</h3></div><small>People left behind remain in colony records</small></header>
+          <header><div><span>{world.settlementRequired ? "FOUNDING COMMUNITY" : "ORBITAL TRANSITION"}</span><h3>{world.settlementRequired ? `${forecast.selectedSettlerIds.length}/${MAX_FOUNDING_COMMUNITY_SIZE} people selected` : "No founders required in deep space"}</h3></div><small>The Ark never releases more than half its full crew capacity</small></header>
           {world.settlementRequired ? (
             <div className="settler-selection-list">
               {crew.map((member) => (
                 <label className={`${member.rarity ? `crew-rarity-${member.rarity}` : ""} ${selected.has(member.id) ? "is-selected" : ""}`} key={member.id}>
-                  <input type="checkbox" checked={selected.has(member.id)} onChange={() => onToggleSettler(member.id)} />
+                  <input type="checkbox" disabled={member.available === false || member.canSettle === false || (!selected.has(member.id) && selected.size >= MAX_FOUNDING_COMMUNITY_SIZE)} checked={selected.has(member.id)} onChange={() => onToggleSettler(member.id)} />
                   <span className="crew-avatar">{member.name.slice(0, 1)}</span>
-                  <span><strong>{member.name}</strong><small>{titleCase(member.role ?? "civilian")}{(member.level ?? 0) > 0 ? ` · Level ${member.level}` : ""} · {Object.entries(member.expertise ?? {}).filter(([, value]) => (value ?? 0) > 0).slice(0, 3).map(([id, value]) => `${titleCase(id)} ${value}`).join(" · ") || "Adaptable civilian"}</small></span>
-                  <span className="settler-row-status"><em className="crew-rarity-badge" title={member.rarityDescription}>{member.rarityLabel ?? "Standard"}</em><b>{selected.has(member.id) ? "FOUNDER" : "ARK"}</b></span>
+                  <span><strong>{member.name}</strong><small>{titleCase(member.ageGroup ?? "adult")} · {titleCase(member.role ?? "civilian")}{(member.level ?? 0) > 0 ? ` · Level ${member.level}` : ""} · Readiness +{getCommunityReadinessContribution(member)} · {Object.entries(member.expertise ?? {}).filter(([, value]) => (value ?? 0) > 0).slice(0, 3).map(([id, value]) => `${titleCase(id)} ${value}`).join(" · ") || "Community member"}</small></span>
+                  <span className="settler-row-status"><em className="crew-rarity-badge" title={member.rarityDescription}>{member.rarityLabel ?? "Standard"}</em><b>{member.protectedForArk ? "ARK PROTECTED" : member.available === false || member.canSettle === false ? "UNAVAILABLE" : selected.has(member.id) ? "FOUNDER" : selected.size >= MAX_FOUNDING_COMMUNITY_SIZE ? "LIMIT" : "ARK"}</b></span>
                 </label>
               ))}
             </div>

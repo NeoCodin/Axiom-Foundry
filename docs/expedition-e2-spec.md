@@ -33,7 +33,7 @@ Owner decisions folded in (answers to v1's open questions and more):
   offline, never reverses, and stops at `healthCap`.
 - **Wounded state** (health < 40): cannot be deployed, trained, selected as
   founders, or assigned/worked (no on-job XP) until health crosses 40.
-  Amber RECOVERING badge mirroring UNASSIGNED. Wounded crew aboard the Ark
+  Amber RECOVERING badge alongside the neutral ARK RESERVE state. Wounded crew aboard the Ark
   add +0.5 medical demand each.
 - **Founder gate**: settlement founder selection (including the deficit
   candidate picker) requires health ≥ 80.

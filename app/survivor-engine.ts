@@ -12,6 +12,7 @@ export const PROFESSIONAL_ROLES = [
 
 export type ProfessionalRole = (typeof PROFESSIONAL_ROLES)[number];
 export type SurvivorRole = ProfessionalRole | "civilian";
+export type SurvivorAgeGroup = "child" | "adult" | "elder";
 export type SurvivorOrigin =
   | "pelagos"
   | "viridia"
@@ -57,6 +58,15 @@ export type Survivor = {
   traits: SurvivorTraitId[];
   skillXp: SkillMap;
   assignedRole: SurvivorRole | null;
+  /** Manual assignments stay fixed until the player returns staffing to AXIOM. */
+  assignmentLocked: boolean;
+  /** The protected station restored after recovery, study, or a mission. */
+  preferredRole: SurvivorRole | null;
+  /** Explicit player protection from planetary founder selection. */
+  settlementProtected: boolean;
+  ageGroup: SurvivorAgeGroup;
+  /** Children become adults after two completed planetary chapters aboard. */
+  ageProgress: number;
   serviceSeconds: number;
   joinedAt: number;
   storyHookId: RareSurvivorHookId | null;
@@ -237,6 +247,8 @@ export type SurvivorSystemState = {
   rescuedHookIds: RareSurvivorHookId[];
   worldSignalCount: number;
   autoRescueEnabled: boolean;
+  /** Routine staffing is automatic; manual assignments remain protected. */
+  autoAssignmentEnabled: boolean;
   berthSections: number;
   berthConstruction: BerthConstruction | null;
   commandTeam: CommandTeam;
@@ -472,7 +484,7 @@ export const TRAINING_DURATIONS_SECONDS: Record<ProfessionalRole, number> = {
   security: 25 * 60,
 };
 
-export const SURVIVOR_SCHEMA = 4;
+export const SURVIVOR_SCHEMA = 5;
 export const SOS_WORLD_ID = "pelagos";
 export const SOS_WORLD_IDS = [
   "pelagos",
@@ -500,14 +512,16 @@ export const SOS_SCAN_SECONDS_BY_WORLD: Record<
 export const MAX_SCAN_SECONDS = 105 * 60;
 export const MIN_SCAN_MULTIPLIER = 1 / 3;
 export const MAX_OFFLINE_SURVIVOR_SECONDS = 30 * 24 * 60 * 60;
+/** Save sanitation remains generous, but no new rescue may exceed the Ark limit. */
 export const MAX_SURVIVORS = 500;
+export const ARK_CREW_HARD_CAP = 48;
 export const MAX_SIGNAL_SURVIVORS = 8;
 export const MAX_TRAINING_SLOTS = 12;
 export const RARE_PITY_LIMIT = 11;
 export const QUALITY_PITY_LIMIT = 5;
 export const BASE_BERTHS = 4;
 export const BERTHS_PER_SECTION = 8;
-export const MAX_BERTH_SECTIONS = 62;
+export const MAX_BERTH_SECTIONS = 6;
 export const BERTH_CONSTRUCTION_BASE_SECONDS = 3 * 60 * 60;
 
 // Health (Expedition E2). Only expeditions deal damage; recovery never stops.
@@ -947,6 +961,7 @@ export function createSurvivorSystemState(
     rescuedHookIds: [],
     worldSignalCount: 0,
     autoRescueEnabled: true,
+    autoAssignmentEnabled: true,
     berthSections: 0,
     berthConstruction: null,
     commandTeam: { leaderId: null, memberIds: [] },
@@ -983,13 +998,24 @@ export function setAutoRescueEnabled(
   return { ...cloneSurvivorSystemState(state), autoRescueEnabled: enabled };
 }
 
+export function setAutoAssignmentEnabled(
+  state: SurvivorSystemState,
+  enabled: boolean,
+) {
+  if (state.autoAssignmentEnabled === enabled) return state;
+  return { ...cloneSurvivorSystemState(state), autoAssignmentEnabled: enabled };
+}
+
 export function getBerthCapacity(
   state: Pick<SurvivorSystemState, "berthSections">,
   capacityMultiplier = 1,
 ) {
   const multiplier = Math.min(10, Math.max(1, finite(capacityMultiplier, 1, 10)));
-  return Math.floor(
-    (BASE_BERTHS + state.berthSections * BERTHS_PER_SECTION) * multiplier,
+  return Math.min(
+    ARK_CREW_HARD_CAP,
+    Math.floor(
+      (BASE_BERTHS + state.berthSections * BERTHS_PER_SECTION) * multiplier,
+    ),
   );
 }
 
@@ -1081,6 +1107,11 @@ function createProceduralSurvivor(
     traits,
     skillXp,
     assignedRole: null,
+    assignmentLocked: false,
+    preferredRole: null,
+    settlementProtected: false,
+    ageGroup: "adult",
+    ageProgress: 0,
     serviceSeconds: 0,
     joinedAt: 0,
     storyHookId: null,
@@ -1185,6 +1216,27 @@ function generateSurvivorSignalMutable(
       signalId,
       usedNames,
     );
+  }
+
+  // Signals sometimes contain whole families. The guaranteed first
+  // specialist remains an adult so a rescue never loses its advertised role.
+  // Children are dependents, while elders retain the knowledge they arrived
+  // with and are only placed into suitable work by automatic staffing.
+  for (let index = 1; index < survivors.length; index += 1) {
+    const survivor = survivors[index]!;
+    if (survivor.storyHookId) continue;
+    const ageRoll = nextRandom(state);
+    if (ageRoll < 0.12) {
+      survivor.ageGroup = "child";
+      survivor.role = "civilian";
+      survivor.skillXp = makeSkillMap();
+      survivor.assignedRole = null;
+      survivor.assignmentLocked = false;
+      survivor.preferredRole = null;
+      survivor.adaptability = 5;
+    } else if (ageRoll < 0.22) {
+      survivor.ageGroup = "elder";
+    }
   }
 
   let includesExceptional = survivors.some((survivor) => {
@@ -1388,7 +1440,10 @@ export function getRescueReadiness(
   if (!signal) {
     return { canRescue: false, cost: 0, reason: "no-signal", lifeSupport };
   }
-  if (state.survivors.length + signal.survivors.length > MAX_SURVIVORS) {
+  if (
+    state.survivors.length + signal.survivors.length > ARK_CREW_HARD_CAP ||
+    state.survivors.length + signal.survivors.length > MAX_SURVIVORS
+  ) {
     return {
       canRescue: false,
       cost: signal.rescueCost,
@@ -1664,7 +1719,11 @@ export function startSurvivorTraining(
     return state;
   }
   const survivor = state.survivors.find((candidate) => candidate.id === survivorId);
-  if (!survivor || !canSurvivorLearnProfession(survivor, targetRole)) return state;
+  if (
+    !survivor ||
+    survivor.ageGroup === "child" ||
+    !canSurvivorLearnProfession(survivor, targetRole)
+  ) return state;
   if (isSurvivorWounded(survivor) || state.medBayIds.includes(survivorId)) {
     return state;
   }
@@ -1703,6 +1762,7 @@ export function assignSurvivorToRole(
 ) {
   const survivor = state.survivors.find((candidate) => candidate.id === survivorId);
   if (!survivor) return state;
+  if (survivor.ageGroup === "child" && role !== null) return state;
   if (state.training.some((program) => program.survivorId === survivorId)) {
     return state;
   }
@@ -1716,10 +1776,109 @@ export function assignSurvivorToRole(
   ) {
     return state;
   }
-  if (survivor.assignedRole === role) return state;
+  if (survivor.assignedRole === role && survivor.assignmentLocked) return state;
   const next = cloneSurvivorSystemState(state);
-  next.survivors.find((candidate) => candidate.id === survivorId)!.assignedRole =
-    role;
+  const assigned = next.survivors.find((candidate) => candidate.id === survivorId)!;
+  assigned.assignedRole = role;
+  assigned.assignmentLocked = true;
+  assigned.preferredRole = role;
+  return next;
+}
+
+const ELDER_AUTOMATIC_ROLES: readonly ProfessionalRole[] = [
+  "doctor",
+  "researcher",
+  "navigator",
+  "teacher",
+];
+
+export function getBestAutomaticAssignment(survivor: Survivor): SurvivorRole | null {
+  if (survivor.ageGroup === "child" || isSurvivorWounded(survivor)) return null;
+  const allowedRoles =
+    survivor.ageGroup === "elder" ? ELDER_AUTOMATIC_ROLES : PROFESSIONAL_ROLES;
+  const qualified = allowedRoles
+    .filter((role) => isSurvivorQualified(survivor, role))
+    .sort(
+      (left, right) =>
+        getSurvivorSkillLevel(survivor, right) -
+          getSurvivorSkillLevel(survivor, left) ||
+        survivor.aptitudes[right] - survivor.aptitudes[left] ||
+        (right === survivor.role ? 1 : 0) - (left === survivor.role ? 1 : 0),
+    );
+  if (qualified[0]) return qualified[0];
+  return null;
+}
+
+/**
+ * AXIOM fills routine stations using each available person's strongest learned
+ * profession. Manual assignments are protected, and reserve is a valid state.
+ */
+export function autoAssignSurvivors(
+  state: SurvivorSystemState,
+  unavailableIds: ReadonlySet<string> = new Set(),
+  clearManualLocks = false,
+) {
+  if (!state.autoAssignmentEnabled && !clearManualLocks) return state;
+  const next = cloneSurvivorSystemState(state);
+  const trainingIds = new Set(next.training.map((program) => program.survivorId));
+  for (const survivor of next.survivors) {
+    if (clearManualLocks) {
+      survivor.assignmentLocked = false;
+      survivor.preferredRole = null;
+    }
+    const unavailable =
+      unavailableIds.has(survivor.id) ||
+      trainingIds.has(survivor.id) ||
+      next.medBayIds.includes(survivor.id) ||
+      isSurvivorWounded(survivor);
+    if (unavailable || survivor.ageGroup === "child") {
+      survivor.assignedRole = null;
+      if (survivor.ageGroup === "child") {
+        survivor.assignmentLocked = false;
+        survivor.preferredRole = null;
+      }
+      continue;
+    }
+    if (survivor.assignmentLocked) {
+      const preferred = survivor.preferredRole;
+      const validPreferred =
+        preferred === null ||
+        (preferred === "civilian"
+          ? survivor.role === "civilian"
+          : isSurvivorQualified(survivor, preferred));
+      survivor.assignedRole = validPreferred ? preferred : null;
+      continue;
+    }
+    survivor.assignedRole = getBestAutomaticAssignment(survivor);
+  }
+  return next;
+}
+
+export function returnSurvivorToAutoAssignment(
+  state: SurvivorSystemState,
+  survivorId: string,
+) {
+  const survivor = state.survivors.find((candidate) => candidate.id === survivorId);
+  if (!survivor) return state;
+  const next = cloneSurvivorSystemState(state);
+  const assigned = next.survivors.find((candidate) => candidate.id === survivorId)!;
+  assigned.assignmentLocked = false;
+  assigned.preferredRole = null;
+  assigned.assignedRole = getBestAutomaticAssignment(assigned);
+  return next;
+}
+
+export function setSurvivorSettlementProtected(
+  state: SurvivorSystemState,
+  survivorId: string,
+  protectedForArk: boolean,
+) {
+  const survivor = state.survivors.find((candidate) => candidate.id === survivorId);
+  if (!survivor || survivor.settlementProtected === protectedForArk) return state;
+  const next = cloneSurvivorSystemState(state);
+  next.survivors.find(
+    (candidate) => candidate.id === survivorId,
+  )!.settlementProtected = protectedForArk;
   return next;
 }
 
@@ -1775,6 +1934,26 @@ export function transferSurvivorsToSettlement(
   return next;
 }
 
+/** One chapter is a meaningful stretch of story time, not a real-time timer. */
+export function advanceCrewAgesAfterChapter(state: SurvivorSystemState) {
+  const next = cloneSurvivorSystemState(state);
+  let changed = false;
+  for (const survivor of next.survivors) {
+    if (survivor.ageGroup !== "child") continue;
+    survivor.ageProgress += 1;
+    changed = true;
+    if (survivor.ageProgress >= 2) {
+      survivor.ageGroup = "adult";
+      survivor.ageProgress = 0;
+      survivor.role = "civilian";
+      survivor.assignmentLocked = false;
+      survivor.preferredRole = null;
+      survivor.assignedRole = null;
+    }
+  }
+  return changed ? next : state;
+}
+
 export const isSurvivorAdmitted = (
   state: Pick<SurvivorSystemState, "medBayIds">,
   survivorId: string,
@@ -1828,7 +2007,8 @@ export function appointCommandLeader(
 ) {
   if (survivorId !== null) {
     const exists = state.survivors.some(
-      (survivor) => survivor.id === survivorId,
+      (survivor) =>
+        survivor.id === survivorId && survivor.ageGroup !== "child",
     );
     if (!exists) return state;
   }
@@ -1846,7 +2026,9 @@ export function toggleCommandTeamMember(
   state: SurvivorSystemState,
   survivorId: string,
 ) {
-  const exists = state.survivors.some((survivor) => survivor.id === survivorId);
+  const exists = state.survivors.some(
+    (survivor) => survivor.id === survivorId && survivor.ageGroup !== "child",
+  );
   if (!exists || state.commandTeam.leaderId === survivorId) return state;
   const next = cloneSurvivorSystemState(state);
   if (next.commandTeam.memberIds.includes(survivorId)) {
@@ -1889,6 +2071,7 @@ export function runTrainingDoctrine(
     .filter(
       (survivor) =>
         survivor.assignedRole === null &&
+        survivor.ageGroup !== "child" &&
         !trainingIds.has(survivor.id) &&
         !unavailableIds.has(survivor.id) &&
         !state.medBayIds.includes(survivor.id) &&
@@ -2200,6 +2383,19 @@ function sanitizeSurvivor(
     traits: traits.slice(0, 3),
     skillXp,
     assignedRole,
+    assignmentLocked:
+      typeof value.assignmentLocked === "boolean"
+        ? value.assignmentLocked
+        : assignedRole !== null,
+    preferredRole: isSurvivorRole(value.preferredRole)
+      ? value.preferredRole
+      : assignedRole,
+    settlementProtected: value.settlementProtected === true,
+    ageGroup:
+      value.ageGroup === "child" || value.ageGroup === "elder"
+        ? value.ageGroup
+        : "adult",
+    ageProgress: whole(value.ageProgress, 0, 1),
     serviceSeconds: finite(value.serviceSeconds, 0, MAX_OPERATIONAL_SECONDS),
     joinedAt: finite(value.joinedAt, joinedFallback, MAX_OPERATIONAL_SECONDS),
     storyHookId,
@@ -2220,6 +2416,13 @@ function sanitizeSurvivor(
     MAX_SURVIVOR_HEALTH,
     getSurvivorHealthCap(survivor),
   );
+  if (survivor.ageGroup === "child") {
+    survivor.role = "civilian";
+    survivor.skillXp = makeSkillMap();
+    survivor.assignedRole = null;
+    survivor.assignmentLocked = false;
+    survivor.preferredRole = null;
+  }
   if (backfillRarityFloor && !survivor.rarityFloor && !survivor.storyHookId) {
     // Crew recorded before the threshold retune keep the classification they
     // were rescued under (old thresholds: notable 25, exceptional 28).
@@ -2276,6 +2479,7 @@ export function sanitizeSurvivorSystemState(value: unknown): SurvivorSystemState
       1_000_000,
     ),
     autoRescueEnabled: value.autoRescueEnabled !== false,
+    autoAssignmentEnabled: value.autoAssignmentEnabled !== false,
   };
 
   const rawRolePity = isRecord(value.rolePity) ? value.rolePity : {};
@@ -2416,12 +2620,23 @@ export function sanitizeSurvivorSystemState(value: unknown): SurvivorSystemState
           ...new Set(
             rawTeam.memberIds.filter(
               (id): id is string =>
-                typeof id === "string" && rosterIds.has(id) && id !== leaderId,
+                typeof id === "string" &&
+                rosterIds.has(id) &&
+                id !== leaderId &&
+                state.survivors.find((survivor) => survivor.id === id)?.ageGroup !== "child",
             ),
           ),
         ].slice(0, MAX_COMMAND_TEAM_MEMBERS)
       : [],
   };
+  if (
+    state.commandTeam.leaderId &&
+    state.survivors.find(
+      (survivor) => survivor.id === state.commandTeam.leaderId,
+    )?.ageGroup === "child"
+  ) {
+    state.commandTeam.leaderId = null;
+  }
   state.trainingDoctrine = isProfessionalRole(value.trainingDoctrine)
     ? value.trainingDoctrine
     : null;
@@ -2451,6 +2666,7 @@ export function sanitizeSurvivorSystemState(value: unknown): SurvivorSystemState
       !survivor ||
       trainees.has(survivorId) ||
       state.medBayIds.includes(survivorId) ||
+      survivor.ageGroup === "child" ||
       isSurvivorQualified(survivor, raw.targetRole)
     ) {
       continue;

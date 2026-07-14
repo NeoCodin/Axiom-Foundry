@@ -104,7 +104,7 @@ The primary navigation has exactly five destinations: **Ark, Foundry, Personnel,
 
 ### Crew page
 
-- Owns Habitation Ring berth construction, life-support expansion, SOS signals, survivor roster, Personnel Files, training, assignments, callsigns, rarity explanations, levels, XP, and individual Continuity contributions.
+- Owns Living Space construction, the 48-person Ark limit, life-support expansion, SOS signals, survivor roster, children and elders, Personnel Files, study, automatic staffing, protected manual assignments, Ark Reserve, callsigns, rarity explanations, levels, XP, and individual Continuity contributions.
 - Appears as **Personnel** in primary navigation. Its contextual facilities are Crew Roster and, once meaningful, Medical Bay.
 
 ### Research page
@@ -198,8 +198,8 @@ Important balance decisions:
 - Null Studies is attainable through ordinary Researchers; Null Dreamers provide a bonus instead of being mandatory.
 - Later SOS groups grow in size to make large founder requirements less tedious.
 - Research speed bonuses are applied once, not squared.
-- Crew capacity is structural: the Habitation Ring provides berths (4 base + 8 per section). Sections are purchased with Flux at flat per-world continuity pricing (600 × continuity scale × (1 + 0.08 per lifetime section)), take 3 base hours to build, and assigned Engineers accelerate construction (+35% each, ×5 cap). Construction continues offline and never fails. Habitation is no longer a life-support category; atmosphere, water, nutrition, and medical remain the Salvage-built envelope that sustains the people berths house. Old saves convert habitation capacity into completed sections and population is always grandfathered — nobody aboard ever loses a berth.
-- Habitation research now increases effective berth and life-support capacity.
+- Crew capacity is structural: Living Space begins at 4 and grows by 8 per section, but the Ark has an absolute 48-person limit that research and Salvage cannot bypass. Sections cost flat per-world Flux plus Salvage, take 3 base hours, and assigned Engineers accelerate construction (+35% each, ×5 cap). Construction continues offline and never fails. Atmosphere, water, nutrition, and medical remain the separate Salvage-built envelope. Existing saves above 48 are grandfathered without deleting anyone, but cannot accept another rescue until below the limit.
+- Habitation research improves effective living-space and life-support capacity only up to the 48-person structural limit.
 - Colony legacy bonuses are wired into their named systems.
 - Hazard shielding and relay progression provide modest real effects.
 
@@ -583,9 +583,21 @@ Implemented July 13, 2026 (Team Alpha - command crew):
 
 - SurvivorSystemState gains commandTeam { leaderId, memberIds (max 3) } and trainingDoctrine (a ProfessionalRole or null), save-additive. Appoint/remove from any personnel file; the leader never doubles as a member; founding/abandonment prunes departed crew from the team automatically. Displayed as its own separated group (LEADER + three OFFICER slots) at the top of the Crew page; the rest of the roster is unchanged.
 - Command Rating = summed continuity expertise of ON-DUTY team members (wounded/deployed/stranded pause their contribution). Crew-wide multiplier on training speed AND on-job XP: 1 + min(0.35, rating/150) - an elite 4-person team caps at +35%. Membership is a designation, not a station: officers keep jobs and remain eligible for expeditions and founding (roster tension is the point).
-- Training Doctrine ("lean"): with a leader appointed, pick a profession; every simulation tick fills EMPTY training slots with the best IDLE crew for that lean (highest aptitude, respects rarity capacity, skips wounded/deployed). It never cancels manual programs and never pulls anyone off a working assignment. Runs offline. This is the next entry in the earned-automation family (Survivor Duty, auto-buyer, auto-transfer) and answers the owner's training click-tax complaint.
+- Training Doctrine ("lean"): with a leader appointed, pick a profession; every simulation tick fills EMPTY study slots with the best eligible adult in Ark Reserve for that lean (highest aptitude, respects rarity capacity, skips wounded/deployed). It never cancels manual programs and never pulls anyone off a working assignment. Runs offline.
 - Lore: AXIOM's "biological command authority: advisory" line now has a mechanical counterpart - the appointment announcement notes the transfer of command authority.
 - 144 tests passing; default path untouched (no team = x1, no doctrine = no enrollments), so sim pacing is unaffected. Verified live: appoint -> rating 22/+15% with three officers, doctrine "Lean Doctor" auto-enrolled an idle civilian within one tick.
+
+Implemented July 14, 2026 (crew capacity, families, and AXIOM staffing):
+
+- The Ark now has an absolute 48-person structural limit. Living Space still expands in 8-person sections, but capacity multipliers cannot exceed 48. Old over-cap saves are preserved and simply cannot accept another rescue until their roster falls below the limit.
+- Living Space construction now consumes both Flux and Salvage. Life support and rescue flights continue consuming Salvage, while adults in Ark Reserve provide a small passive maintenance recovery.
+- Survivor schema 5 adds `ageGroup` (`child | adult | elder`), `ageProgress`, `assignmentLocked`, `preferredRole`, `settlementProtected`, and system-wide `autoAssignmentEnabled`. Old crew default to adults; existing assignments become protected manual assignments and return after recovery, study, or missions.
+- Family signals may include children and elders. Children never work, study a profession, join command, or enter expeditions; they become adults after two completed planetary chapters aboard. Elders retain their Expertise, but AXIOM automatically places them only in Medicine, Research, Navigation, or Education. Manual elder assignments remain allowed.
+- AXIOM staffing places available adults into their highest-level learned profession, restores routine staffing after study/recovery/missions, and never moves a protected manual assignment. `Optimize all crew` clears those locks deliberately. `Unassigned` is replaced by `Ark Reserve`, a valid and useful state. Each personnel file also has explicit Ark protection that removes that person from founder selection until the player reverses it.
+- Raw `Stable founding population` and duplicate profession-headcount gates were retired. Planet departure now uses `Community Readiness`: each adult +1, each child/elder +2, social Expertise up to +2/person, profession diversity up to +4, and completed planetary works +2 each. Existing world targets remain 18/26/34/42/50, so later worlds demand stronger groups without requiring 34-50 separate people. Founding groups are hard-capped at 24 people (half the full Ark).
+- Continuity now displays only combined Expertise gates (`Engineering Expertise`, `Medical Expertise`, etc.). One level-four specialist visibly contributes four points. Equipment previously covering fictional "posts" now contributes directly to the matching Expertise total.
+- The Field Manual and Personnel/Planet interfaces explain the cap, age groups, Ark Reserve, assignment locks, readiness math, and Expertise contributors. Saves remain compatible and no crew is deleted.
+- Validation baseline after this pass: 148 tests, lint, vinext production build, and static hosting build passing.
 
 Implemented July 13, 2026 (Medical Bay tab):
 

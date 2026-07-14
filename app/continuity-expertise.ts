@@ -11,43 +11,43 @@ export const CONTINUITY_EXPERTISE_PRESENTATION: Record<
   { label: string; formula: string }
 > = {
   engineering: {
-    label: "Engineering",
+    label: "Engineering Expertise",
     formula: "Engineer level + 60% of Technician level (rounded down)",
   },
   medicine: {
-    label: "Medicine",
+    label: "Medical Expertise",
     formula: "Doctor level",
   },
   ecology: {
-    label: "Ecology",
+    label: "Ecology Expertise",
     formula: "Farmer level",
   },
   education: {
-    label: "Education",
+    label: "Education Expertise",
     formula: "Teacher level",
   },
   leadership: {
-    label: "Leadership",
+    label: "Leadership Expertise",
     formula: "70% of Soldier level + 40% of Navigator level (each rounded up)",
   },
   fabrication: {
-    label: "Fabrication",
+    label: "Fabrication Expertise",
     formula: "Fabricator level + 50% of Technician level (rounded down)",
   },
   research: {
-    label: "Research",
+    label: "Research Expertise",
     formula: "Researcher level",
   },
   navigation: {
-    label: "Navigation",
+    label: "Navigation Expertise",
     formula: "Navigator level",
   },
   communications: {
-    label: "Communications",
+    label: "Communications Expertise",
     formula: "60% of Navigator level + 40% of Researcher level (rounded down)",
   },
   "null-studies": {
-    label: "Null Studies",
+    label: "Null Studies Expertise",
     formula: "Researcher level + a 50% Null Dreamer bonus (rounded up)",
   },
 };

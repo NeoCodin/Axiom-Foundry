@@ -19,6 +19,7 @@ import {
   WOUNDED_HEALTH_THRESHOLD,
   canSurvivorLearnProfession,
   getLifeSupportStatus,
+  getRescueReadiness,
   getPopulationRoleCounts,
   getSurvivorHealthCap,
   getSurvivorProfessionCapacity,
@@ -79,6 +80,10 @@ export type PopulationConsoleProps = {
   rescueFlux: { cost: number; label: string; affordable: boolean };
   rescueDetail: { active: boolean; enabled: boolean };
   onToggleAutoRescue: (enabled: boolean) => void;
+  onToggleAutoAssignment: (enabled: boolean) => void;
+  onOptimizeAssignments: () => void;
+  onReturnToAutoAssignment: (survivorId: string) => void;
+  onProtectForArk: (survivorId: string, protectedForArk: boolean) => void;
   teamAlpha: TeamAlphaView;
   onAppointLeader: (survivorId: string | null) => void;
   onToggleTeamMember: (survivorId: string) => void;
@@ -127,6 +132,10 @@ function PopulationConsole({
   rescueFlux,
   rescueDetail,
   onToggleAutoRescue,
+  onToggleAutoAssignment,
+  onOptimizeAssignments,
+  onReturnToAutoAssignment,
+  onProtectForArk,
   teamAlpha,
   onAppointLeader,
   onToggleTeamMember,
@@ -170,9 +179,16 @@ function PopulationConsole({
       ? selectedCrew.assignedRole
       : null;
   const activeSignal = state.activeSignal;
-  const activeSignalLifeSupport = activeSignal
-    ? getLifeSupportStatus(state, activeSignal.survivors, capacityMultiplier)
-    : null;
+  const activeSignalReadiness = getRescueReadiness(
+    state,
+    salvage,
+    capacityMultiplier,
+  );
+  const ageCounts = {
+    children: state.survivors.filter((survivor) => survivor.ageGroup === "child").length,
+    adults: state.survivors.filter((survivor) => survivor.ageGroup === "adult").length,
+    elders: state.survivors.filter((survivor) => survivor.ageGroup === "elder").length,
+  };
 
   const submitCallsign = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -186,36 +202,36 @@ function PopulationConsole({
       <header className="continuity-console-header">
         <div>
           <p>HUMAN CONTINUITY // {currentWorldName.toUpperCase()}</p>
-          <h2 id="population-console-title">Population, training, and life support</h2>
-          <span>The Ark never harms people while you are away. Capacity only limits new rescues.</span>
+          <h2 id="population-console-title">Crew, training, and living systems</h2>
+          <span>AXIOM handles routine staffing. Manual assignments remain protected until you release them.</span>
         </div>
         <button type="button" onClick={onBack}>Return to Ark Deck</button>
       </header>
 
       <div className="continuity-summary-band">
-        <div><span>People aboard</span><strong>{state.survivors.length}</strong></div>
-        <div><span>Crew quarters</span><strong>{state.survivors.length}/{berthQuote.capacity}</strong></div>
+        <div><span>Crew capacity</span><strong>{state.survivors.length}/{berthQuote.capacity}</strong></div>
+        <div><span>Community</span><strong>{ageCounts.adults} adults / {ageCounts.children} children / {ageCounts.elders} elders</strong></div>
         <div><span>Stable capacity</span><strong>{Math.min(berthQuote.capacity, ...Object.values(lifeSupport.capacity))}</strong></div>
-        <div title="Concurrent training programs. Slots grow with population (+1 per 20 people) and the Adaptive Instruction and Clinical Commons research projects, up to 12."><span>Training slots</span><strong>{state.training.length}/{state.trainingSlots}</strong></div>
+        <div title="Concurrent profession-study programs. Slots grow with population (+1 per 20 people) and the Adaptive Instruction and Clinical Commons research projects, up to 12."><span>Study slots</span><strong>{state.training.length}/{state.trainingSlots}</strong></div>
         <div><span>Signals answered</span><strong>{state.signalsResolved}</strong></div>
         <div className="continuity-summary-help"><span>Available Salvage <HelpTrigger label="How do I get Salvage?" onClick={() => onOpenHelp("salvage")} /></span><strong>{Math.floor(salvage)}</strong></div>
       </div>
 
       <section className="continuity-panel support-capacity-panel">
-        <header><div><span>ARK CAPACITY</span><h3>Quarters and life support</h3></div><small>{berthQuote.inProgress ? "Quarters section under construction" : !lifeSupport.stable ? "Increase capacity before the next rescue" : "All current demand covered"}</small></header>
+        <header><div><span>ARK CAPACITY</span><h3>Living space and life support</h3></div><small>{berthQuote.inProgress ? "Living-space section under construction" : !lifeSupport.stable ? "Increase capacity before the next rescue" : berthQuote.maxed ? "Ark structural limit reached" : "All current demand covered"}</small></header>
         <div className="support-upgrade-grid">
           <article className="quarters-card">
-            <span>Crew quarters</span>
+            <span>Living space</span>
             <strong>{state.survivors.length} / {berthQuote.capacity}</strong>
             {berthQuote.inProgress ? (
               <>
-                <div role="progressbar" aria-label="Quarters section construction" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(berthQuote.progressRatio * 100)}><i style={{ width: `${berthQuote.progressRatio * 100}%` }} /></div>
+                <div role="progressbar" aria-label="Living-space section construction" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(berthQuote.progressRatio * 100)}><i style={{ width: `${berthQuote.progressRatio * 100}%` }} /></div>
                 <small>+{berthQuote.berthsPerSection} building · {berthQuote.remainingLabel ?? "in progress"} · {berthQuote.engineerCount} engineer{berthQuote.engineerCount === 1 ? "" : "s"} ×{berthQuote.speedMultiplier.toFixed(2)} · continues offline</small>
               </>
             ) : (
               <>
-                <div role="progressbar" aria-label="Quarters occupancy" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.min(1, state.survivors.length / Math.max(1, berthQuote.capacity)) * 100)}><i style={{ width: `${Math.min(1, state.survivors.length / Math.max(1, berthQuote.capacity)) * 100}%` }} /></div>
-                <button type="button" disabled={berthQuote.maxed || !berthQuote.canAfford} onClick={onStartBerthConstruction}>{berthQuote.maxed ? "Ring complete" : `Build +${berthQuote.berthsPerSection} · ${berthQuote.costLabel}`}</button>
+                <div role="progressbar" aria-label="Living-space occupancy" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.min(1, state.survivors.length / Math.max(1, berthQuote.capacity)) * 100)}><i style={{ width: `${Math.min(1, state.survivors.length / Math.max(1, berthQuote.capacity)) * 100}%` }} /></div>
+                <button type="button" disabled={berthQuote.maxed || !berthQuote.canAfford} onClick={onStartBerthConstruction}>{berthQuote.maxed ? "Ark capacity reached" : `Expand +${berthQuote.berthsPerSection} · ${berthQuote.costLabel}`}</button>
                 <small>Foundry-built structure; assigned engineers speed construction (now {berthQuote.engineerCount}, ×{berthQuote.speedMultiplier.toFixed(2)}).</small>
               </>
             )}
@@ -262,7 +278,7 @@ function PopulationConsole({
                       <div className="crew-avatar">{survivor.name.slice(0, 1)}</div>
                       <div>
                         <strong>{survivor.name}</strong>
-                        <small>{titleCase(survivor.role)}{professionLevel > 1 ? ` · Level ${professionLevel}` : ""} · {BACKGROUND_DEFINITIONS.find((item) => item.id === survivor.backgroundId)?.name ?? titleCase(survivor.backgroundId)}</small>
+                        <small>{titleCase(survivor.ageGroup)} · {titleCase(survivor.role)}{professionLevel > 1 ? ` · Level ${professionLevel}` : ""} · {BACKGROUND_DEFINITIONS.find((item) => item.id === survivor.backgroundId)?.name ?? titleCase(survivor.backgroundId)}</small>
                         {(isSurvivorWounded(survivor) || survivor.injury || survivor.health < MAX_SURVIVOR_HEALTH) && <HealthBar survivor={survivor} />}
                       </div>
                       <span className="crew-roster-status">
@@ -289,10 +305,20 @@ function PopulationConsole({
                 ) : null;
               })()}
               <div className="signal-readiness">
-                <span>{activeSignalLifeSupport?.stable ? "Life support ready" : "Insufficient safe capacity"}</span>
+                <span>{activeSignalReadiness.canRescue
+                  ? "Living systems ready"
+                  : activeSignalReadiness.reason === "roster-full"
+                    ? "Ark limit: 48 people"
+                    : activeSignalReadiness.reason === "berths"
+                      ? "More living space required"
+                      : activeSignalReadiness.reason === "life-support"
+                        ? "Expand life support"
+                        : activeSignalReadiness.reason === "salvage"
+                          ? "More Salvage required"
+                          : "Rescue waiting"}</span>
                 <span>{activeSignal.rescueCost} Salvage + {rescueFlux.label}</span>
               </div>
-              <button type="button" disabled={!activeSignalLifeSupport?.stable || salvage < activeSignal.rescueCost || !rescueFlux.affordable} onClick={onRescueSignal}>Dispatch rescue shuttle</button>
+              <button type="button" disabled={!activeSignalReadiness.canRescue || !rescueFlux.affordable} onClick={onRescueSignal}>Dispatch rescue shuttle</button>
               {!rescueFlux.affordable && <p>The shuttle launch needs {rescueFlux.label}.</p>}
               <p>This signal never expires. You can leave it here until the Ark is ready.</p>
             </article>
@@ -311,7 +337,17 @@ function PopulationConsole({
         </section>
 
         <section className="continuity-panel role-balance-panel">
-          <header><div><span>ROSTER SHAPE</span><h3>Current professions</h3></div><small>Civilians are adaptable, not inferior</small></header>
+          <header><div><span>AXIOM STAFFING</span><h3>Automatic crew placement</h3></div><small>Strongest learned profession by default</small></header>
+          <label className="toggle-row">
+            <span>
+              <strong>Automatic staffing</strong>
+              <small>AXIOM refills routine work after study, recovery, expeditions, and rescues. Manual assignments stay locked.</small>
+            </span>
+            <input type="checkbox" checked={state.autoAssignmentEnabled} onChange={(event) => onToggleAutoAssignment(event.target.checked)} />
+          </label>
+          <button className="forecast-action" type="button" onClick={onOptimizeAssignments}>Optimize all crew</button>
+          <p>Adults default to their highest-level profession. Elders are automatically placed only in medicine, research, navigation, or education. Children attend school and are never assigned to work or missions.</p>
+          <header><div><span>ROSTER SHAPE</span><h3>Current professions</h3></div><small>Ark Reserve covers absences and performs light maintenance</small></header>
           <div className="role-count-grid">
             {Object.entries(roleCounts).map(([role, count]) => <div key={role}><span>{titleCase(role)}</span><strong>{count}</strong></div>)}
           </div>
@@ -384,7 +420,7 @@ function PopulationConsole({
               </select>
             </label>
           </div>
-          <small className="crew-rarity-note">The doctrine fills empty training slots with your best IDLE crew for the lean — it never cancels manual programs or pulls anyone off a station. The command bonus counts on-duty team members only; wounded or deployed officers pause their contribution.</small>
+          <small className="crew-rarity-note">The doctrine fills empty study slots with the best eligible adult in Ark Reserve — it never cancels manual programs or pulls anyone off a station. The command bonus counts on-duty team members only; wounded or deployed officers pause their contribution.</small>
         </section>
       )}
 
@@ -392,11 +428,11 @@ function PopulationConsole({
         <section className="continuity-panel crew-roster-panel">
           {(() => {
             const trainingIds = new Set(state.training.map((program) => program.survivorId));
-            const idleCount = state.survivors.filter(
+            const reserveCount = state.survivors.filter(
               (survivor) => !survivor.assignedRole && !trainingIds.has(survivor.id),
             ).length;
             return (
-              <header><div><span>CREW ROSTER</span><h3>{state.survivors.length > 0 ? `${state.survivors.length} people aboard` : "The Ark is empty"}</h3></div><small className={idleCount > 0 ? "crew-idle-alert" : ""}>{idleCount > 0 ? `${idleCount} awaiting assignment` : "Everyone has a station"}</small></header>
+              <header><div><span>CREW ROSTER</span><h3>{state.survivors.length > 0 ? `${state.survivors.length} people aboard` : "The Ark is empty"}</h3></div><small>{reserveCount > 0 ? `${reserveCount} in Ark Reserve` : "Everyone has a station"}</small></header>
             );
           })()}
           {state.survivors.length === 0 ? (
@@ -407,16 +443,17 @@ function PopulationConsole({
                 const training = state.training.find((program) => program.survivorId === survivor.id);
                 const rarity = getSurvivorRarity(survivor);
                 const wounded = isSurvivorWounded(survivor);
-                const idle = !training && !survivor.assignedRole && !wounded;
+                const reserve = !training && !survivor.assignedRole && !wounded;
                 return (
-                  <button className={`crew-rarity-${rarity.id} ${selectedCrew?.id === survivor.id ? "is-selected" : ""} ${idle ? "is-idle" : ""}`} type="button" key={survivor.id} onClick={() => setSelectedCrewId(survivor.id)}>
+                  <button className={`crew-rarity-${rarity.id} ${selectedCrew?.id === survivor.id ? "is-selected" : ""} ${reserve ? "is-idle" : ""}`} type="button" key={survivor.id} onClick={() => setSelectedCrewId(survivor.id)}>
                     <span className="crew-avatar">{survivor.name.slice(0, 1)}</span>
-                    <span><strong>{survivor.callsign ? `“${survivor.callsign}” ${survivor.name}` : survivor.name}</strong><small>{training ? `Training ${titleCase(training.targetRole)} · ${Math.round((training.progressSeconds / training.durationSeconds) * 100)}%` : survivor.role === "civilian" ? `Civilian · ${titleCase(survivor.assignedRole ?? "untrained")}` : `${titleCase(survivor.role)} · Level ${getSurvivorSkillLevel(survivor, survivor.role)} · ${titleCase(survivor.assignedRole ?? "unassigned")}`}</small>{(wounded || survivor.injury || survivor.health < MAX_SURVIVOR_HEALTH) && <HealthBar survivor={survivor} />}</span>
+                    <span><strong>{survivor.callsign ? `“${survivor.callsign}” ${survivor.name}` : survivor.name}</strong><small>{titleCase(survivor.ageGroup)} · {training ? `Studying ${titleCase(training.targetRole)} · ${Math.round((training.progressSeconds / training.durationSeconds) * 100)}%` : survivor.role === "civilian" ? titleCase(survivor.assignedRole ?? "Ark Reserve") : `${titleCase(survivor.role)} · Level ${getSurvivorSkillLevel(survivor, survivor.role)} · ${titleCase(survivor.assignedRole ?? "Ark Reserve")}`}</small>{(wounded || survivor.injury || survivor.health < MAX_SURVIVOR_HEALTH) && <HealthBar survivor={survivor} />}</span>
                     <span className="crew-roster-status">
                       <em className="crew-rarity-badge" title={rarity.description}>{rarity.label}</em>
                       {wounded && <em className="crew-wounded-badge" title={`Health below ${WOUNDED_HEALTH_THRESHOLD}. Recovering aboard the Ark - no work, training, expeditions, or founding until healed.`}>RECOVERING</em>}
                       {survivor.injury && !wounded && <em className="crew-injured-badge" title={`Permanent ${survivor.injury} injury caps health at ${getSurvivorHealthCap(survivor)}. Founding requires ${FOUNDER_HEALTH_THRESHOLD}+.`}>INJURED</em>}
-                      {idle && <em className="crew-idle-badge" title="No working assignment. Assign a station to earn profession XP.">UNASSIGNED</em>}
+                      {survivor.settlementProtected && <em className="crew-idle-badge" title="Protected for the Ark. This person cannot be selected for planetary departure.">ARK PROTECTED</em>}
+                      {reserve && <em className="crew-idle-badge" title="Ark Reserve automatically covers absences and performs light maintenance.">RESERVE</em>}
                     </span>
                   </button>
                 );
@@ -428,11 +465,11 @@ function PopulationConsole({
         <section className={`continuity-panel crew-detail-panel ${selectedRarity ? `crew-rarity-${selectedRarity.id}` : ""}`}>
           {selectedCrew ? (
             <>
-              <header><div><span>PERSONNEL FILE</span><h3>{selectedCrew.name}</h3></div><div className="crew-file-classification"><em className="crew-rarity-badge" title={selectedRarity?.description}>{selectedRarity?.label}</em><small>{selectedCrew.storyHookId ? "Archive discrepancy attached" : `Joined from ${titleCase(selectedCrew.origin)}`}</small></div></header>
+              <header><div><span>PERSONNEL FILE</span><h3>{selectedCrew.name}</h3></div><div className="crew-file-classification"><em className="crew-rarity-badge" title={selectedRarity?.description}>{selectedRarity?.label}</em><small>{titleCase(selectedCrew.ageGroup)} · {selectedCrew.storyHookId ? "Archive discrepancy attached" : `Joined from ${titleCase(selectedCrew.origin)}`}</small></div></header>
               <div className="crew-detail-identity">
                 <span className="crew-avatar large">{selectedCrew.name.slice(0, 1)}</span>
                 <div>
-                  <strong>{selectedProfessionalRole && selectedSkillProgress ? `${titleCase(selectedProfessionalRole)} · Level ${selectedSkillProgress.level}` : "Civilian · Untrained"}</strong>
+                  <strong>{selectedCrew.ageGroup === "child" ? "Child · Education program" : selectedProfessionalRole && selectedSkillProgress ? `${titleCase(selectedProfessionalRole)} · Level ${selectedSkillProgress.level}` : "Civilian · Ready to learn"}</strong>
                   <small>{BACKGROUND_DEFINITIONS.find((item) => item.id === selectedCrew.backgroundId)?.summary ?? titleCase(selectedCrew.backgroundId)}</small>
                 </div>
               </div>
@@ -440,8 +477,8 @@ function PopulationConsole({
                 <div className="crew-career-heading">
                   <div>
                     <span>CURRENT PROFESSION</span>
-                    <strong>{selectedProfessionalRole && selectedSkillProgress ? `${titleCase(selectedProfessionalRole)} · LEVEL ${selectedSkillProgress.level}` : "CIVILIAN · READY TO TRAIN"}</strong>
-                    <small>{selectedJobRole ? `${getSurvivorOnJobXpPerHour(selectedCrew, selectedJobRole, crewGrowthMultiplier).toFixed(1)} XP/hour while assigned as ${titleCase(selectedJobRole)}` : "Assign qualified work to earn profession XP offline."}</small>
+                    <strong>{selectedCrew.ageGroup === "child" ? "EDUCATION · PROTECTED" : selectedProfessionalRole && selectedSkillProgress ? `${titleCase(selectedProfessionalRole)} · LEVEL ${selectedSkillProgress.level}` : "CIVILIAN · READY TO STUDY"}</strong>
+                    <small>{selectedCrew.ageGroup === "child" ? `Becomes an adult after ${Math.max(0, 2 - selectedCrew.ageProgress)} more planetary chapter${2 - selectedCrew.ageProgress === 1 ? "" : "s"}.` : selectedJobRole ? `${getSurvivorOnJobXpPerHour(selectedCrew, selectedJobRole, crewGrowthMultiplier).toFixed(1)} XP/hour while assigned as ${titleCase(selectedJobRole)}` : "Ark Reserve covers absences and performs light maintenance."}</small>
                   </div>
                   <div className="crew-learning-rate">
                     <span>PERSONAL LEARNING</span>
@@ -482,7 +519,7 @@ function PopulationConsole({
                 {teamAlpha.leaderId === selectedCrew.id ? (
                   <button type="button" onClick={() => onAppointLeader(null)}>Stand down as Crew Leader</button>
                 ) : (
-                  <button type="button" onClick={() => onAppointLeader(selectedCrew.id)}>Appoint as Crew Leader</button>
+                  <button type="button" disabled={selectedCrew.ageGroup === "child"} onClick={() => onAppointLeader(selectedCrew.id)}>{selectedCrew.ageGroup === "child" ? "Children cannot join command" : "Appoint as Crew Leader"}</button>
                 )}
                 {teamAlpha.leaderId !== selectedCrew.id && (
                   teamAlpha.memberIds.includes(selectedCrew.id) ? (
@@ -490,15 +527,19 @@ function PopulationConsole({
                   ) : (
                     <button
                       type="button"
-                      disabled={teamAlpha.memberIds.length >= 3}
+                      disabled={teamAlpha.memberIds.length >= 3 || selectedCrew.ageGroup === "child"}
                       onClick={() => onToggleTeamMember(selectedCrew.id)}
                     >
-                      {teamAlpha.memberIds.length >= 3 ? "Team Alpha is full (3 officers)" : "Add to Team Alpha"}
+                      {selectedCrew.ageGroup === "child" ? "Children cannot join command" : teamAlpha.memberIds.length >= 3 ? "Team Alpha is full (3 officers)" : "Add to Team Alpha"}
                     </button>
                   )
                 )}
               </div>
               <form className="crew-callsign-form" onSubmit={submitCallsign}><label htmlFor="crew-callsign">Callsign</label><input id="crew-callsign" name="callsign" maxLength={18} defaultValue={selectedCrew.callsign} placeholder="Optional" /><button type="submit">Save</button></form>
+              <div className="team-alpha-actions">
+                <button type="button" disabled={!selectedCrew.assignmentLocked || selectedCrew.ageGroup === "child"} onClick={() => onReturnToAutoAssignment(selectedCrew.id)}>{selectedCrew.assignmentLocked ? "Return assignment to AXIOM" : "Assignment managed by AXIOM"}</button>
+                <button type="button" onClick={() => onProtectForArk(selectedCrew.id, !selectedCrew.settlementProtected)}>{selectedCrew.settlementProtected ? "Allow planetary selection" : "Protect for the Ark"}</button>
+              </div>
               <div className="crew-trait-list">
                 {selectedCrew.traits.map((traitId) => {
                   const trait = TRAIT_DEFINITIONS.find((item) => item.id === traitId);
@@ -530,12 +571,14 @@ function PopulationConsole({
                     })}
                   </ul>
                 ) : (
-                  <p>Train a profession to create measurable Continuity expertise.</p>
+                  <p>{selectedCrew.ageGroup === "child" ? "Children contribute to Community Readiness as the settlement's future, but they are never counted as workers or Expertise." : "Study a profession to create measurable Continuity Expertise."}</p>
                 )}
               </section>
 
               {selectedTraining ? (
-                <div className="active-training-card"><span>TRAINING IN PROGRESS</span><strong>{titleCase(selectedTraining.targetRole)}</strong><div><i style={{ width: `${Math.min(100, (selectedTraining.progressSeconds / selectedTraining.durationSeconds) * 100)}%` }} /></div><small>{formatTime((selectedTraining.durationSeconds - selectedTraining.progressSeconds) / crewGrowthMultiplier)} remaining · ×{(getSurvivorLearningMultiplier(selectedCrew) * crewGrowthMultiplier).toFixed(2)} total learning · continues offline</small><button type="button" onClick={() => onCancelTraining(selectedCrew.id)}>Cancel training</button></div>
+                <div className="active-training-card"><span>STUDY IN PROGRESS</span><strong>{titleCase(selectedTraining.targetRole)}</strong><div><i style={{ width: `${Math.min(100, (selectedTraining.progressSeconds / selectedTraining.durationSeconds) * 100)}%` }} /></div><small>{formatTime((selectedTraining.durationSeconds - selectedTraining.progressSeconds) / crewGrowthMultiplier)} remaining · ×{(getSurvivorLearningMultiplier(selectedCrew) * crewGrowthMultiplier).toFixed(2)} total learning · continues offline</small><button type="button" onClick={() => onCancelTraining(selectedCrew.id)}>Pause study</button></div>
+              ) : selectedCrew.ageGroup === "child" ? (
+                <div className="continuity-empty-state"><strong>Education program active.</strong><p>Children occupy living space and contribute to Community Readiness, but never work, train for a profession, join command, or enter an expedition. Growth advances through planetary chapters, never a real-time deadline.</p></div>
               ) : isSurvivorWounded(selectedCrew) ? (
                 <div className="crew-actions-grid">
                   <label>Working assignment<select disabled value=""><option value="">{`Recovering — available again at ${WOUNDED_HEALTH_THRESHOLD} health`}</option></select></label>
@@ -543,8 +586,8 @@ function PopulationConsole({
                 </div>
               ) : (
                 <div className="crew-actions-grid">
-                  <label>Working assignment<select value={selectedCrew.assignedRole ?? ""} onChange={(event) => onAssignRole(selectedCrew.id, event.target.value ? event.target.value as SurvivorRole : null)}><option value="">Unassigned</option>{selectedCrew.role === "civilian" && <option value="civilian">Civilian support</option>}{PROFESSIONAL_ROLES.filter((role) => selectedCrew.role === role || getSurvivorSkillLevel(selectedCrew, role) > 0).map((role) => <option key={role} value={role}>{titleCase(role)}</option>)}</select></label>
-                  <label>Training program{getSurvivorProfessionCount(selectedCrew) >= getSurvivorProfessionCapacity(selectedCrew) ? (
+                  <label>Working assignment<select value={selectedCrew.assignedRole ?? ""} onChange={(event) => onAssignRole(selectedCrew.id, event.target.value ? event.target.value as SurvivorRole : null)}><option value="">Ark Reserve</option>{selectedCrew.role === "civilian" && <option value="civilian">Civilian support</option>}{PROFESSIONAL_ROLES.filter((role) => selectedCrew.role === role || getSurvivorSkillLevel(selectedCrew, role) > 0).map((role) => <option key={role} value={role}>{titleCase(role)}</option>)}</select></label>
+                  <label>Study a profession{getSurvivorProfessionCount(selectedCrew) >= getSurvivorProfessionCapacity(selectedCrew) ? (
                     <select disabled value=""><option value="">{`Profession capacity reached (${getSurvivorProfessionCapacity(selectedCrew)})`}</option></select>
                   ) : state.training.length >= state.trainingSlots ? (
                     <select disabled value=""><option value="">{`All ${state.trainingSlots} training slots busy — more at +20 population or via research`}</option></select>

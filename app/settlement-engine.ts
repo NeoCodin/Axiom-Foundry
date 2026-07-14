@@ -23,6 +23,8 @@ export type CampaignCrewSummary = {
   rarityLabel?: string;
   rarityDescription?: string;
   level?: number;
+  ageGroup?: "child" | "adult" | "elder";
+  protectedForArk?: boolean;
 };
 
 export type WorldProgressSummary = {
@@ -42,6 +44,7 @@ export type FounderSnapshot = {
   roles: string[];
   expertise: Record<string, number>;
   rarity: "standard" | "notable" | "exceptional" | "anomalous";
+  ageGroup: "child" | "adult" | "elder";
 };
 
 export type ColonyRecord = {
@@ -65,8 +68,7 @@ export type SettlementState = {
 
 export type ForecastLine = {
   kind:
-    | "population"
-    | "role"
+    | "community"
     | "expertise"
     | "profile"
     | "infrastructure"
@@ -128,6 +130,7 @@ export type DepartureResult =
     };
 
 export const SETTLEMENT_SCHEMA = 1;
+export const MAX_FOUNDING_COMMUNITY_SIZE = 24;
 const MAX_SETTLERS = 500;
 const MAX_TEXT_LENGTH = 64;
 const MAX_RESOURCE_VALUE = 1_000_000_000;
@@ -199,7 +202,12 @@ function normalizeCrew(member: CampaignCrewSummary): FounderSnapshot | null {
     roles,
     expertise: cleanValueRecord(member.expertise),
     rarity: normalizeRarity(member.rarity),
+    ageGroup: normalizeAgeGroup(member.ageGroup),
   };
+}
+
+function normalizeAgeGroup(value: unknown): FounderSnapshot["ageGroup"] {
+  return value === "child" || value === "elder" ? value : "adult";
 }
 
 function normalizeRarity(
@@ -222,6 +230,7 @@ function sanitizeFounder(value: unknown): FounderSnapshot | null {
     roles: uniqueIds(value.roles, 20),
     expertise: cleanValueRecord(value.expertise),
     rarity: normalizeRarity(value.rarity),
+    ageGroup: normalizeAgeGroup(value.ageGroup),
   };
 }
 
@@ -326,7 +335,9 @@ export function sanitizeSettlementState(value: unknown): SettlementState {
   );
   const selectedSettlerIds =
     currentWorldId && getCampaignWorld(currentWorldId)?.settlementRequired
-    ? uniqueIds(value.selectedSettlerIds).filter((id) => !settledIds.has(id))
+    ? uniqueIds(value.selectedSettlerIds)
+        .filter((id) => !settledIds.has(id))
+        .slice(0, MAX_FOUNDING_COMMUNITY_SIZE)
     : [];
 
   return {
@@ -402,7 +413,9 @@ export function setSelectedSettlers(
   }
 
   const available = availableCrew(state, crew);
-  const selectedSettlerIds = uniqueIds(crewIds).filter((id) => available.has(id));
+  const selectedSettlerIds = uniqueIds(crewIds)
+    .filter((id) => available.has(id))
+    .slice(0, MAX_FOUNDING_COMMUNITY_SIZE);
   if (
     selectedSettlerIds.length === state.selectedSettlerIds.length &&
     selectedSettlerIds.every((id, index) => id === state.selectedSettlerIds[index])
@@ -498,6 +511,25 @@ function line(
   };
 }
 
+/**
+ * Community Readiness replaces raw founder headcount. Every person matters;
+ * children represent the next generation, elders preserve memory, and social
+ * expertise lets a smaller, experienced group establish a durable society.
+ */
+export function getCommunityReadinessContribution(
+  member: Pick<CampaignCrewSummary, "ageGroup" | "expertise">,
+) {
+  const expertise = member.expertise ?? {};
+  const socialExpertise =
+    (expertise.medicine ?? 0) +
+    (expertise.ecology ?? 0) +
+    (expertise.education ?? 0) +
+    (expertise.leadership ?? 0);
+  const ageContribution =
+    member.ageGroup === "child" || member.ageGroup === "elder" ? 2 : 1;
+  return ageContribution + Math.min(2, Math.floor(socialExpertise / 4));
+}
+
 function deficitFor(
   requirement: ForecastLine,
   world: CampaignWorldDefinition,
@@ -507,19 +539,11 @@ function deficitFor(
   let message = `${requirement.label}: ${missing} more required.`;
   let alternatives: string[] = [];
 
-  if (requirement.kind === "population") {
-    message = `Select ${missing} more eligible settler${missing === 1 ? "" : "s"}.`;
-  } else if (requirement.kind === "role") {
-    const role = world.roleRequirements.find((candidate) => candidate.id === requirement.id);
+  if (requirement.kind === "community") {
+    message = `Build ${missing} more Community Readiness.`;
     alternatives = [
-      ...(role
-        ? [`Train or recruit: ${role.acceptedRoles.map((accepted) => (accepted === "security" ? "soldier" : accepted)).join(", ")}.`]
-        : []),
-      "Any crew member with an open profession slot can cross-train (Notable 2 · Exceptional 3 · Anomalous unlimited).",
-      ...matchingSubstitutions(world, "role", requirement.id),
-      ...(world.equipment.length > 0
-        ? ["Matching equipment can be fabricated with Flux under World Works."]
-        : []),
+      "Add founders, deepen Medicine, Ecology, Education, or Leadership Expertise, or complete planetary infrastructure.",
+      "Children and elders each contribute two readiness because a stable community needs a future and a living memory.",
     ];
   } else if (requirement.kind === "expertise") {
     alternatives = [
@@ -576,8 +600,7 @@ function averageRatio(lines: readonly ForecastLine[]) {
 
 function viabilityScore(lines: readonly ForecastLine[]) {
   const weights: Record<ForecastLine["kind"], number> = {
-    population: 25,
-    role: 20,
+    community: 30,
     expertise: 20,
     profile: 10,
     infrastructure: 15,
@@ -619,39 +642,45 @@ export function getViabilityForecast(
   const lines: ForecastLine[] = [];
 
   if (world.settlementRequired) {
+    const founderContributors = settlers.map((settler) => ({
+      id: settler.crewId,
+      label: `${settler.name} (${settler.ageGroup})`,
+      value: getCommunityReadinessContribution(settler),
+    }));
+    const founderReadiness = founderContributors.reduce(
+      (total, contributor) => total + contributor.value,
+      0,
+    );
+    const professionalDiversity = Math.min(
+      4,
+      new Set(
+        settlers.flatMap((settler) =>
+          settler.roles.filter((role) => role !== "civilian"),
+        ),
+      ).size,
+    );
+    const infrastructureReadiness =
+      world.infrastructure.filter((objective) =>
+        progress.completedInfrastructureIds.includes(objective.id),
+      ).length * 2;
     lines.push(
       line(
-        "population",
-        "stable-population",
-        "Stable founding population",
-        settlers.length,
-        0,
-        world.minimumPopulation,
-        "Every selected founder counts once toward the stable population.",
-      ),
-    );
-  }
-
-  for (const requirement of world.roleRequirements) {
-    const accepted = new Set(requirement.acceptedRoles.map(normalizeId));
-    const matchingCrew = settlers.filter((settler) =>
-      settler.roles.some((role) => accepted.has(role)),
-    );
-    const assisted = substitutionsFor(world, "role", requirement.id, progress);
-    lines.push(
-      line(
-        "role",
-        requirement.id,
-        requirement.label,
-        matchingCrew.length,
-        assisted,
-        requirement.count,
-        `Accepted professions: ${requirement.acceptedRoles.map((role) => (role === "security" ? "soldier" : role)).join(", ")}. Cross-trained qualifications count.`,
-        matchingCrew.map((settler) => ({
-          id: settler.crewId,
-          label: settler.name,
-          value: 1,
-        })),
+        "community",
+        "community-readiness",
+        "Community Readiness",
+        founderReadiness,
+        professionalDiversity + infrastructureReadiness,
+        world.communityReadiness,
+        "Each founder contributes 1, children and elders contribute 2, and Medicine, Ecology, Education, or Leadership Expertise can add up to 2 more per person. Profession diversity adds up to 4; completed planetary works add 2 each.",
+        [
+          ...founderContributors,
+          ...(professionalDiversity > 0
+            ? [{ id: "profession-diversity", label: "Profession diversity", value: professionalDiversity }]
+            : []),
+          ...(infrastructureReadiness > 0
+            ? [{ id: "planetary-works", label: "Completed planetary works", value: infrastructureReadiness }]
+            : []),
+        ],
       ),
     );
   }
@@ -790,7 +819,7 @@ export function getViabilityForecast(
   return {
     worldId: world.id,
     settlementRequired: world.settlementRequired,
-    selectedSettlerIds,
+    selectedSettlerIds: eligibleSettlerIds,
     eligibleSettlerIds,
     ignoredSettlerIds,
     lines,
