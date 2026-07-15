@@ -200,6 +200,9 @@ function PopulationConsole({
 }: PopulationConsoleProps) {
   const beaconAvailable = beaconReadiness.ready;
   const [selectedCrewId, setSelectedCrewId] = useState<string | null>(null);
+  const [consoleView, setConsoleView] = useState<"systems" | "roster" | "command">(
+    state.survivors.length > 0 ? "roster" : "systems",
+  );
   const lifeSupport = useMemo(
     () => getLifeSupportStatus(state, [], capacityMultiplier),
     [capacityMultiplier, state],
@@ -268,6 +271,22 @@ function PopulationConsole({
         <div className="continuity-summary-help"><span>Available Salvage <HelpTrigger label="How do I get Salvage?" onClick={() => onOpenHelp("salvage")} /></span><strong>{Math.floor(salvage)}</strong></div>
       </div>
 
+      <nav className="personnel-console-tabs" aria-label="Personnel console sections">
+        <button className={consoleView === "systems" ? "is-active" : ""} type="button" aria-pressed={consoleView === "systems"} onClick={() => setConsoleView("systems")}>
+          <span className="personnel-tab-sprite sprite-signal" aria-hidden="true"><i /></span>
+          <strong>Rescue & Support</strong><small>Beacon, living space, life support</small>
+        </button>
+        <button className={consoleView === "roster" ? "is-active" : ""} type="button" aria-pressed={consoleView === "roster"} onClick={() => setConsoleView("roster")}>
+          <span className="personnel-tab-sprite sprite-roster" aria-hidden="true"><i /></span>
+          <strong>Crew Roster</strong><small>{state.survivors.length} people aboard</small>
+        </button>
+        <button className={consoleView === "command" ? "is-active" : ""} type="button" aria-pressed={consoleView === "command"} onClick={() => setConsoleView("command")}>
+          <span className="personnel-tab-sprite sprite-command" aria-hidden="true"><i /></span>
+          <strong>Command</strong><small>Staffing, Team Alpha, doctrine</small>
+        </button>
+      </nav>
+
+      {consoleView === "systems" && (
       <section className="continuity-panel support-capacity-panel">
         <header><div><span>ARK CAPACITY</span><h3>Living space and life support</h3></div><small>{berthQuote.inProgress ? "Living-space section under construction" : !lifeSupport.stable ? "Increase capacity before the next rescue" : berthQuote.maxed ? "Ark structural limit reached" : "All current demand covered"}</small></header>
         <div className="support-upgrade-grid">
@@ -303,8 +322,10 @@ function PopulationConsole({
           })}
         </div>
       </section>
+      )}
 
       <div className="continuity-two-column">
+        {consoleView === "systems" && (
         <section className={`continuity-panel survivor-beacon-panel ${state.beaconOnline ? "is-online" : ""}`}>
           <header><div><span>SOS ARRAY</span><h3>{state.beaconOnline ? `${currentWorldName} beacon online` : "Beacon awaiting authorization"}</h3></div><small>{state.beaconOnline ? activeSignal ? "Signal holding" : `${Math.round(state.beaconProgressSeconds / 60)} / ${Math.round(scanDurationSeconds / 60)} min scan` : "No broadcast"}</small></header>
           {!state.beaconOnline ? (
@@ -387,7 +408,9 @@ function PopulationConsole({
             </label>
           )}
         </section>
+        )}
 
+        {consoleView === "command" && (
         <section className="continuity-panel role-balance-panel">
           <header><div><span>AXIOM STAFFING</span><h3>Automatic crew placement</h3></div><small>Strongest learned profession by default</small></header>
           <label className="toggle-row">
@@ -414,9 +437,10 @@ function PopulationConsole({
           </div>
           <small className="crew-rarity-note">Color measures how scarce a profile&apos;s aptitudes and traits are—never the worth of a person. Rarity speeds training and job XP and sets profession capacity (Standard 1 · Notable 2 · Exceptional 3 · Anomalous unlimited); it never multiplies Continuity expertise directly.</small>
         </section>
+        )}
       </div>
 
-      {state.survivors.length > 0 && (
+      {consoleView === "command" && state.survivors.length > 0 && (
         <section className="continuity-panel team-alpha-panel">
           <header>
             <div><span>TEAM ALPHA // COMMAND</span><h3>{teamAlpha.leaderId ? "Chain of command established" : "No crew leader appointed"}</h3></div>
@@ -476,6 +500,7 @@ function PopulationConsole({
         </section>
       )}
 
+      {consoleView === "roster" && (
       <div className="crew-management-grid">
         <section className="continuity-panel crew-roster-panel">
           {(() => {
@@ -795,6 +820,7 @@ function PopulationConsole({
           )}
         </section>
       </div>
+      )}
     </section>
   );
 }

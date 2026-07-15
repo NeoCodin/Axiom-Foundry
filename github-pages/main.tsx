@@ -7,6 +7,7 @@ import "../app/continuity-console.css";
 import "../app/research-lattice.css";
 import "../app/game-manual.css";
 import "../app/awakening.css";
+import "../app/pixel-ui.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

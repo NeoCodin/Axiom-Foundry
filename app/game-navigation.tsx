@@ -38,43 +38,40 @@ export function GameNavigation({ currentView, unlocks, onNavigate }: GameNavigat
     1 +
     [unlocks.engineering, unlocks.population, unlocks.research, unlocks.settlement].filter(Boolean).length;
   const arkFacilities = [unlocks.expeditions, unlocks.defense].filter(Boolean).length;
+  const destinations: Array<{
+    view: PrimaryView;
+    group: NavigationGroup;
+    code: string;
+    label: string;
+    detail: string;
+    sprite: string;
+    unlocked: boolean;
+  }> = [
+    { view: "deck", group: "ark", code: "A", label: "Ark", detail: "Command", sprite: "ark", unlocked: true },
+    { view: "engineering", group: "foundry", code: "01", label: "Foundry", detail: "Fabrication", sprite: "foundry", unlocked: unlocks.engineering },
+    { view: "population", group: "personnel", code: "02", label: "Personnel", detail: "Crew & care", sprite: "crew", unlocked: unlocks.population },
+    { view: "research", group: "research", code: "03", label: "Research", detail: "Analysis", sprite: "research", unlocked: unlocks.research },
+    { view: "settlement", group: "planet", code: "04", label: "Planet", detail: "Continuity", sprite: "planet", unlocked: unlocks.settlement },
+  ];
 
   return (
     <>
       <nav className="living-foundry-nav primary-destinations" aria-label="Primary destinations">
-        <button className={activeGroup === "ark" ? "active" : ""} type="button" aria-current={activeGroup === "ark" ? "page" : undefined} onClick={() => onNavigate("deck")}>
-          <span aria-hidden="true">A</span>
-          Ark
-          <small>Command</small>
-        </button>
-        {unlocks.engineering && (
-          <button className={activeGroup === "foundry" ? "active" : ""} type="button" aria-current={activeGroup === "foundry" ? "page" : undefined} onClick={() => onNavigate("engineering")}>
-            <span aria-hidden="true">01</span>
-            Foundry
-            <small>Fabrication</small>
+        {destinations.filter((destination) => destination.unlocked).map((destination) => (
+          <button
+            className={activeGroup === destination.group ? "active" : ""}
+            type="button"
+            aria-current={activeGroup === destination.group ? "page" : undefined}
+            onClick={() => onNavigate(destination.view)}
+            key={destination.view}
+          >
+            <span className={`nav-sprite sprite-${destination.sprite}`} aria-hidden="true"><i /></span>
+            <span className="nav-destination-copy">
+              <strong>{destination.label}</strong>
+              <small>{destination.code}{" // "}{destination.detail}</small>
+            </span>
           </button>
-        )}
-        {unlocks.population && (
-          <button className={activeGroup === "personnel" ? "active" : ""} type="button" aria-current={activeGroup === "personnel" ? "page" : undefined} onClick={() => onNavigate("population")}>
-            <span aria-hidden="true">02</span>
-            Personnel
-            <small>Crew & care</small>
-          </button>
-        )}
-        {unlocks.research && (
-          <button className={activeGroup === "research" ? "active" : ""} type="button" aria-current={activeGroup === "research" ? "page" : undefined} onClick={() => onNavigate("research")}>
-            <span aria-hidden="true">03</span>
-            Research
-            <small>Analysis</small>
-          </button>
-        )}
-        {unlocks.settlement && (
-          <button className={activeGroup === "planet" ? "active" : ""} type="button" aria-current={activeGroup === "planet" ? "page" : undefined} onClick={() => onNavigate("settlement")}>
-            <span aria-hidden="true">04</span>
-            Planet
-            <small>Continuity</small>
-          </button>
-        )}
+        ))}
         <div className="nav-awakening-status" aria-live="polite">
           <span>{mainSystemsAwake}</span>
           <small>destinations awake</small>

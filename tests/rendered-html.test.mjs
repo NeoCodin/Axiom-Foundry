@@ -34,7 +34,9 @@ test("server-renders the Axiom Foundry game surface", async () => {
   assert.match(html, /<title>Axiom Foundry/);
   assert.match(html, /The Ark drifts through black space/);
   assert.match(html, /destinations awake/);
-  assert.match(html, /What matters now/);
+  assert.match(html, /Your next move/);
+  assert.match(html, /ACTIVE QUEST/);
+  assert.match(html, /nav-sprite sprite-ark/);
   assert.match(html, /Complete AXIOM orientation/);
   assert.match(html, /CARETAKER INTELLIGENCE/);
   assert.match(html, /Biological command authority/);
@@ -52,7 +54,7 @@ test("server-renders the Axiom Foundry game surface", async () => {
 });
 
 test("removes all temporary starter-preview wiring", async () => {
-  const [page, arkDeck, layout, pagesEntry, packageJson, css, arkCss, continuityCss, researchCss, manualCss, awakeningCss, story, manual, survivorEngine, populationConsole, settlementConsole, continuityExpertise, campaignContent, researchEngine] =
+  const [page, arkDeck, layout, pagesEntry, packageJson, css, arkCss, continuityCss, researchCss, manualCss, awakeningCss, pixelCss, story, manual, survivorEngine, populationConsole, settlementConsole, continuityExpertise, campaignContent, researchEngine] =
     await Promise.all([
       readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/ark-deck.tsx", import.meta.url), "utf8"),
@@ -64,7 +66,8 @@ test("removes all temporary starter-preview wiring", async () => {
       readFile(new URL("../app/continuity-console.css", import.meta.url), "utf8"),
       readFile(new URL("../app/research-lattice.css", import.meta.url), "utf8"),
       readFile(new URL("../app/game-manual.css", import.meta.url), "utf8"),
-      readFile(new URL("../app/awakening.css", import.meta.url), "utf8"),
+       readFile(new URL("../app/awakening.css", import.meta.url), "utf8"),
+       readFile(new URL("../app/pixel-ui.css", import.meta.url), "utf8"),
       readFile(new URL("../app/story-content.ts", import.meta.url), "utf8"),
       readFile(new URL("../app/game-manual.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/survivor-engine.ts", import.meta.url), "utf8"),
@@ -97,7 +100,12 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(researchCss, /\.research-lattice-analysis-core\s*\{/);
   assert.match(manualCss, /\.game-manual\s*\{/);
   assert.match(awakeningCss, /\.living-foundry-nav\s*\{[^}]*position:\s*fixed/s);
-  for (const stylesheet of ["ark-deck", "continuity-console", "research-lattice", "game-manual", "awakening"]) {
+  assert.match(pixelCss, /Share Tech Mono/);
+  assert.match(pixelCss, /VT323/);
+  assert.match(pixelCss, /image-rendering:\s*pixelated/);
+  assert.match(pixelCss, /repeating-linear-gradient/);
+  assert.match(pixelCss, /\.personnel-console-tabs\s*\{/);
+  for (const stylesheet of ["ark-deck", "continuity-console", "research-lattice", "game-manual", "awakening", "pixel-ui"]) {
     assert.match(layout, new RegExp(`import "\\./${stylesheet}\\.css"`));
     assert.match(pagesEntry, new RegExp(`import "\\.\\./app/${stylesheet}\\.css"`));
   }

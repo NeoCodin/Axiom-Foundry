@@ -6,6 +6,7 @@ import "./continuity-console.css";
 import "./research-lattice.css";
 import "./game-manual.css";
 import "./awakening.css";
+import "./pixel-ui.css";
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();

@@ -123,7 +123,7 @@ import {
   type GameState,
   type PurchaseMode,
 } from "./game-engine";
-import { WORLD_VISUALS } from "./foundry-vista";
+import { FoundryVista, WORLD_VISUALS } from "./foundry-vista";
 import ArkDeck, { type ArkViewId } from "./ark-deck";
 import { getBeaconReadiness } from "./beacon-readiness-engine";
 import {
@@ -1901,6 +1901,7 @@ export default function Home() {
       className={`game-shell world-theme-${worldVisual.slug}`}
       data-world={worldVisual.slug}
       data-world-index={campaignWorldIndex}
+      data-view={primaryView}
       style={shellStyle}
     >
       <div className="ambient-grid" aria-hidden="true" />
@@ -2338,6 +2339,8 @@ export default function Home() {
           </div>
           <span className="foundry-telemetry-flow" aria-hidden="true"><i /><i /><i /><i /></span>
         </section>
+
+        <FoundryVista game={game} />
 
       <div className="game-grid foundry-grid">
         {fabricationUnlocked && (
