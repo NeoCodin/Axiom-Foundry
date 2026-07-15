@@ -125,6 +125,7 @@ import {
 } from "./game-engine";
 import { WORLD_VISUALS } from "./foundry-vista";
 import ArkDeck, { type ArkViewId } from "./ark-deck";
+import { getBeaconReadiness } from "./beacon-readiness-engine";
 import {
   GameManualDialog,
   type ManualPageId,
@@ -628,6 +629,12 @@ export default function Home() {
     game.survivors,
     lifeSupportCapacityMultiplier,
   );
+  const beaconReadiness = getBeaconReadiness({
+    planetaryOrbit: campaignWorld.kind === "planet",
+    worldName: campaignWorld.name,
+    livingSpaces: berthCapacity,
+    lifeSupport: lifeSupport.capacity,
+  });
   const berthConstructionQuote = useMemo(
     () => getBerthConstructionQuote(game),
     [game],
@@ -2002,10 +2009,7 @@ export default function Home() {
               rarityDescription: rarity.description,
             };
           })}
-          beaconAvailable={
-            campaignWorld.kind === "planet" &&
-            Math.min(berthCapacity, ...Object.values(lifeSupport.capacity)) >= 2
-          }
+          beaconReadiness={beaconReadiness}
           beaconOnline={game.survivors.beaconOnline}
           pendingSignal={game.survivors.activeSignal ? {
             id: game.survivors.activeSignal.id,
@@ -2048,10 +2052,7 @@ export default function Home() {
           state={game.survivors}
           salvage={game.living.salvage}
           currentWorldName={campaignWorld.name}
-          beaconAvailable={
-            campaignWorld.kind === "planet" &&
-            Math.min(berthCapacity, ...Object.values(lifeSupport.capacity)) >= 2
-          }
+          beaconReadiness={beaconReadiness}
           capacityMultiplier={lifeSupportCapacityMultiplier}
           crewGrowthMultiplier={
             researchBonuses.trainingSpeedMultiplier *

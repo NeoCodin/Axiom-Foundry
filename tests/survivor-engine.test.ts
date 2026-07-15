@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import {
+  BEACON_MINIMUM_SAFE_CAPACITY,
+  getBeaconReadiness,
+} from "../app/beacon-readiness-engine.ts";
 
 import {
   ARK_CREW_HARD_CAP,
@@ -84,6 +88,36 @@ function supportPopulation(state: SurvivorSystemState, population = 100) {
     ),
   };
 }
+
+test("beacon readiness names orbit, living-space, and every support blocker", () => {
+  const blocked = getBeaconReadiness({
+    planetaryOrbit: true,
+    worldName: "Pelagos",
+    livingSpaces: BASE_BERTHS,
+    lifeSupport: { atmosphere: 0, water: 0, nutrition: 0, medical: 0 },
+  });
+
+  assert.equal(blocked.ready, false);
+  assert.equal(blocked.items.length, 6);
+  assert.equal(blocked.items.find((item) => item.id === "orbit")?.ready, true);
+  assert.deepEqual(
+    blocked.items.filter((item) => !item.ready).map((item) => item.id),
+    ["atmosphere", "water", "nutrition", "medical"],
+  );
+
+  const ready = getBeaconReadiness({
+    planetaryOrbit: true,
+    worldName: "Pelagos",
+    livingSpaces: BEACON_MINIMUM_SAFE_CAPACITY,
+    lifeSupport: {
+      atmosphere: BEACON_MINIMUM_SAFE_CAPACITY,
+      water: BEACON_MINIMUM_SAFE_CAPACITY,
+      nutrition: BEACON_MINIMUM_SAFE_CAPACITY,
+      medical: BEACON_MINIMUM_SAFE_CAPACITY,
+    },
+  });
+  assert.equal(ready.ready, true);
+});
 
 function stateWithCivilian() {
   return sanitizeSurvivorSystemState({

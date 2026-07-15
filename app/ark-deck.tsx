@@ -2,6 +2,10 @@
 
 import { useState, type CSSProperties } from "react";
 import { HelpTrigger, type ManualTopicId } from "./game-manual";
+import {
+  BeaconReadinessList,
+} from "./beacon-readiness";
+import type { BeaconReadiness } from "./beacon-readiness-engine";
 
 export type ArkViewId =
   | "engineering"
@@ -59,7 +63,7 @@ export type ArkDeckProps = {
   salvageLabel: string;
   support: readonly ArkSupportReadout[];
   crew: readonly ArkCrewPreview[];
-  beaconAvailable: boolean;
+  beaconReadiness: BeaconReadiness;
   beaconOnline: boolean;
   pendingSignal: ArkSignalPreview | null;
   researchProject: string | null;
@@ -122,7 +126,7 @@ function ArkDeck({
   salvageLabel,
   support,
   crew,
-  beaconAvailable,
+  beaconReadiness,
   beaconOnline,
   pendingSignal,
   researchProject,
@@ -141,6 +145,7 @@ function ArkDeck({
   onOpenHelp,
 }: ArkDeckProps) {
   const [corePulse, setCorePulse] = useState(0);
+  const beaconAvailable = beaconReadiness.ready;
   const normalizedWorldProgress = clamp(worldProgress);
   const normalizedResearchProgress = clamp(researchProgress);
   const normalizedCohesion = clamp(cohesion / 100) * 100;
@@ -162,7 +167,7 @@ function ArkDeck({
   const berthPodCount = Math.min(10, 1 + berthSections);
   const researchOnline = researchUnlocked;
   const educationOnline = populationUnlocked && crew.length > 0;
-  const beaconRelevant = populationUnlocked && (beaconAvailable || beaconOnline || Boolean(pendingSignal));
+  const beaconRelevant = populationUnlocked;
   const continuityOnline = settlementUnlocked;
   const peopleSystemsVisible = populationUnlocked;
 
@@ -433,7 +438,8 @@ function ArkDeck({
                 {!beaconOnline ? (
                   <>
                     <h3>No one can hear the Ark yet</h3>
-                    <p>{beaconAvailable ? "Habitation is stable enough to invite the first survivors aboard." : "Reach orbit and build safe quarters before asking anyone to trust the Ark."}</p>
+                    <p>{beaconAvailable ? "Every safety condition is ready. AXIOM can invite the first survivors aboard." : "Complete every condition below. Life-support upgrades are in Personnel → Ark Capacity."}</p>
+                    <BeaconReadinessList readiness={beaconReadiness} />
                     <button type="button" disabled={!beaconAvailable} onClick={onActivateBeacon}>Activate SOS beacon</button>
                   </>
                 ) : pendingSignal ? (

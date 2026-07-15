@@ -131,7 +131,8 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
       "Rescue groups never expire. The Ark holds at most 48 people; expand living space and life support, then let AXIOM handle routine staffing while you protect the assignments that matter.",
     steps: [
       { title: "Expand living systems", detail: "Living-space sections cost Flux and Salvage, and assigned Engineers speed construction. Atmosphere, water, nutrition, and medical capacity also expand with Salvage. The Ark's absolute limit is 48 people." },
-      { title: "Activate the SOS beacon", detail: "Once the Ark reaches a planetary orbit, the beacon finds a persistent group after 90 seconds." },
+      { title: "Prepare the SOS beacon", detail: "Reach planetary orbit, maintain at least 2 living spaces, and raise Atmosphere, Water, Nutrition, and Medical capacity to at least 2. The Personnel readiness checklist shows every blocker." },
+      { title: "Activate the SOS beacon", detail: "Once every readiness item is complete, authorize the beacon. It finds a persistent group after 90 seconds, including while the game is closed." },
       { title: "Dispatch the rescue shuttle", detail: "Spend the listed Salvage to bring the entire group aboard. Each person also brings Biological Samples and Cultural Records." },
       { title: "Let AXIOM staff the Ark", detail: "Adults default to their strongest learned profession. Manual assignments stay locked; Ark Reserve covers absences and performs light maintenance. Optimize All Crew performs a complete reshuffle." },
       { title: "Study a profession", detail: "Adults with an open profession slot can study new work. Standard profiles learn at ×1.00, Notable ×1.25, Exceptional ×1.60, and Anomalous ×2.00." },

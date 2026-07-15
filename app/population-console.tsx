@@ -2,6 +2,10 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 import { HelpTrigger, type ManualTopicId } from "./game-manual";
+import {
+  BeaconReadinessList,
+} from "./beacon-readiness";
+import type { BeaconReadiness } from "./beacon-readiness-engine";
 import { HealthBar, titleCase } from "./crew-view-shared";
 import {
   CONTINUITY_EXPERTISE_PRESENTATION,
@@ -103,7 +107,7 @@ export type PopulationConsoleProps = {
   state: SurvivorSystemState;
   salvage: number;
   currentWorldName: string;
-  beaconAvailable: boolean;
+  beaconReadiness: BeaconReadiness;
   capacityMultiplier: number;
   crewGrowthMultiplier: number;
   requiredExpertiseIds: readonly ExpertiseId[];
@@ -160,7 +164,7 @@ function PopulationConsole({
   state,
   salvage,
   currentWorldName,
-  beaconAvailable,
+  beaconReadiness,
   capacityMultiplier,
   crewGrowthMultiplier,
   requiredExpertiseIds,
@@ -194,6 +198,7 @@ function PopulationConsole({
   onOpenHelp,
   onBack,
 }: PopulationConsoleProps) {
+  const beaconAvailable = beaconReadiness.ready;
   const [selectedCrewId, setSelectedCrewId] = useState<string | null>(null);
   const lifeSupport = useMemo(
     () => getLifeSupportStatus(state, [], capacityMultiplier),
@@ -305,7 +310,8 @@ function PopulationConsole({
           {!state.beaconOnline ? (
             <div className="continuity-empty-state">
               <strong>Invite the first witnesses aboard.</strong>
-              <p>The beacon can be activated from a planetary orbit. It discovers a new group while the game is open or closed.</p>
+              <p>Complete every readiness condition below, then authorize the broadcast. Each life-support expansion adds four capacity.</p>
+              <BeaconReadinessList readiness={beaconReadiness} />
               <button type="button" disabled={!beaconAvailable} onClick={onActivateBeacon}>Activate SOS beacon</button>
             </div>
           ) : activeSignal ? (
