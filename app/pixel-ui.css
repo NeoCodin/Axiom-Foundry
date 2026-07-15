@@ -29,6 +29,8 @@
   --radius: 0px;
   --pixel-shadow: 4px 4px 0 #010202;
   --pixel-inset: inset 0 0 0 2px #111e25;
+  --cursor-pixel: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAABhSURBVEhLzc3RCcAgDARQsc7q2u7QBSoK/kTkqMZLDvKTkHshPulrE26FBlyDaEB+Sx91iA6oQ2aAGmQOHENugG3IDBh7NLJvCh2Qj78LZWjAqgDdYVABusOgR/8AinugAjf1a0AtQfFCAAAAAElFTkSuQmCC") 1 1, default;
+  --cursor-pixel-active: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAABhSURBVEhLzc3RCcAgDARQsW7psA7VASoK/kTkqMZLDvKTkHshPulrE26FBlyDaMBbch91iA6oQ2aAGmQOHENugG3IDBh7NLJvCh2Qj78LZWjAqgDdYVABusOgR/8AinugAg9/X3BkYyPRAAAAAElFTkSuQmCC") 1 1, pointer;
 }
 
 html {
@@ -50,7 +52,17 @@ body {
   text-rendering: optimizeSpeed;
   -webkit-font-smoothing: none;
   -moz-osx-font-smoothing: grayscale;
+  cursor: var(--cursor-pixel);
 }
+
+.game-shell,
+.game-shell * { cursor: inherit; }
+
+.game-shell :where(button, a, summary, select, [role="button"], [data-pixel-tooltip]) {
+  cursor: var(--cursor-pixel-active);
+}
+
+.game-shell :where(input, textarea, [contenteditable="true"]) { cursor: text; }
 
 body::after {
   position: fixed;
@@ -219,7 +231,7 @@ img.pixelated,
 /* Top command HUD */
 .command-bar {
   position: relative;
-  z-index: 1;
+  z-index: 20;
   top: auto;
   grid-template-columns: minmax(320px, 1.15fr) minmax(190px, 0.48fr) minmax(290px, 0.72fr) minmax(330px, 0.85fr);
   margin-bottom: 8px;
@@ -230,6 +242,113 @@ img.pixelated,
   box-shadow: inset 0 0 0 2px #13242c, 4px 4px 0 #010202;
   backdrop-filter: none;
 }
+
+/* Context is revealed through the console itself instead of scattered help icons. */
+.game-shell [data-pixel-tooltip] {
+  position: relative;
+}
+
+.game-shell [data-pixel-tooltip]::after {
+  position: absolute;
+  z-index: 240;
+  top: calc(100% + 8px);
+  left: 50%;
+  width: max-content;
+  max-width: min(320px, calc(100vw - 32px));
+  padding: 9px 11px;
+  border: 2px solid var(--world-accent, var(--flux));
+  background:
+    linear-gradient(90deg, rgb(var(--world-accent-rgb) / 0.09), transparent 72%),
+    #050a0e;
+  box-shadow: inset 0 0 0 2px #102129, 4px 4px 0 #010202;
+  color: #d9ebe4;
+  content: attr(data-pixel-tooltip);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.025em;
+  line-height: 1.45;
+  opacity: 0;
+  pointer-events: none;
+  text-align: left;
+  text-transform: none;
+  transform: translate(-50%, 4px);
+  visibility: hidden;
+  white-space: normal;
+}
+
+.game-shell [data-pixel-tooltip]::before {
+  position: absolute;
+  z-index: 241;
+  top: calc(100% + 4px);
+  left: calc(50% - 4px);
+  width: 8px;
+  height: 8px;
+  border-top: 2px solid var(--world-accent, var(--flux));
+  border-left: 2px solid var(--world-accent, var(--flux));
+  background: #050a0e;
+  content: "";
+  opacity: 0;
+  pointer-events: none;
+  transform: rotate(45deg);
+  visibility: hidden;
+}
+
+.game-shell [data-pixel-tooltip]:is(:hover, :focus-visible, :focus-within) {
+  outline: 2px solid rgb(var(--world-accent-rgb) / 0.72);
+  outline-offset: -2px;
+}
+
+.game-shell [data-pixel-tooltip]:is(:hover, :focus-visible, :focus-within)::after,
+.game-shell [data-pixel-tooltip]:is(:hover, :focus-visible, :focus-within)::before {
+  opacity: 1;
+  visibility: visible;
+}
+
+.game-shell [data-pixel-tooltip]:is(:hover, :focus-visible, :focus-within)::after {
+  transform: translate(-50%, 0);
+}
+
+.game-shell [data-tooltip-place="above"]::after {
+  top: auto;
+  bottom: calc(100% + 8px);
+  transform: translate(-50%, -4px);
+}
+
+.game-shell [data-tooltip-place="above"]::before {
+  top: auto;
+  bottom: calc(100% + 4px);
+  transform: rotate(225deg);
+}
+
+.game-shell [data-tooltip-place="above"]:is(:hover, :focus-visible, :focus-within)::after {
+  transform: translate(-50%, 0);
+}
+
+.brand-lockup[data-pixel-tooltip]::after,
+.living-foundry-nav.primary-destinations > button:first-of-type::after {
+  left: 8px;
+  transform: translate(0, 4px);
+}
+
+.brand-lockup[data-pixel-tooltip]:is(:hover, :focus-visible)::after,
+.living-foundry-nav.primary-destinations > button:first-of-type:is(:hover, :focus-visible)::after {
+  transform: translate(0, 0);
+}
+
+.header-actions [data-pixel-tooltip]::after,
+.nav-awakening-status[data-pixel-tooltip]::after {
+  right: 0;
+  left: auto;
+  transform: translate(0, 4px);
+}
+
+.header-actions [data-pixel-tooltip]:is(:hover, :focus-visible, :focus-within)::after,
+.nav-awakening-status[data-pixel-tooltip]:is(:hover, :focus-visible)::after {
+  transform: translate(0, 0);
+}
+
+.header-tooltip-control { display: inline-flex; }
 
 .brand-lockup,
 .resource-readout,

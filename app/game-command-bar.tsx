@@ -36,27 +36,31 @@ export function GameCommandBar({
   axiomsLabel, resonanceLabel, operationalLoadLabel, saveStatus, ready, focusWelcome, focusFlux,
   objective, onOpenHelp, onOpenLore, onSave, onOpenDirective,
 }: GameCommandBarProps) {
+  const cycleTooltip = `${worldName} is the Ark's current chapter. Cycle ${cycle} counts this Recalibration run; the line below describes AXIOM's present situation.`;
+  const fluxTooltip = `${fluxExact} Local Flux is available. Flux powers fabrication, Ark projects, research support, and planetary work during this cycle.`;
+  const objectiveTooltip = "This strip tracks the current planetary objective. It never expires; progress is saved whether the game is open or closed.";
+
   return (
     <header className={`command-bar ${focusWelcome || focusFlux ? "tour-focus" : ""}`}>
-      <div className="brand-lockup">
+      <div className="brand-lockup" data-pixel-tooltip={cycleTooltip} tabIndex={0} aria-label={cycleTooltip}>
         <span className="brand-mark" aria-hidden="true">◇</span>
         <div><p className="eyebrow">{worldName.toUpperCase()} · CYCLE {String(cycle).padStart(2, "0")}</p><h1>{arrival}</h1></div>
       </div>
-      <div className={`resource-readout ${focusFlux ? "tour-focus" : ""}`} title={`${fluxExact} Flux`}>
+      <div className={`resource-readout ${focusFlux ? "tour-focus" : ""}`} data-pixel-tooltip={fluxTooltip} tabIndex={0} aria-label={fluxTooltip}>
         <span className="resource-label">Local Flux</span><strong>{fluxLabel}</strong><span className="rate">+{fluxPerSecondLabel} / sec</span>
       </div>
       <div className="header-metrics">
-        <div title="Axioms are portable, permanent laws of physics forged by Recalibration."><span>Axioms</span><strong>{axiomsLabel}</strong></div>
-        <div><span>Resonance</span><strong>×{resonanceLabel}</strong></div>
-        <div title="Medical care, active drones, restored-world defenses, and hostile compromises divert this share of Foundry output."><span>Operations</span><strong>{operationalLoadLabel}</strong></div>
+        <div data-pixel-tooltip="Axioms are permanent laws forged by Recalibration. They survive new cycles and purchase lasting upgrades." tabIndex={0} aria-label="Axioms are permanent laws forged by Recalibration. They survive new cycles and purchase lasting upgrades."><span>Axioms</span><strong>{axiomsLabel}</strong></div>
+        <div data-pixel-tooltip="Resonance multiplies the whole fabrication chain. Balance adjacent machine tiers in groups of 15 to create stronger links." tabIndex={0} aria-label="Resonance multiplies the whole fabrication chain. Balance adjacent machine tiers in groups of 15 to create stronger links."><span>Resonance</span><strong>×{resonanceLabel}</strong></div>
+        <div data-pixel-tooltip="Operational Load is the share of Foundry output diverted to medical care, automation, restored-world defenses, and temporary hostile interference." tabIndex={0} aria-label="Operational Load is the share of Foundry output diverted to medical care, automation, restored-world defenses, and temporary hostile interference."><span>Operations</span><strong>{operationalLoadLabel}</strong></div>
       </div>
       <div className="header-actions">
-        <span className="save-status">{ready ? saveStatus : "Restoring local cycle…"}</span>
-        <HelpTrigger label="Open guide for this page" withLabel onClick={onOpenHelp} />
-        <button className="quiet-button" type="button" onClick={onOpenLore}>Lore archive</button>
-        <button className="quiet-button" type="button" onClick={onSave}>Save now</button>
+        <span className="save-status" data-pixel-tooltip="Your progress saves automatically on this device. The timestamp confirms the latest stored state." tabIndex={0} aria-label="Your progress saves automatically on this device. The timestamp confirms the latest stored state.">{ready ? saveStatus : "Restoring local cycle…"}</span>
+        <span className="header-tooltip-control" data-pixel-tooltip="Open the Field Manual for this page, resource explanations, and exact next steps."><HelpTrigger label="Open guide for this page" withLabel onClick={onOpenHelp} /></span>
+        <button className="quiet-button" type="button" data-pixel-tooltip="Review only the transmissions, contradictions, and historical fragments AXIOM has already discovered." aria-label="Open the discovered Lore Archive" onClick={onOpenLore}>Lore archive</button>
+        <button className="quiet-button" type="button" data-pixel-tooltip="Write the current game state to this device immediately. Automatic saving remains active." aria-label="Save progress on this device now" onClick={onSave}>Save now</button>
       </div>
-      <div className="objective-strip">
+      <div className="objective-strip" data-pixel-tooltip={objectiveTooltip} data-tooltip-place="above" tabIndex={0} aria-label={objectiveTooltip}>
         <div className="objective-copy">
           <span>{objective.label}</span><span>{objective.currentLabel} / {objective.thresholdLabel} required</span>
           {objective.directiveLabel && <button className="crisis-link" type="button" onClick={onOpenDirective}>{objective.directiveLabel} · Open directive</button>}
