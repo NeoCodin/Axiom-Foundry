@@ -245,8 +245,21 @@ import {
 import { LORE_ENTRIES, TOUR_STEPS } from "./story-content";
 import { getProgressiveDisclosure } from "./progressive-disclosure";
 import { PixelTooltipLayer } from "./pixel-tooltip-layer";
+import { QaSandbox } from "./qa-sandbox";
+import {
+  QA_QUERY_PARAMETER,
+  QA_SAVE_KEY,
+  boostQaCrew,
+  completeQaResearch,
+  createQaCheckpoint,
+  grantQaResources,
+  prepareQaContinuity,
+  simulateQaOfflineDay,
+} from "./qa-sandbox-engine";
 
 type MobileTab = "machines" | "systems";
+
+const TOOLTIP_PREFERENCE_KEY = "axiom-foundry-context-hints";
 
 const purchaseModes: Array<{ value: PurchaseMode; label: string }> = [
   { value: "1", label: "×1" },
@@ -368,7 +381,11 @@ export default function Home() {
   const [tourStep, setTourStep] = useState<number | null>(null);
   const [loreOpen, setLoreOpen] = useState(false);
   const [manualTopic, setManualTopic] = useState<ManualTopicId | null>(null);
+  const [tooltipsEnabled, setTooltipsEnabled] = useState(true);
+  const [qaMode, setQaMode] = useState(false);
+  const [qaCollapsed, setQaCollapsed] = useState(false);
   const loadStarted = useRef(false);
+  const activeSaveKeyRef = useRef(SAVE_KEY);
   const gameRef = useRef(game);
   const tourActionRef = useRef<HTMLButtonElement>(null);
   const missionSignatureRef = useRef("");
@@ -392,12 +409,19 @@ export default function Home() {
     loadStarted.current = true;
     const now = Date.now();
     let next = createInitialState(now);
+    const qaEnabled = new URLSearchParams(window.location.search).get(QA_QUERY_PARAMETER) === "1";
+    const activeSaveKey = qaEnabled ? QA_SAVE_KEY : SAVE_KEY;
+    activeSaveKeyRef.current = activeSaveKey;
+    setQaMode(qaEnabled);
 
     try {
-      for (const retiredKey of RETIRED_SAVE_KEYS) {
-        window.localStorage.removeItem(retiredKey);
+      setTooltipsEnabled(window.localStorage.getItem(TOOLTIP_PREFERENCE_KEY) !== "off");
+      if (!qaEnabled) {
+        for (const retiredKey of RETIRED_SAVE_KEYS) {
+          window.localStorage.removeItem(retiredKey);
+        }
       }
-      const raw = window.localStorage.getItem(SAVE_KEY);
+      const raw = window.localStorage.getItem(activeSaveKey);
       if (raw) {
         const parsed = JSON.parse(raw) as { version?: number };
         const expandedCampaignWasNew = (parsed.version ?? 1) < 3;
@@ -425,14 +449,16 @@ export default function Home() {
             "Planetary deadlines have been retired. Every world now waits for you, and any earlier loss has been restored.",
           );
         }
+      } else if (qaEnabled) {
+        next = createQaCheckpoint(0, now);
       }
-      window.localStorage.setItem(SAVE_KEY, JSON.stringify(next));
-      setSaveStatus("Progress stored on this device");
+      window.localStorage.setItem(activeSaveKey, JSON.stringify(next));
+      setSaveStatus(qaEnabled ? "QA Sandbox stored separately" : "Progress stored on this device");
     } catch {
       try {
-        const damaged = window.localStorage.getItem(SAVE_KEY);
+        const damaged = window.localStorage.getItem(activeSaveKey);
         if (damaged) {
-          window.localStorage.setItem(`${SAVE_KEY}-recovery-${now}`, damaged);
+          window.localStorage.setItem(`${activeSaveKey}-recovery-${now}`, damaged);
         }
       } catch {
         // Storage can be unavailable in private or restricted browser modes.
@@ -510,7 +536,7 @@ export default function Home() {
   const persistGame = useCallback((message = "Progress saved") => {
     try {
       const snapshot = { ...gameRef.current, lastSaved: Date.now() };
-      window.localStorage.setItem(SAVE_KEY, JSON.stringify(snapshot));
+      window.localStorage.setItem(activeSaveKeyRef.current, JSON.stringify(snapshot));
       setSaveStatus(`${message} · ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
     } catch {
       setSaveStatus("Unable to save in this browser");
@@ -525,7 +551,7 @@ export default function Home() {
       if (document.visibilityState === "hidden") persistGame();
     };
     const noticeNewerTab = (event: StorageEvent) => {
-      if (event.key !== SAVE_KEY || !event.newValue) return;
+      if (event.key !== activeSaveKeyRef.current || !event.newValue) return;
       try {
         const incoming = sanitizeGameState(JSON.parse(event.newValue));
         if (incoming.lastSaved > gameRef.current.lastSaved + 2_000) {
@@ -1117,17 +1143,17 @@ export default function Home() {
 
   const handleHardReset = () => {
     try {
-      window.localStorage.removeItem(SAVE_KEY);
+      window.localStorage.removeItem(activeSaveKeyRef.current);
     } catch {
       // The in-memory reset still works when storage is unavailable.
     }
-    const next = createInitialState(Date.now());
+    const next = qaMode ? createQaCheckpoint(0, Date.now()) : createInitialState(Date.now());
     gameRef.current = next;
     setGame(next);
     setPrimaryView("deck");
     setMobileTab("machines");
     setConfirmReset(false);
-    setAnnouncement("The Foundry has been reset to Cycle 1.");
+    setAnnouncement(qaMode ? "The QA Sandbox has been reset to Cold Wake." : "The Foundry has been reset to Cycle 1.");
     setSaveStatus("Fresh local save started");
   };
 
@@ -1147,6 +1173,38 @@ export default function Home() {
     }
     setPrimaryView(view);
     if (view === "engineering") setMobileTab("machines");
+  };
+
+  const handleToggleTooltips = () => {
+    setTooltipsEnabled((enabled) => {
+      const next = !enabled;
+      try {
+        window.localStorage.setItem(TOOLTIP_PREFERENCE_KEY, next ? "on" : "off");
+      } catch {
+        // Preference remains active for this session when storage is unavailable.
+      }
+      return next;
+    });
+  };
+
+  const applyQaState = (next: GameState, message: string) => {
+    gameRef.current = next;
+    setGame(next);
+    setAnnouncement(message);
+    window.setTimeout(() => persistGame("QA checkpoint saved"), 0);
+  };
+
+  const handleQaJumpWorld = (worldIndex: number) => {
+    const next = createQaCheckpoint(worldIndex, Date.now());
+    setPrimaryView("deck");
+    setMobileTab("machines");
+    applyQaState(next, `QA checkpoint loaded: ${MISSIONS[worldIndex]?.world ?? "Cold Wake"}.`);
+  };
+
+  const handleReturnToPlayerSave = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete(QA_QUERY_PARAMETER);
+    window.location.assign(url.toString());
   };
 
   const handleCommandPriorityNavigate = (priority: CommandPriority) => {
@@ -1905,7 +1963,7 @@ export default function Home() {
       data-view={primaryView}
       style={shellStyle}
     >
-      <PixelTooltipLayer />
+      {tooltipsEnabled && <PixelTooltipLayer />}
       <div className="ambient-grid" aria-hidden="true" />
       <div className="sr-only" aria-live="polite">
         {announcement}
@@ -1941,8 +1999,34 @@ export default function Home() {
         onOpenHelp={() => setManualTopic(primaryView)}
         onOpenLore={() => setLoreOpen(true)}
         onSave={() => persistGame("Saved")}
-        onOpenDirective={() => { setPrimaryView("engineering"); setMobileTab("systems"); }}
+        onOpenDirective={() => {
+          if (navigationUnlocks.settlement) setPrimaryView("settlement");
+          else {
+            setPrimaryView("engineering");
+            setMobileTab("systems");
+          }
+        }}
+        tooltipsEnabled={tooltipsEnabled}
+        onToggleTooltips={handleToggleTooltips}
       />
+
+      {qaMode && (
+        <QaSandbox
+          collapsed={qaCollapsed}
+          onToggleCollapsed={() => setQaCollapsed((collapsed) => !collapsed)}
+          onJumpWorld={handleQaJumpWorld}
+          onGrantResources={() => applyQaState(grantQaResources(gameRef.current), "QA resources stocked.")}
+          onCompleteResearch={() => applyQaState(completeQaResearch(gameRef.current), "Every research program marked complete for testing.")}
+          onBoostCrew={() => applyQaState(boostQaCrew(gameRef.current), "QA crew advanced to maximum professional skill.")}
+          onPrepareContinuity={() => {
+            const next = prepareQaContinuity(gameRef.current);
+            applyQaState(next, "Current-world engineering and field requirements prepared for Continuity testing.");
+            setPrimaryView("settlement");
+          }}
+          onSimulateOfflineDay={() => applyQaState(simulateQaOfflineDay(gameRef.current), "Simulated 24 hours of offline operation.")}
+          onReturnToPlayerSave={handleReturnToPlayerSave}
+        />
+      )}
 
       <GameNavigation
         currentView={primaryView}

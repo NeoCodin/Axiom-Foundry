@@ -29,16 +29,19 @@ type GameCommandBarProps = {
   onOpenLore: () => void;
   onSave: () => void;
   onOpenDirective: () => void;
+  tooltipsEnabled: boolean;
+  onToggleTooltips: () => void;
 };
 
 export function GameCommandBar({
   worldName, cycle, arrival, fluxLabel, fluxExact, fluxPerSecondLabel,
   axiomsLabel, resonanceLabel, operationalLoadLabel, saveStatus, ready, focusWelcome, focusFlux,
   objective, onOpenHelp, onOpenLore, onSave, onOpenDirective,
+  tooltipsEnabled, onToggleTooltips,
 }: GameCommandBarProps) {
   const cycleTooltip = `${worldName} is the Ark's current chapter. Cycle ${cycle} counts this Recalibration run; the line below describes AXIOM's present situation.`;
   const fluxTooltip = `${fluxExact} Local Flux is available. Flux powers fabrication, Ark projects, research support, and planetary work during this cycle.`;
-  const objectiveTooltip = "This strip tracks the current planetary objective. It never expires; progress is saved whether the game is open or closed.";
+  const objectiveTooltip = "This strip tracks the current planetary objective. Click it to open Continuity. It never expires; progress is saved whether the game is open or closed.";
 
   return (
     <header className={`command-bar ${focusWelcome || focusFlux ? "tour-focus" : ""}`}>
@@ -57,13 +60,28 @@ export function GameCommandBar({
       <div className="header-actions">
         <span className="save-status" data-pixel-tooltip="Your progress saves automatically on this device. The timestamp confirms the latest stored state." tabIndex={0} aria-label="Your progress saves automatically on this device. The timestamp confirms the latest stored state.">{ready ? saveStatus : "Restoring local cycle…"}</span>
         <span className="header-tooltip-control" data-pixel-tooltip="Open the Field Manual for this page, resource explanations, and exact next steps."><HelpTrigger label="Open guide for this page" withLabel onClick={onOpenHelp} /></span>
+        <button className={`quiet-button tooltip-toggle ${tooltipsEnabled ? "is-on" : ""}`} type="button" aria-pressed={tooltipsEnabled} onClick={onToggleTooltips}>Hints {tooltipsEnabled ? "ON" : "OFF"}</button>
         <button className="quiet-button" type="button" data-pixel-tooltip="Review only the transmissions, contradictions, and historical fragments AXIOM has already discovered." aria-label="Open the discovered Lore Archive" onClick={onOpenLore}>Lore archive</button>
         <button className="quiet-button" type="button" data-pixel-tooltip="Write the current game state to this device immediately. Automatic saving remains active." aria-label="Save progress on this device now" onClick={onSave}>Save now</button>
       </div>
-      <div className="objective-strip" data-pixel-tooltip={objectiveTooltip} data-tooltip-place="above" tabIndex={0} aria-label={objectiveTooltip}>
+      <div
+        className="objective-strip"
+        data-pixel-tooltip={objectiveTooltip}
+        data-tooltip-place="above"
+        tabIndex={0}
+        role="button"
+        aria-label={objectiveTooltip}
+        onClick={onOpenDirective}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onOpenDirective();
+          }
+        }}
+      >
         <div className="objective-copy">
           <span>{objective.label}</span><span>{objective.currentLabel} / {objective.thresholdLabel} required</span>
-          {objective.directiveLabel && <button className="crisis-link" type="button" onClick={onOpenDirective}>{objective.directiveLabel} · Open directive</button>}
+          {objective.directiveLabel && <span className="crisis-link">{objective.directiveLabel} · Open directive</span>}
         </div>
         <div className="objective-track" role="progressbar" aria-label={objective.label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(objective.progress * 100)}>
           <span style={{ width: `${Math.max(0, Math.min(1, objective.progress)) * 100}%` }} />

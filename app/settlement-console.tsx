@@ -197,6 +197,7 @@ function SettlementConsole({
         </section>
       )}
 
+      <div className="settlement-flow-region">
       <div className="settlement-layout">
         <section className="continuity-panel">
           <header><div><span>CONTINUITY REQUIREMENTS</span><h3>{forecast.deficits.length === 0 ? "Every requirement is met" : `${forecast.deficits.length} deficits remain`}</h3></div><div className="continuity-header-help"><small>Nothing expires</small><HelpTrigger label="Explain Continuity requirements" onClick={() => onOpenHelp("settlement")} /></div></header>
@@ -377,6 +378,7 @@ function SettlementConsole({
           <button className="settlement-action" type="button" disabled={!forecast.canDepart} onClick={() => onDepart(colonyName)}>{world.settlementRequired ? `Establish settlement and depart ${world.name}` : "Commit Pelagos orbital insertion"}</button>
         </section>
         </div>
+      </div>
       </div>
 
       {planetaryDefenseActive && colonies.length > 0 && (
