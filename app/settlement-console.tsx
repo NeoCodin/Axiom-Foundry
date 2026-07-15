@@ -351,6 +351,7 @@ function SettlementConsole({
           </div>
         </section>
 
+        <div className="settlement-side-column">
         <section className="continuity-panel">
           <header><div><span>{world.settlementRequired ? "FOUNDING COMMUNITY" : "ORBITAL TRANSITION"}</span><h3>{world.settlementRequired ? `${forecast.selectedSettlerIds.length}/${MAX_FOUNDING_COMMUNITY_SIZE} people selected` : "No founders required in deep space"}</h3></div><small>The Ark never releases more than half its full crew capacity</small></header>
           {world.settlementRequired ? (
@@ -368,14 +369,15 @@ function SettlementConsole({
             <div className="continuity-empty-state"><strong>Cold Wake is an Ark restoration chapter.</strong><p>Complete the works, prove closed-loop atmosphere, resolve the reactor desynchronization, and commit the Pelagos orbital insertion.</p></div>
           )}
         </section>
-      </div>
 
-      <section className="continuity-panel departure-panel">
-        <header><div><span>DEPARTURE AUTHORITY</span><h3>{forecast.canDepart ? `AXIOM may leave ${world.name}` : `The Ark is still needed at ${world.name}`}</h3></div><small>{world.continuityProtocolExcerpt}</small></header>
-        <blockquote>{world.departureQuestion}</blockquote>
-        {world.settlementRequired && <input className="colony-name-input" value={colonyName} maxLength={64} onChange={(event) => setColonyName(event.target.value)} aria-label="Settlement name" />}
-        <button className="settlement-action" type="button" disabled={!forecast.canDepart} onClick={() => onDepart(colonyName)}>{world.settlementRequired ? `Establish settlement and depart ${world.name}` : "Commit Pelagos orbital insertion"}</button>
-      </section>
+        <section className="continuity-panel departure-panel">
+          <header><div><span>DEPARTURE AUTHORITY</span><h3>{forecast.canDepart ? `AXIOM may leave ${world.name}` : `The Ark is still needed at ${world.name}`}</h3></div><small>{world.continuityProtocolExcerpt}</small></header>
+          <blockquote>{world.departureQuestion}</blockquote>
+          {world.settlementRequired && <input className="colony-name-input" value={colonyName} maxLength={64} onChange={(event) => setColonyName(event.target.value)} aria-label="Settlement name" />}
+          <button className="settlement-action" type="button" disabled={!forecast.canDepart} onClick={() => onDepart(colonyName)}>{world.settlementRequired ? `Establish settlement and depart ${world.name}` : "Commit Pelagos orbital insertion"}</button>
+        </section>
+        </div>
+      </div>
 
       {planetaryDefenseActive && colonies.length > 0 && (
         <section className="continuity-panel planetary-defense-panel">

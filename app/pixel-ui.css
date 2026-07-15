@@ -844,6 +844,13 @@ img.pixelated,
 .continuity-two-column,
 .crew-management-grid,
 .settlement-layout { align-items: start; }
+.settlement-side-column {
+  position: sticky;
+  top: 84px;
+  display: grid;
+  align-self: start;
+  gap: 12px;
+}
 .crew-roster-panel,
 .crew-detail-panel { min-height: 0; align-self: start; }
 .continuity-console-header { padding: 12px 16px; }
@@ -1022,11 +1029,22 @@ img.pixelated,
   .ark-visual-stage { min-height: 520px; }
 }
 
+@media (min-width: 1200px) {
+  .settlement-console .world-progress-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .settlement-console .world-progress-action.crisis-action { grid-column: 1 / -1; }
+}
+
+@media (min-width: 901px) {
+  .foundry-grid > .systems-column { display: contents; }
+  .foundry-grid > .systems-column > .panel { align-self: start; }
+}
+
 @media (max-width: 900px) {
   .game-shell { width: calc(100% - 8px); padding-inline: 4px; }
   .foundry-grid { grid-template-columns: 1fr; }
   .personnel-console-tabs { grid-template-columns: 1fr; }
   .personnel-console-tabs button { min-height: 56px; }
+  .settlement-side-column { position: static; }
   .command-priority { grid-template-columns: 64px minmax(0, 1fr); }
   .command-priority-index i { left: 16px; }
   .ark-visual-stage { min-height: 500px; }
