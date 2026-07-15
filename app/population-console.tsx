@@ -252,7 +252,7 @@ function PopulationConsole({
   };
 
   return (
-    <section className="continuity-console population-console" aria-labelledby="population-console-title">
+    <section className={`continuity-console population-console is-view-${consoleView}`} aria-labelledby="population-console-title">
       <header className="continuity-console-header">
         <div>
           <p>HUMAN CONTINUITY // {currentWorldName.toUpperCase()}</p>

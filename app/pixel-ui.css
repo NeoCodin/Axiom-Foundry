@@ -454,6 +454,7 @@ img.pixelated,
   top: auto;
   right: auto;
   left: auto;
+  display: flex;
   width: 100%;
   max-width: none;
   min-height: 72px;
@@ -466,8 +467,16 @@ img.pixelated,
   box-shadow: var(--pixel-inset), var(--pixel-shadow);
 }
 
+.living-foundry-nav.primary-destinations::before {
+  min-width: 0;
+  flex: 0 0 clamp(164px, 10.5vw, 204px);
+  padding: 0 12px 0 2px;
+}
+
 .living-foundry-nav.primary-destinations > button {
   display: grid;
+  min-width: 0;
+  flex: 1 1 0;
   grid-template-columns: 40px minmax(0, 1fr);
   min-height: 60px;
   align-items: center;
@@ -533,6 +542,8 @@ img.pixelated,
 
 .nav-awakening-status {
   min-width: 112px;
+  flex: 0 0 112px;
+  margin-left: 0;
   border-left: 2px solid #2b414a;
   background: #070e13;
 }
@@ -1126,6 +1137,115 @@ img.pixelated,
 .personnel-console-tabs strong { align-self: end; font-family: var(--font-display); font-size: 24px; font-weight: 400; line-height: 0.9; }
 .personnel-console-tabs small { align-self: start; color: #738a85; }
 
+/* Selectable cartridges emit a phosphor signal; static telemetry stays dark. */
+.game-shell :where(
+  .living-foundry-nav.primary-destinations,
+  .facility-navigation,
+  .personnel-console-tabs,
+  .research-command-tabs,
+  .research-era-tabs,
+  .research-lattice-branch-tabs
+) > button:not(:disabled) {
+  position: relative;
+  border-color: rgb(var(--world-accent-rgb, 85 214 232) / 0.42);
+  background:
+    linear-gradient(180deg, rgb(var(--world-accent-rgb, 85 214 232) / 0.075), transparent 72%),
+    #071016;
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--world-accent-rgb, 85 214 232) / 0.08),
+    0 0 8px rgb(var(--world-accent-rgb, 85 214 232) / 0.08) !important;
+  text-shadow: 0 0 7px rgb(var(--world-accent-rgb, 85 214 232) / 0.22);
+  transition:
+    color 100ms steps(2, end),
+    border-color 100ms steps(2, end),
+    background 100ms steps(2, end),
+    transform 100ms steps(2, end);
+}
+
+.game-shell :where(
+  .living-foundry-nav.primary-destinations,
+  .facility-navigation,
+  .personnel-console-tabs,
+  .research-command-tabs,
+  .research-era-tabs,
+  .research-lattice-branch-tabs
+) > button:not(:disabled)::after {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 5px;
+  height: 5px;
+  background: var(--world-accent, var(--flux));
+  box-shadow:
+    0 0 0 1px #020405,
+    0 0 7px var(--world-accent, var(--flux));
+  content: "";
+  animation: selectable-tab-signal 1.8s steps(2, end) infinite;
+}
+
+.game-shell :where(
+  .living-foundry-nav.primary-destinations,
+  .facility-navigation,
+  .personnel-console-tabs,
+  .research-command-tabs,
+  .research-era-tabs,
+  .research-lattice-branch-tabs
+) > button:not(:disabled):hover {
+  z-index: 2;
+  border-color: var(--world-accent, var(--flux));
+  background:
+    linear-gradient(180deg, rgb(var(--world-accent-rgb, 85 214 232) / 0.2), rgb(var(--world-accent-rgb, 85 214 232) / 0.06)),
+    #081319;
+  box-shadow:
+    inset 0 0 0 2px rgb(var(--world-accent-rgb, 85 214 232) / 0.15),
+    0 0 14px rgb(var(--world-accent-rgb, 85 214 232) / 0.25) !important;
+  color: #f2fffb;
+  transform: translateY(-2px);
+}
+
+.game-shell :where(
+  .living-foundry-nav.primary-destinations,
+  .facility-navigation,
+  .personnel-console-tabs,
+  .research-command-tabs,
+  .research-era-tabs,
+  .research-lattice-branch-tabs
+) > button:is(.active, .is-active, [aria-current="page"], [aria-pressed="true"]) {
+  z-index: 1;
+  border-color: var(--world-accent, var(--flux));
+  background:
+    linear-gradient(180deg, rgb(var(--world-accent-rgb, 85 214 232) / 0.25), rgb(var(--world-accent-rgb, 85 214 232) / 0.08)),
+    #0a181f !important;
+  box-shadow:
+    inset 0 -4px 0 var(--world-accent, var(--flux)),
+    inset 0 0 0 2px rgb(var(--world-accent-rgb, 85 214 232) / 0.16),
+    0 0 16px rgb(var(--world-accent-rgb, 85 214 232) / 0.3) !important;
+  color: #f3fffb;
+  text-shadow:
+    0 0 4px rgb(var(--world-accent-rgb, 85 214 232) / 0.6),
+    0 0 10px rgb(var(--world-accent-rgb, 85 214 232) / 0.3);
+}
+
+.game-shell :where(
+  .living-foundry-nav.primary-destinations,
+  .facility-navigation,
+  .personnel-console-tabs,
+  .research-command-tabs,
+  .research-era-tabs,
+  .research-lattice-branch-tabs
+) > button:is(.active, .is-active, [aria-current="page"], [aria-pressed="true"])::after {
+  width: 12px;
+  background: #e8fffa;
+  box-shadow:
+    0 0 0 1px var(--world-accent, var(--flux)),
+    0 0 10px var(--world-accent, var(--flux));
+  animation-duration: 900ms;
+}
+
+/* Command hierarchy: the full-width command team leads; staffing follows below. */
+.population-console.is-view-command > .team-alpha-panel { order: 1; }
+.population-console.is-view-command > .continuity-two-column { order: 2; }
+
 .support-upgrade-grid article,
 .survivor-signal-detail,
 .role-count-grid div,
@@ -1256,6 +1376,11 @@ img.pixelated,
   50%, 100% { opacity: 0.28; }
 }
 
+@keyframes selectable-tab-signal {
+  0%, 65% { opacity: 1; }
+  66%, 100% { opacity: 0.38; }
+}
+
 @media (max-width: 1199px) {
   .command-bar { grid-template-columns: minmax(280px, 1fr) minmax(180px, 0.55fr) minmax(270px, 0.8fr); }
   .foundry-grid { grid-template-columns: minmax(420px, 1.35fr) minmax(330px, 0.85fr); }
@@ -1319,7 +1444,8 @@ img.pixelated,
   .resource-readout { min-height: 58px; }
   .resource-readout strong { font-size: 34px; }
   .living-foundry-nav.primary-destinations { overflow-x: auto; }
-  .living-foundry-nav.primary-destinations > button { min-width: 150px; }
+  .living-foundry-nav.primary-destinations::before { flex-basis: 54px; }
+  .living-foundry-nav.primary-destinations > button { min-width: 150px; flex: 0 0 150px; }
   .nav-awakening-status { display: none; }
   .nav-destination-copy strong { font-size: 22px; }
   .command-briefing-heading { align-items: flex-start; }
@@ -1358,7 +1484,7 @@ img.pixelated,
   .game-shell { width: 100%; }
   .brand-lockup h1 { display: none; }
   .brand-lockup .eyebrow { max-width: 145px; }
-  .living-foundry-nav.primary-destinations > button { min-width: 132px; grid-template-columns: 32px minmax(0, 1fr); }
+  .living-foundry-nav.primary-destinations > button { min-width: 132px; flex-basis: 132px; grid-template-columns: 32px minmax(0, 1fr); }
   .nav-sprite { width: 30px; height: 30px; transform: scale(0.84); transform-origin: left center; }
   .foundry-vista-caption small { display: none; }
   .ark-visual-stage { min-height: 1180px; }
@@ -1377,6 +1503,7 @@ img.pixelated,
 @media (prefers-reduced-motion: reduce) {
   .brand-mark::after { animation: none; }
   .game-shell [role="progressbar"] > :where(span, i) { transition: none; }
+  .game-shell :where(.living-foundry-nav.primary-destinations, .facility-navigation, .personnel-console-tabs, .research-command-tabs, .research-era-tabs, .research-lattice-branch-tabs) > button::after { animation: none; }
 }
 
 @media (forced-colors: active) {
