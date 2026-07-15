@@ -630,14 +630,16 @@ img.pixelated,
 .ark-heading-metrics strong { font-family: var(--font-display); font-size: 28px; }
 
 .ark-visual-stage {
-  min-height: 560px;
+  min-height: 520px;
   border: 4px solid #3d5660;
   border-radius: 0;
   background-color: #020608;
   background-image:
+    radial-gradient(circle at 72% 58%, rgb(var(--world-accent-rgb) / 0.08), transparent 30%),
+    linear-gradient(180deg, transparent 0 78%, rgb(var(--world-accent-rgb) / 0.04) 78% 100%),
     linear-gradient(rgb(var(--world-accent-rgb) / 0.08) 1px, transparent 1px),
     linear-gradient(90deg, rgb(var(--world-accent-rgb) / 0.08) 1px, transparent 1px);
-  background-size: 16px 16px;
+  background-size: auto, auto, 16px 16px, 16px 16px;
   box-shadow: inset 0 0 0 4px #071117, 6px 6px 0 #010202;
 }
 
@@ -651,33 +653,154 @@ img.pixelated,
   background: repeating-linear-gradient(180deg, transparent 0 5px, rgb(0 0 0 / 0.22) 5px 6px);
 }
 
-.ark-theater-caption,
-.ark-stage-directive {
+.ark-theater-caption {
+  top: 20px;
+  left: 24px;
+  width: min(330px, 37%);
+  padding: 12px 14px;
   border: 2px solid #3b535d;
   border-radius: 0;
   background: #071016;
   box-shadow: 4px 4px 0 #010202;
-  backdrop-filter: none;
 }
 
-.ark-target-world { filter: none; }
-.ark-world-atmosphere { box-shadow: 0 0 0 4px rgb(var(--world-accent-rgb) / 0.4); }
+.ark-theater-caption strong { font-size: clamp(24px, 2.2vw, 34px); }
+.ark-theater-caption p { margin-top: 6px; font-size: 10px; }
+.ark-theater-caption small {
+  display: flex;
+  margin-top: 9px;
+  align-items: center;
+  gap: 6px;
+  color: #6f8994;
+  font-size: 8px;
+  letter-spacing: 0.09em;
+}
+.ark-theater-caption small i { width: 6px; height: 6px; background: var(--world-accent); animation: pixel-blink 1.2s steps(2, end) infinite; }
+
+.ark-target-world {
+  top: 34px;
+  right: 42px;
+  width: clamp(190px, 16vw, 240px);
+  filter: none;
+}
+.ark-world-atmosphere {
+  inset: -8px;
+  border: 4px solid rgb(var(--world-accent-rgb) / 0.36);
+  background: transparent;
+  box-shadow: 0 0 0 4px #020608, 0 0 0 6px rgb(var(--world-accent-rgb) / 0.18);
+  filter: none;
+}
 .ark-world-surface {
-  background: radial-gradient(circle at 30% 25%, var(--world-accent) 0 10%, var(--world-planet) 10% 48%, #061016 48% 72%, #010304 72%);
-  box-shadow: 8px 8px 0 #010202;
+  border: 4px solid #536a74;
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 0.14) 0 9%, transparent 9% 100%),
+    radial-gradient(circle at 34% 30%, var(--world-accent) 0 7%, var(--world-planet) 8% 57%, #061016 58% 100%);
+  box-shadow: inset -36px -28px 0 rgb(0 0 0 / 0.46), 8px 8px 0 #010202;
 }
-.ark-world-clouds { opacity: 0.35; filter: none; }
+.ark-world-clouds {
+  inset: 8%;
+  opacity: 0.31;
+  background:
+    radial-gradient(ellipse at 28% 28%, rgb(220 252 255 / 0.64) 0 7%, transparent 8%),
+    radial-gradient(ellipse at 61% 37%, rgb(220 252 255 / 0.52) 0 11%, transparent 12%),
+    radial-gradient(ellipse at 42% 62%, rgb(220 252 255 / 0.48) 0 9%, transparent 10%),
+    radial-gradient(ellipse at 71% 70%, rgb(220 252 255 / 0.38) 0 6%, transparent 7%);
+  filter: none;
+  animation: ark-cloud-drift 32s steps(24, end) infinite;
+}
+.ark-world-night { background: linear-gradient(118deg, transparent 0 49%, rgb(0 0 0 / 0.73) 50% 100%); }
+.ark-world-pixels { position: absolute; z-index: 3; inset: 0; }
+.ark-world-pixels i { position: absolute; display: block; width: 10px; height: 10px; background: rgb(var(--world-accent-rgb) / 0.5); }
+.ark-world-pixels i:nth-child(1) { top: 27%; left: 25%; box-shadow: 10px 0 rgb(var(--world-accent-rgb) / 0.5), 20px 0 rgb(var(--world-accent-rgb) / 0.5), 10px 10px rgb(var(--world-accent-rgb) / 0.5), 20px 10px rgb(var(--world-accent-rgb) / 0.5), 20px 20px rgb(var(--world-accent-rgb) / 0.5); }
+.ark-world-pixels i:nth-child(2) { top: 45%; left: 18%; box-shadow: 0 10px rgb(var(--world-accent-rgb) / 0.5), 10px 10px rgb(var(--world-accent-rgb) / 0.5), 10px 20px rgb(var(--world-accent-rgb) / 0.5), 10px 30px rgb(var(--world-accent-rgb) / 0.5); }
+.ark-world-pixels i:nth-child(3) { top: 59%; left: 42%; box-shadow: 10px 0 rgb(var(--world-accent-rgb) / 0.5), 20px 0 rgb(var(--world-accent-rgb) / 0.5), 30px 0 rgb(var(--world-accent-rgb) / 0.5), 10px 10px rgb(var(--world-accent-rgb) / 0.5), 20px 10px rgb(var(--world-accent-rgb) / 0.5); }
+.ark-world-pixels i:nth-child(4) { top: 70%; left: 33%; box-shadow: 10px 0 rgb(var(--world-accent-rgb) / 0.5), 10px 10px rgb(var(--world-accent-rgb) / 0.5); }
+.ark-world-pixels i:nth-child(5) { top: 39%; left: 64%; opacity: 0.52; box-shadow: 10px 0 rgb(var(--world-accent-rgb) / 0.5), 0 10px rgb(var(--world-accent-rgb) / 0.5); }
+.ark-world-marker {
+  position: absolute;
+  z-index: 7;
+  right: -8px;
+  bottom: -8px;
+  padding: 6px 8px;
+  border: 2px solid #3b535d;
+  background: #071016;
+  color: var(--world-accent);
+  font-family: var(--font-display);
+  font-size: 14px;
+  box-shadow: 4px 4px 0 #000;
+}
+.ark-visual-stage[data-world="pelagos"] .ark-world-surface {
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 0.12) 0 9%, transparent 9% 100%),
+    radial-gradient(circle at 34% 30%, #7eeaf1 0 7%, #17637c 8% 38%, #0a4160 39% 70%, #04131d 71% 100%);
+}
+.ark-visual-stage[data-world="viridia"] .ark-world-pixels { filter: hue-rotate(-18deg) saturate(1.15); }
+.ark-visual-stage[data-world="cinder"] .ark-world-pixels { filter: hue-rotate(-5deg) saturate(1.25); }
+.ark-visual-stage[data-world="nox"] .ark-world-pixels { filter: saturate(1.2); }
+.ark-visual-stage[data-world="vesper"] .ark-world-pixels { filter: saturate(1.35); }
 
-.ark-ship { filter: none; }
+.ark-ship {
+  top: 148px;
+  right: 5%;
+  left: 3%;
+  height: 326px;
+  filter: none;
+}
 .ark-hull-frame,
 .ark-room,
 .ark-core-bay { border-radius: 0; }
 .ark-hull-frame {
+  inset: 24px 66px 22px 5%;
+  padding: 25px 34px 25px 246px;
   border: 4px solid #6e858d;
-  background: #101b20;
+  background:
+    repeating-linear-gradient(90deg, transparent 0 62px, rgb(var(--world-accent-rgb) / 0.06) 62px 64px),
+    #101b20;
   box-shadow: 8px 8px 0 #010202;
+  clip-path: polygon(0 12%, 74% 0, 93% 9%, 100% 31%, 100% 69%, 93% 91%, 74% 100%, 0 88%);
 }
+.ark-hull-frame::after { left: 224px; }
+.ark-hull-top { top: 9px; right: 17%; left: 11%; }
+.ark-hull-keel { right: 17%; bottom: 8px; left: 11%; }
+.ark-bow {
+  position: absolute;
+  z-index: 1;
+  top: 86px;
+  right: 0;
+  width: 98px;
+  height: 154px;
+  background: #6e858d;
+  clip-path: polygon(0 0, 68% 8%, 100% 50%, 68% 92%, 0 100%, 20% 72%, 20% 28%);
+}
+.ark-bow::after { position: absolute; inset: 8px 10px 8px 5px; content: ""; background: #0b171d; clip-path: inherit; }
+.ark-dorsal-fin {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  left: 48%;
+  width: 92px;
+  height: 42px;
+  border: 4px solid #536b75;
+  background: #0b171d;
+  clip-path: polygon(0 100%, 32% 0, 100% 100%);
+}
+.ark-ship-nameplate {
+  position: absolute;
+  z-index: 6;
+  top: 37px;
+  left: 251px;
+  color: #6f8b96;
+  font-size: 8px;
+  letter-spacing: 0.14em;
+}
+.ark-engine-plume { top: 35%; left: -4%; height: 28%; filter: none; }
+.ark-core-bay { top: 48px; left: 5.8%; width: 202px; height: 230px; }
+.ark-core-engine { width: 190px; height: 190px; }
+.ark-core-aperture { width: 70px; height: 70px; }
+.ark-core-aperture i { width: 24px; height: 24px; }
+.ark-core-instruction { bottom: 0; font-size: 9px; }
 .ark-room {
+  padding: 10px;
   border: 2px solid #314851;
   background: #081117;
   box-shadow: inset 0 0 0 2px #111e24;
@@ -701,6 +824,31 @@ img.pixelated,
 .ark-core-orbit,
 .ark-star-field,
 .ark-engine-plume i { animation-timing-function: steps(16, end) !important; }
+
+.ark-stage-directive {
+  position: relative;
+  z-index: 2;
+  right: auto;
+  bottom: auto;
+  left: auto;
+  display: grid;
+  min-height: 96px;
+  padding: 14px 18px;
+  grid-template-columns: minmax(320px, 1fr) minmax(300px, 0.72fr);
+  align-items: center;
+  gap: 24px;
+  border: 2px solid #3b535d;
+  border-left: 6px solid var(--world-accent);
+  border-radius: 0;
+  background:
+    linear-gradient(90deg, rgb(var(--world-accent-rgb) / 0.09), transparent 45%),
+    #071016;
+  box-shadow: 4px 4px 0 #010202;
+  backdrop-filter: none;
+}
+.ark-stage-directive h3 { margin-block: 4px; font-size: clamp(18px, 1.45vw, 23px); }
+.ark-stage-directive p { max-width: 900px; }
+.ark-directive-progress > div { height: 10px; border: 2px solid #2d454f; background: #030709; }
 
 .ark-flight-ribbon,
 .ark-life-support,
@@ -1035,7 +1183,15 @@ img.pixelated,
 @media (max-width: 1199px) {
   .command-bar { grid-template-columns: minmax(280px, 1fr) minmax(180px, 0.55fr) minmax(270px, 0.8fr); }
   .foundry-grid { grid-template-columns: minmax(420px, 1.35fr) minmax(330px, 0.85fr); }
-  .ark-visual-stage { min-height: 520px; }
+  .ark-visual-stage { min-height: 540px; }
+  .ark-target-world { right: 24px; width: 220px; }
+  .ark-ship { top: 162px; right: 3%; left: 2%; height: 322px; }
+  .ark-hull-frame { padding-left: 220px; }
+  .ark-hull-frame::after { left: 198px; }
+  .ark-core-bay { left: 4%; width: 176px; }
+  .ark-core-engine { width: 168px; height: 168px; }
+  .ark-core-copy strong { font-size: 30px; }
+  .ark-ship-nameplate { left: 220px; }
   .command-priority-copy { grid-template-columns: minmax(280px, 0.9fr) minmax(320px, 1.1fr); }
   .command-priority-copy > button { grid-column: 1 / -1; width: min(320px, 100%); }
 }
@@ -1061,7 +1217,20 @@ img.pixelated,
   .command-priority-index i { left: 16px; }
   .command-priority-copy { grid-template-columns: 1fr; }
   .command-priority-copy > button { grid-column: auto; width: 100%; }
-  .ark-visual-stage { min-height: 500px; }
+  .ark-visual-stage { min-height: 660px; }
+  .ark-theater-caption { width: min(360px, 52%); }
+  .ark-target-world { top: 38px; right: 20px; width: 190px; }
+  .ark-ship { top: 178px; right: 12px; left: 12px; height: 420px; }
+  .ark-hull-frame { inset: 28px 50px 24px 0; padding: 31px 20px 30px 194px; }
+  .ark-hull-frame::after { left: 174px; }
+  .ark-core-bay { top: 92px; left: 14px; width: 164px; height: 220px; }
+  .ark-core-engine { width: 156px; height: 156px; }
+  .ark-core-copy strong { font-size: 27px; }
+  .ark-bow { top: 130px; width: 76px; height: 138px; }
+  .ark-dorsal-fin { left: 50%; }
+  .ark-ship-nameplate { top: 42px; left: 196px; }
+  .ark-stage-directive { grid-template-columns: 1fr; gap: 12px; }
+  .ark-directive-progress button { justify-self: end; }
 }
 
 @media (max-width: 767px) {
@@ -1082,7 +1251,24 @@ img.pixelated,
   .command-priority { grid-template-columns: 1fr; }
   .command-priority-index { display: none; }
   .command-priority-copy { padding: 10px; }
-  .ark-visual-stage { min-height: 560px; border-width: 2px; }
+  .ark-visual-stage { min-height: 890px; border-width: 2px; }
+  .ark-theater-caption { top: 14px; left: 14px; width: calc(100% - 150px); }
+  .ark-target-world { top: 26px; right: -30px; width: 160px; }
+  .ark-ship { top: 170px; height: 650px; }
+  .ark-hull-frame {
+    inset: 18px 34px 18px 0;
+    padding: 188px 14px 22px;
+    clip-path: polygon(0 5%, 78% 0, 95% 7%, 100% 23%, 100% 79%, 94% 93%, 78% 100%, 0 95%);
+  }
+  .ark-hull-frame::after { top: 172px; right: 5%; bottom: auto; left: 5%; width: auto; height: 2px; }
+  .ark-core-bay { top: 22px; left: calc(50% - 82px); width: 164px; height: 170px; }
+  .ark-core-engine { width: 146px; height: 146px; }
+  .ark-room-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); }
+  .ark-bow { top: 234px; width: 58px; height: 150px; }
+  .ark-dorsal-fin { top: 0; left: 52%; }
+  .ark-ship-nameplate { top: 35px; left: calc(50% + 88px); }
+  .ark-engine-plume { top: 38%; left: -8%; width: 15%; height: 19%; }
+  .ark-stage-directive { padding: 14px; }
   .foundry-scene { min-height: 300px; }
   .foundry-vista { border-width: 2px; }
   .game-shell :where(.continuity-console, .research-lattice-shell, .panel) p { font-size: 12px; }
@@ -1099,7 +1285,17 @@ img.pixelated,
   .living-foundry-nav.primary-destinations > button { min-width: 132px; grid-template-columns: 32px minmax(0, 1fr); }
   .nav-sprite { width: 30px; height: 30px; transform: scale(0.84); transform-origin: left center; }
   .foundry-vista-caption small { display: none; }
-  .ark-visual-stage { min-height: 590px; }
+  .ark-visual-stage { min-height: 1180px; }
+  .ark-theater-caption { width: calc(100% - 92px); }
+  .ark-theater-caption p { display: none; }
+  .ark-target-world { top: 42px; right: -46px; width: 130px; }
+  .ark-ship { top: 150px; height: 970px; }
+  .ark-hull-frame { padding: 176px 12px 20px; }
+  .ark-room-grid { grid-template-columns: 1fr; grid-template-rows: repeat(6, minmax(0, 1fr)); }
+  .ark-room { min-height: 112px; }
+  .ark-bow { top: 384px; }
+  .ark-dorsal-fin,
+  .ark-ship-nameplate { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

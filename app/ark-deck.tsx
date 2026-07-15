@@ -154,6 +154,7 @@ function ArkDeck({
   const fluxValue = numericLabelValue(fluxLabel);
   const researchRate = numericLabelValue(researchThroughput);
   const roomRatio = clamp(onlineRoomCount / Math.max(1, totalRoomCount));
+  const worldSlug = worldName.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-").replaceAll(/(^-|-$)/g, "");
 
   const unlockedViewSet = new Set(unlockedViews);
   const engineeringUnlocked = unlockedViewSet.has("engineering");
@@ -262,7 +263,7 @@ function ArkDeck({
         </div>
       </header>
 
-      <section className="ark-visual-stage" aria-label={`The Ark approaching ${worldName}`}>
+      <section className="ark-visual-stage" data-world={worldSlug} aria-label={`The Ark approaching ${worldName}`}>
         <div className="ark-space" aria-hidden="true">
           <span className="ark-star-field ark-star-field-near" />
           <span className="ark-star-field ark-star-field-far" />
@@ -274,6 +275,7 @@ function ArkDeck({
           <span>PLANETARY THEATER // LIVE</span>
           <strong>{worldName}</strong>
           <p>{worldSubtitle}</p>
+          <small><i aria-hidden="true" /> ORBITAL FEED LOCKED</small>
         </div>
 
         <div className="ark-target-world" aria-hidden="true">
@@ -281,14 +283,19 @@ function ArkDeck({
           <span className="ark-world-surface" />
           <span className="ark-world-clouds" />
           <span className="ark-world-night" />
+          <span className="ark-world-pixels"><i /><i /><i /><i /><i /></span>
           <span className="ark-world-orbit ark-world-orbit-one" />
           <span className="ark-world-orbit ark-world-orbit-two" />
+          <span className="ark-world-marker">{Math.round(normalizedWorldProgress * 100)}%</span>
         </div>
 
         <div className="ark-ship" aria-label={`${onlineRoomCount} of ${totalRoomCount} Ark rooms online`}>
           <span className="ark-engine-plume" aria-hidden="true"><i /><i /><i /></span>
           <span className="ark-hull-top" aria-hidden="true" />
           <span className="ark-hull-keel" aria-hidden="true" />
+          <span className="ark-bow" aria-hidden="true" />
+          <span className="ark-dorsal-fin" aria-hidden="true" />
+          <span className="ark-ship-nameplate">ARK // ITERATION 44</span>
 
           <div className="ark-core-bay">
             <button
@@ -360,29 +367,29 @@ function ArkDeck({
           </div>
         </div>
 
-        <aside className="ark-stage-directive" aria-labelledby="ark-objective-title">
-          <div>
-            <span>ACTIVE DIRECTIVE</span>
-            <h3 id="ark-objective-title">{objectiveLabel}</h3>
-            <p>{objectiveDetail}</p>
-          </div>
-          <div className="ark-directive-progress">
-            <strong>{Math.round(normalizedWorldProgress * 100)}%</strong>
-            <div role="progressbar" aria-label={objectiveLabel} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(normalizedWorldProgress * 100)}>
-              <i style={{ width: `${normalizedWorldProgress * 100}%` }} />
-            </div>
-            {engineeringUnlocked ? (
-              <button type="button" onClick={() => onOpenView("engineering")}>Open engineering</button>
-            ) : (
-              <span className="ark-directive-hint">Keep tuning the Core. Fabrication will awaken next.</span>
-            )}
-          </div>
-        </aside>
-
         <p className="ark-screen-reader-status" aria-live="polite">
           {corePulse > 0 ? `Core tuned. ${manualGainLabel} Flux added.` : ""}
         </p>
       </section>
+
+      <aside className="ark-stage-directive" aria-labelledby="ark-objective-title">
+        <div className="ark-directive-copy">
+          <span>ACTIVE DIRECTIVE // {worldName.toUpperCase()}</span>
+          <h3 id="ark-objective-title">{objectiveLabel}</h3>
+          <p>{objectiveDetail}</p>
+        </div>
+        <div className="ark-directive-progress">
+          <strong>{Math.round(normalizedWorldProgress * 100)}%</strong>
+          <div role="progressbar" aria-label={objectiveLabel} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(normalizedWorldProgress * 100)}>
+            <i style={{ width: `${normalizedWorldProgress * 100}%` }} />
+          </div>
+          {engineeringUnlocked ? (
+            <button type="button" onClick={() => onOpenView("engineering")}>Open engineering</button>
+          ) : (
+            <span className="ark-directive-hint">Keep tuning the Core. Fabrication will awaken next.</span>
+          )}
+        </div>
+      </aside>
 
       <section className="ark-flight-ribbon" aria-label="Current voyage">
         <div>
