@@ -1037,6 +1037,7 @@ img.pixelated,
 @media (min-width: 901px) {
   .foundry-grid > .systems-column { display: contents; }
   .foundry-grid > .systems-column > .panel { align-self: start; }
+  .foundry-grid > .systems-column > .mission-panel { order: 0; }
 }
 
 @media (max-width: 900px) {
