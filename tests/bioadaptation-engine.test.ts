@@ -59,6 +59,31 @@ test("a survivor has two distinct permanent choices and bounded support effects"
   assert.equal(repaired.active, null);
 });
 
+test("the clinic remains charter-locked for every crew member until its research is complete", () => {
+  const state = createInitialState(0);
+  state.survivors = sanitizeSurvivorSystemState({
+    schema: 7,
+    survivors: [{
+      id: "young-survivor",
+      name: "Tavi Sol",
+      role: "civilian",
+      assignedRole: null,
+      backgroundId: "ark-born",
+      aptitudes: {},
+      skillXp: {},
+      traits: [],
+      ageGroup: "child",
+    }],
+  });
+
+  const locked = getBioadaptationQuote(state, "young-survivor", "atmospheric-adaptation");
+  assert.equal(locked.reason, "charter");
+
+  state.research.completedProjectIds = ["voluntary-adaptation-charter"];
+  const unlocked = getBioadaptationQuote(state, "young-survivor", "atmospheric-adaptation");
+  assert.equal(unlocked.reason, "child");
+});
+
 test("the clinic commits resources, occupies the volunteer, and preserves rarity and Continuity", () => {
   const state = createInitialState(0);
   state.settlement.completedWorldIds = ["cold-wake", "pelagos", "viridia", "cinder"];

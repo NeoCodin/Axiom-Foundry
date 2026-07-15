@@ -647,7 +647,7 @@ function PopulationConsole({
                   )}
                 </section>
               )}
-              {(selectedCrew.bioadaptations.length > 0 || selectedAdapting || getBioadaptationQuote(selectedCrew.id, "atmospheric-adaptation").reason !== "charter") && (
+              {getBioadaptationQuote(selectedCrew.id, "atmospheric-adaptation").reason !== "charter" && (
                 <section className="bioadaptation-clinic" aria-label="Voluntary bioadaptation">
                   <header>
                     <div><span>BIOADAPTATION CLINIC // VOLUNTARY</span><strong>{selectedCrew.bioadaptations.length}/{MAX_BIOADAPTATIONS_PER_SURVIVOR} permanent choices</strong></div>

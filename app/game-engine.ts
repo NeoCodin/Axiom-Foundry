@@ -2329,8 +2329,8 @@ export function getBioadaptationQuote(
   const survivor = state.survivors.survivors.find((candidate) => candidate.id === survivorId);
   let reason: BioadaptationQuote["reason"] = null;
   if (!survivor) reason = "missing-crew";
-  else if (survivor.ageGroup === "child") reason = "child";
   else if (!state.research.completedProjectIds.includes("voluntary-adaptation-charter")) reason = "charter";
+  else if (survivor.ageGroup === "child") reason = "child";
   else if (!state.research.completedProjectIds.includes(definition.requiredResearchId as ResearchProjectId)) reason = "research";
   else if (survivor.bioadaptations.some((record) => record.id === adaptationId)) reason = "already-adapted";
   else if (survivor.bioadaptations.length >= MAX_BIOADAPTATIONS_PER_SURVIVOR) reason = "limit";
