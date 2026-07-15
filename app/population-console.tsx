@@ -615,6 +615,13 @@ function PopulationConsole({
                 )}
               </div>
               <form className="crew-callsign-form" onSubmit={submitCallsign}><label htmlFor="crew-callsign">Callsign</label><input id="crew-callsign" name="callsign" maxLength={18} defaultValue={selectedCrew.callsign} placeholder="Optional" /><button type="submit">Save</button></form>
+              <details className="crew-advanced-record">
+                <summary>
+                  <span>ADVANCED PROFILE SYSTEMS</span>
+                  <strong>Elevation &amp; voluntary adaptation</strong>
+                  <small>Open when you want permanent, late-stage options</small>
+                </summary>
+                <div className="crew-advanced-record-body">
               {selectedElevation && (
                 <section className="crew-profile-elevation" aria-label="Profile elevation">
                   <header>
@@ -749,10 +756,19 @@ function PopulationConsole({
                   </div>
                 </section>
               )}
+                </div>
+              </details>
               <div className="team-alpha-actions">
                 <button type="button" disabled={!selectedCrew.assignmentLocked || selectedCrew.ageGroup === "child"} onClick={() => onReturnToAutoAssignment(selectedCrew.id)}>{selectedCrew.assignmentLocked ? "Return assignment to AXIOM" : "Assignment managed by AXIOM"}</button>
                 <button type="button" onClick={() => onProtectForArk(selectedCrew.id, !selectedCrew.settlementProtected)}>{selectedCrew.settlementProtected ? "Allow planetary selection" : "Protect for the Ark"}</button>
               </div>
+              <details className="crew-advanced-record crew-qualification-record">
+                <summary>
+                  <span>QUALIFICATIONS &amp; CONTINUITY</span>
+                  <strong>Profession levels, traits, and founding value</strong>
+                  <small>Open the complete personnel record</small>
+                </summary>
+                <div className="crew-advanced-record-body">
               <div className="crew-trait-list">
                 {selectedCrew.traits.map((traitId) => {
                   const trait = TRAIT_DEFINITIONS.find((item) => item.id === traitId);
@@ -787,6 +803,8 @@ function PopulationConsole({
                   <p>{selectedCrew.ageGroup === "child" ? "Children contribute to Community Readiness as the settlement's future, but they are never counted as workers or Expertise." : "Study a profession to create measurable Continuity Expertise."}</p>
                 )}
               </section>
+                </div>
+              </details>
 
               {selectedTraining ? (
                 <div className="active-training-card"><span>STUDY IN PROGRESS</span><strong>{titleCase(selectedTraining.targetRole)}</strong><div><i style={{ width: `${Math.min(100, (selectedTraining.progressSeconds / selectedTraining.durationSeconds) * 100)}%` }} /></div><small>{formatTime((selectedTraining.durationSeconds - selectedTraining.progressSeconds) / crewGrowthMultiplier)} remaining · ×{(getSurvivorLearningMultiplier(selectedCrew) * crewGrowthMultiplier).toFixed(2)} total learning · continues offline</small><button type="button" onClick={() => onCancelTraining(selectedCrew.id)}>Pause study</button></div>

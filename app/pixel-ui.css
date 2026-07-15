@@ -218,7 +218,9 @@ img.pixelated,
 
 /* Top command HUD */
 .command-bar {
-  top: 0;
+  position: relative;
+  z-index: 1;
+  top: auto;
   grid-template-columns: minmax(320px, 1.15fr) minmax(190px, 0.48fr) minmax(290px, 0.72fr) minmax(330px, 0.85fr);
   margin-bottom: 8px;
   overflow: visible;
@@ -371,6 +373,11 @@ img.pixelated,
 
 /* Primary destination cartridge bar */
 .living-foundry-nav.primary-destinations {
+  position: sticky;
+  z-index: 90;
+  top: 0;
+  right: auto;
+  left: auto;
   width: 100%;
   max-width: none;
   min-height: 72px;
@@ -755,9 +762,10 @@ img.pixelated,
 .foundry-grid {
   grid-template-columns: minmax(560px, 1.75fr) minmax(360px, 0.85fr);
   gap: 12px;
+  align-items: start;
 }
 .machine-panel,
-.systems-column { gap: 12px; }
+.systems-column { align-self: start; gap: 12px; }
 .machine-heading { position: static; }
 .machine-row {
   border: 2px solid #2f4650;
@@ -833,6 +841,11 @@ img.pixelated,
   max-width: none;
   gap: 12px;
 }
+.continuity-two-column,
+.crew-management-grid,
+.settlement-layout { align-items: start; }
+.crew-roster-panel,
+.crew-detail-panel { min-height: 0; align-self: start; }
 .continuity-console-header { padding: 12px 16px; }
 .continuity-console-header h2 { font-size: 34px; }
 .continuity-summary-band {
@@ -904,6 +917,69 @@ img.pixelated,
 .crew-skill-grid > div,
 .crew-continuity-contribution,
 .active-training-card { border-radius: 0; background: #071016; }
+
+.crew-advanced-record,
+.continuity-requirement-ledger {
+  margin-top: 12px;
+  border: 2px solid #2c424c;
+  background: #050c10;
+  box-shadow: 3px 3px 0 #010202;
+}
+.crew-advanced-record > summary,
+.continuity-requirement-ledger > summary {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3px 16px;
+  padding: 11px 38px 11px 12px;
+  cursor: pointer;
+  list-style: none;
+  background: #0b171d;
+}
+.crew-advanced-record > summary::-webkit-details-marker,
+.continuity-requirement-ledger > summary::-webkit-details-marker { display: none; }
+.crew-advanced-record > summary::after,
+.continuity-requirement-ledger > summary::after {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  color: var(--world-accent);
+  content: "+";
+  font-family: var(--font-display);
+  font-size: 24px;
+  transform: translateY(-50%);
+}
+.crew-advanced-record[open] > summary::after,
+.continuity-requirement-ledger[open] > summary::after { content: "-"; }
+.crew-advanced-record > summary span,
+.continuity-requirement-ledger > summary span {
+  color: var(--world-accent);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+}
+.crew-advanced-record > summary strong,
+.continuity-requirement-ledger > summary strong { color: #d7e5df; font-size: 12px; }
+.crew-advanced-record > summary small { grid-column: 2; grid-row: 1 / 3; align-self: center; color: #6d817e; }
+.crew-advanced-record-body { padding: 2px 12px 12px; }
+.crew-advanced-record-body > :last-child { margin-bottom: 0; }
+
+.continuity-readiness-overview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(88px, 0.42fr)) minmax(180px, 1fr);
+  gap: 4px;
+}
+.continuity-readiness-overview > div {
+  padding: 12px;
+  border: 2px solid #243b45;
+  background: #071016;
+}
+.continuity-readiness-overview span,
+.continuity-readiness-overview strong { display: block; }
+.continuity-readiness-overview span { color: #687f7b; font-size: 9px; letter-spacing: 0.1em; }
+.continuity-readiness-overview strong { margin-top: 5px; color: var(--world-accent); font-family: var(--font-display); font-size: 30px; }
+.continuity-readiness-overview p { align-self: stretch; margin: 0; padding: 12px; border: 2px solid #243b45; background: #071016; color: #829791; }
+.continuity-requirement-ledger > summary { grid-template-columns: minmax(0, 1fr); margin: 0; }
+.continuity-requirement-ledger > .forecast-list { padding: 10px; }
 
 /* Remaining consoles inherit the same cartridge construction */
 .transit-console,
@@ -978,6 +1054,10 @@ img.pixelated,
   .foundry-scene { min-height: 300px; }
   .foundry-vista { border-width: 2px; }
   .game-shell :where(.continuity-console, .research-lattice-shell, .panel) p { font-size: 12px; }
+  .continuity-readiness-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .continuity-readiness-overview p { grid-column: 1 / -1; }
+  .crew-advanced-record > summary { grid-template-columns: minmax(0, 1fr); }
+  .crew-advanced-record > summary small { grid-column: 1; grid-row: auto; }
 }
 
 @media (max-width: 480px) {

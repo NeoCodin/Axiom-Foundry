@@ -168,6 +168,7 @@ function SettlementConsole({
   const selected = new Set(forecast.selectedSettlerIds);
   const planetaryForecast = getPlanetaryIncomingForecast(planetaryDefense);
   const planetaryInstallationIds = Object.keys(PLANETARY_INSTALLATION_DEFINITIONS) as PlanetaryInstallationId[];
+  const securedRequirementCount = forecast.lines.filter((line) => line.met).length;
 
   return (
     <section className="continuity-console settlement-console" aria-labelledby="settlement-console-title">
@@ -199,25 +200,33 @@ function SettlementConsole({
       <div className="settlement-layout">
         <section className="continuity-panel">
           <header><div><span>CONTINUITY REQUIREMENTS</span><h3>{forecast.deficits.length === 0 ? "Every requirement is met" : `${forecast.deficits.length} deficits remain`}</h3></div><div className="continuity-header-help"><small>Nothing expires</small><HelpTrigger label="Explain Continuity requirements" onClick={() => onOpenHelp("settlement")} /></div></header>
-          <div className="forecast-list">
-            {forecast.lines.map((line) => {
-              const ratio = Math.min(1, line.currentValue / Math.max(1, line.requiredValue));
-              return (
-                <article className={`forecast-line ${line.met ? "is-met" : ""}`} key={`${line.kind}-${line.id}`}>
-                  <header><span>{line.label}</span><strong>{line.currentValue}/{line.requiredValue}</strong></header>
-                  <div className="forecast-line-meter"><i style={{ width: `${ratio * 100}%` }} /></div>
-                  <small>{line.met ? "Requirement secured" : line.kind === "community" && line.substitutionValue > 0 ? `${line.substitutionValue} from profession diversity and planetary works` : line.substitutionValue > 0 ? `${line.substitutionValue} supplied by research or equipment` : titleCase(line.kind)}</small>
-                  {(line.detail || line.contributors.length > 0) && (
-                    <details className="forecast-line-detail">
-                      <summary>How this is counted</summary>
-                      {line.detail && <p>{line.detail}</p>}
-                      {line.contributors.length > 0 && <div>{line.contributors.map((contributor) => <span key={`${line.id}-${contributor.id}`}>{contributor.label} <strong>+{contributor.value}</strong></span>)}</div>}
-                    </details>
-                  )}
-                </article>
-              );
-            })}
+          <div className="continuity-readiness-overview">
+            <div><span>SECURED</span><strong>{securedRequirementCount}</strong></div>
+            <div><span>REMAINING</span><strong>{forecast.deficits.length}</strong></div>
+            <p>The action board beside this readout shows only what still needs attention.</p>
           </div>
+          <details className="continuity-requirement-ledger">
+            <summary><span>FULL REQUIREMENT TELEMETRY</span><strong>Review all {forecast.lines.length} calculations</strong></summary>
+            <div className="forecast-list">
+              {forecast.lines.map((line) => {
+                const ratio = Math.min(1, line.currentValue / Math.max(1, line.requiredValue));
+                return (
+                  <article className={`forecast-line ${line.met ? "is-met" : ""}`} key={`${line.kind}-${line.id}`}>
+                    <header><span>{line.label}</span><strong>{line.currentValue}/{line.requiredValue}</strong></header>
+                    <div className="forecast-line-meter"><i style={{ width: `${ratio * 100}%` }} /></div>
+                    <small>{line.met ? "Requirement secured" : line.kind === "community" && line.substitutionValue > 0 ? `${line.substitutionValue} from profession diversity and planetary works` : line.substitutionValue > 0 ? `${line.substitutionValue} supplied by research or equipment` : titleCase(line.kind)}</small>
+                    {(line.detail || line.contributors.length > 0) && (
+                      <details className="forecast-line-detail">
+                        <summary>How this is counted</summary>
+                        {line.detail && <p>{line.detail}</p>}
+                        {line.contributors.length > 0 && <div>{line.contributors.map((contributor) => <span key={`${line.id}-${contributor.id}`}>{contributor.label} <strong>+{contributor.value}</strong></span>)}</div>}
+                      </details>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          </details>
         </section>
 
         <section className="continuity-panel">
