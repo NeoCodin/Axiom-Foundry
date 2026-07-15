@@ -244,6 +244,7 @@ import {
 } from "./defense-engine";
 import { LORE_ENTRIES, TOUR_STEPS } from "./story-content";
 import { getProgressiveDisclosure } from "./progressive-disclosure";
+import { PixelTooltipLayer } from "./pixel-tooltip-layer";
 
 type MobileTab = "machines" | "systems";
 
@@ -1904,6 +1905,7 @@ export default function Home() {
       data-view={primaryView}
       style={shellStyle}
     >
+      <PixelTooltipLayer />
       <div className="ambient-grid" aria-hidden="true" />
       <div className="sr-only" aria-live="polite">
         {announcement}
