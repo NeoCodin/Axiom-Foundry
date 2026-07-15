@@ -373,9 +373,9 @@ img.pixelated,
 
 /* Primary destination cartridge bar */
 .living-foundry-nav.primary-destinations {
-  position: sticky;
-  z-index: 90;
-  top: 0;
+  position: relative;
+  z-index: 2;
+  top: auto;
   right: auto;
   left: auto;
   width: 100%;
@@ -527,9 +527,18 @@ img.pixelated,
   background: #f1cd63;
   content: "";
 }
-.command-priority-copy { padding: 12px 16px 14px; }
+.command-priority-copy {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.9fr) minmax(380px, 1.15fr) minmax(220px, 0.55fr);
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px 14px;
+}
+.command-priority-summary,
+.command-priority-resolution { min-width: 0; }
+.command-priority-summary > span { color: var(--world-accent); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; }
 .command-priority-copy h3 { margin: 3px 0 4px; }
-.command-priority-copy p { max-width: 920px; margin: 4px 0; }
+.command-priority-copy p { max-width: 620px; margin: 4px 0; }
 .command-priority-guidance {
   grid-template-columns: 90px minmax(0, 1fr);
   max-width: 1050px;
@@ -537,7 +546,7 @@ img.pixelated,
   background: #050b0e;
 }
 .command-priority-cadence { border: 0; border-left: 4px solid currentColor; border-radius: 0; background: #0b1519; }
-.command-priority-copy > button { width: min(320px, 100%); }
+.command-priority-copy > button { width: 100%; min-height: 48px; }
 
 .command-upcoming { border-top: 2px solid #2d444d; background: #060c10; }
 .command-upcoming > summary {
@@ -1027,6 +1036,8 @@ img.pixelated,
   .command-bar { grid-template-columns: minmax(280px, 1fr) minmax(180px, 0.55fr) minmax(270px, 0.8fr); }
   .foundry-grid { grid-template-columns: minmax(420px, 1.35fr) minmax(330px, 0.85fr); }
   .ark-visual-stage { min-height: 520px; }
+  .command-priority-copy { grid-template-columns: minmax(280px, 0.9fr) minmax(320px, 1.1fr); }
+  .command-priority-copy > button { grid-column: 1 / -1; width: min(320px, 100%); }
 }
 
 @media (min-width: 1200px) {
@@ -1048,6 +1059,8 @@ img.pixelated,
   .settlement-side-column { position: static; }
   .command-priority { grid-template-columns: 64px minmax(0, 1fr); }
   .command-priority-index i { left: 16px; }
+  .command-priority-copy { grid-template-columns: 1fr; }
+  .command-priority-copy > button { grid-column: auto; width: 100%; }
   .ark-visual-stage { min-height: 500px; }
 }
 
