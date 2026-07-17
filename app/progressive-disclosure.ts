@@ -58,9 +58,10 @@ export function getProgressiveDisclosure(state: GameState): ProgressiveDisclosur
         state.armory.stock[item.id].some((count) => count > 0) ||
         state.research.completedProjectIds.includes(item.requiredResearchId),
       ),
-    settlement:
-      state.missions.awaitingAcknowledgement || state.missions.worldsSaved > 1 ||
-      state.settlement.completedWorldIds.some((worldId) => worldId !== "cold-wake"),
+    settlement: worldIndex === 0
+      ? state.missions.awaitingAcknowledgement && state.lifetimeAxioms >= 3
+      : state.missions.awaitingAcknowledgement || state.missions.worldsSaved > 1 ||
+        state.settlement.completedWorldIds.some((worldId) => worldId !== "cold-wake"),
     fabrication:
       worldIndex >= 1 || state.missions.worldsSaved > 0,
     systems:

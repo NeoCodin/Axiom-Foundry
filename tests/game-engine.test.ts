@@ -303,6 +303,10 @@ test("recalibration grants the previewed Axiom and retains legacy progress", () 
 test("Recalibration starts as a Cold Wake lesson and scales with each world", () => {
   const state = createInitialState(0);
   assert.equal(getRecalibrationThreshold(state), RECALIBRATION_THRESHOLD);
+  state.lifetimeAxioms = 1;
+  assert.equal(getRecalibrationThreshold(state), RECALIBRATION_THRESHOLD * 2.5);
+  state.lifetimeAxioms = 2;
+  assert.equal(getRecalibrationThreshold(state), RECALIBRATION_THRESHOLD * 6);
   state.missions.currentIndex = 1;
   state.settlement.currentWorldId = "pelagos";
   assert.equal(getRecalibrationThreshold(state), RECALIBRATION_THRESHOLD * 25);

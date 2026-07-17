@@ -38,6 +38,19 @@ test("Cold Wake stays on one Core Deck even after automation begins", () => {
   assert.equal(disclosure.population, false);
   assert.equal(disclosure.expeditions, false);
 
+  state.missions.awaitingAcknowledgement = true;
+  state.lifetimeAxioms = 1;
+  disclosure = getProgressiveDisclosure(state);
+  assert.equal(disclosure.settlement, false);
+  assert.equal(disclosure.population, false);
+  assert.equal(disclosure.research, false);
+
+  state.lifetimeAxioms = 3;
+  disclosure = getProgressiveDisclosure(state);
+  assert.equal(disclosure.settlement, true);
+  assert.equal(disclosure.population, false);
+  assert.equal(disclosure.research, false);
+
   state.missions.currentIndex = 1;
   state.settlement.currentWorldId = "pelagos";
   disclosure = getProgressiveDisclosure(state);

@@ -70,8 +70,8 @@ export type SettlementConsoleProps = {
   onAcknowledgeTransmission: () => void;
   onPlanetaryDoctrine: (doctrine: PlanetaryDefenseDoctrine) => void;
   onPlanetaryConstruction: (worldId: CampaignWorldId, installationId: PlanetaryInstallationId) => void;
-  onOpenPopulation: () => void;
-  onOpenResearch: () => void;
+  onOpenPopulation?: () => void;
+  onOpenResearch?: () => void;
   onOpenHelp: (topicId: ManualTopicId) => void;
   onBack: () => void;
 };
@@ -267,10 +267,12 @@ function SettlementConsole({
           ) : (
             <div className="continuity-empty-state"><strong>{world.name} can continue independently.</strong><p>Review the founders and make the departure decision when you are ready.</p></div>
           )}
-          <div className="crew-actions-grid">
-            <button className="forecast-action" type="button" onClick={onOpenPopulation}>Recruit or train crew</button>
-            <button className="forecast-action" type="button" onClick={onOpenResearch}>Open Research Lattice</button>
-          </div>
+          {(onOpenPopulation || onOpenResearch) && (
+            <div className="crew-actions-grid">
+              {onOpenPopulation && <button className="forecast-action" type="button" onClick={onOpenPopulation}>Recruit or train crew</button>}
+              {onOpenResearch && <button className="forecast-action" type="button" onClick={onOpenResearch}>Open Research Lattice</button>}
+            </div>
+          )}
         </section>
       </div>
 

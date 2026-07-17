@@ -607,6 +607,24 @@ export default function Home() {
   const worldEffects = useMemo(() => getWorldEffects(game), [game]);
   const campaignWorldIndex = getCampaignWorldIndex(game);
   const disclosure = useMemo(() => getProgressiveDisclosure(game), [game]);
+  useEffect(() => {
+    if (!ready || primaryView === "deck") return;
+    const viewIsUnlocked: Record<PrimaryView, boolean> = {
+      deck: true,
+      engineering: disclosure.engineering,
+      research: disclosure.research,
+      population: disclosure.population,
+      medical: disclosure.medical,
+      expeditions: disclosure.expeditions,
+      defense: disclosure.defense,
+      armory: disclosure.armory,
+      settlement: disclosure.settlement,
+    };
+    if (!viewIsUnlocked[primaryView]) {
+      setPrimaryView("deck");
+      setAnnouncement("That system has not awakened yet. Continue the active Core Deck directive.");
+    }
+  }, [disclosure, primaryView, ready]);
   const worldVisual =
     WORLD_VISUALS[campaignWorldIndex] ?? WORLD_VISUALS[0];
   const shellStyle = {
@@ -2480,8 +2498,8 @@ export default function Home() {
           onAcknowledgeTransmission={handleAcknowledgeTransmission}
           onPlanetaryDoctrine={handlePlanetaryDefenseDoctrine}
           onPlanetaryConstruction={handlePlanetaryDefenseConstruction}
-          onOpenPopulation={() => setPrimaryView("population")}
-          onOpenResearch={() => setPrimaryView("research")}
+          onOpenPopulation={populationUnlocked ? () => setPrimaryView("population") : undefined}
+          onOpenResearch={researchUnlocked ? () => setPrimaryView("research") : undefined}
           onOpenHelp={setManualTopic}
           onBack={() => setPrimaryView("deck")}
         />

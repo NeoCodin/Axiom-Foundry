@@ -434,6 +434,7 @@ export const LEGACY_UPGRADES = [
 // instead of becoming a button the player can press on arrival.
 export const RECALIBRATION_THRESHOLD = 100_000;
 const RECALIBRATION_WORLD_SCALE = 25;
+const COLD_WAKE_LAW_THRESHOLD_SCALE = [1, 2.5, 6] as const;
 
 export const MISSIONS = [
   {
@@ -4342,9 +4343,20 @@ export function getRecalibrationGain(state: GameState) {
 }
 
 export function getRecalibrationThreshold(state: GameState) {
+  const worldIndex = getCampaignWorldIndex(state);
+  if (worldIndex === 0) {
+    const lawIndex = Math.min(
+      COLD_WAKE_LAW_THRESHOLD_SCALE.length - 1,
+      Math.max(0, Math.floor(state.lifetimeAxioms)),
+    );
+    return safeMultiply(
+      RECALIBRATION_THRESHOLD,
+      COLD_WAKE_LAW_THRESHOLD_SCALE[lawIndex],
+    );
+  }
   return safeMultiply(
     RECALIBRATION_THRESHOLD,
-    safePower(RECALIBRATION_WORLD_SCALE, getCampaignWorldIndex(state)),
+    safePower(RECALIBRATION_WORLD_SCALE, worldIndex),
   );
 }
 
