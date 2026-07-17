@@ -30,10 +30,17 @@ type AxiomLawHeartProps = {
   recalibrationGain: number;
   recalibrationThresholdLabel: string;
   recalibrationProgress: number;
+  contribution: {
+    availableLabel: string;
+    remainingLabel: string;
+    divertLabel: string;
+    canContribute: boolean;
+  } | null;
   onTune: () => void;
   onBuy: () => void;
   onSetBuyMode: (mode: PurchaseMode) => void;
   onRecalibrate: () => void;
+  onContribute: () => void;
 };
 
 const LAW_NAMES = ["Containment", "Conservation", "Transit"] as const;
@@ -58,10 +65,12 @@ export function AxiomLawHeart({
   recalibrationGain,
   recalibrationThresholdLabel,
   recalibrationProgress,
+  contribution,
   onTune,
   onBuy,
   onSetBuyMode,
   onRecalibrate,
+  onContribute,
 }: AxiomLawHeartProps) {
   const [pulseSerial, setPulseSerial] = useState(0);
   const [confirmRecalibration, setConfirmRecalibration] = useState(false);
@@ -160,6 +169,15 @@ export function AxiomLawHeart({
             <i style={{ width: `${clamp(objectiveProgress) * 100}%` }} />
           </div>
           <strong>{Math.round(clamp(objectiveProgress) * 100)}% synchronized</strong>
+          {contribution && (
+            <div className="law-heart-contribution">
+              <p><strong>{contribution.availableLabel} available</strong><span>{contribution.remainingLabel} still required</span></p>
+              <small>You do not need all 15,000 Flux at once. Divert what you have now; every payment is saved and counts toward the same total.</small>
+              <button type="button" disabled={!contribution.canContribute} onClick={onContribute}>
+                {contribution.canContribute ? `DIVERT ${contribution.divertLabel} FLUX NOW` : "KEEP PRODUCING FLUX"}
+              </button>
+            </div>
+          )}
           <small>No timer. The Ark continues producing while this page is closed.</small>
         </aside>
       </div>
@@ -172,7 +190,7 @@ export function AxiomLawHeart({
           </header>
           {automationVisible ? (
             <>
-              <p>A Vacuum Tap repeats the chamber's smallest motion. Every unit adds visible pulses and permanent idle output for this cycle.</p>
+              <p>A Vacuum Tap repeats the chamber’s smallest motion. Every unit adds visible pulses and permanent idle output for this cycle.</p>
               <div className="law-machine-telemetry">
                 <span>Output <strong>{machine.outputLabel}/sec</strong></span>
                 <span>Next unit <strong>{machine.costLabel} Flux</strong></span>
@@ -218,7 +236,7 @@ export function AxiomLawHeart({
                   <button type="button" onClick={() => setConfirmRecalibration(false)}>CANCEL</button>
                 </div>
               )}
-              <p className="law-reset-warning">Recalibration resets this cycle's Flux and machines. Proven Axioms and completed Cold Wake work survive.</p>
+              <p className="law-reset-warning">Recalibration resets this cycle’s Flux and machines. Proven Axioms and completed Cold Wake work survive.</p>
             </>
           ) : (
             <p>Build a repeating fabrication rhythm. The chamber will reveal how to carry a law through a reset.</p>

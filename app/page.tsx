@@ -2128,10 +2128,17 @@ export default function Home() {
             recalibrationGain={recalibrationGain}
             recalibrationThresholdLabel={formatNumber(recalibrationThreshold)}
             recalibrationProgress={game.runFlux / Math.max(1, recalibrationThreshold)}
+            contribution={activeStage?.kind === "contributeFlux" ? {
+              availableLabel: formatNumber(game.flux),
+              remainingLabel: formatNumber(Math.max(0, activeStage.target - game.missions.contributedFlux)),
+              divertLabel: formatNumber(Math.min(game.flux, Math.max(0, activeStage.target - game.missions.contributedFlux))),
+              canContribute: game.flux > 0 && game.missions.contributedFlux < activeStage.target,
+            } : null}
             onTune={handlePulse}
             onBuy={() => handleBuyTier(0)}
             onSetBuyMode={updateMode}
             onRecalibrate={handleRecalibrate}
+            onContribute={handleMissionContribution}
           />
         ) : (
         <>
