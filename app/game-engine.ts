@@ -429,9 +429,11 @@ export const LEGACY_UPGRADES = [
   },
 ] as const;
 
-// Economy v2: runFlux accrues linearly now, so the first Recalibration
-// lands a couple of hours into Pelagos instead of requiring hypergrowth.
-export const RECALIBRATION_THRESHOLD = 25_000_000;
+// The first portable law is deliberately reachable during Cold Wake. Later
+// worlds demand progressively stronger proofs so Recalibration remains a goal
+// instead of becoming a button the player can press on arrival.
+export const RECALIBRATION_THRESHOLD = 100_000;
+const RECALIBRATION_WORLD_SCALE = 25;
 
 export const MISSIONS = [
   {
@@ -1234,8 +1236,21 @@ export function getCampaignCrewSummaries(
 }
 
 function currentProgressWithResearch(state: GameState): WorldProgressSummary {
+  const coldWakeLawIds = [
+    "stabilize-containment-law",
+    "stabilize-conservation-law",
+    "stabilize-transit-law",
+  ];
   return {
     ...state.worldProgress,
+    completedInfrastructureIds: [
+      ...new Set([
+        ...state.worldProgress.completedInfrastructureIds,
+        ...(state.settlement.currentWorldId === "cold-wake"
+          ? coldWakeLawIds.slice(0, Math.min(3, state.lifetimeAxioms))
+          : []),
+      ]),
+    ],
     completedResearchIds: [
       ...new Set([
         ...state.worldProgress.completedResearchIds,
@@ -4316,12 +4331,20 @@ export function buyLegacyUpgrade(state: GameState, index: number) {
 }
 
 export function getRecalibrationGain(state: GameState) {
-  if (state.runFlux < RECALIBRATION_THRESHOLD) return 0;
+  const threshold = getRecalibrationThreshold(state);
+  if (state.runFlux < threshold) return 0;
   return Math.max(
     1,
     Math.floor(
-      safePower(state.runFlux / RECALIBRATION_THRESHOLD, 0.3),
+      safePower(state.runFlux / threshold, 0.3),
     ),
+  );
+}
+
+export function getRecalibrationThreshold(state: GameState) {
+  return safeMultiply(
+    RECALIBRATION_THRESHOLD,
+    safePower(RECALIBRATION_WORLD_SCALE, getCampaignWorldIndex(state)),
   );
 }
 
@@ -4377,7 +4400,7 @@ export function recalibrate(state: GameState, now = Date.now()) {
   const relics = getCampaignRelics(state);
   fresh.tiers[0].bought = Math.min(
     25,
-    state.legacyUpgrades[2] * 2 + relics.seedTaps,
+    state.legacyUpgrades[2] * 2 + relics.seedTaps + Math.min(3, fresh.lifetimeAxioms),
   );
   fresh.tiers[0].amount = fresh.tiers[0].bought;
   return fresh;

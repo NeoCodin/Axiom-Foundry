@@ -57,11 +57,13 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
     category: "Page guide // command deck",
     title: "Wake the Ark one system at a time",
     summary:
-      "The Ark is your visual command deck. Tune its Core, watch the ship awaken, and enter each room only after the current directive brings it online.",
+      "Cold Wake is one focused Core Deck. Tune the Law-Heart, teach its first Vacuum Taps to repeat, and forge three portable laws; the wider Ark appears only after Pelagos orbit.",
     steps: [
-      { title: "Tune the Core", detail: "Click the Axiom Chamber to gain Flux and one Calibration Data per tune." },
-      { title: "Follow the active directive", detail: "The strip above the Ark always names the next useful action and shows its progress." },
-      { title: "Enter awakened destinations", detail: "The five destinations are Ark, Foundry, Personnel, Research, and Planet. Medical and Armory management belong to Personnel; Expeditions and Defense remain Ark operations." },
+      { title: "Tune the Law-Heart", detail: "Click the chamber to gain Flux. Its rings, particles, and conduit pulse become more intense as automated output grows." },
+      { title: "Teach the first repetition", detail: "Vacuum Taps reveal after a few manual alignments. They repeat the smallest Core motion while the game is open or closed." },
+      { title: "Forge three laws", detail: "Cold Wake introduces Recalibration directly on the Core Deck. Prove Containment, Conservation, and Transit before entering Pelagos orbit." },
+      { title: "Follow the active directive", detail: "The strip above the Ark always names the next useful action and shows its progress. Nothing in Cold Wake has a deadline." },
+      { title: "Enter awakened destinations", detail: "After Cold Wake, Foundry appears first. Personnel follows the SOS beacon, Research follows the first witnesses, and later facilities appear only with their first real decision." },
       { title: "Read AXIOM's priorities", detail: "The command briefing names up to three useful actions, shows exactly what is missing, names the one action to take, and opens the correct page and sub-panel." },
       { title: "Travel without babysitting", detail: "After Pelagos, departure begins a real corridor journey instead of instantly changing worlds. Open Planet to see route progress and ETA; production, research, training, construction, repair, and Defense all continue online or offline." },
     ],

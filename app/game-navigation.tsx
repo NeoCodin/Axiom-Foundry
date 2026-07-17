@@ -54,11 +54,14 @@ export function GameNavigation({ currentView, unlocks, onNavigate }: GameNavigat
     { view: "research", group: "research", code: "03", label: "Research", detail: "Analysis", tooltip: "Route recovered evidence through the Analysis Core to unlock systems, equipment, and deeper Null knowledge.", sprite: "research", unlocked: unlocks.research },
     { view: "settlement", group: "planet", code: "04", label: "Planet", detail: "Continuity", tooltip: "Review planetary crises, infrastructure, founding requirements, colony history, and continuity readiness.", sprite: "planet", unlocked: unlocks.settlement },
   ];
+  const unlockedDestinations = destinations.filter((destination) => destination.unlocked);
+
+  if (unlockedDestinations.length === 1 && arkFacilities === 0) return null;
 
   return (
     <>
       <nav className="living-foundry-nav primary-destinations" aria-label="Primary destinations">
-        {destinations.filter((destination) => destination.unlocked).map((destination) => (
+        {unlockedDestinations.map((destination) => (
           <button
             className={activeGroup === destination.group ? "active" : ""}
             type="button"

@@ -6,6 +6,7 @@ type QaSandboxProps = {
   collapsed: boolean;
   onToggleCollapsed: () => void;
   onJumpWorld: (worldIndex: number) => void;
+  onFreshColdWake: () => void;
   onGrantResources: () => void;
   onCompleteResearch: () => void;
   onBoostCrew: () => void;
@@ -18,6 +19,7 @@ export function QaSandbox({
   collapsed,
   onToggleCollapsed,
   onJumpWorld,
+  onFreshColdWake,
   onGrantResources,
   onCompleteResearch,
   onBoostCrew,
@@ -44,6 +46,7 @@ export function QaSandbox({
           <section>
             <span>TEST OVERRIDES</span>
             <div className="qa-action-grid">
+              <button type="button" onClick={onFreshColdWake}>Fresh opening</button>
               <button type="button" onClick={onGrantResources}>Stock resources</button>
               <button type="button" onClick={onCompleteResearch}>Complete research</button>
               <button type="button" onClick={onBoostCrew}>Max trained skills</button>

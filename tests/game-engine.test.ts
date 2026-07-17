@@ -34,6 +34,7 @@ import {
   getResearchCrewAvailable,
   getResearchPowerAvailable,
   getResearchFieldValidation,
+  getRecalibrationThreshold,
   getProfileElevationQuote,
   elevateCrewProfile,
   getTierCost,
@@ -299,6 +300,17 @@ test("recalibration grants the previewed Axiom and retains legacy progress", () 
   assert.deepEqual(next.living.discoveredLore, ["awakening.cold-wake"]);
 });
 
+test("Recalibration starts as a Cold Wake lesson and scales with each world", () => {
+  const state = createInitialState(0);
+  assert.equal(getRecalibrationThreshold(state), RECALIBRATION_THRESHOLD);
+  state.missions.currentIndex = 1;
+  state.settlement.currentWorldId = "pelagos";
+  assert.equal(getRecalibrationThreshold(state), RECALIBRATION_THRESHOLD * 25);
+  state.missions.currentIndex = 3;
+  state.settlement.currentWorldId = "cinder";
+  assert.equal(getRecalibrationThreshold(state), RECALIBRATION_THRESHOLD * 25 ** 3);
+});
+
 test("Profile Elevation preserves a favorite crew member's identity and XP", () => {
   const state = createInitialState(0);
   const favorite = testCrewMember(
@@ -478,15 +490,9 @@ test("Cold Wake departure requires the full Ark-readiness forecast", () => {
   const state = setTutorialComplete(createInitialState(0), true);
   assert.equal(getCurrentViabilityForecast(state)?.canDepart, false);
   state.missions.awaitingAcknowledgement = true;
-  state.research.completedProjectIds = ["closed-loop-atmosphere"];
-  state.worldProgress.completedInfrastructureIds = [
-    "wake-axiom-chamber",
-    "restore-life-support",
-    "recover-orbital-control",
-  ];
-  state.worldProgress.completedResearchIds = ["closed-loop-atmosphere"];
-  state.worldProgress.resolvedCrisisIds = ["ark-reactor-desynchronization"];
-  state.worldProgress.supplies = { "reserve-power": 12 };
+  state.lifetimeAxioms = 2;
+  assert.equal(getCurrentViabilityForecast(state)?.canDepart, false);
+  state.lifetimeAxioms = 3;
 
   const departure = departCurrentWorld(state, 1_000);
   assert.equal(departure.ok, true);

@@ -6,10 +6,17 @@ AI assistants and collaborators should read [`AI_HANDOFF.md`](./AI_HANDOFF.md) b
 
 You awaken as AXIOM, the damaged caretaker intelligence of an empty interplanetary Ark. Pelagos is ahead. The ship cannot yet support one person, most decks are dark, and the oldest system log welcomes you back.
 
+## Play and test
+
+- Public game: https://neocodin.github.io/Axiom-Foundry/
+- Isolated admin/QA version: https://neocodin.github.io/Axiom-Foundry/?qa=1
+
+The QA version uses a separate browser save and includes world checkpoints, a fresh-opening checkpoint, resource and research overrides, crew boosts, Continuity preparation, and offline simulation. It never writes to the public player save.
+
 ## The game loop
 
-1. Tune the Core and rebuild the nested Flux fabrication chain.
-2. Restore stable atmosphere, water, nutrition, medical care, and habitation.
+1. Wake the animated Axiom Law-Heart, teach its first Vacuum Taps to repeat, and forge three portable laws through Cold Wake Recalibration.
+2. Enter Pelagos orbit, where Foundry, personnel, research, field work, and Continuity controls reveal only when their first decision is ready.
 3. Reach a fallen planet and activate its SOS beacon.
 4. Rescue persistent procedural survivor groups with names, histories, traits, aptitudes, and occasional mystery characters.
 5. Let AXIOM staff adults into their strongest work, protect manual assignments, and study new professions while the game is open or closed.
@@ -31,7 +38,7 @@ The campaign moves through Cold Wake, Pelagos, Viridia, Cinder, Nox, and Vesper.
 - Five-destination navigation (Ark, Foundry, Personnel, Research, Planet), with the Armory and Medical Bay under Personnel and Ark operations revealed only when they matter
 - An AXIOM command briefing that translates cross-system blockers into direct next actions without deadlines
 - A contextual AXIOM Field Manual with unlocked-page guides, exact resource sources, and in-place question-mark help
-- A clear division between the Ark home screen, which owns Core tuning, and the Foundry floor, which owns fabrication and Planetfall operations
+- A single merged Core Deck during Cold Wake, followed by a clear division between the Ark home screen and the dedicated Foundry floor after Pelagos orbit
 - Zero-human Cold Wake opening and a one-time fresh save generation
 - Deterministic survivor signals that never expire or fail
 - Procedural names, backgrounds, traits, aptitudes, professional roles, and rare authored story hooks

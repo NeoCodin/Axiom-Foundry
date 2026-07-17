@@ -20,6 +20,9 @@ type GameCommandBarProps = {
   axiomsLabel: string;
   resonanceLabel: string;
   operationalLoadLabel: string;
+  showAxioms: boolean;
+  showResonance: boolean;
+  showOperations: boolean;
   saveStatus: string;
   ready: boolean;
   focusWelcome: boolean;
@@ -36,15 +39,17 @@ type GameCommandBarProps = {
 export function GameCommandBar({
   worldName, cycle, arrival, fluxLabel, fluxExact, fluxPerSecondLabel,
   axiomsLabel, resonanceLabel, operationalLoadLabel, saveStatus, ready, focusWelcome, focusFlux,
+  showAxioms, showResonance, showOperations,
   objective, onOpenHelp, onOpenLore, onSave, onOpenDirective,
   tooltipsEnabled, onToggleTooltips,
 }: GameCommandBarProps) {
   const cycleTooltip = `${worldName} is the Ark's current chapter. Cycle ${cycle} counts this Recalibration run; the line below describes AXIOM's present situation.`;
   const fluxTooltip = `${fluxExact} Local Flux is available. Flux powers fabrication, Ark projects, research support, and planetary work during this cycle.`;
-  const objectiveTooltip = "This strip tracks the current planetary objective. Click it to open Continuity. It never expires; progress is saved whether the game is open or closed.";
+  const objectiveTooltip = "This strip tracks the current planetary objective. Click it to open the relevant destination once that system is awake. It never expires; progress is saved whether the game is open or closed.";
+  const metricCount = [showAxioms, showResonance, showOperations].filter(Boolean).length;
 
   return (
-    <header className={`command-bar ${focusWelcome || focusFlux ? "tour-focus" : ""}`}>
+    <header className={`command-bar metric-count-${metricCount} ${focusWelcome || focusFlux ? "tour-focus" : ""}`}>
       <div className="brand-lockup" data-pixel-tooltip={cycleTooltip} tabIndex={0} aria-label={cycleTooltip}>
         <span className="brand-mark" aria-hidden="true">◇</span>
         <div><p className="eyebrow">{worldName.toUpperCase()} · CYCLE {String(cycle).padStart(2, "0")}</p><h1>{arrival}</h1></div>
@@ -52,11 +57,11 @@ export function GameCommandBar({
       <div className={`resource-readout ${focusFlux ? "tour-focus" : ""}`} data-pixel-tooltip={fluxTooltip} tabIndex={0} aria-label={fluxTooltip}>
         <span className="resource-label">Local Flux</span><strong>{fluxLabel}</strong><span className="rate">+{fluxPerSecondLabel} / sec</span>
       </div>
-      <div className="header-metrics">
-        <div data-pixel-tooltip="Axioms are permanent laws forged by Recalibration. They survive new cycles and purchase lasting upgrades." tabIndex={0} aria-label="Axioms are permanent laws forged by Recalibration. They survive new cycles and purchase lasting upgrades."><span>Axioms</span><strong>{axiomsLabel}</strong></div>
-        <div data-pixel-tooltip="Resonance multiplies the whole fabrication chain. Balance adjacent machine tiers in groups of 15 to create stronger links." tabIndex={0} aria-label="Resonance multiplies the whole fabrication chain. Balance adjacent machine tiers in groups of 15 to create stronger links."><span>Resonance</span><strong>×{resonanceLabel}</strong></div>
-        <div data-pixel-tooltip="Operational Load is the share of Foundry output diverted to medical care, automation, restored-world defenses, and temporary hostile interference." tabIndex={0} aria-label="Operational Load is the share of Foundry output diverted to medical care, automation, restored-world defenses, and temporary hostile interference."><span>Operations</span><strong>{operationalLoadLabel}</strong></div>
-      </div>
+      {metricCount > 0 && <div className="header-metrics">
+        {showAxioms && <div data-pixel-tooltip="Axioms are permanent laws forged by Recalibration. They survive new cycles and purchase lasting upgrades." tabIndex={0} aria-label="Axioms are permanent laws forged by Recalibration. They survive new cycles and purchase lasting upgrades."><span>Axioms</span><strong>{axiomsLabel}</strong></div>}
+        {showResonance && <div data-pixel-tooltip="Resonance multiplies the whole fabrication chain. Balance adjacent machine tiers in groups of 15 to create stronger links." tabIndex={0} aria-label="Resonance multiplies the whole fabrication chain. Balance adjacent machine tiers in groups of 15 to create stronger links."><span>Resonance</span><strong>×{resonanceLabel}</strong></div>}
+        {showOperations && <div data-pixel-tooltip="Operational Load is the share of Foundry output diverted to medical care, automation, restored-world defenses, and temporary hostile interference." tabIndex={0} aria-label="Operational Load is the share of Foundry output diverted to medical care, automation, restored-world defenses, and temporary hostile interference."><span>Operations</span><strong>{operationalLoadLabel}</strong></div>}
+      </div>}
       <div className="header-actions">
         <span className="save-status" data-pixel-tooltip="Your progress saves automatically on this device. The timestamp confirms the latest stored state." tabIndex={0} aria-label="Your progress saves automatically on this device. The timestamp confirms the latest stored state.">{ready ? saveStatus : "Restoring local cycle…"}</span>
         <span className="header-tooltip-control" data-pixel-tooltip="Open the Field Manual for this page, resource explanations, and exact next steps."><HelpTrigger label="Open guide for this page" withLabel onClick={onOpenHelp} /></span>

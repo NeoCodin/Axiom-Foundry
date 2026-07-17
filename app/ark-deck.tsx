@@ -74,6 +74,8 @@ export type ArkDeckProps = {
   settlementDeficit: string | null;
   onlineRoomCount: number;
   totalRoomCount: number;
+  fabricationDepth: number;
+  fabricationIntensity: number;
   unlockedViews: readonly ArkViewId[];
   onTuneCore: () => void;
   onActivateBeacon: () => void;
@@ -137,6 +139,8 @@ function ArkDeck({
   settlementDeficit,
   onlineRoomCount,
   totalRoomCount,
+  fabricationDepth,
+  fabricationIntensity,
   unlockedViews,
   onTuneCore,
   onActivateBeacon,
@@ -168,7 +172,7 @@ function ArkDeck({
   const berthPodCount = Math.min(10, 1 + berthSections);
   const researchOnline = researchUnlocked;
   const educationOnline = populationUnlocked && crew.length > 0;
-  const beaconRelevant = populationUnlocked;
+  const beaconRelevant = worldName !== "Cold Wake";
   const continuityOnline = settlementUnlocked;
   const peopleSystemsVisible = populationUnlocked;
 
@@ -245,7 +249,7 @@ function ArkDeck({
   };
 
   return (
-    <section className="ark-command-deck" style={shipStyle} aria-labelledby="ark-command-title">
+    <section className={`ark-command-deck fabrication-depth-${Math.min(6, fabricationDepth)} ${fabricationIntensity >= 150 ? "core-phase-locked" : ""}`} style={shipStyle} aria-labelledby="ark-command-title">
       <header className="ark-command-heading">
         <div className="ark-ai-identity">
           <span className="ark-ai-eye" aria-hidden="true"><i /></span>
@@ -307,6 +311,11 @@ function ArkDeck({
               <span className="ark-core-orbit ark-core-orbit-one" aria-hidden="true"><i /><i /><i /></span>
               <span className="ark-core-orbit ark-core-orbit-two" aria-hidden="true"><i /><i /><i /><i /></span>
               <span className="ark-core-aperture" aria-hidden="true"><i /></span>
+              <span className="ark-core-evolution" aria-hidden="true">
+                {Array.from({ length: 24 }, (_, index) => <i className={index < Math.min(24, fabricationIntensity) ? "is-live" : ""} key={index} />)}
+              </span>
+              {fabricationDepth >= 2 && <span className="ark-core-phase-arc" aria-hidden="true"><i /><i /></span>}
+              {fabricationDepth >= 3 && <span className="ark-core-lattice" aria-hidden="true"><i /><i /><i /></span>}
               <span className="ark-core-copy">
                 <small>AXIOM CHAMBER</small>
                 <strong>{fluxLabel}</strong>
@@ -433,9 +442,9 @@ function ArkDeck({
         </section>
       )}
 
-      {(peopleSystemsVisible || researchUnlocked || settlementUnlocked) ? (
+      {(beaconRelevant || peopleSystemsVisible || researchUnlocked || settlementUnlocked) ? (
         <div className="ark-awakened-systems">
-          {populationUnlocked && (beaconRelevant || beaconOnline) && (
+          {(beaconRelevant || beaconOnline) && (
             <section className={`ark-system-bay ark-beacon-card ${beaconOnline ? "is-broadcasting" : ""}`}>
               <div className="ark-bay-visual ark-beacon-visual" aria-hidden="true">
                 <span /><i /><i /><i />

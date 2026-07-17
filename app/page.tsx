@@ -14,7 +14,6 @@ import {
   GENERATORS,
   LEGACY_UPGRADES,
   MISSIONS,
-  RECALIBRATION_THRESHOLD,
   RETIRED_SAVE_KEYS,
   RUN_UPGRADES,
   SAVE_KEY,
@@ -80,6 +79,7 @@ import {
   getProductionSnapshot,
   getPurchaseQuantity,
   getRecalibrationGain,
+  getRecalibrationThreshold,
   getResearchCrewAvailable,
   getResearchFieldValidation,
   getOperationalResearchExpertise,
@@ -125,6 +125,7 @@ import {
 } from "./game-engine";
 import { FoundryVista, WORLD_VISUALS } from "./foundry-vista";
 import ArkDeck, { type ArkViewId } from "./ark-deck";
+import { AxiomLawHeart } from "./axiom-law-heart";
 import { getBeaconReadiness } from "./beacon-readiness-engine";
 import {
   GameManualDialog,
@@ -290,6 +291,14 @@ function getNextObjective(state: GameState) {
   }
 
   if (state.missions.awaitingAcknowledgement) {
+    if (getCampaignWorldIndex(state) === 0) {
+      return {
+        label: "Cold Wake: prove three portable laws",
+        threshold: 3,
+        current: Math.min(3, state.lifetimeAxioms),
+        progress: Math.min(1, state.lifetimeAxioms / 3),
+      };
+    }
     return {
       label: "Engineering directive complete — continuity review required",
       threshold: 1,
@@ -299,6 +308,7 @@ function getNextObjective(state: GameState) {
   }
 
   const worldIndex = getCampaignWorldIndex(state);
+  const recalibrationThreshold = getRecalibrationThreshold(state);
   const generatorUnlock = GENERATORS.find(
     (generator, index) =>
       index <= worldIndex && state.maxFlux < generator.unlockAt,
@@ -319,9 +329,9 @@ function getNextObjective(state: GameState) {
           label: `Decode ${upgradeReveal.name}`,
         }
       : null,
-    state.runFlux < RECALIBRATION_THRESHOLD
+    state.runFlux < recalibrationThreshold
       ? {
-          threshold: RECALIBRATION_THRESHOLD,
+          threshold: recalibrationThreshold,
           label: "Stabilize the first Recalibration",
         }
       : null,
@@ -335,7 +345,7 @@ function getNextObjective(state: GameState) {
   if (!next) {
     return {
       label: "The Foundry is ready to Recalibrate",
-      threshold: RECALIBRATION_THRESHOLD,
+      threshold: recalibrationThreshold,
       current: state.runFlux,
       progress: 1,
     };
@@ -581,6 +591,10 @@ export default function Home() {
     () => getRecalibrationGain(game),
     [game],
   );
+  const recalibrationThreshold = useMemo(
+    () => getRecalibrationThreshold(game),
+    [game],
+  );
   const objective = useMemo(() => getNextObjective(game), [game]);
   const commandPriorities = useMemo(() => getCommandPriorities(game), [game]);
   const activeMission = MISSIONS[game.missions.currentIndex];
@@ -787,23 +801,45 @@ export default function Home() {
     [game.settlement.completedWorldIds.length, game.survivors.lifeSupport],
   );
   const currentWorldProgress = useMemo(
-    () => ({
-      ...game.worldProgress,
-      completedResearchIds: [
-        ...new Set([
-          ...game.worldProgress.completedResearchIds,
-          ...game.research.completedProjectIds,
-        ]),
-      ],
-    }),
-    [game.research.completedProjectIds, game.worldProgress],
+    () => {
+      const coldWakeLawIds = [
+        "stabilize-containment-law",
+        "stabilize-conservation-law",
+        "stabilize-transit-law",
+      ];
+      return {
+        ...game.worldProgress,
+        completedInfrastructureIds: [
+          ...new Set([
+            ...game.worldProgress.completedInfrastructureIds,
+            ...(game.settlement.currentWorldId === "cold-wake"
+              ? coldWakeLawIds.slice(0, Math.min(3, game.lifetimeAxioms))
+              : []),
+          ]),
+        ],
+        completedResearchIds: [
+          ...new Set([
+            ...game.worldProgress.completedResearchIds,
+            ...game.research.completedProjectIds,
+          ]),
+        ],
+      };
+    },
+    [game.lifetimeAxioms, game.research.completedProjectIds, game.settlement.currentWorldId, game.worldProgress],
   );
   const infrastructureQuotes = Object.fromEntries(
-    campaignWorld.infrastructure.map((objective) => {
+    campaignWorld.infrastructure.map((objective, index) => {
       const cost = getInfrastructureFluxCost(game);
       return [
         objective.id,
-        { canAfford: game.flux >= cost, costLabel: `${formatNumber(cost)} Flux` },
+        campaignWorld.id === "cold-wake"
+          ? {
+              canAfford: false,
+              costLabel: game.lifetimeAxioms > index
+                ? "Proven by Recalibration"
+                : `Forge Axiom ${index + 1} in the Core Deck`,
+            }
+          : { canAfford: game.flux >= cost, costLabel: `${formatNumber(cost)} Flux` },
       ];
     }),
   );
@@ -1824,7 +1860,7 @@ export default function Home() {
   const protocolsUnlocked = disclosure.protocols;
   const recalibrationUnlocked = disclosure.recalibration;
   const engineeringMobileTabs: Array<[MobileTab, string]> = [["machines", "Fabricate"]];
-  if (systemsUnlocked || protocolsUnlocked || recalibrationUnlocked || game.lifetimeAxioms > 0) {
+  if (systemsUnlocked || protocolsUnlocked || recalibrationUnlocked) {
     engineeringMobileTabs.push(["systems", "Campaign"]);
   }
   const unlockedArkViews: ArkViewId[] = [];
@@ -1851,6 +1887,17 @@ export default function Home() {
     armory: armoryUnlocked,
     settlement: settlementUnlocked,
   };
+  const coldWakePurchaseQuantity = getPurchaseQuantity(
+    game,
+    0,
+    game.settings.buyMode,
+  );
+  const coldWakeDisplayQuantity = game.settings.buyMode === "max"
+    ? Math.max(1, coldWakePurchaseQuantity)
+    : game.settings.buyMode === "10"
+      ? 10
+      : 1;
+  const coldWakeTierCost = getTierCost(game, 0, coldWakeDisplayQuantity);
 
   const handleElevateProfile = (survivorId: string) => {
     const current = gameRef.current;
@@ -1979,6 +2026,9 @@ export default function Home() {
         axiomsLabel={formatNumber(game.axioms)}
         resonanceLabel={formatNumber(production.resonance.multiplier)}
         operationalLoadLabel={`${Math.round(operationalLoad.total * 10_000) / 100}%`}
+        showAxioms={game.lifetimeAxioms > 0 || game.maxFlux >= 10_000}
+        showResonance={campaignWorldIndex >= 1 && game.tiers[1].bought > 0}
+        showOperations={campaignWorldIndex >= 2 || operationalLoad.total > 0.001}
         saveStatus={saveStatus}
         ready={ready}
         focusWelcome={currentTour?.target === "welcome"}
@@ -2001,10 +2051,7 @@ export default function Home() {
         onSave={() => persistGame("Saved")}
         onOpenDirective={() => {
           if (navigationUnlocks.settlement) setPrimaryView("settlement");
-          else {
-            setPrimaryView("engineering");
-            setMobileTab("systems");
-          }
+          else setPrimaryView("deck");
         }}
         tooltipsEnabled={tooltipsEnabled}
         onToggleTooltips={handleToggleTooltips}
@@ -2015,6 +2062,11 @@ export default function Home() {
           collapsed={qaCollapsed}
           onToggleCollapsed={() => setQaCollapsed((collapsed) => !collapsed)}
           onJumpWorld={handleQaJumpWorld}
+          onFreshColdWake={() => {
+            const next = setTutorialComplete(createInitialState(Date.now()), true);
+            applyQaState(next, "Fresh Cold Wake opening loaded in the isolated QA profile.");
+            setPrimaryView("deck");
+          }}
           onGrantResources={() => applyQaState(grantQaResources(gameRef.current), "QA resources stocked.")}
           onCompleteResearch={() => applyQaState(completeQaResearch(gameRef.current), "Every research program marked complete for testing.")}
           onBoostCrew={() => applyQaState(boostQaCrew(gameRef.current), "QA crew advanced to maximum professional skill.")}
@@ -2048,6 +2100,40 @@ export default function Home() {
       )}
 
       {primaryView === "deck" ? (
+        campaignWorldIndex === 0 ? (
+          <AxiomLawHeart
+            fluxLabel={formatNumber(game.flux)}
+            fluxPerSecondLabel={formatNumber(production.fluxPerSecond)}
+            manualGainLabel={formatNumber(manualGain)}
+            manualPulses={game.manualPulses}
+            maxFlux={game.maxFlux}
+            stageIndex={game.missions.stageIndex}
+            objectiveLabel={objective.label}
+            objectiveDetail={game.missions.awaitingAcknowledgement
+              ? "Recalibrate until Containment, Conservation, and Transit survive the cycle. Then authorize Pelagos orbit from Continuity."
+              : activeStage?.instruction ?? campaignWorld.arrivalBrief}
+            objectiveProgress={objective.progress}
+            machine={{
+              name: GENERATORS[0].name,
+              shortName: GENERATORS[0].shortName,
+              bought: game.tiers[0].bought,
+              outputLabel: formatNumber(production.tierOutputs[0]),
+              costLabel: formatNumber(coldWakeTierCost),
+              quantity: coldWakePurchaseQuantity,
+              canBuy: coldWakePurchaseQuantity > 0,
+              unlocked: isTierUnlocked(game, 0),
+            }}
+            buyMode={game.settings.buyMode}
+            lifetimeAxioms={game.lifetimeAxioms}
+            recalibrationGain={recalibrationGain}
+            recalibrationThresholdLabel={formatNumber(recalibrationThreshold)}
+            recalibrationProgress={game.runFlux / Math.max(1, recalibrationThreshold)}
+            onTune={handlePulse}
+            onBuy={() => handleBuyTier(0)}
+            onSetBuyMode={updateMode}
+            onRecalibrate={handleRecalibrate}
+          />
+        ) : (
         <>
         <CommandBriefing priorities={commandPriorities} onNavigate={handleCommandPriorityNavigate} />
         <ArkDeck
@@ -2126,6 +2212,8 @@ export default function Home() {
           settlementDeficit={viabilityForecast?.deficits[0]?.message ?? null}
           onlineRoomCount={game.living.rooms.filter((room) => room.unlocked).length}
           totalRoomCount={game.living.rooms.length}
+          fabricationDepth={game.tiers.filter((tier) => tier.bought > 0).length}
+          fabricationIntensity={game.tiers.reduce((total, tier) => total + tier.bought, 0)}
           unlockedViews={unlockedArkViews}
           onTuneCore={handlePulse}
           onActivateBeacon={handleActivateBeacon}
@@ -2134,6 +2222,7 @@ export default function Home() {
           onOpenHelp={setManualTopic}
         />
         </>
+        )
       ) : primaryView === "population" ? (
         <PopulationConsole
           state={game.survivors}
@@ -2527,7 +2616,7 @@ export default function Home() {
         </section>
         )}
 
-        {(systemsUnlocked || protocolsUnlocked || recalibrationUnlocked || game.lifetimeAxioms > 0) && (
+        {(systemsUnlocked || protocolsUnlocked || recalibrationUnlocked) && (
         <aside className={`systems-column mobile-section ${mobileTab === "systems" ? "is-mobile-active" : ""}`}>
           {systemsUnlocked && (
           <section id="planetary-directives" className="panel mission-panel">
@@ -2723,7 +2812,7 @@ export default function Home() {
             <div className="prestige-preview">
               <span>Projected yield</span>
               <strong>{recalibrationGain} Axiom{recalibrationGain === 1 ? "" : "s"}</strong>
-              <small>{formatNumber(game.runFlux)} / {formatNumber(RECALIBRATION_THRESHOLD)} run Flux</small>
+              <small>{formatNumber(game.runFlux)} / {formatNumber(recalibrationThreshold)} run Flux</small>
             </div>
             <p className="axiom-definition">Axioms are permanent laws that keep ships, time, and matter consistent inside the Null Tide.</p>
             {!confirmPrestige ? (
@@ -2744,7 +2833,7 @@ export default function Home() {
           </section>
           )}
 
-          {game.lifetimeAxioms > 0 && (
+          {recalibrationUnlocked && game.lifetimeAxioms > 0 && (
           <section className="panel automation-panel">
             <div className="panel-heading">
               <div>
@@ -2781,7 +2870,7 @@ export default function Home() {
           </section>
           )}
 
-          {game.lifetimeAxioms > 0 && (
+          {recalibrationUnlocked && game.lifetimeAxioms > 0 && (
           <section className="panel legacy-panel">
             <div className="panel-heading">
               <div>

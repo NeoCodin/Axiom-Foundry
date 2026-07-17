@@ -27,6 +27,29 @@ test("the command board routes the active Cold Wake action to the Ark", () => {
   assert.match(priorities[0]?.detail ?? "", /Tune the Core 12 times/);
 });
 
+test("Cold Wake stays on one Core Deck even after automation begins", () => {
+  const state = setTutorialComplete(createInitialState(0), true);
+  state.manualPulses = 50;
+  state.tiers[0] = { amount: 25, bought: 25 };
+  state.maxFlux = 100_000;
+  let disclosure = getProgressiveDisclosure(state);
+  assert.equal(disclosure.engineering, false);
+  assert.equal(disclosure.research, false);
+  assert.equal(disclosure.population, false);
+  assert.equal(disclosure.expeditions, false);
+
+  state.missions.currentIndex = 1;
+  state.settlement.currentWorldId = "pelagos";
+  disclosure = getProgressiveDisclosure(state);
+  assert.equal(disclosure.engineering, true);
+  assert.equal(disclosure.population, false);
+  assert.equal(disclosure.research, false);
+
+  state.survivors.beaconOnline = true;
+  disclosure = getProgressiveDisclosure(state);
+  assert.equal(disclosure.population, true);
+});
+
 test("transit replaces the destination directive with an offline Navigation priority", () => {
   const state = setTutorialComplete(createInitialState(0), true);
   state.missions.currentIndex = 2;
@@ -76,6 +99,7 @@ test("facilities reveal in a teachable Cinder sequence", () => {
 
   state.missions.currentIndex = 2;
   state.settlement.currentWorldId = "viridia";
+  state.survivors.beaconOnline = true;
   assert.equal(getProgressiveDisclosure(state).medical, true);
 
   state.missions.currentIndex = 3;

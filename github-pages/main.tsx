@@ -8,6 +8,7 @@ import "../app/research-lattice.css";
 import "../app/game-manual.css";
 import "../app/awakening.css";
 import "../app/pixel-ui.css";
+import "../app/axiom-law-heart.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

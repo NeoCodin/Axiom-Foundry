@@ -33,18 +33,11 @@ test("server-renders the Axiom Foundry game surface", async () => {
   const html = await response.text();
   assert.match(html, /<title>Axiom Foundry/);
   assert.match(html, /The Ark drifts through black space/);
-  assert.match(html, /destinations awake/);
-  assert.match(html, /Your next move/);
-  assert.match(html, /ACTIVE QUEST/);
-  assert.match(html, /nav-sprite sprite-ark/);
-  assert.match(html, /Complete AXIOM orientation/);
-  assert.match(html, /CARETAKER INTELLIGENCE/);
-  assert.match(html, /Biological command authority/);
-  assert.match(html, /Life Support/);
-  assert.match(html, /Analysis Core/);
-  assert.match(html, /Continuity Bridge/);
-  assert.match(html, /Awakens later/);
-  assert.match(html, /Salvage/);
+  assert.match(html, /AXIOM LAW-HEART/);
+  assert.match(html, /CORE DECK \/\/ COLD WAKE/);
+  assert.match(html, /FIRST AUTOMATION/);
+  assert.match(html, /PORTABLE PHYSICS/);
+  assert.doesNotMatch(html, /destinations awake|Your next move|ACTIVE QUEST|nav-sprite sprite-ark/);
   assert.match(html, /Open guide for this page/);
   assert.match(html, /Wake the caretaker core/);
   assert.match(html, /role="progressbar"/);
@@ -54,10 +47,11 @@ test("server-renders the Axiom Foundry game surface", async () => {
 });
 
 test("removes all temporary starter-preview wiring", async () => {
-  const [page, arkDeck, layout, pagesEntry, packageJson, css, arkCss, continuityCss, researchCss, manualCss, awakeningCss, pixelCss, story, manual, survivorEngine, populationConsole, settlementConsole, continuityExpertise, campaignContent, researchEngine] =
+  const [page, arkDeck, lawHeart, layout, pagesEntry, packageJson, css, arkCss, continuityCss, researchCss, manualCss, awakeningCss, pixelCss, lawHeartCss, story, manual, survivorEngine, populationConsole, settlementConsole, continuityExpertise, campaignContent, researchEngine] =
     await Promise.all([
       readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/ark-deck.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/axiom-law-heart.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
       readFile(new URL("../github-pages/main.tsx", import.meta.url), "utf8"),
       readFile(new URL("../package.json", import.meta.url), "utf8"),
@@ -68,6 +62,7 @@ test("removes all temporary starter-preview wiring", async () => {
       readFile(new URL("../app/game-manual.css", import.meta.url), "utf8"),
        readFile(new URL("../app/awakening.css", import.meta.url), "utf8"),
        readFile(new URL("../app/pixel-ui.css", import.meta.url), "utf8"),
+      readFile(new URL("../app/axiom-law-heart.css", import.meta.url), "utf8"),
       readFile(new URL("../app/story-content.ts", import.meta.url), "utf8"),
       readFile(new URL("../app/game-manual.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/survivor-engine.ts", import.meta.url), "utf8"),
@@ -82,6 +77,8 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(page, /getCommandPriorities/);
   assert.match(page, /GameNavigation/);
   assert.match(arkDeck, /Tune the Core/);
+  assert.match(lawHeart, /AXIOM LAW-HEART/);
+  assert.match(lawHeart, /Three laws for Pelagos/);
   assert.match(page, /The Foundry Floor/);
   assert.match(page, /Core tuning remains aboard the Ark/);
   assert.doesNotMatch(page, /className=.*tune-button/);
@@ -104,8 +101,10 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(pixelCss, /VT323/);
   assert.match(pixelCss, /image-rendering:\s*pixelated/);
   assert.match(pixelCss, /repeating-linear-gradient/);
+  assert.match(lawHeartCss, /.law-heart-core\s*\{/);
+  assert.match(lawHeartCss, /steps\(/);
   assert.match(pixelCss, /\.personnel-console-tabs\s*\{/);
-  for (const stylesheet of ["ark-deck", "continuity-console", "research-lattice", "game-manual", "awakening", "pixel-ui"]) {
+  for (const stylesheet of ["ark-deck", "continuity-console", "research-lattice", "game-manual", "awakening", "pixel-ui", "axiom-law-heart"]) {
     assert.match(layout, new RegExp(`import "\\./${stylesheet}\\.css"`));
     assert.match(pagesEntry, new RegExp(`import "\\.\\./app/${stylesheet}\\.css"`));
   }
@@ -130,6 +129,7 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(researchEngine, /"engineering-models": 220/);
   await assert.rejects(access(new URL("../app/foundry-deck.tsx", import.meta.url)));
   await access(new URL("../public/og.png", import.meta.url));
+  await access(new URL("../public/og-cold-wake.png", import.meta.url));
   await assert.rejects(access(new URL("../dist/server/og.png", import.meta.url)));
   await assert.rejects(
     access(new URL("app/_sites-preview/SkeletonPreview.tsx", projectRoot)),

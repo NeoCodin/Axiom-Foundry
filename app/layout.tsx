@@ -7,6 +7,7 @@ import "./research-lattice.css";
 import "./game-manual.css";
 import "./awakening.css";
 import "./pixel-ui.css";
+import "./axiom-law-heart.css";
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
@@ -32,7 +33,7 @@ export async function generateMetadata(): Promise<Metadata> {
       description,
       images: [
         {
-          url: "/og.png",
+          url: "/og-cold-wake.png",
           width: 1672,
           height: 941,
           alt: "Axiom Foundry — awaken the Ark and restore humanity.",
@@ -43,7 +44,7 @@ export async function generateMetadata(): Promise<Metadata> {
       card: "summary_large_image",
       title,
       description,
-      images: ["/og.png"],
+      images: ["/og-cold-wake.png"],
     },
   };
 }

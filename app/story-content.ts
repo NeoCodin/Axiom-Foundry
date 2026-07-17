@@ -20,7 +20,7 @@ export const TOUR_STEPS = [
     target: "flux",
     eyebrow: "AXIOM // awakening protocol 02",
     title: "The Ark will teach you one system at a time",
-    body: "Keep the Axiom Chamber stable and follow the highlighted objective. The Foundry will wake after twelve tunes; research, life support, survivors, and continuity planning will appear only when the Ark is ready for them.",
+    body: "Keep the Law-Heart stable and follow the single highlighted objective. Cold Wake stays on this Core Deck; Foundry, personnel, research, and continuity controls appear later only when their first real decision is ready.",
     note: "Nothing expires, and no hidden timer is running. Every newly lit room is progress you earned.",
   },
 ] as const;
