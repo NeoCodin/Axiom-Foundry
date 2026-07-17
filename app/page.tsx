@@ -2128,7 +2128,9 @@ export default function Home() {
             recalibrationGain={recalibrationGain}
             recalibrationThresholdLabel={formatNumber(recalibrationThreshold)}
             recalibrationProgress={game.runFlux / Math.max(1, recalibrationThreshold)}
-            contribution={activeStage?.kind === "contributeFlux" ? {
+            contribution={!game.missions.awaitingAcknowledgement &&
+              activeStage?.kind === "contributeFlux" &&
+              game.missions.contributedFlux < activeStage.target ? {
               availableLabel: formatNumber(game.flux),
               remainingLabel: formatNumber(Math.max(0, activeStage.target - game.missions.contributedFlux)),
               divertLabel: formatNumber(Math.min(game.flux, Math.max(0, activeStage.target - game.missions.contributedFlux))),

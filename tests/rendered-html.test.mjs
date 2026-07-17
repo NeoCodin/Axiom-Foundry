@@ -81,6 +81,7 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(lawHeart, /Three laws for Pelagos/);
   assert.match(lawHeart, /DIVERT.*FLUX NOW/);
   assert.match(lawHeart, /You do not need all 15,000 Flux at once/);
+  assert.match(page, /!game\.missions\.awaitingAcknowledgement/);
   assert.match(page, /The Foundry Floor/);
   assert.match(page, /Core tuning remains aboard the Ark/);
   assert.doesNotMatch(page, /className=.*tune-button/);
