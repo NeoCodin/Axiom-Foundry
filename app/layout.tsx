@@ -8,6 +8,7 @@ import "./game-manual.css";
 import "./awakening.css";
 import "./pixel-ui.css";
 import "./axiom-law-heart.css";
+import "./lore-archive.css";
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();

@@ -161,10 +161,7 @@ import {
   getNextArchiveDiscovery,
   syncAutomaticDiscoveries,
 } from "./discovery-engine";
-import {
-  DISCOVERY_FRAGMENTS,
-  type DoctrineId,
-} from "./discovery-content";
+import { type DoctrineId } from "./discovery-content";
 import {
   chooseDoctrine,
   grantLivingFoundryRewards,
@@ -244,6 +241,7 @@ import {
   type EnvironmentalDoctrine,
 } from "./defense-engine";
 import { LORE_ENTRIES, TOUR_STEPS } from "./story-content";
+import { LoreArchive, type ArchiveWorldEntry } from "./lore-archive";
 import { getProgressiveDisclosure } from "./progressive-disclosure";
 import { PixelTooltipLayer } from "./pixel-tooltip-layer";
 import { QaSandbox } from "./qa-sandbox";
@@ -644,6 +642,53 @@ export default function Home() {
   const nextArchiveDiscovery = useMemo(
     () => getNextArchiveDiscovery(game.living.discoveredLore),
     [game.living.discoveredLore],
+  );
+  const unlockedLoreIds = useMemo(() => {
+    const ids = new Set<string>([
+      "archive.public.null-tide",
+      "archive.public.axiom",
+    ]);
+    if (game.manualPulses >= 12) ids.add("archive.public.flux");
+    if (game.tiers[0].bought >= 25 || game.missions.worldsSaved > 0) {
+      ids.add("archive.public.foundry");
+    }
+    if (game.maxFlux >= 10_000 || game.lifetimeAxioms > 0) {
+      ids.add("archive.public.axioms");
+    }
+    if (disclosure.research) ids.add("archive.public.research");
+    if (disclosure.settlement) ids.add("archive.public.continuity");
+    return ids;
+  }, [
+    disclosure.research,
+    disclosure.settlement,
+    game.lifetimeAxioms,
+    game.manualPulses,
+    game.maxFlux,
+    game.missions.worldsSaved,
+    game.tiers[0].bought,
+  ]);
+  const availableLoreEntries = useMemo(
+    () => LORE_ENTRIES.filter((entry) => unlockedLoreIds.has(entry.id)),
+    [unlockedLoreIds],
+  );
+  const archiveWorlds = useMemo<ArchiveWorldEntry[]>(
+    () => MISSIONS.flatMap((mission, index) => {
+      const status = game.missions.statuses[index];
+      const isCurrent = index === game.missions.currentIndex;
+      if (status !== "saved" && status !== "active" && !isCurrent) return [];
+      const visibleStatus: ArchiveWorldEntry["status"] =
+        status === "saved" ? "saved" : "active";
+      return [{
+        id: `${index}-${mission.world.toLowerCase().replaceAll(" ", "-")}`,
+        name: mission.world,
+        status: visibleStatus,
+        subtitle: mission.epithet,
+        record: visibleStatus === "saved"
+          ? mission.success
+          : `${mission.hazardLabel}: ${mission.hazard}`,
+      }];
+    }),
+    [game.missions.currentIndex, game.missions.statuses],
   );
   const doctrineAvailability = useMemo(
     () =>
@@ -2992,107 +3037,18 @@ export default function Home() {
       )}
 
       {loreOpen && (
-        <div className="archive-layer">
-          <button className="modal-backdrop" type="button" aria-label="Close lore archive" onClick={() => setLoreOpen(false)} />
-          <section className="lore-archive" role="dialog" aria-modal="true" aria-labelledby="archive-title">
-            <header>
-              <div>
-                <p className="section-kicker violet">AXIOM memory vault</p>
-                <h2 id="archive-title">The Axiom Archive</h2>
-                <span>A record of the Ark, its survivors, restored colonies, Null research, and the orders AXIOM was never meant to question.</span>
-              </div>
-              <button className="archive-close" type="button" aria-label="Close lore archive" onClick={() => setLoreOpen(false)}>Close</button>
-            </header>
-            <div className="archive-scroll">
-              <section className="archive-prologue">
-                <p>You awakened alone. The Archive remembers otherwise.</p>
-                <span>The Null is stripping agreement from gravity, light, memory, and history. The Ark can restore worlds, but its Continuity Protocol may be deciding which version of humanity is permitted to survive.</span>
-              </section>
-              <div className="lore-grid">
-                {LORE_ENTRIES.map((entry, index) => (
-                  <article key={entry.title}>
-                    <span>Archive {String(index + 1).padStart(2, "0")} · {entry.tag}</span>
-                    <h3>{entry.title}</h3>
-                    {entry.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
-                  </article>
-                ))}
-              </div>
-              <section className="archive-prologue mystery-index">
-                <p>Contradiction index // {discoveredFragments.length} of {DISCOVERY_FRAGMENTS.length}</p>
-                <span>
-                  These records were not part of AXIOM&apos;s bootstrap archive. New fragments appear through survivor histories, Null research, colony transmissions, and Archive cross-indexing.
-                </span>
-                {nextArchiveDiscovery && (
-                  <button className="tour-next" type="button" onClick={handleArchiveInvestigation}>
-                    Cross-index: {nextArchiveDiscovery.title}
-                  </button>
-                )}
-              </section>
-              {discoveredFragments.length > 0 && (
-                <div className="lore-grid mystery-grid">
-                  {discoveredFragments.map((fragment, index) => (
-                    <article key={fragment.id}>
-                      <span>Recovered {String(index + 1).padStart(2, "0")} · {fragment.arc.replaceAll("-", " ")}</span>
-                      <h3>{fragment.title}</h3>
-                      <small>{fragment.source}</small>
-                      {fragment.excerpt.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
-                      {fragment.contradiction && <p><strong>Contradiction:</strong> {fragment.contradiction}</p>}
-                    </article>
-                  ))}
-                </div>
-              )}
-              {causalArchive.score > 0 && (
-                <>
-                  <section className="archive-prologue mystery-index">
-                    <p>Causal Archive · {causalArchive.activeClassification.code} · {causalArchive.activeClassification.label}</p>
-                    <span>{causalArchive.activeClassification.summary} {causalArchive.nextClassification ? `${causalArchive.evidenceToNext} more indexed evidence ${causalArchive.evidenceToNext === 1 ? "entry" : "entries"} needed before the next provisional classification.` : "Every current classification has been reached; motive remains unproven."}</span>
-                  </section>
-                  <div className="causal-classification-track">
-                    {causalArchive.classifications.map((classification) => (
-                      <article className={classification.unlocked ? "is-unlocked" : "is-locked"} key={classification.id}>
-                        <span>{classification.code}</span>
-                        <strong>{classification.unlocked ? classification.label : "CLASSIFIED"}</strong>
-                        <small>{classification.unlocked ? classification.operationalBenefit : `Requires ${classification.threshold} indexed evidence and supporting analysis.`}</small>
-                      </article>
-                    ))}
-                  </div>
-                  <div className="lore-grid mystery-grid">
-                    {causalArchive.recoveredEvidence.map((evidence, index) => <article key={evidence.id}><span>Evidence {String(index + 1).padStart(2, "0")} · {evidence.source.replaceAll("-", " ")}</span><h3>{evidence.title}</h3><p>{evidence.finding}</p></article>)}
-                  </div>
-                </>
-              )}
-              <section className="planetary-ledger">
-                <div className="ledger-heading">
-                  <div><p className="section-kicker">Continuity record</p><h3>Restored Worlds</h3></div>
-                  <span>{game.missions.worldsSaved} secured · {Math.max(0, MISSIONS.length - game.missions.worldsSaved)} remaining</span>
-                </div>
-                <div className="ledger-worlds">
-                  {MISSIONS.map((mission, index) => {
-                    const status = game.missions.statuses[index];
-                    const label = status === "saved" ? "World secured" : status === "active" ? "Signal active" : "Signal pending";
-                    return (
-                      <article className={status} key={mission.world}>
-                        <span>{label}</span>
-                        <strong>{mission.world}</strong>
-                        <small>
-                          {status === "saved"
-                            ? mission.success
-                            : status === "active"
-                              ? `${mission.hazardLabel}: ${mission.hazard}`
-                              : mission.epithet}
-                        </small>
-                      </article>
-                    );
-                  })}
-                </div>
-              </section>
-            </div>
-            <footer>
-              <button className="quiet-button" type="button" onClick={replayTour}>Replay field orientation</button>
-              <button className="tour-next" type="button" onClick={() => setLoreOpen(false)}>Return to Foundry</button>
-            </footer>
-          </section>
-        </div>
+        <LoreArchive
+          memoryEntries={availableLoreEntries}
+          encryptedMemoryCount={Math.max(0, LORE_ENTRIES.length - availableLoreEntries.length)}
+          fragments={discoveredFragments}
+          nextFragment={nextArchiveDiscovery}
+          causalArchive={causalArchive}
+          worlds={archiveWorlds}
+          worldsSaved={game.missions.worldsSaved}
+          onCrossIndex={handleArchiveInvestigation}
+          onReplayOrientation={replayTour}
+          onClose={() => setLoreOpen(false)}
+        />
       )}
 
       {manualTopic && (

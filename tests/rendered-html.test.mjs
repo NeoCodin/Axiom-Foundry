@@ -50,12 +50,13 @@ test("server-renders the Axiom Foundry game surface", async () => {
 });
 
 test("removes all temporary starter-preview wiring", async () => {
-  const [page, arkDeck, lawHeart, lawPress, layout, pagesEntry, packageJson, css, arkCss, continuityCss, researchCss, manualCss, awakeningCss, pixelCss, lawHeartCss, story, manual, survivorEngine, populationConsole, settlementConsole, continuityExpertise, campaignContent, researchEngine] =
+  const [page, arkDeck, lawHeart, lawPress, loreArchive, layout, pagesEntry, packageJson, css, arkCss, continuityCss, researchCss, manualCss, awakeningCss, pixelCss, lawHeartCss, loreArchiveCss, story, manual, survivorEngine, populationConsole, settlementConsole, continuityExpertise, campaignContent, researchEngine] =
     await Promise.all([
       readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/ark-deck.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/axiom-law-heart.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/law-press-canvas.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/lore-archive.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
       readFile(new URL("../github-pages/main.tsx", import.meta.url), "utf8"),
       readFile(new URL("../package.json", import.meta.url), "utf8"),
@@ -67,6 +68,7 @@ test("removes all temporary starter-preview wiring", async () => {
        readFile(new URL("../app/awakening.css", import.meta.url), "utf8"),
        readFile(new URL("../app/pixel-ui.css", import.meta.url), "utf8"),
       readFile(new URL("../app/axiom-law-heart.css", import.meta.url), "utf8"),
+      readFile(new URL("../app/lore-archive.css", import.meta.url), "utf8"),
       readFile(new URL("../app/story-content.ts", import.meta.url), "utf8"),
       readFile(new URL("../app/game-manual.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/survivor-engine.ts", import.meta.url), "utf8"),
@@ -91,6 +93,16 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(lawHeart, /Three laws for Pelagos/);
   assert.match(lawHeart, /DIVERT.*FLUX NOW/);
   assert.match(lawHeart, /You do not need all 15,000 Flux at once/);
+  assert.match(page, /<LoreArchive/);
+  assert.match(page, /unlockedLoreIds/);
+  assert.match(page, /archive\.public\.null-tide/);
+  assert.match(page, /status !== "saved" && status !== "active"/);
+  assert.doesNotMatch(page, /className="lore-grid"|className="ledger-worlds"/);
+  assert.match(loreArchive, /archive-category-tabs/);
+  assert.match(loreArchive, /archive-reader-page/);
+  assert.match(loreArchive, /Previous record/);
+  assert.match(loreArchive, /unknown records remain unnamed/i);
+  assert.doesNotMatch(loreArchive, /lore-grid|ledger-worlds/);
   assert.match(page, /!game\.missions\.awaitingAcknowledgement/);
   assert.match(page, /The Foundry Floor/);
   assert.match(page, /Core tuning remains aboard the Ark/);
@@ -116,8 +128,11 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(pixelCss, /repeating-linear-gradient/);
   assert.match(lawHeartCss, /.law-heart-core\s*\{/);
   assert.match(lawHeartCss, /steps\(/);
+  assert.match(loreArchiveCss, /\.archive-tablet-body\s*\{/);
+  assert.match(loreArchiveCss, /\.archive-reader-page\s*\{/);
+  assert.match(loreArchiveCss, /@media \(max-width: 800px\)/);
   assert.match(pixelCss, /\.personnel-console-tabs\s*\{/);
-  for (const stylesheet of ["ark-deck", "continuity-console", "research-lattice", "game-manual", "awakening", "pixel-ui", "axiom-law-heart"]) {
+  for (const stylesheet of ["ark-deck", "continuity-console", "research-lattice", "game-manual", "awakening", "pixel-ui", "axiom-law-heart", "lore-archive"]) {
     assert.match(layout, new RegExp(`import "\\./${stylesheet}\\.css"`));
     assert.match(pagesEntry, new RegExp(`import "\\.\\./app/${stylesheet}\\.css"`));
   }
