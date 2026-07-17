@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties } from "react";
+import { useState } from "react";
 import type { PurchaseMode } from "./game-engine";
+import { LawPressCanvas, type LawPressState } from "./law-press-canvas";
 
 export type LawHeartMachine = {
   name: string;
@@ -76,8 +77,10 @@ export function AxiomLawHeart({
   const [confirmRecalibration, setConfirmRecalibration] = useState(false);
   const automationVisible = manualPulses >= 6 || machine.bought > 0;
   const recalibrationVisible = maxFlux >= 10_000 || lifetimeAxioms > 0;
-  const pulseBand = machine.bought >= 25
-    ? "phase-lock"
+  const pressState: LawPressState = recalibrationGain > 0
+    ? "law-ready"
+    : machine.bought >= 25
+      ? "synchronized"
     : machine.bought >= 15
       ? "rapid"
       : machine.bought >= 5
@@ -87,16 +90,11 @@ export function AxiomLawHeart({
           : manualPulses > 0
             ? "manual"
             : "dormant";
-  const particleCount = pulseBand === "phase-lock" ? 48 : pulseBand === "rapid" ? 36 : pulseBand === "active" ? 24 : pulseBand === "warming" ? 12 : 6;
-  const chamberStyle = {
-    "--law-progress": clamp(objectiveProgress),
-    "--law-recalibration": clamp(recalibrationProgress),
-    "--law-pulse-duration": `${Math.max(0.34, 3.2 - machine.bought * 0.105)}s`,
-  } as CSSProperties;
-  const particles = useMemo(
-    () => Array.from({ length: 48 }, (_, index) => index),
-    [],
-  );
+  const pressStatus = pressState === "law-ready"
+    ? "LAW READY"
+    : pressState === "synchronized"
+      ? "SYNCHRONIZED"
+      : pressState.toUpperCase();
 
   const tune = () => {
     setPulseSerial((value) => value + 1);
@@ -109,15 +107,15 @@ export function AxiomLawHeart({
   };
 
   return (
-    <section className={`law-heart-deck is-${pulseBand}`} style={chamberStyle} aria-labelledby="law-heart-title">
+    <section className={`law-heart-deck is-${pressState}`} aria-labelledby="law-heart-title">
       <header className="law-heart-heading">
         <div>
           <span>CORE DECK // COLD WAKE</span>
           <h2 id="law-heart-title">AXIOM LAW-HEART</h2>
-          <p>One chamber is awake. Teach it to repeat before the Ark learns anything else.</p>
+          <p>One damaged law press remains. Strike it by hand, then teach the Ark to repeat the motion.</p>
         </div>
         <div className="law-heart-status" aria-label="Core status">
-          <span>{pulseBand === "phase-lock" ? "PHASE LOCK" : pulseBand.toUpperCase()}</span>
+          <span>{pressStatus}</span>
           <strong>{fluxPerSecondLabel}<small> Flux / sec</small></strong>
         </div>
       </header>
@@ -135,30 +133,27 @@ export function AxiomLawHeart({
           className="law-heart-core"
           type="button"
           onClick={tune}
-          aria-label={`Tune the Axiom Law-Heart for ${manualGainLabel} Flux`}
-          data-pixel-tooltip={`Compress the Law-Heart once. Each manual alignment produces ${manualGainLabel} Flux and teaches AXIOM the chamber's rhythm.`}
+          aria-label={`Strike the Axiom Law Press for ${manualGainLabel} Flux`}
+          data-pixel-tooltip={`Drive the Law Press clamps inward once. Each strike produces ${manualGainLabel} Flux and teaches AXIOM a motion that Vacuum Taps can repeat.`}
         >
-          <span className="law-heart-ring ring-outer"><i /><i /><i /><i /></span>
-          <span className="law-heart-ring ring-middle"><i /><i /><i /><i /></span>
-          <span className="law-heart-ring ring-inner"><i /><i /><i /><i /></span>
-          <span className="law-heart-aperture"><i /></span>
+          <LawPressCanvas
+            state={pressState}
+            machineCount={machine.bought}
+            manualPulses={manualPulses}
+            pulseSerial={pulseSerial}
+            recalibrationProgress={recalibrationProgress}
+            provenLaws={lifetimeAxioms}
+            preparingRecalibration={confirmRecalibration}
+          />
           <span className="law-heart-readout">
-            <small>TUNE LAW</small>
+            <small>STRIKE LAW</small>
             <strong>{fluxLabel}</strong>
             <em>+{manualGainLabel}</em>
           </span>
-          <span className="law-heart-particle-field" aria-hidden="true">
-            {particles.map((index) => (
-              <i
-                className={index < particleCount ? "is-live" : ""}
-                key={index}
-                style={{ "--particle-index": index } as CSSProperties}
-              />
-            ))}
-          </span>
-          {pulseSerial > 0 && <span className="law-heart-click-wave" key={`wave-${pulseSerial}`} aria-hidden="true" />}
           {pulseSerial > 0 && <span className="law-heart-click-gain" key={`gain-${pulseSerial}`} aria-hidden="true">+{manualGainLabel}</span>}
-          {pulseBand === "phase-lock" && <span className="law-heart-phase-band" aria-hidden="true"><i /><i /><i /></span>}
+          <span className="law-press-state" aria-hidden="true">
+            {machine.bought > 0 ? `${Math.min(16, Math.ceil(machine.bought / 3))} tap banks linked` : manualPulses > 0 ? "manual strike registered" : "press motion: idle"}
+          </span>
         </button>
 
         <aside className="law-heart-directive">
@@ -190,7 +185,7 @@ export function AxiomLawHeart({
           </header>
           {automationVisible ? (
             <>
-              <p>A Vacuum Tap repeats the chamber’s smallest motion. Every unit adds visible pulses and permanent idle output for this cycle.</p>
+              <p>A Vacuum Tap repeats the press’s smallest motion. Installed units populate the surrounding hardware banks, route visible Flux packets, and add permanent idle output for this cycle.</p>
               <div className="law-machine-telemetry">
                 <span>Output <strong>{machine.outputLabel}/sec</strong></span>
                 <span>Next unit <strong>{machine.costLabel} Flux</strong></span>

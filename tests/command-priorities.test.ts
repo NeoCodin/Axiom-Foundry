@@ -24,7 +24,7 @@ test("the command board routes the active Cold Wake action to the Ark", () => {
   const priorities = getCommandPriorities(state);
   assert.equal(priorities[0]?.id, "active-directive");
   assert.equal(priorities[0]?.target, "deck");
-  assert.match(priorities[0]?.detail ?? "", /Tune the Core 12 times/);
+  assert.match(priorities[0]?.detail ?? "", /Strike the Law Press 12 times/);
 });
 
 test("Cold Wake stays on one Core Deck even after automation begins", () => {

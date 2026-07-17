@@ -34,6 +34,9 @@ test("server-renders the Axiom Foundry game surface", async () => {
   assert.match(html, /<title>Axiom Foundry/);
   assert.match(html, /The Ark drifts through black space/);
   assert.match(html, /AXIOM LAW-HEART/);
+  assert.match(html, /law-press-canvas/);
+  assert.match(html, /STRIKE LAW/);
+  assert.doesNotMatch(html, /law-heart-ring/);
   assert.match(html, /CORE DECK \/\/ COLD WAKE/);
   assert.match(html, /FIRST AUTOMATION/);
   assert.match(html, /PORTABLE PHYSICS/);
@@ -47,11 +50,12 @@ test("server-renders the Axiom Foundry game surface", async () => {
 });
 
 test("removes all temporary starter-preview wiring", async () => {
-  const [page, arkDeck, lawHeart, layout, pagesEntry, packageJson, css, arkCss, continuityCss, researchCss, manualCss, awakeningCss, pixelCss, lawHeartCss, story, manual, survivorEngine, populationConsole, settlementConsole, continuityExpertise, campaignContent, researchEngine] =
+  const [page, arkDeck, lawHeart, lawPress, layout, pagesEntry, packageJson, css, arkCss, continuityCss, researchCss, manualCss, awakeningCss, pixelCss, lawHeartCss, story, manual, survivorEngine, populationConsole, settlementConsole, continuityExpertise, campaignContent, researchEngine] =
     await Promise.all([
       readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/ark-deck.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/axiom-law-heart.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/law-press-canvas.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
       readFile(new URL("../github-pages/main.tsx", import.meta.url), "utf8"),
       readFile(new URL("../package.json", import.meta.url), "utf8"),
@@ -78,6 +82,12 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(page, /GameNavigation/);
   assert.match(arkDeck, /Tune the Core/);
   assert.match(lawHeart, /AXIOM LAW-HEART/);
+  assert.match(lawHeart, /LawPressCanvas/);
+  assert.doesNotMatch(lawHeart, /law-heart-ring|law-heart-particle-field/);
+  assert.match(lawPress, /requestAnimationFrame/);
+  assert.match(lawPress, /prefers-reduced-motion/);
+  assert.match(lawPress, /document\.visibilityState/);
+  assert.match(lawPress, /press motion: idle|state !== "law-ready"/);
   assert.match(lawHeart, /Three laws for Pelagos/);
   assert.match(lawHeart, /DIVERT.*FLUX NOW/);
   assert.match(lawHeart, /You do not need all 15,000 Flux at once/);

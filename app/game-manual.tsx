@@ -57,9 +57,9 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
     category: "Page guide // command deck",
     title: "Wake the Ark one system at a time",
     summary:
-      "Cold Wake is one focused Core Deck. Tune the Law-Heart, teach its first Vacuum Taps to repeat, and forge three portable laws; the wider Ark appears only after Pelagos orbit.",
+      "Cold Wake is one focused Core Deck. Strike the damaged Law Press, teach its first Vacuum Taps to repeat, and forge three portable laws; the wider Ark appears only after Pelagos orbit.",
     steps: [
-      { title: "Tune the Law-Heart", detail: "Click the chamber to gain Flux. Its rings, particles, and conduit pulse become more intense as automated output grows." },
+      { title: "Strike the Law Press", detail: "The opening machine is completely still. Each click drives one clamp strike; earned Vacuum Taps install visible banks, carry Flux packets, and gradually synchronize the mechanism." },
       { title: "Teach the first repetition", detail: "Vacuum Taps reveal after a few manual alignments. They repeat the smallest Core motion while the game is open or closed." },
       { title: "Forge three laws", detail: "Cold Wake introduces Recalibration directly on the Core Deck. Prove Containment, Conservation, and Transit before entering Pelagos orbit." },
       { title: "Follow the active directive", detail: "The strip above the Ark always names the next useful action and shows its progress. Nothing in Cold Wake has a deadline." },

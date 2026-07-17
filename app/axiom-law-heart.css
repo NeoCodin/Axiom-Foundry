@@ -97,49 +97,63 @@
 .law-heart-core {
   position: relative;
   place-self: center;
-  width: min(72vw, 480px);
+  width: min(76vw, 540px);
   aspect-ratio: 1;
-  border: 0;
-  background: transparent;
+  padding: 0;
+  border: 4px solid #294954;
+  background: #020608;
+  box-shadow: 8px 8px 0 #000, inset 0 0 0 4px #071318;
   color: inherit;
   cursor: var(--cursor-pixel-active);
   isolation: isolate;
+  overflow: hidden;
 }
 
 .law-heart-core:focus-visible { outline: 4px solid #f0c367; outline-offset: 8px; }
-.law-heart-core::before { content: ""; position: absolute; inset: 13%; border: 4px solid #274854; background: #061319; box-shadow: 0 0 0 8px #020608, 0 0 0 12px #19323a; transform: rotate(45deg); }
-.law-heart-ring { position: absolute; inset: 8%; border: 5px solid #376571; image-rendering: pixelated; animation: law-heart-spin var(--law-pulse-duration) steps(12, end) infinite; }
-.law-heart-ring::before,
-.law-heart-ring::after { content: ""; position: absolute; background: #63e7ed; }
-.law-heart-ring::before { left: 50%; top: -9px; width: 10px; height: 18px; }
-.law-heart-ring::after { top: 50%; right: -9px; width: 18px; height: 10px; }
-.law-heart-ring > i { position: absolute; width: 14px; height: 14px; background: #3e7783; }
-.law-heart-ring > i:nth-child(1) { left: -8px; top: -8px; }
-.law-heart-ring > i:nth-child(2) { right: -8px; top: -8px; }
-.law-heart-ring > i:nth-child(3) { right: -8px; bottom: -8px; }
-.law-heart-ring > i:nth-child(4) { left: -8px; bottom: -8px; }
-.law-heart-ring.ring-middle { inset: 20%; border-color: #2a515c; animation-direction: reverse; animation-duration: calc(var(--law-pulse-duration) * 0.78); }
-.law-heart-ring.ring-inner { inset: 31%; border-color: #4dc8d0; animation-duration: calc(var(--law-pulse-duration) * 0.58); }
-.law-heart-aperture { position: absolute; inset: 39%; border: 6px double #61e8ed; background: #0e323a; box-shadow: 0 0 0 8px #02080b; animation: law-heart-breathe calc(var(--law-pulse-duration) * 0.7) steps(3, end) infinite; }
-.law-heart-aperture i { position: absolute; inset: 27%; background: #d9ffff; box-shadow: 0 0 0 6px #3cb3bd; }
+.law-heart-core:hover { border-color: #4d8793; }
+.law-heart-deck.is-dormant .law-heart-core { border-color: #203a43; }
+.law-heart-deck.is-law-ready .law-heart-core { border-color: #b58a43; box-shadow: 8px 8px 0 #000, inset 0 0 0 4px #2b210f; }
 
-.law-heart-readout { position: absolute; inset: 38%; z-index: 4; display: grid; place-content: center; color: #dfffff; text-shadow: 2px 2px 0 #001417; }
+.law-press-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -webkit-crisp-edges;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  pointer-events: none;
+}
+
+.law-heart-readout {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 4;
+  display: grid;
+  min-width: 116px;
+  min-height: 82px;
+  place-content: center;
+  border: 3px solid #2c5963;
+  background: rgb(1 8 10 / 0.9);
+  box-shadow: 4px 4px 0 #000;
+  color: #dfffff;
+  text-shadow: 2px 2px 0 #001417;
+  transform: translate(-50%, -50%);
+}
 .law-heart-readout small { font-size: 10px; letter-spacing: 0.14em; }
-.law-heart-readout strong { margin-top: 7px; font-size: 30px; }
+.law-heart-readout strong { margin-top: 7px; font-size: 28px; }
 .law-heart-readout em { color: #f0c367; font-size: 12px; font-style: normal; }
+.law-heart-deck.is-dormant .law-heart-readout { border-color: #243d44; color: #799095; }
+.law-heart-deck.is-law-ready .law-heart-readout { border-color: #e8b75d; color: #fff4cf; }
 
-.law-heart-particle-field { position: absolute; inset: 0; pointer-events: none; }
-.law-heart-particle-field i { --angle: calc(var(--particle-index) * 7.5deg); position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; background: #63e7ed; opacity: 0; transform: rotate(var(--angle)) translateX(100px); }
-.law-heart-particle-field i.is-live { animation: law-heart-particle var(--law-pulse-duration) steps(5, end) infinite; animation-delay: calc(var(--particle-index) * -0.071s); }
-.law-heart-click-wave { position: absolute; inset: 34%; z-index: 3; border: 5px solid #efffff; animation: law-heart-click-wave 420ms steps(5, end) forwards; }
-.law-heart-click-gain { position: absolute; z-index: 7; left: 54%; top: 25%; padding: 6px 10px; background: #0c2026; border: 2px solid #f0c367; color: #f0c367; animation: law-heart-click-gain 800ms steps(6, end) forwards; }
-
-.law-heart-phase-band { position: absolute; inset: 17%; z-index: 2; border: 10px solid #61e8ed; box-shadow: 0 0 0 6px #102e36, 0 0 0 12px #61e8ed; animation: law-heart-phase-lock 900ms steps(2, end) infinite; }
-.law-heart-phase-band i { position: absolute; inset: -18px; border: 4px solid #f0c367; }
-.law-heart-phase-band i:nth-child(2) { inset: -30px; border-color: #c25b55; }
-.law-heart-phase-band i:nth-child(3) { inset: 18px; border-color: #e9ffff; }
-.law-heart-deck.is-phase-lock .law-heart-ring { animation: none; border-color: #8ef7f4; }
-.law-heart-deck.is-phase-lock .law-heart-particle-field i.is-live { animation-duration: 0.42s; }
+.law-heart-click-gain { position: absolute; z-index: 7; left: 55%; top: 29%; padding: 6px 10px; background: #0c2026; border: 2px solid #f0c367; color: #f0c367; animation: law-heart-click-gain 800ms steps(6, end) forwards; }
+.law-press-state { position: absolute; z-index: 5; left: 50%; bottom: 18px; padding: 6px 9px; border: 2px solid #203b43; background: rgb(1 7 9 / 0.9); color: #688086; font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; transform: translateX(-50%); white-space: nowrap; }
+.law-heart-deck.is-warming .law-press-state,
+.law-heart-deck.is-active .law-press-state,
+.law-heart-deck.is-rapid .law-press-state,
+.law-heart-deck.is-synchronized .law-press-state { border-color: #39717c; color: #61dce2; }
+.law-heart-deck.is-law-ready .law-press-state { border-color: #a67e3e; color: #e8b75d; }
 
 .law-heart-directive { align-self: stretch; z-index: 5; margin: 32px 32px 32px 0; padding: 28px; border: 4px double #314c56; background: #081318; box-shadow: 6px 6px 0 #000; }
 .law-heart-directive h3 { margin: 18px 0 10px; color: #e4f4ef; font-size: 25px; }
@@ -195,10 +209,7 @@
 
 @keyframes law-heart-spin { to { transform: rotate(360deg); } }
 @keyframes law-heart-breathe { 50% { transform: scale(0.84); } }
-@keyframes law-heart-particle { 0% { opacity: 0; transform: rotate(var(--angle)) translateX(105px) scale(0.5); } 25% { opacity: 1; } 100% { opacity: 0; transform: rotate(var(--angle)) translateX(225px) scale(1); } }
-@keyframes law-heart-click-wave { to { inset: 5%; opacity: 0; } }
 @keyframes law-heart-click-gain { to { top: 11%; opacity: 0; } }
-@keyframes law-heart-phase-lock { 50% { opacity: 0.55; } }
 
 @media (max-width: 1050px) {
   .command-bar.metric-count-0 { grid-template-columns: minmax(300px, 1fr) minmax(180px, 0.5fr) minmax(280px, 0.8fr); }

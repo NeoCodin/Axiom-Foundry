@@ -461,7 +461,7 @@ export const MISSIONS = [
         kind: "pulseDelta",
         target: 12,
         label: "Wake the caretaker core",
-        instruction: "Tune the Core 12 times to stabilize AXIOM's emergency bus.",
+        instruction: "Strike the Law Press 12 times to stabilize AXIOM's emergency bus.",
         lore: "On the twelfth pulse, the Ark answers in AXIOM's own voice: Welcome back.",
       },
       {
