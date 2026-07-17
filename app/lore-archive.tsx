@@ -237,7 +237,6 @@ export function LoreArchive({
               className={category === activeCategory ? "active" : ""}
               type="button"
               role="tab"
-              aria-pressed={category === activeCategory}
               aria-selected={category === activeCategory}
               onClick={() => setRequestedCategory(category)}
               key={category}
@@ -252,7 +251,7 @@ export function LoreArchive({
         <div className="archive-tablet-body">
           <aside className="archive-entry-index" aria-label={`${categoryCopy.label} records`}>
             <header>
-              <span>{categoryCopy.code} // index</span>
+              <span>{`${categoryCopy.code} // index`}</span>
               <p>{categoryCopy.description}</p>
             </header>
             <div>
@@ -305,7 +304,7 @@ export function LoreArchive({
             </div>
             <footer>
               <button type="button" disabled={activePageIndex === 0} onClick={() => movePage(-1)}>Previous record</button>
-              <span>{categoryCopy.code} // {String(activePageIndex + 1).padStart(2, "0")}</span>
+              <span>{`${categoryCopy.code} // ${String(activePageIndex + 1).padStart(2, "0")}`}</span>
               <button type="button" disabled={activePageIndex >= categoryPages.length - 1} onClick={() => movePage(1)}>Next record</button>
             </footer>
           </article>

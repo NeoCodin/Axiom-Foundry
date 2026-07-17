@@ -1459,6 +1459,37 @@ img.pixelated,
 }
 .qa-world-grid button:hover,
 .qa-action-grid button:hover { border-color: var(--world-accent); color: #fff; }
+.qa-custom-flux form { display: grid; gap: 5px; }
+.qa-custom-flux label { color: #9db4ae; font-size: 10px; }
+.qa-custom-flux form > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px; }
+.qa-custom-flux input {
+  min-width: 0;
+  min-height: 40px;
+  padding: 7px 9px;
+  border: 2px solid #40545a;
+  border-radius: 0;
+  outline: 0;
+  background: #03090c;
+  color: #8ff4e7;
+  font-family: var(--font-number);
+  font-size: 14px;
+  box-shadow: inset 2px 2px 0 #000;
+}
+.qa-custom-flux input:focus { border-color: var(--world-accent); }
+.qa-custom-flux input[aria-invalid="true"] { border-color: #d76a67; color: #ff9d98; }
+.qa-custom-flux button {
+  min-height: 40px;
+  padding: 7px 10px;
+  border: 2px solid #aa7e32;
+  border-radius: 0;
+  background: #332711;
+  color: #ffd475;
+  box-shadow: 2px 2px 0 #000;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+.qa-custom-flux small { color: #718b85; font-size: 9px; line-height: 1.4; }
+.qa-custom-flux form > strong { color: #ff8d89; font-size: 9px; font-weight: 400; }
 .qa-return-button { width: 100%; border-color: #8b6530; color: #ffd475; text-align: center; }
 
 @media (max-width: 1199px) {

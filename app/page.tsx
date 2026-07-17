@@ -248,6 +248,7 @@ import { QaSandbox } from "./qa-sandbox";
 import {
   QA_QUERY_PARAMETER,
   QA_SAVE_KEY,
+  addQaFlux,
   boostQaCrew,
   completeQaResearch,
   createQaCheckpoint,
@@ -643,13 +644,14 @@ export default function Home() {
     () => getNextArchiveDiscovery(game.living.discoveredLore),
     [game.living.discoveredLore],
   );
+  const vacuumTapsBought = game.tiers[0].bought;
   const unlockedLoreIds = useMemo(() => {
     const ids = new Set<string>([
       "archive.public.null-tide",
       "archive.public.axiom",
     ]);
     if (game.manualPulses >= 12) ids.add("archive.public.flux");
-    if (game.tiers[0].bought >= 25 || game.missions.worldsSaved > 0) {
+    if (vacuumTapsBought >= 25 || game.missions.worldsSaved > 0) {
       ids.add("archive.public.foundry");
     }
     if (game.maxFlux >= 10_000 || game.lifetimeAxioms > 0) {
@@ -665,7 +667,7 @@ export default function Home() {
     game.manualPulses,
     game.maxFlux,
     game.missions.worldsSaved,
-    game.tiers[0].bought,
+    vacuumTapsBought,
   ]);
   const availableLoreEntries = useMemo(
     () => LORE_ENTRIES.filter((entry) => unlockedLoreIds.has(entry.id)),
@@ -2131,6 +2133,10 @@ export default function Home() {
             setPrimaryView("deck");
           }}
           onGrantResources={() => applyQaState(grantQaResources(gameRef.current), "QA resources stocked.")}
+          onAddFlux={(amount) => {
+            const next = addQaFlux(gameRef.current, amount);
+            applyQaState(next, `${formatNumber(Math.min(amount, 1e280))} custom Flux added to the QA profile.`);
+          }}
           onCompleteResearch={() => applyQaState(completeQaResearch(gameRef.current), "Every research program marked complete for testing.")}
           onBoostCrew={() => applyQaState(boostQaCrew(gameRef.current), "QA crew advanced to maximum professional skill.")}
           onPrepareContinuity={() => {

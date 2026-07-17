@@ -7,12 +7,26 @@ import { RESEARCH_PROJECT_DEFINITIONS } from "../app/research-engine.ts";
 import { getSurvivorBestSkillLevel } from "../app/survivor-engine.ts";
 import {
   QA_SAVE_KEY,
+  addQaFlux,
   boostQaCrew,
   completeQaResearch,
   createQaCheckpoint,
   grantQaResources,
   prepareQaContinuity,
 } from "../app/qa-sandbox-engine.ts";
+
+test("custom QA Flux grants are additive, tracked, and safely bounded", () => {
+  const state = createQaCheckpoint(0, 1_000_000);
+  const amount = 123_456_789;
+  const next = addQaFlux(state, amount);
+  assert.equal(next.flux, state.flux + amount);
+  assert.equal(next.maxFlux, state.maxFlux + amount);
+  assert.equal(next.runFlux, state.runFlux + amount);
+  assert.equal(next.allTimeFlux, state.allTimeFlux + amount);
+  assert.strictEqual(addQaFlux(state, -1), state);
+  assert.strictEqual(addQaFlux(state, Number.NaN), state);
+  assert.equal(addQaFlux(state, Number.POSITIVE_INFINITY).flux, 1e280);
+});
 
 test("QA checkpoints are isolated, valid campaign snapshots", () => {
   assert.notEqual(QA_SAVE_KEY, SAVE_KEY);

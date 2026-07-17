@@ -1,5 +1,7 @@
 "use client";
 
+import { useState, type FormEvent } from "react";
+
 import { CAMPAIGN_WORLD_IDS, getCampaignWorld } from "./campaign-content";
 
 type QaSandboxProps = {
@@ -8,6 +10,7 @@ type QaSandboxProps = {
   onJumpWorld: (worldIndex: number) => void;
   onFreshColdWake: () => void;
   onGrantResources: () => void;
+  onAddFlux: (amount: number) => void;
   onCompleteResearch: () => void;
   onBoostCrew: () => void;
   onPrepareContinuity: () => void;
@@ -21,12 +24,28 @@ export function QaSandbox({
   onJumpWorld,
   onFreshColdWake,
   onGrantResources,
+  onAddFlux,
   onCompleteResearch,
   onBoostCrew,
   onPrepareContinuity,
   onSimulateOfflineDay,
   onReturnToPlayerSave,
 }: QaSandboxProps) {
+  const [customFlux, setCustomFlux] = useState("1e12");
+  const [customFluxError, setCustomFluxError] = useState("");
+
+  const submitCustomFlux = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const normalized = customFlux.trim().replaceAll(",", "");
+    const amount = Number(normalized);
+    if (!normalized || Number.isNaN(amount) || amount <= 0) {
+      setCustomFluxError("Enter a positive number, such as 500000 or 1e50.");
+      return;
+    }
+    setCustomFluxError("");
+    onAddFlux(amount);
+  };
+
   return (
     <aside className={`qa-sandbox ${collapsed ? "is-collapsed" : ""}`} aria-label="QA Sandbox controls">
       <button className="qa-sandbox-toggle" type="button" onClick={onToggleCollapsed} aria-expanded={!collapsed}>
@@ -53,6 +72,30 @@ export function QaSandbox({
               <button type="button" onClick={onPrepareContinuity}>Prepare Continuity</button>
               <button type="button" onClick={onSimulateOfflineDay}>Simulate 24h</button>
             </div>
+          </section>
+          <section className="qa-custom-flux">
+            <span>CUSTOM FLUX GRANT</span>
+            <form onSubmit={submitCustomFlux}>
+              <label htmlFor="qa-custom-flux-input">Amount to add</label>
+              <div>
+                <input
+                  id="qa-custom-flux-input"
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={customFlux}
+                  aria-invalid={customFluxError ? true : undefined}
+                  aria-describedby="qa-custom-flux-help"
+                  onChange={(event) => setCustomFlux(event.target.value)}
+                />
+                <button type="submit">Add Flux</button>
+              </div>
+              <small id="qa-custom-flux-help">
+                Commas and scientific notation work. Example: 1e100. Safe maximum: 1e280.
+              </small>
+              {customFluxError && <strong role="alert">{customFluxError}</strong>}
+            </form>
           </section>
           <button className="qa-return-button" type="button" onClick={onReturnToPlayerSave}>Return to player save</button>
         </div>

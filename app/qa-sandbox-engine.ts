@@ -1,6 +1,7 @@
 import {
   GENERATORS,
   LEGACY_UPGRADES,
+  MAX_VALUE,
   MISSIONS,
   RUN_UPGRADES,
   createInitialState,
@@ -193,6 +194,21 @@ export function grantQaResources(state: GameState): GameState {
     living: { ...state.living, salvage: 1_000_000_000, cohesion: 100 },
     researchStock: inventory,
     research: { ...state.research, inventory },
+  });
+}
+
+export function addQaFlux(state: GameState, requestedAmount: number): GameState {
+  const amount = requestedAmount === Number.POSITIVE_INFINITY
+    ? MAX_VALUE
+    : Math.min(MAX_VALUE, Math.max(0, requestedAmount));
+  if (!Number.isFinite(amount) || amount <= 0) return state;
+  const add = (current: number) => Math.min(MAX_VALUE, current + amount);
+  return sanitizeGameState({
+    ...state,
+    flux: add(state.flux),
+    maxFlux: add(state.maxFlux),
+    runFlux: add(state.runFlux),
+    allTimeFlux: add(state.allTimeFlux),
   });
 }
 
