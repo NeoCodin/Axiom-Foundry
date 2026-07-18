@@ -63,6 +63,16 @@ test("Cold Wake stays on one Core Deck even after automation begins", () => {
   assert.equal(disclosure.population, true);
 });
 
+test("Cold Wake law proofs route back to the visible Law Press", () => {
+  const state = setTutorialComplete(createInitialState(0), true);
+  state.missions.stageIndex = 3;
+  state.tiers[0] = { amount: 50, bought: 50 };
+  const priority = getCommandPriorities(state).find((entry) => entry.id === "active-directive");
+  assert.equal(priority?.target, "deck");
+  assert.equal(priority?.actionLabel, "Charge the Law Press");
+  assert.match(priority?.detail ?? "", /hull remains one object/);
+});
+
 test("transit replaces the destination directive with an offline Navigation priority", () => {
   const state = setTutorialComplete(createInitialState(0), true);
   state.missions.currentIndex = 2;

@@ -20,8 +20,8 @@ type AxiomLawHeartProps = {
   fluxPerSecondLabel: string;
   manualGainLabel: string;
   manualPulses: number;
-  maxFlux: number;
   stageIndex: number;
+  stageCount: number;
   objectiveLabel: string;
   objectiveDetail: string;
   objectiveProgress: number;
@@ -45,6 +45,16 @@ type AxiomLawHeartProps = {
 };
 
 const LAW_NAMES = ["Containment", "Conservation", "Transit"] as const;
+const LAW_PURPOSES = [
+  "Keeps the hull, its passengers, and their identities intact under pressure.",
+  "Keeps air, water, power, and momentum from changing without a cause.",
+  "Keeps departure, passage, and arrival inside one continuous history.",
+] as const;
+const APPROACH_SYSTEMS = [
+  { name: "Guidance", detail: "Pelagos orbit solution", threshold: 0.34 },
+  { name: "Life support", detail: "Sealed quarters wakeup", threshold: 0.67 },
+  { name: "Braking grid", detail: "Orbital insertion control", threshold: 1 },
+] as const;
 
 function clamp(value: number) {
   return Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
@@ -55,8 +65,8 @@ export function AxiomLawHeart({
   fluxPerSecondLabel,
   manualGainLabel,
   manualPulses,
-  maxFlux,
   stageIndex,
+  stageCount,
   objectiveLabel,
   objectiveDetail,
   objectiveProgress,
@@ -76,8 +86,8 @@ export function AxiomLawHeart({
   const [pulseSerial, setPulseSerial] = useState(0);
   const [confirmRecalibration, setConfirmRecalibration] = useState(false);
   const automationVisible = manualPulses >= 6 || machine.bought > 0;
-  const recalibrationVisible = maxFlux >= 10_000 || lifetimeAxioms > 0;
-  const pressState: LawPressState = recalibrationGain > 0
+  const recalibrationVisible = stageIndex >= 3 || lifetimeAxioms > 0;
+  const pressState: LawPressState = recalibrationVisible && recalibrationGain > 0
     ? "law-ready"
     : machine.bought >= 25
       ? "synchronized"
@@ -95,6 +105,23 @@ export function AxiomLawHeart({
     : pressState === "synchronized"
       ? "SYNCHRONIZED"
       : pressState.toUpperCase();
+  const approachProgress = stageIndex > 2
+    ? 1
+    : stageIndex === 2
+      ? clamp(objectiveProgress)
+      : 0;
+  const headingCopy = stageIndex === 0
+    ? "One damaged law press remains. Strike it by hand and wake the caretaker bus."
+    : stageIndex === 1
+      ? "The press is awake. Teach the Ark to repeat its smallest stable motion."
+      : stageIndex === 2
+        ? "Automation is stable. Route its output into the systems required for Pelagos approach."
+        : stageIndex <= 5
+          ? "The Ark can move, but it cannot survive insertion until three physical laws endure Recalibration."
+          : "All three laws are portable. Build the final reserve and authorize Pelagos approach.";
+  const objectiveProgressLabel = stageIndex >= 3 && stageIndex <= 5
+    ? "proof charged"
+    : "synchronized";
 
   const tune = () => {
     setPulseSerial((value) => value + 1);
@@ -112,7 +139,7 @@ export function AxiomLawHeart({
         <div>
           <span>CORE DECK // COLD WAKE</span>
           <h2 id="law-heart-title">AXIOM LAW-HEART</h2>
-          <p>One damaged law press remains. Strike it by hand, then teach the Ark to repeat the motion.</p>
+          <p>{headingCopy}</p>
         </div>
         <div className="law-heart-status" aria-label="Core status">
           <span>{pressStatus}</span>
@@ -157,19 +184,33 @@ export function AxiomLawHeart({
         </button>
 
         <aside className="law-heart-directive">
-          <span>ACTIVE DIRECTIVE // PHASE {stageIndex + 1}</span>
+          <span>ACTIVE DIRECTIVE // PHASE {stageIndex + 1} / {stageCount}</span>
           <h3>{objectiveLabel}</h3>
           <p>{objectiveDetail}</p>
           <div className="law-segment-track" role="progressbar" aria-label={objectiveLabel} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(clamp(objectiveProgress) * 100)}>
             <i style={{ width: `${clamp(objectiveProgress) * 100}%` }} />
           </div>
-          <strong>{Math.round(clamp(objectiveProgress) * 100)}% synchronized</strong>
+          <strong>{Math.round(clamp(objectiveProgress) * 100)}% {objectiveProgressLabel}</strong>
+          {stageIndex >= 2 && (
+            <div className="law-approach-systems" aria-label="Pelagos approach systems">
+              {APPROACH_SYSTEMS.map((system) => {
+                const online = approachProgress >= system.threshold;
+                return (
+                  <div className={online ? "is-online" : ""} key={system.name}>
+                    <i aria-hidden="true" />
+                    <span><strong>{system.name}</strong><small>{system.detail}</small></span>
+                    <b>{online ? "ONLINE" : "ROUTING"}</b>
+                  </div>
+                );
+              })}
+            </div>
+          )}
           {contribution && (
             <div className="law-heart-contribution">
               <p><strong>{contribution.availableLabel} available</strong><span>{contribution.remainingLabel} still required</span></p>
-              <small>You do not need all 15,000 Flux at once. Divert what you have now; every payment is saved and counts toward the same total.</small>
+              <small>Build the approach reserve at your pace. Every commitment is saved; insertion begins only after the full reserve is secured.</small>
               <button type="button" disabled={!contribution.canContribute} onClick={onContribute}>
-                {contribution.canContribute ? `DIVERT ${contribution.divertLabel} FLUX NOW` : "KEEP PRODUCING FLUX"}
+                {contribution.canContribute ? `COMMIT ${contribution.divertLabel} FLUX` : "KEEP PRODUCING FLUX"}
               </button>
             </div>
           )}
@@ -212,8 +253,9 @@ export function AxiomLawHeart({
             <>
               <div className="law-slot-grid">
                 {LAW_NAMES.map((name, index) => (
-                  <div className={lifetimeAxioms > index ? "is-proven" : ""} key={name}>
-                    <span>0{index + 1}</span><strong>{name}</strong><small>{lifetimeAxioms > index ? "STABLE" : "UNPROVEN"}</small>
+                  <div className={`${lifetimeAxioms > index ? "is-proven" : ""} ${stageIndex === index + 3 && lifetimeAxioms <= index ? "is-active" : ""}`} key={name}>
+                    <span>0{index + 1}</span><strong>{name}</strong><small>{lifetimeAxioms > index ? "STABLE" : stageIndex === index + 3 ? "ACTIVE PROOF" : "UNPROVEN"}</small>
+                    <p>{LAW_PURPOSES[index]}</p>
                   </div>
                 ))}
               </div>

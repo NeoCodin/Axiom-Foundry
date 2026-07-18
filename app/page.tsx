@@ -292,10 +292,10 @@ function getNextObjective(state: GameState) {
   if (state.missions.awaitingAcknowledgement) {
     if (getCampaignWorldIndex(state) === 0) {
       return {
-        label: "Cold Wake: prove three portable laws",
-        threshold: 3,
-        current: Math.min(3, state.lifetimeAxioms),
-        progress: Math.min(1, state.lifetimeAxioms / 3),
+        label: "Cold Wake: authorize Pelagos departure",
+        threshold: 1,
+        current: 1,
+        progress: 1,
       };
     }
     return {
@@ -2175,11 +2175,11 @@ export default function Home() {
             fluxPerSecondLabel={formatNumber(production.fluxPerSecond)}
             manualGainLabel={formatNumber(manualGain)}
             manualPulses={game.manualPulses}
-            maxFlux={game.maxFlux}
             stageIndex={game.missions.stageIndex}
+            stageCount={activeMission?.stages.length ?? 1}
             objectiveLabel={objective.label}
             objectiveDetail={game.missions.awaitingAcknowledgement
-              ? "Recalibrate until Containment, Conservation, and Transit survive the cycle. Then authorize Pelagos orbit from Continuity."
+              ? "The approach reserve is secured and all three laws are stable. Authorize departure from Continuity when you are ready."
               : activeStage?.instruction ?? campaignWorld.arrivalBrief}
             objectiveProgress={objective.progress}
             machine={{

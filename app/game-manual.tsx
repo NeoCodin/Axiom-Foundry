@@ -61,7 +61,9 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
     steps: [
       { title: "Strike the Law Press", detail: "The opening machine is completely still. Each click drives one clamp strike; earned Vacuum Taps install visible banks, carry Flux packets, and gradually synchronize the mechanism." },
       { title: "Teach the first repetition", detail: "Vacuum Taps reveal after a few manual alignments. They repeat the smallest Core motion while the game is open or closed." },
-      { title: "Forge three laws", detail: "Cold Wake introduces Recalibration directly on the Core Deck. Prove Containment, Conservation, and Transit before entering Pelagos orbit." },
+      { title: "Restore the approach systems", detail: "A second bank of Vacuum Taps routes stable power into guidance, sealed life support, and the braking grid. Pelagos insertion remains hidden until all three systems are online." },
+      { title: "Forge three laws", detail: "Cold Wake introduces Recalibration directly on the Core Deck. Containment keeps the hull intact, Conservation protects its reserves, and Transit keeps departure connected to arrival." },
+      { title: "Authorize Pelagos approach", detail: "Only after all three laws survive Recalibration does the final approach reserve appear. Flux committed to that reserve is saved, and no part of Cold Wake has a deadline." },
       { title: "Follow the active directive", detail: "The strip above the Ark always names the next useful action and shows its progress. Nothing in Cold Wake has a deadline." },
       { title: "Enter awakened destinations", detail: "After Cold Wake, Foundry appears first. Personnel follows the SOS beacon, Research follows the first witnesses, and later facilities appear only with their first real decision." },
       { title: "Read AXIOM's priorities", detail: "The command briefing names up to three useful actions, shows exactly what is missing, names the one action to take, and opens the correct page and sub-panel." },

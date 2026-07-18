@@ -91,8 +91,9 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(lawPress, /document\.visibilityState/);
   assert.match(lawPress, /press motion: idle|state !== "law-ready"/);
   assert.match(lawHeart, /Three laws for Pelagos/);
-  assert.match(lawHeart, /DIVERT.*FLUX NOW/);
-  assert.match(lawHeart, /You do not need all 15,000 Flux at once/);
+  assert.match(lawHeart, /APPROACH_SYSTEMS/);
+  assert.match(lawHeart, /COMMIT.*FLUX/);
+  assert.match(lawHeart, /Build the approach reserve at your pace/);
   assert.match(page, /<LoreArchive/);
   assert.match(page, /unlockedLoreIds/);
   assert.match(page, /archive\.public\.null-tide/);

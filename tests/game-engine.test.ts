@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   MISSIONS,
+  COLD_WAKE_APPROACH_RESERVE,
   RECALIBRATION_THRESHOLD,
   RETIRED_SAVE_KEYS,
   RUN_UPGRADES,
@@ -460,7 +461,7 @@ test("planetary directives do not expose countdown state", () => {
   assert.equal("timeLimit" in MISSIONS[0], false);
 });
 
-test("Cold Wake engineering waits for an explicit continuity departure", () => {
+test("Cold Wake proves its approach systems and three laws before revealing the orbital reserve", () => {
   let state = setTutorialComplete(createInitialState(0), true);
   state.manualPulses = 12;
   state = simulateGame(state, 0.1, 1);
@@ -469,10 +470,29 @@ test("Cold Wake engineering waits for an explicit continuity departure", () => {
   state.tiers[0] = { amount: 25, bought: 25 };
   state = simulateGame(state, 0.1, 1);
   assert.equal(state.missions.stageIndex, 2);
+  assert.equal(MISSIONS[0].stages[state.missions.stageIndex]?.label, "Restore the Ark's approach systems");
 
-  state.flux = 15_000;
-  state.maxFlux = 15_000;
-  state.runFlux = 15_000;
+  state.tiers[0] = { amount: 50, bought: 50 };
+  state = simulateGame(state, 0.1, 1);
+  assert.equal(state.missions.stageIndex, 3);
+
+  for (let lawIndex = 0; lawIndex < 3; lawIndex += 1) {
+    assert.equal(MISSIONS[0].stages[state.missions.stageIndex]?.kind, "axiomProof");
+    const threshold = getRecalibrationThreshold(state);
+    state.runFlux = threshold;
+    state.maxFlux = threshold;
+    state = recalibrate(state, 1_000 + lawIndex);
+    state = simulateGame(state, 0.1, 1);
+    assert.equal(state.lifetimeAxioms, lawIndex + 1);
+    assert.equal(state.missions.stageIndex, 4 + lawIndex);
+  }
+
+  const approach = MISSIONS[0].stages[state.missions.stageIndex];
+  assert.equal(approach?.kind, "contributeFlux");
+  assert.equal(approach?.target, COLD_WAKE_APPROACH_RESERVE);
+  state.flux = COLD_WAKE_APPROACH_RESERVE;
+  state.maxFlux = COLD_WAKE_APPROACH_RESERVE;
+  state.runFlux = COLD_WAKE_APPROACH_RESERVE;
   state = contributeToMission(state);
 
   const readyForContinuity = simulateGame(state, 0.1, 1);
@@ -488,6 +508,24 @@ test("Cold Wake engineering waits for an explicit continuity departure", () => {
   assert.equal(waiting.missions.currentIndex, 0);
   assert.equal(waiting.missions.worldsSaved, 0);
   assert.equal(getCampaignWorldIndex(waiting), 0);
+});
+
+test("old Cold Wake approach saves migrate back before systems and law proofs", () => {
+  const old = setTutorialComplete(createInitialState(0), true);
+  old.missions.schema = 3;
+  old.missions.stageIndex = 2;
+  old.missions.awaitingAcknowledgement = true;
+  old.missions.statuses[0] = "locked";
+  old.missions.contributedFlux = 15_000;
+  old.tiers[0] = { amount: 25, bought: 25 };
+  old.missions.baseline.tierBought[0] = 25;
+
+  const migrated = sanitizeGameState(old, 1_000);
+  assert.equal(migrated.missions.schema, 4);
+  assert.equal(migrated.missions.stageIndex, 2);
+  assert.equal(migrated.missions.awaitingAcknowledgement, false);
+  assert.equal(migrated.missions.statuses[0], "active");
+  assert.equal(migrated.missions.contributedFlux, 0);
 });
 
 test("Cold Wake departure requires the full Ark-readiness forecast", () => {
@@ -662,7 +700,7 @@ test("v3 timed saves recover lost worlds under the untimed campaign", () => {
   }, 100);
 
   assert.equal(migrated.version, 12);
-  assert.equal(migrated.missions.schema, 3);
+  assert.equal(migrated.missions.schema, 4);
   assert.deepEqual(migrated.missions.statuses.slice(0, 4), [
     "saved",
     "saved",
@@ -702,17 +740,10 @@ test("a timed Vesper loss restores its final Axiom exactly once", () => {
 });
 
 test("idle time cannot silently skip the continuity campaign", () => {
-  let state = setTutorialComplete(createInitialState(0), true);
-  state.manualPulses = 12;
-  state = simulateGame(state, 0.1, 1);
-  state.tiers[0] = { amount: 25, bought: 25 };
-  state = simulateGame(state, 0.1, 1);
-  state.flux = 15_000;
-  state.maxFlux = 15_000;
-  state.runFlux = 15_000;
-  state = contributeToMission(state);
-  state = simulateGame(state, 0.1, 1);
-  assert.equal(state.missions.awaitingAcknowledgement, true);
+  const state = setTutorialComplete(createInitialState(0), true);
+  state.missions.awaitingAcknowledgement = true;
+  state.missions.statuses[0] = "locked";
+  state.lifetimeAxioms = 3;
 
   const fourHoursLater = simulateGame(state, 4 * 3_600, 120);
   assert.equal(fourHoursLater.missions.currentIndex, 0);

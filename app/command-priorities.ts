@@ -60,7 +60,7 @@ function deficitTarget(deficit: ViabilityDeficit): PrimaryView {
 }
 
 function missionRoute(kind: string): { target: PrimaryView; panel?: CommandPriorityPanel } {
-  if (kind === "pulseDelta") return { target: "deck" };
+  if (kind === "pulseDelta" || kind === "axiomProof") return { target: "deck" };
   if (kind === "tierPurchaseDelta") return { target: "engineering", panel: "machines" };
   return { target: "engineering", panel: "systems" };
 }
@@ -218,17 +218,20 @@ export function getCommandPriorities(state: GameState): CommandPriority[] {
   if (mission && !state.missions.awaitingAcknowledgement && !activeTransit) {
     const stage = mission.stages[state.missions.stageIndex] ?? mission.stages[0];
     const progress = getMissionProgress(state);
-    const route = missionRoute(stage.kind);
+    const coldWakeCoreDeck = state.missions.currentIndex === 0;
+    const route = coldWakeCoreDeck ? { target: "deck" as const } : missionRoute(stage.kind);
     add({
       id: "active-directive",
       eyebrow: "Planetfall directive",
       title: `${mission.world}: ${stage.label}`,
       detail: stage.instruction,
       actionLabel:
-        stage.kind === "pulseDelta"
+        stage.kind === "axiomProof"
+          ? "Charge the Law Press"
+          : stage.kind === "pulseDelta"
           ? "Tune the Core"
           : stage.kind === "tierPurchaseDelta"
-            ? "Open required machine"
+            ? coldWakeCoreDeck ? "Build Vacuum Taps" : "Open required machine"
             : "Open exact directive control",
       target: route.target,
       panel: route.panel,

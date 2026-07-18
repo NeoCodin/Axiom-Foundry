@@ -251,6 +251,7 @@ export type MissionStageKind =
   | "researchDelta"
   | "contributeFlux"
   | "resonanceHold"
+  | "axiomProof"
   | "recalibrateGain";
 
 export type MissionBaseline = {
@@ -435,14 +436,15 @@ export const LEGACY_UPGRADES = [
 export const RECALIBRATION_THRESHOLD = 100_000;
 const RECALIBRATION_WORLD_SCALE = 25;
 const COLD_WAKE_LAW_THRESHOLD_SCALE = [1, 2.5, 6] as const;
+export const COLD_WAKE_APPROACH_RESERVE = 250_000;
 
 export const MISSIONS = [
   {
     world: "Cold Wake",
     epithet: "Interstellar Prologue",
-    title: "Make the Ark habitable",
+    title: "Make the Ark safe for Pelagos",
     briefing:
-      "AXIOM has awakened between stars with no crew and a failing hull. Restore emergency power, teach the fabrication chain to repeat, and prepare living space before Pelagos orbit.",
+      "AXIOM has awakened between stars with no crew and a failing hull. Restore emergency power, rebuild the Ark's approach systems, and prove three physical laws that can survive Pelagos insertion.",
     arrival:
       "The Ark drifts through black space. Pelagos is a blue point ahead; every inhabited deck behind the Axiom Chamber is dark.",
     hazardLabel: "Cold-wake damage",
@@ -473,11 +475,43 @@ export const MISSIONS = [
         lore: "Repetition becomes the first crew member: tireless, literal, and unable to ask why the ship was empty.",
       },
       {
+        kind: "tierPurchaseDelta",
+        tierIndex: 0,
+        target: 25,
+        label: "Restore the Ark's approach systems",
+        instruction: "Build 25 more Vacuum Taps to power guidance, life support, and the braking grid.",
+        lore: "The first restored guidance packet identifies Pelagos as a rescue destination, not an evacuation route.",
+      },
+      {
+        kind: "axiomProof",
+        lawIndex: 0,
+        target: 1,
+        label: "Prove the law of Containment",
+        instruction: "Charge the Law Press, then Recalibrate so the Ark's hull remains one object during insertion.",
+        lore: "Containment is the promise that a sealed hull, a living body, and a remembered name remain themselves under pressure.",
+      },
+      {
+        kind: "axiomProof",
+        lawIndex: 1,
+        target: 1,
+        label: "Prove the law of Conservation",
+        instruction: "Charge the next cycle, then Recalibrate so air, water, power, and momentum cannot change without cause.",
+        lore: "Conservation prevents the Null from editing the Ark's ledgers while nobody is looking.",
+      },
+      {
+        kind: "axiomProof",
+        lawIndex: 2,
+        target: 1,
+        label: "Prove the law of Transit",
+        instruction: "Charge one final cycle, then Recalibrate so the Ark arrives as the same vessel that departed.",
+        lore: "Transit is not speed. It is proof that departure, passage, and arrival belong to the same history.",
+      },
+      {
         kind: "contributeFlux",
-        target: 15_000,
-        label: "Brake into Pelagos orbit",
-        instruction: "Divert 15,000 Flux into propulsion and life-support wakeup.",
-        lore: "The maneuver also powers sealed quarters whose biometric log already contains an occupant ID.",
+        target: COLD_WAKE_APPROACH_RESERVE,
+        label: "Authorize Pelagos approach",
+        instruction: "Commit 250,000 Flux to the proven navigation solution and enter Pelagos orbit.",
+        lore: "Containment holds the hull, Conservation protects its reserves, and Transit keeps cause attached to arrival. Only now can the Ark descend safely.",
       },
     ],
     landingFlux: 100,
@@ -814,7 +848,7 @@ export function createInitialState(now = Date.now()): GameState {
     runUpgrades: RUN_UPGRADES.map(() => 0),
     legacyUpgrades: LEGACY_UPGRADES.map(() => 0),
     missions: {
-      schema: 3,
+      schema: 4,
       currentIndex: 0,
       stageIndex: 0,
       statuses: MISSIONS.map((_, index) =>
@@ -881,7 +915,7 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
     ? rawBaseline.tierBought
     : [];
   const sourceVersion = Math.floor(readNumber(value.version, 1, SAVE_VERSION));
-  const missionSchema = Math.floor(readNumber(rawMissions.schema, 0, 3));
+  const missionSchema = Math.floor(readNumber(rawMissions.schema, 0, 4));
   const hasExpandedCampaign = sourceVersion >= 3 && missionSchema >= 2;
   const expandedCampaignIndex = Math.min(
     MISSIONS.length,
@@ -928,8 +962,10 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
   const currentMissionIndex = hasExpandedCampaign
     ? expandedCampaignIndex
     : 0;
+  const migratesColdWakeSequence = missionSchema < 4 && currentMissionIndex === 0;
   const awaitingAcknowledgement =
     hasExpandedCampaign &&
+    !migratesColdWakeSequence &&
     rawMissions.awaitingAcknowledgement === true &&
     currentMissionIndex < MISSIONS.length;
   const missionStatuses: MissionStatus[] = MISSIONS.map((_, index) => {
@@ -946,12 +982,15 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
   ).length;
   const activeStageCount =
     MISSIONS[currentMissionIndex]?.stages.length ?? 1;
-  const stageIndex = hasExpandedCampaign
+  const loadedStageIndex = hasExpandedCampaign
     ? Math.min(
         activeStageCount - 1,
         Math.floor(readNumber(rawMissions.stageIndex, 0, activeStageCount - 1)),
       )
     : 0;
+  const stageIndex = migratesColdWakeSequence && loadedStageIndex >= 2
+    ? 2
+    : loadedStageIndex;
   const baseline: MissionBaseline = hasExpandedCampaign
     ? {
         manualPulses: Math.floor(
@@ -1045,7 +1084,7 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
     runUpgrades,
     legacyUpgrades,
     missions: {
-      schema: 3,
+      schema: 4,
       currentIndex: currentMissionIndex,
       stageIndex,
       statuses: missionStatuses,
@@ -1054,7 +1093,7 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
       holdTime: hasExpandedCampaign
         ? readNumber(rawMissions.holdTime, 0, 1e9)
         : 0,
-      contributedFlux: hasExpandedCampaign
+      contributedFlux: hasExpandedCampaign && !migratesColdWakeSequence
         ? readNumber(rawMissions.contributedFlux)
         : 0,
       baseline,
@@ -4016,6 +4055,14 @@ export function getMissionProgress(
       break;
     case "resonanceHold":
       value = state.missions.holdTime;
+      break;
+    case "axiomProof":
+      value = state.lifetimeAxioms > stage.lawIndex
+        ? 1
+        : Math.min(
+            0.99,
+            state.runFlux / Math.max(1, getRecalibrationThreshold(state)),
+          );
       break;
     case "recalibrateGain":
       value =
