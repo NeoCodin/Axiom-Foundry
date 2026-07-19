@@ -55,12 +55,23 @@ test("Cold Wake stays on one Core Deck even after automation begins", () => {
   state.settlement.currentWorldId = "pelagos";
   disclosure = getProgressiveDisclosure(state);
   assert.equal(disclosure.engineering, true);
-  assert.equal(disclosure.population, false);
+  assert.equal(disclosure.population, true);
   assert.equal(disclosure.research, false);
 
   state.survivors.beaconOnline = true;
   disclosure = getProgressiveDisclosure(state);
   assert.equal(disclosure.population, true);
+});
+
+test("Pelagos reveals Personnel before the first beacon so life support cannot deadlock", () => {
+  const state = setTutorialComplete(createInitialState(0), true);
+  state.missions.currentIndex = 1;
+  state.missions.statuses = ["saved", "active", "locked", "locked", "locked", "locked"];
+  state.settlement.completedWorldIds = ["cold-wake"];
+  state.settlement.currentWorldId = "pelagos";
+  assert.equal(state.survivors.beaconOnline, false);
+  assert.equal(state.survivors.survivors.length, 0);
+  assert.equal(getProgressiveDisclosure(state).population, true);
 });
 
 test("Cold Wake law proofs route back to the visible Law Press", () => {

@@ -111,6 +111,12 @@ export function createQaCheckpoint(worldIndex: number, now = Date.now()): GameSt
   const researchIds = completedResearchForWorld(index);
   const stockedInputs = Object.fromEntries(RESEARCH_INPUT_IDS.map((id) => [id, 250_000])) as GameState["researchStock"];
   const survivors = createQaCrew(index);
+  const startingTiers = GENERATORS.map((_, tierIndex) => {
+    const bought = index > 0 && tierIndex === 0 ? 25 : 0;
+    return { amount: bought, bought };
+  });
+  const startingAxioms = index === 0 ? 0 : 250;
+  const startingCycle = index === 0 ? 1 : 8;
 
   return sanitizeGameState({
     ...base,
@@ -118,16 +124,14 @@ export function createQaCheckpoint(worldIndex: number, now = Date.now()): GameSt
     maxFlux: QA_RESOURCE_GRANT,
     runFlux: QA_RESOURCE_GRANT,
     allTimeFlux: QA_RESOURCE_GRANT,
-    axioms: 250,
-    lifetimeAxioms: 250,
+    axioms: startingAxioms,
+    lifetimeAxioms: startingAxioms,
     stellarRelays: index,
-    cycle: 8,
-    manualPulses: 5_000,
-    tiers: GENERATORS.map((_, tierIndex) => ({
-      amount: index === 0 && tierIndex > 1 ? 0 : 150 + index * 25,
-      bought: index === 0 && tierIndex > 1 ? 0 : 150 + index * 25,
-    })),
-    runUpgrades: RUN_UPGRADES.map((upgrade) => upgrade.maxLevel),
+    cycle: startingCycle,
+    manualPulses: 0,
+    researchPurchases: 0,
+    tiers: startingTiers,
+    runUpgrades: RUN_UPGRADES.map(() => 0),
     legacyUpgrades: LEGACY_UPGRADES.map(() => 5),
     missions: {
       ...base.missions,
@@ -135,11 +139,12 @@ export function createQaCheckpoint(worldIndex: number, now = Date.now()): GameSt
       statuses: MISSIONS.map((_, missionIndex) => missionIndex < index ? "saved" : missionIndex === index ? "active" : "locked"),
       worldsSaved: index,
       baseline: {
-        manualPulses: 5_000,
-        tierBought: GENERATORS.map(() => 150),
-        researchLevels: RUN_UPGRADES.reduce((total, upgrade) => total + upgrade.maxLevel, 0),
-        cycle: 8,
-        lifetimeAxioms: 250,
+        manualPulses: 0,
+        tierBought: startingTiers.map((tier) => tier.bought),
+        researchLevels: 0,
+        researchPurchases: 0,
+        cycle: startingCycle,
+        lifetimeAxioms: startingAxioms,
       },
     },
     living: {

@@ -33,7 +33,9 @@ export function getProgressiveDisclosure(state: GameState): ProgressiveDisclosur
     state.expeditions.stranded !== null ||
     state.expeditions.stats.completed > 0;
   const population =
-    state.survivors.beaconOnline || state.survivors.survivors.length > 0;
+    worldIndex >= 1 ||
+    state.survivors.beaconOnline ||
+    state.survivors.survivors.length > 0;
   const pelagosFieldWorkReady =
     state.survivors.survivors.length >= 3 &&
     state.research.completedProjectIds.includes("closed-loop-atmosphere");

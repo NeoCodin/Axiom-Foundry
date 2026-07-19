@@ -8,6 +8,7 @@ import {
   RUN_UPGRADES,
   SAVE_KEY,
   buyTier,
+  buyRunUpgrade,
   contributeToMission,
   createInitialState,
   departCurrentWorld,
@@ -36,6 +37,8 @@ import {
   getResearchPowerAvailable,
   getResearchFieldValidation,
   getRecalibrationThreshold,
+  getRecalibrationGain,
+  getMissionProgress,
   getProfileElevationQuote,
   elevateCrewProfile,
   getTierCost,
@@ -235,9 +238,10 @@ test("Pelagos Brine Sickness names every gate and unlocks only when all are read
 });
 
 test("manual tuning bootstraps a new cycle", () => {
-  let state = createInitialState(0);
-  for (let index = 0; index < 10; index += 1) state = pulseCore(state);
-  assert.ok(state.flux >= 10);
+  let state = setTutorialComplete(createInitialState(0), true);
+  for (let index = 0; index < 12; index += 1) state = pulseCore(state);
+  state = simulateGame(state, 0.1, 1);
+  assert.equal(state.missions.stageIndex, 1);
   const built = buyTier(state, 0, "1");
   assert.equal(built.tiers[0].bought, 1);
   assert.ok(built.flux >= 0);
@@ -245,6 +249,7 @@ test("manual tuning bootstraps a new cycle", () => {
 
 test("an exact-price purchase succeeds without negative Flux", () => {
   const state = createInitialState(0);
+  state.missions.stageIndex = 1;
   state.maxFlux = 10;
   state.flux = getTierCost(state, 0, 1);
   const next = buyTier(state, 0, "1");
@@ -254,12 +259,14 @@ test("an exact-price purchase succeeds without negative Flux", () => {
 
 test("buy max matches repeated single purchases", () => {
   const maxState = createInitialState(0);
+  maxState.missions.stageIndex = 1;
   maxState.flux = 1_000_000;
   maxState.maxFlux = 1_000_000;
   const expectedCount = getMaxAffordableCount(maxState, 0);
   const maxBought = buyTier(maxState, 0, "max");
 
   let singles = createInitialState(0);
+  singles.missions.stageIndex = 1;
   singles.flux = 1_000_000;
   singles.maxFlux = 1_000_000;
   for (let index = 0; index < expectedCount; index += 1) {
@@ -510,7 +517,55 @@ test("Cold Wake proves its approach systems and three laws before revealing the 
   assert.equal(getCampaignWorldIndex(waiting), 0);
 });
 
-test("old Cold Wake approach saves migrate back before systems and law proofs", () => {
+test("Cold Wake cannot fabricate before strike twelve or prove multiple laws in one Recalibration", () => {
+  let state = setTutorialComplete(createInitialState(0), true);
+  state.flux = 1_000_000;
+  state.maxFlux = 1_000_000;
+  state.manualPulses = 11;
+  assert.strictEqual(buyTier(state, 0, "1"), state);
+
+  state.manualPulses = 12;
+  state = simulateGame(state, 0.1, 1);
+  assert.equal(state.missions.stageIndex, 1);
+  assert.notStrictEqual(buyTier(state, 0, "1"), state);
+
+  state.missions.stageIndex = 3;
+  state.missions.baseline.cycle = state.cycle;
+  state.missions.baseline.lifetimeAxioms = state.lifetimeAxioms;
+  state.runFlux = getRecalibrationThreshold(state) * 1_000_000;
+  assert.equal(getRecalibrationGain(state), 1);
+  state = recalibrate(state, 1_000);
+  state = simulateGame(state, 0.1, 1);
+  assert.equal(state.lifetimeAxioms, 1);
+  assert.equal(state.missions.stageIndex, 4);
+});
+
+test("Run Research directives count lifetime purchases and remain possible after a maxed cycle", () => {
+  let state = setTutorialComplete(createInitialState(0), true);
+  state.missions.currentIndex = 1;
+  state.missions.stageIndex = 1;
+  state.missions.statuses = ["saved", "active", "locked", "locked", "locked", "locked"];
+  state.settlement.currentWorldId = "pelagos";
+  state.settlement.completedWorldIds = ["cold-wake"];
+  state.runUpgrades = RUN_UPGRADES.map((upgrade) => upgrade.maxLevel);
+  state.researchPurchases = state.runUpgrades.reduce((sum, level) => sum + level, 0);
+  state.missions.baseline.researchLevels = state.researchPurchases;
+  state.missions.baseline.researchPurchases = state.researchPurchases;
+  assert.equal(getMissionProgress(state).value, 0);
+
+  state.runFlux = getRecalibrationThreshold(state);
+  state = recalibrate(state, 2_000);
+  assert.ok(state.runUpgrades.every((level) => level === 0));
+  state.flux = 1_000_000;
+  state.maxFlux = 1_000_000;
+  state = buyRunUpgrade(state, 0);
+  state = buyRunUpgrade(state, 0);
+  assert.equal(getMissionProgress(state).value, 2);
+  state = simulateGame(state, 0.1, 1);
+  assert.equal(state.missions.stageIndex, 2);
+});
+
+test("old Cold Wake approach saves migrate back before systems and law proofs without losing committed Flux", () => {
   const old = setTutorialComplete(createInitialState(0), true);
   old.missions.schema = 3;
   old.missions.stageIndex = 2;
@@ -521,11 +576,12 @@ test("old Cold Wake approach saves migrate back before systems and law proofs", 
   old.missions.baseline.tierBought[0] = 25;
 
   const migrated = sanitizeGameState(old, 1_000);
-  assert.equal(migrated.missions.schema, 4);
+  assert.equal(migrated.missions.schema, 5);
   assert.equal(migrated.missions.stageIndex, 2);
   assert.equal(migrated.missions.awaitingAcknowledgement, false);
   assert.equal(migrated.missions.statuses[0], "active");
   assert.equal(migrated.missions.contributedFlux, 0);
+  assert.equal(migrated.flux, 15_000);
 });
 
 test("Cold Wake departure requires the full Ark-readiness forecast", () => {
@@ -542,6 +598,35 @@ test("Cold Wake departure requires the full Ark-readiness forecast", () => {
   assert.equal(departure.state.missions.statuses[0], "saved");
   assert.equal(departure.state.missions.currentIndex, 1);
   assert.equal(departure.state.survivors.survivors.length, 0);
+});
+
+test("departure waits for every off-ship obligation instead of carrying it across worlds", () => {
+  const state = setTutorialComplete(createInitialState(0), true);
+  state.missions.awaitingAcknowledgement = true;
+  state.lifetimeAxioms = 3;
+  state.expeditions.active = {
+    siteId: "pelagos-survey",
+    worldId: "cold-wake",
+    crewIds: [],
+    startedAtSeconds: 0,
+    durationSeconds: 60,
+    strength: 0,
+    loadout: [],
+    injuryMultipliers: {},
+    bioadaptationStrengthBonus: 0,
+    bioadaptationDurationMultiplier: 1,
+    kind: "expedition",
+  };
+  assert.equal(departCurrentWorld(state, 1_000).reason, "expedition-active");
+  state.expeditions.active = null;
+  state.expeditions.stranded = {
+    siteId: "pelagos-survey",
+    worldId: "cold-wake",
+    crewIds: [],
+    loadout: [],
+    strandedAtSeconds: 0,
+  };
+  assert.equal(departCurrentWorld(state, 1_000).reason, "crew-stranded");
 });
 
 test("campaign work waits during transit and begins only after automatic arrival", () => {
@@ -700,7 +785,7 @@ test("v3 timed saves recover lost worlds under the untimed campaign", () => {
   }, 100);
 
   assert.equal(migrated.version, 12);
-  assert.equal(migrated.missions.schema, 4);
+  assert.equal(migrated.missions.schema, 5);
   assert.deepEqual(migrated.missions.statuses.slice(0, 4), [
     "saved",
     "saved",
@@ -1011,6 +1096,14 @@ test("rescues cost Flux and Survivor Duty automates them when qualified", () => 
   state.living.salvage = 1_000_000;
   const sim = simulateGame(state, 120, 240, false);
   assert.ok(sim.survivors.activeSignal, "first scan fires fast");
+  sim.transit = beginTransit(sim.transit, "pelagos", "viridia", 0, false, 500);
+  assert.equal(getArkRescueQuote(sim).reason, "transit");
+  sim.transit.active = null;
+  assert.equal(
+    departCurrentWorld(sim, 1_000).reason,
+    "survivor-signal-pending",
+    "the Ark must resolve a persistent signal before leaving its orbit",
+  );
 
   // Flux gate blocks the launch even when Salvage is plentiful.
   sim.flux = 0;

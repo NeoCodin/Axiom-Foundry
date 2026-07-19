@@ -56,6 +56,7 @@ export type SettlementConsoleProps = {
   supplyQuotes: Readonly<Record<string, ContinuityActionQuote>>;
   equipmentQuotes: Readonly<Record<string, ContinuityActionQuote>>;
   crisisQuotes: Readonly<Record<string, ContinuityActionQuote>>;
+  departureHold: string | null;
   pendingTransmission: { colonyName: string; transmission: string } | null;
   planetaryDefense: PlanetaryDefenseState;
   planetaryDefenseActive: boolean;
@@ -145,6 +146,7 @@ function SettlementConsole({
   supplyQuotes,
   equipmentQuotes,
   crisisQuotes,
+  departureHold,
   pendingTransmission,
   planetaryDefense,
   planetaryDefenseActive,
@@ -374,10 +376,11 @@ function SettlementConsole({
         </section>
 
         <section className="continuity-panel departure-panel">
-          <header><div><span>DEPARTURE AUTHORITY</span><h3>{forecast.canDepart ? `AXIOM may leave ${world.name}` : `The Ark is still needed at ${world.name}`}</h3></div><small>{world.continuityProtocolExcerpt}</small></header>
+          <header><div><span>DEPARTURE AUTHORITY</span><h3>{forecast.canDepart && !departureHold ? `AXIOM may leave ${world.name}` : `The Ark is still needed at ${world.name}`}</h3></div><small>{world.continuityProtocolExcerpt}</small></header>
           <blockquote>{world.departureQuestion}</blockquote>
+          {departureHold && <p className="crew-rarity-note"><strong>DEPARTURE HOLD:</strong> {departureHold}</p>}
           {world.settlementRequired && <input className="colony-name-input" value={colonyName} maxLength={64} onChange={(event) => setColonyName(event.target.value)} aria-label="Settlement name" />}
-          <button className="settlement-action" type="button" disabled={!forecast.canDepart} onClick={() => onDepart(colonyName)}>{world.settlementRequired ? `Establish settlement and depart ${world.name}` : "Commit Pelagos orbital insertion"}</button>
+          <button className="settlement-action" type="button" disabled={!forecast.canDepart || Boolean(departureHold)} onClick={() => onDepart(colonyName)}>{world.settlementRequired ? `Establish settlement and depart ${world.name}` : "Commit Pelagos orbital insertion"}</button>
         </section>
         </div>
       </div>

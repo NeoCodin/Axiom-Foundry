@@ -44,6 +44,7 @@ import {
   sanitizeExpeditionState,
 } from "../app/expedition-engine.ts";
 import { CAMPAIGN_WORLDS } from "../app/campaign-content.ts";
+import { beginTransit } from "../app/transit-engine.ts";
 
 function cinderStateWithCrew() {
   const state = setTutorialComplete(createInitialState(0), true);
@@ -531,6 +532,15 @@ test("distress strands the party stable forever; rescue brings everyone home", (
     })),
   });
   const readyState = { ...later, survivors: strongRescue };
+  const inTransit = {
+    ...readyState,
+    settlement: { ...readyState.settlement, currentWorldId: null },
+    transit: beginTransit(readyState.transit, "cinder", "nox", 0, false, 1_000),
+  };
+  assert.equal(
+    getRescueMissionQuote(inTransit, ["scout-3", "scout-4"]).reason,
+    "transit",
+  );
   const rescueQuote = getRescueMissionQuote(readyState, ["scout-3", "scout-4"]);
   assert.equal(rescueQuote.canLaunch, true);
   assert.equal(rescueQuote.projectedExtraction, "clean");

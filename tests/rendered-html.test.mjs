@@ -93,7 +93,7 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(lawHeart, /Three laws for Pelagos/);
   assert.match(lawHeart, /APPROACH_SYSTEMS/);
   assert.match(lawHeart, /COMMIT.*FLUX/);
-  assert.match(lawHeart, /Build the approach reserve at your pace/);
+  assert.match(lawHeart, /Every commitment is permanent and counts toward approach/);
   assert.match(page, /<LoreArchive/);
   assert.match(page, /unlockedLoreIds/);
   assert.match(page, /archive\.public\.null-tide/);

@@ -811,6 +811,13 @@ export default function Home() {
     surfaceRecon.multiplier,
   );
   const viabilityForecast = getCurrentViabilityForecast(game);
+  const departureHold = game.expeditions.active
+    ? "An expedition is still away. Wait for its automatic return."
+    : game.expeditions.stranded
+      ? "A stranded party is waiting. Launch a rescue or make the explicit abandonment decision."
+      : game.survivors.activeSignal
+        ? "A persistent survivor signal is waiting in this orbit. Rescue or decline it before departure."
+        : null;
   const campaignCrew = getCampaignCrewSummaries(game);
   const researchPowerAvailable = getResearchPowerAvailable(game);
   const researchCrewAvailable = getResearchCrewAvailable(game);
@@ -1795,7 +1802,15 @@ export default function Home() {
     const current = gameRef.current;
     const result = departCurrentWorld(current, Date.now(), colonyName);
     if (!result.ok) {
-      setAnnouncement("Departure denied. The continuity forecast still lists required work or founders.");
+      setAnnouncement(
+        result.reason === "expedition-active"
+          ? "Departure paused. An expedition is still away from the Ark; wait for its automatic return."
+          : result.reason === "crew-stranded"
+            ? "Departure paused. A stranded party is still waiting for rescue or an explicit abandonment decision."
+            : result.reason === "survivor-signal-pending"
+              ? "Departure paused. Resolve the persistent survivor signal before leaving this orbit."
+              : "Departure denied. The continuity forecast still lists required work or founders.",
+      );
       return;
     }
     commitGameState(
@@ -2271,7 +2286,9 @@ export default function Home() {
             rescueCost: game.survivors.activeSignal.rescueCost,
             canRescue: rescueQuote.canRescue,
             blockedReason:
-              rescueQuote.reason === "berths"
+              rescueQuote.reason === "transit"
+                ? "Rescue launches resume after orbital arrival."
+                : rescueQuote.reason === "berths"
                 ? "Build another quarters section first."
                 : rescueQuote.reason === "life-support"
                   ? "Expand life-support capacity first."
@@ -2532,6 +2549,7 @@ export default function Home() {
           supplyQuotes={supplyQuotes}
           equipmentQuotes={equipmentQuotes}
           crisisQuotes={crisisQuotes}
+          departureHold={departureHold}
           pendingTransmission={pendingColonyTransmission ? {
             colonyName: pendingColonyTransmission.colonyName,
             transmission: pendingColonyTransmission.transmission,

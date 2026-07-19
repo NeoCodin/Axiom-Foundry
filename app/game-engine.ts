@@ -258,6 +258,7 @@ export type MissionBaseline = {
   manualPulses: number;
   tierBought: number[];
   researchLevels: number;
+  researchPurchases: number;
   cycle: number;
   lifetimeAxioms: number;
 };
@@ -303,6 +304,8 @@ export type GameState = {
   bioadaptation: BioadaptationState;
   settings: GameSettings;
   manualPulses: number;
+  /** Lifetime count of purchased Run Research levels, including prior cycles. */
+  researchPurchases: number;
   playTime: number;
   runTime: number;
   autoTimer: number;
@@ -704,7 +707,7 @@ export const MISSIONS = [
         kind: "contributeFlux",
         target: 10_000_000_000_000,
         label: "Publish the shared record",
-        instruction: "Divert 25 trillion Flux into Nox's open archive relay.",
+        instruction: "Divert 10 trillion Flux into Nox's open archive relay.",
         lore: "The record is copied into every settlement. AXIOM can no longer edit one truth in silence.",
       },
     ],
@@ -745,7 +748,7 @@ export const MISSIONS = [
         kind: "contributeFlux",
         target: 500_000_000_000_000,
         label: "Charge the ark's law chamber",
-        instruction: "Divert 2 quadrillion Flux into Vesper's law chamber.",
+        instruction: "Divert 500 trillion Flux into Vesper's law chamber.",
         lore: "Vesper stores the work of an entire fabrication cycle as a question waiting for an answer.",
       },
       {
@@ -789,6 +792,7 @@ const emptyMissionBaseline = (cycle = 1): MissionBaseline => ({
   manualPulses: 0,
   tierBought: GENERATORS.map(() => 0),
   researchLevels: 0,
+  researchPurchases: 0,
   cycle,
   lifetimeAxioms: 0,
 });
@@ -829,6 +833,7 @@ const captureMissionBaseline = (state: GameState): MissionBaseline => ({
   manualPulses: state.manualPulses,
   tierBought: state.tiers.map((tier) => tier.bought),
   researchLevels: getResearchLevelTotal(state),
+  researchPurchases: state.researchPurchases,
   cycle: state.cycle,
   lifetimeAxioms: state.lifetimeAxioms,
 });
@@ -848,7 +853,7 @@ export function createInitialState(now = Date.now()): GameState {
     runUpgrades: RUN_UPGRADES.map(() => 0),
     legacyUpgrades: LEGACY_UPGRADES.map(() => 0),
     missions: {
-      schema: 4,
+      schema: 5,
       currentIndex: 0,
       stageIndex: 0,
       statuses: MISSIONS.map((_, index) =>
@@ -881,6 +886,7 @@ export function createInitialState(now = Date.now()): GameState {
       tutorialComplete: false,
     },
     manualPulses: 0,
+    researchPurchases: 0,
     playTime: 0,
     runTime: 0,
     autoTimer: 0,
@@ -915,7 +921,7 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
     ? rawBaseline.tierBought
     : [];
   const sourceVersion = Math.floor(readNumber(value.version, 1, SAVE_VERSION));
-  const missionSchema = Math.floor(readNumber(rawMissions.schema, 0, 4));
+  const missionSchema = Math.floor(readNumber(rawMissions.schema, 0, 5));
   const hasExpandedCampaign = sourceVersion >= 3 && missionSchema >= 2;
   const expandedCampaignIndex = Math.min(
     MISSIONS.length,
@@ -947,7 +953,11 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
   const legacyUpgrades = LEGACY_UPGRADES.map((_, index) =>
     Math.floor(readNumber(rawLegacy[index], 0, 1_000)),
   );
-  const flux = readNumber(value.flux);
+  const migratedColdWakeContribution =
+    hasExpandedCampaign && missionSchema < 4 && expandedCampaignIndex === 0
+      ? readNumber(rawMissions.contributedFlux)
+      : 0;
+  const flux = safeAdd(readNumber(value.flux), migratedColdWakeContribution);
   const maxFlux = Math.max(flux, readNumber(value.maxFlux));
   const runFlux = readNumber(value.runFlux);
   const allTimeFlux = Math.max(runFlux, readNumber(value.allTimeFlux));
@@ -959,6 +969,13 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
     Math.floor(readNumber(value.lifetimeAxioms, 0, 1e15)) +
     recoveredFinalAxiom;
   const manualPulses = Math.floor(readNumber(value.manualPulses, 0, 1e15));
+  const researchPurchases = Math.floor(
+    readNumber(
+      value.researchPurchases,
+      runUpgrades.reduce((sum, level) => sum + level, 0),
+      1e15,
+    ),
+  );
   const currentMissionIndex = hasExpandedCampaign
     ? expandedCampaignIndex
     : 0;
@@ -1012,6 +1029,13 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
             1_000,
           ),
         ),
+        researchPurchases: Math.floor(
+          readNumber(
+            rawBaseline.researchPurchases,
+            readNumber(rawBaseline.researchLevels, researchPurchases, 1e15),
+            1e15,
+          ),
+        ),
         cycle: Math.max(
           1,
           Math.floor(readNumber(rawBaseline.cycle, cycle, 1e9)),
@@ -1024,6 +1048,7 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
         manualPulses,
         tierBought: tiers.map((tier) => tier.bought),
         researchLevels: runUpgrades.reduce((sum, level) => sum + level, 0),
+        researchPurchases,
         cycle,
         lifetimeAxioms,
       };
@@ -1084,7 +1109,7 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
     runUpgrades,
     legacyUpgrades,
     missions: {
-      schema: 4,
+      schema: 5,
       currentIndex: currentMissionIndex,
       stageIndex,
       statuses: missionStatuses,
@@ -1127,6 +1152,7 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
       tutorialComplete: rawSettings.tutorialComplete === true,
     },
     manualPulses,
+    researchPurchases,
     playTime: readNumber(value.playTime, 0, 1e12),
     runTime: readNumber(value.runTime, 0, 1e12),
     autoTimer: readNumber(value.autoTimer, 0, 60),
@@ -1833,7 +1859,7 @@ export type ArkRescueQuote = {
   canRescue: boolean;
   salvageCost: number;
   fluxCost: number;
-  reason: "no-signal" | "roster-full" | "berths" | "life-support" | "salvage" | "flux" | null;
+  reason: "transit" | "no-signal" | "roster-full" | "berths" | "life-support" | "salvage" | "flux" | null;
 };
 
 export function getArkRescueQuote(state: GameState): ArkRescueQuote {
@@ -1843,6 +1869,14 @@ export function getArkRescueQuote(state: GameState): ArkRescueQuote {
     getResearchBonuses(state.research).habitationCapacityMultiplier,
   );
   const fluxCost = getRescueFluxCost(state);
+  if (state.transit.active && state.survivors.activeSignal) {
+    return {
+      canRescue: false,
+      salvageCost: readiness.cost,
+      fluxCost,
+      reason: "transit",
+    };
+  }
   if (!readiness.canRescue) {
     return {
       canRescue: false,
@@ -2984,6 +3018,7 @@ export type RescueMissionQuote = {
   fluxCost: number;
   canLaunch: boolean;
   reason:
+    | "transit"
     | "no-stranded"
     | "busy"
     | "crew-count"
@@ -3022,6 +3057,7 @@ export function getRescueMissionQuote(
     loadout: [],
   });
   if (!stranded || !site) return blocked("no-stranded");
+  if (state.transit.active) return blocked("transit");
   if (state.expeditions.active) return blocked("busy");
   const unique = [...new Set(crewIds)];
   if (unique.length < MIN_EXPEDITION_CREW || unique.length > MAX_EXPEDITION_CREW) {
@@ -3802,6 +3838,33 @@ export function departCurrentWorld(
       nextWorldId: null,
     };
   }
+  if (state.expeditions.active) {
+    return {
+      state,
+      ok: false,
+      reason: "expedition-active",
+      departedWorldId: worldId,
+      nextWorldId: worldId,
+    };
+  }
+  if (state.expeditions.stranded) {
+    return {
+      state,
+      ok: false,
+      reason: "crew-stranded",
+      departedWorldId: worldId,
+      nextWorldId: worldId,
+    };
+  }
+  if (state.survivors.activeSignal) {
+    return {
+      state,
+      ok: false,
+      reason: "survivor-signal-pending",
+      departedWorldId: worldId,
+      nextWorldId: worldId,
+    };
+  }
   const crew = getCampaignCrewSummaries(state);
   const result = establishSettlementAndDepart(
     state.settlement,
@@ -4046,8 +4109,8 @@ export function getMissionProgress(
     case "researchDelta":
       value = Math.max(
         0,
-        getResearchLevelTotal(state) -
-          state.missions.baseline.researchLevels,
+        state.researchPurchases -
+          state.missions.baseline.researchPurchases,
       );
       break;
     case "contributeFlux":
@@ -4057,7 +4120,8 @@ export function getMissionProgress(
       value = state.missions.holdTime;
       break;
     case "axiomProof":
-      value = state.lifetimeAxioms > stage.lawIndex
+      value = state.cycle > state.missions.baseline.cycle &&
+        state.lifetimeAxioms > state.missions.baseline.lifetimeAxioms
         ? 1
         : Math.min(
             0.99,
@@ -4330,6 +4394,13 @@ export function getPurchaseQuantity(
   index: number,
   mode: PurchaseMode,
 ) {
+  if (
+    state.missions.currentIndex === 0 &&
+    state.missions.stageIndex === 0 &&
+    index === 0
+  ) {
+    return 0;
+  }
   if (!isTierUnlocked(state, index)) return 0;
   if (mode === "max") return getMaxAffordableCount(state, index);
   const quantity = mode === "10" ? 10 : 1;
@@ -4366,6 +4437,7 @@ export function buyRunUpgrade(state: GameState, index: number) {
   const next = cloneGameState(state);
   next.flux = Math.max(0, next.flux - cost);
   next.runUpgrades[index] += 1;
+  next.researchPurchases += 1;
   return next;
 }
 
@@ -4381,12 +4453,18 @@ export function buyLegacyUpgrade(state: GameState, index: number) {
 export function getRecalibrationGain(state: GameState) {
   const threshold = getRecalibrationThreshold(state);
   if (state.runFlux < threshold) return 0;
-  return Math.max(
+  const gain = Math.max(
     1,
     Math.floor(
       safePower(state.runFlux / threshold, 0.3),
     ),
   );
+  const provingColdWakeLaw =
+    state.missions.currentIndex === 0 &&
+    state.missions.stageIndex >= 3 &&
+    state.missions.stageIndex <= 5 &&
+    !state.missions.awaitingAcknowledgement;
+  return provingColdWakeLaw ? 1 : gain;
 }
 
 export function getRecalibrationThreshold(state: GameState) {
@@ -4455,6 +4533,7 @@ export function recalibrate(state: GameState, now = Date.now()) {
     autoTiers: [...state.settings.autoTiers],
   };
   fresh.manualPulses = state.manualPulses;
+  fresh.researchPurchases = state.researchPurchases;
   fresh.playTime = state.playTime;
   const relics = getCampaignRelics(state);
   fresh.tiers[0].bought = Math.min(

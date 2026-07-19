@@ -87,6 +87,8 @@ export function AxiomLawHeart({
   const [confirmRecalibration, setConfirmRecalibration] = useState(false);
   const automationVisible = manualPulses >= 6 || machine.bought > 0;
   const recalibrationVisible = stageIndex >= 3 || lifetimeAxioms > 0;
+  const fabricationAuthorized = stageIndex >= 1;
+  const provenLawCount = Math.max(0, Math.min(3, stageIndex - 3));
   const pressState: LawPressState = recalibrationVisible && recalibrationGain > 0
     ? "law-ready"
     : machine.bought >= 25
@@ -169,7 +171,7 @@ export function AxiomLawHeart({
             manualPulses={manualPulses}
             pulseSerial={pulseSerial}
             recalibrationProgress={recalibrationProgress}
-            provenLaws={lifetimeAxioms}
+            provenLaws={provenLawCount}
             preparingRecalibration={confirmRecalibration}
           />
           <span className="law-heart-readout">
@@ -208,7 +210,7 @@ export function AxiomLawHeart({
           {contribution && (
             <div className="law-heart-contribution">
               <p><strong>{contribution.availableLabel} available</strong><span>{contribution.remainingLabel} still required</span></p>
-              <small>Build the approach reserve at your pace. Every commitment is saved; insertion begins only after the full reserve is secured.</small>
+              <small>Every commitment is permanent and counts toward approach, but committed Flux cannot buy more Taps. Keep enough in the Foundry to preserve the production pace you want.</small>
               <button type="button" disabled={!contribution.canContribute} onClick={onContribute}>
                 {contribution.canContribute ? `COMMIT ${contribution.divertLabel} FLUX` : "KEEP PRODUCING FLUX"}
               </button>
@@ -227,6 +229,7 @@ export function AxiomLawHeart({
           {automationVisible ? (
             <>
               <p>A Vacuum Tap repeats the press’s smallest motion. Installed units populate the surrounding hardware banks, route visible Flux packets, and add permanent idle output for this cycle.</p>
+              {!fabricationAuthorized && <p className="law-authorization-note">Complete all 12 manual strikes before AXIOM may fabricate the first Tap.</p>}
               <div className="law-machine-telemetry">
                 <span>Output <strong>{machine.outputLabel}/sec</strong></span>
                 <span>Next unit <strong>{machine.costLabel} Flux</strong></span>
@@ -238,7 +241,7 @@ export function AxiomLawHeart({
                   <button type="button" className={buyMode === "max" ? "active" : ""} aria-pressed={buyMode === "max"} disabled={lifetimeAxioms < 1} onClick={() => onSetBuyMode("max")}>MAX</button>
                 </div>
                 <button className="law-build-button" type="button" disabled={!machine.canBuy} onClick={onBuy}>
-                  BUILD {buyMode === "max" ? machine.quantity > 0 ? `x${machine.quantity}` : "MAX" : buyMode === "10" ? "x10" : "x1"}
+                  {!fabricationAuthorized ? "AWAITING STRIKE 12" : `BUILD ${buyMode === "max" ? machine.quantity > 0 ? `x${machine.quantity}` : "MAX" : buyMode === "10" ? "x10" : "x1"}`}
                 </button>
               </div>
             </>
@@ -248,13 +251,13 @@ export function AxiomLawHeart({
         </section>
 
         <section className={`law-heart-axioms ${recalibrationVisible ? "is-revealed" : "is-veiled"}`}>
-          <header><div><span>PORTABLE PHYSICS</span><h3>{recalibrationVisible ? "Three laws for Pelagos" : "Signal encrypted"}</h3></div><strong>{Math.min(3, lifetimeAxioms)}/3</strong></header>
+          <header><div><span>PORTABLE PHYSICS</span><h3>{recalibrationVisible ? "Three laws for Pelagos" : "Signal encrypted"}</h3></div><strong>{provenLawCount}/3</strong></header>
           {recalibrationVisible ? (
             <>
               <div className="law-slot-grid">
                 {LAW_NAMES.map((name, index) => (
-                  <div className={`${lifetimeAxioms > index ? "is-proven" : ""} ${stageIndex === index + 3 && lifetimeAxioms <= index ? "is-active" : ""}`} key={name}>
-                    <span>0{index + 1}</span><strong>{name}</strong><small>{lifetimeAxioms > index ? "STABLE" : stageIndex === index + 3 ? "ACTIVE PROOF" : "UNPROVEN"}</small>
+                  <div className={`${stageIndex > index + 3 ? "is-proven" : ""} ${stageIndex === index + 3 ? "is-active" : ""}`} key={name}>
+                    <span>0{index + 1}</span><strong>{name}</strong><small>{stageIndex > index + 3 ? "STABLE" : stageIndex === index + 3 ? "ACTIVE PROOF" : "UNPROVEN"}</small>
                     <p>{LAW_PURPOSES[index]}</p>
                   </div>
                 ))}

@@ -77,6 +77,7 @@ type RescueBlockGuidance = {
 function rescueBlockCopy(
   reason: ReturnType<typeof getArkRescueQuote>["reason"],
 ): RescueBlockGuidance {
+  if (reason === "transit") return { detail: "The survivor signal remains locked in the Ark's receiver during transit. No launch can cross an unfinished corridor.", missing: "Orbital arrival", nextAction: "Wait for automatic orbital arrival; the signal will remain available", actionLabel: "Open Navigation", target: "settlement" as const };
   if (reason === "roster-full") return { detail: "The Ark has reached its 48-person structural limit. The waiting signal never expires.", missing: "Open space below the 48-person Ark limit", nextAction: "Establish the prepared founding community", actionLabel: "Open Continuity forecast", target: "settlement" as const };
   if (reason === "berths") return { detail: "The group is safe on signal, but there is not enough completed living space.", missing: "Living-space capacity", nextAction: "Start one habitation-ring section", actionLabel: "Expand living space", target: "population" as const };
   if (reason === "life-support") return { detail: "The group is safe on signal. One highlighted atmosphere, water, nutrition, or medical reserve is below projected demand.", missing: "Safe life-support capacity", nextAction: "Upgrade the highlighted reserve", actionLabel: "Open life support", target: "population" as const };
