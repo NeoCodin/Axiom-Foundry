@@ -4451,6 +4451,12 @@ export function buyLegacyUpgrade(state: GameState, index: number) {
 }
 
 export function getRecalibrationGain(state: GameState) {
+  const provingColdWakeLaw =
+    state.missions.currentIndex === 0 &&
+    state.missions.stageIndex >= 3 &&
+    state.missions.stageIndex <= 5 &&
+    !state.missions.awaitingAcknowledgement;
+  if (state.missions.currentIndex === 0 && !provingColdWakeLaw) return 0;
   const threshold = getRecalibrationThreshold(state);
   if (state.runFlux < threshold) return 0;
   const gain = Math.max(
@@ -4459,11 +4465,6 @@ export function getRecalibrationGain(state: GameState) {
       safePower(state.runFlux / threshold, 0.3),
     ),
   );
-  const provingColdWakeLaw =
-    state.missions.currentIndex === 0 &&
-    state.missions.stageIndex >= 3 &&
-    state.missions.stageIndex <= 5 &&
-    !state.missions.awaitingAcknowledgement;
   return provingColdWakeLaw ? 1 : gain;
 }
 

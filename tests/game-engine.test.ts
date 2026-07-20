@@ -291,6 +291,9 @@ test("chunked and continuous production agree within simulation tolerance", () =
 
 test("recalibration grants the previewed Axiom and retains legacy progress", () => {
   const state = createInitialState(0);
+  state.missions.stageIndex = 3;
+  state.missions.baseline.cycle = state.cycle;
+  state.missions.baseline.lifetimeAxioms = state.lifetimeAxioms;
   state.runFlux = RECALIBRATION_THRESHOLD;
   state.maxFlux = RECALIBRATION_THRESHOLD;
   state.legacyUpgrades[0] = 2;
@@ -523,6 +526,8 @@ test("Cold Wake cannot fabricate before strike twelve or prove multiple laws in 
   state.maxFlux = 1_000_000;
   state.manualPulses = 11;
   assert.strictEqual(buyTier(state, 0, "1"), state);
+  state.runFlux = getRecalibrationThreshold(state) * 1_000_000;
+  assert.equal(getRecalibrationGain(state), 0, "Recalibration is unavailable before the law lesson");
 
   state.manualPulses = 12;
   state = simulateGame(state, 0.1, 1);
@@ -538,6 +543,13 @@ test("Cold Wake cannot fabricate before strike twelve or prove multiple laws in 
   state = simulateGame(state, 0.1, 1);
   assert.equal(state.lifetimeAxioms, 1);
   assert.equal(state.missions.stageIndex, 4);
+
+  state.missions.stageIndex = 6;
+  state.lifetimeAxioms = 3;
+  state.axioms = 3;
+  state.runFlux = getRecalibrationThreshold(state) * 1_000_000;
+  assert.equal(getRecalibrationGain(state), 0, "Cold Wake seals after the third portable law");
+  assert.strictEqual(recalibrate(state, 2_000), state);
 });
 
 test("Run Research directives count lifetime purchases and remain possible after a maxed cycle", () => {

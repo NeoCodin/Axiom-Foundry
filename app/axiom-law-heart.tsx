@@ -89,6 +89,10 @@ export function AxiomLawHeart({
   const recalibrationVisible = stageIndex >= 3 || lifetimeAxioms > 0;
   const fabricationAuthorized = stageIndex >= 1;
   const provenLawCount = Math.max(0, Math.min(3, stageIndex - 3));
+  const coldWakeLawSetComplete = stageIndex > 5;
+  const displayedRecalibrationProgress = coldWakeLawSetComplete
+    ? 1
+    : clamp(recalibrationProgress);
   const pressState: LawPressState = recalibrationVisible && recalibrationGain > 0
     ? "law-ready"
     : machine.bought >= 25
@@ -263,12 +267,12 @@ export function AxiomLawHeart({
                 ))}
               </div>
               <div className="law-recalibration-meter">
-                <span><strong>{recalibrationGain > 0 ? `${recalibrationGain} Axiom ready` : "Recalibration charging"}</strong><small>Target {recalibrationThresholdLabel} run Flux</small></span>
-                <div className="law-segment-track" role="progressbar" aria-label="Recalibration stability" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(clamp(recalibrationProgress) * 100)}><i style={{ width: `${clamp(recalibrationProgress) * 100}%` }} /></div>
+                <span><strong>{coldWakeLawSetComplete ? "Portable law set complete" : recalibrationGain > 0 ? `${recalibrationGain} Axiom ready` : "Recalibration charging"}</strong><small>{coldWakeLawSetComplete ? "Further Recalibration unlocks in Pelagos orbit" : `Target ${recalibrationThresholdLabel} run Flux`}</small></span>
+                <div className="law-segment-track" role="progressbar" aria-label="Recalibration stability" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(displayedRecalibrationProgress * 100)}><i style={{ width: `${displayedRecalibrationProgress * 100}%` }} /></div>
               </div>
               {!confirmRecalibration ? (
                 <button className="law-recalibrate-button" type="button" disabled={recalibrationGain < 1} onClick={() => setConfirmRecalibration(true)}>
-                  {recalibrationGain > 0 ? "PREPARE RECALIBRATION" : "LAW NOT YET STABLE"}
+                  {coldWakeLawSetComplete ? "RECALIBRATION SEALED UNTIL PELAGOS" : recalibrationGain > 0 ? "PREPARE RECALIBRATION" : "LAW NOT YET STABLE"}
                 </button>
               ) : (
                 <div className="law-confirm-row">
