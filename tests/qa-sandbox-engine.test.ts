@@ -36,6 +36,7 @@ test("QA checkpoints are isolated, valid campaign snapshots", () => {
     assert.equal(state.settlement.currentWorldId, worldId);
     assert.deepEqual(state.settlement.completedWorldIds, CAMPAIGN_WORLD_IDS.slice(0, index));
     assert.equal(state.settings.tutorialComplete, true);
+    assert.equal(state.settings.continuityIntroduced, true);
     assert.ok(state.flux > 0);
     assert.equal(state.missions.stageIndex, 0);
     assert.ok(state.runUpgrades.every((level) => level === 0));

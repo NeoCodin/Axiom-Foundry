@@ -179,6 +179,7 @@ export function createQaCheckpoint(worldIndex: number, now = Date.now()): GameSt
     settings: {
       ...base.settings,
       tutorialComplete: true,
+      continuityIntroduced: true,
       autoEnabled: true,
       autoUpgrades: true,
       buyMode: "max",

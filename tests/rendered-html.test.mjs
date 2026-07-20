@@ -82,6 +82,9 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(page, /from "\.\/game-engine"/);
   assert.match(page, /getCommandPriorities/);
   assert.match(page, /GameNavigation/);
+  assert.match(page, /The Planet tab is online/);
+  assert.match(page, /guidedView=.*settlement/);
+  assert.match(page, /setContinuityIntroduced/);
   assert.match(arkDeck, /Tune the Core/);
   assert.match(lawHeart, /AXIOM LAW-HEART/);
   assert.match(lawHeart, /LawPressCanvas/);
@@ -127,6 +130,8 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(pixelCss, /VT323/);
   assert.match(pixelCss, /image-rendering:\s*pixelated/);
   assert.match(pixelCss, /repeating-linear-gradient/);
+  assert.match(pixelCss, /\.destination-guide-card\s*\{/);
+  assert.match(pixelCss, /\.is-guided-destination/);
   assert.match(lawHeartCss, /.law-heart-core\s*\{/);
   assert.match(lawHeartCss, /steps\(/);
   assert.match(loreArchiveCss, /\.archive-tablet-body\s*\{/);

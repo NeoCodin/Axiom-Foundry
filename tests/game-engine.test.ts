@@ -46,6 +46,7 @@ import {
   pulseCore,
   recalibrate,
   sanitizeGameState,
+  setContinuityIntroduced,
   setTutorialComplete,
   simulateGame,
 } from "../app/game-engine.ts";
@@ -469,6 +470,26 @@ test("planetary directives do not expose countdown state", () => {
   const initial = createInitialState(0);
   assert.equal("timeLeft" in initial.missions, false);
   assert.equal("timeLimit" in MISSIONS[0], false);
+});
+
+test("the Planet destination introduction is a one-time persisted playthrough flag", () => {
+  const initial = createInitialState(0);
+  assert.equal(initial.settings.continuityIntroduced, false);
+
+  const introduced = setContinuityIntroduced(initial);
+  assert.equal(initial.settings.continuityIntroduced, false);
+  assert.equal(introduced.settings.continuityIntroduced, true);
+  assert.equal(
+    sanitizeGameState(introduced, 100).settings.continuityIntroduced,
+    true,
+  );
+
+  const legacy = JSON.parse(JSON.stringify(introduced));
+  delete legacy.settings.continuityIntroduced;
+  assert.equal(
+    sanitizeGameState(legacy, 100).settings.continuityIntroduced,
+    false,
+  );
 });
 
 test("Cold Wake proves its approach systems and three laws before revealing the orbital reserve", () => {

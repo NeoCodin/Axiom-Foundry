@@ -118,6 +118,7 @@ import {
   setAutoTier,
   setAutoUpgrades,
   setBuyMode,
+  setContinuityIntroduced,
   setTutorialComplete,
   simulateGame,
   type GameState,
@@ -397,6 +398,7 @@ export default function Home() {
   const activeSaveKeyRef = useRef(SAVE_KEY);
   const gameRef = useRef(game);
   const tourActionRef = useRef<HTMLButtonElement>(null);
+  const planetGuideActionRef = useRef<HTMLButtonElement>(null);
   const missionSignatureRef = useRef("");
   const stageSignatureRef = useRef("");
 
@@ -606,6 +608,20 @@ export default function Home() {
   const worldEffects = useMemo(() => getWorldEffects(game), [game]);
   const campaignWorldIndex = getCampaignWorldIndex(game);
   const disclosure = useMemo(() => getProgressiveDisclosure(game), [game]);
+  const planetIntroductionActive =
+    ready &&
+    !qaMode &&
+    game.settings.tutorialComplete &&
+    disclosure.settlement &&
+    !game.settings.continuityIntroduced &&
+    tourStep === null;
+  useEffect(() => {
+    if (!planetIntroductionActive) return;
+    document
+      .querySelector('[data-guided-destination="settlement"]')
+      ?.scrollIntoView({ behavior: "auto", block: "nearest", inline: "center" });
+    planetGuideActionRef.current?.focus();
+  }, [planetIntroductionActive]);
   useEffect(() => {
     if (!ready || primaryView === "deck") return;
     const viewIsUnlocked: Record<PrimaryView, boolean> = {
@@ -1925,6 +1941,30 @@ export default function Home() {
     setTourStep(0);
   };
 
+  const openPlanetIntroduction = () => {
+    const next = setContinuityIntroduced(gameRef.current);
+    gameRef.current = next;
+    setGame(next);
+    setPrimaryView("settlement");
+    setAnnouncement(
+      "Planet interface online. Continuity shows every remaining requirement and the final departure authority.",
+    );
+    window.setTimeout(() => persistGame("Planet introduction saved"), 0);
+  };
+
+  const handlePrimaryNavigation = (view: PrimaryView) => {
+    if (planetIntroductionActive) {
+      if (view === "settlement") openPlanetIntroduction();
+      else {
+        setAnnouncement(
+          "New destination waiting: open Planet to review the Continuity forecast.",
+        );
+      }
+      return;
+    }
+    setPrimaryView(view);
+  };
+
   const updateMode = (mode: PurchaseMode) => {
     setGame((current) => setBuyMode(current, mode));
   };
@@ -2130,7 +2170,7 @@ export default function Home() {
         onOpenLore={() => setLoreOpen(true)}
         onSave={() => persistGame("Saved")}
         onOpenDirective={() => {
-          if (navigationUnlocks.settlement) setPrimaryView("settlement");
+          if (navigationUnlocks.settlement) handlePrimaryNavigation("settlement");
           else setPrimaryView("deck");
         }}
         tooltipsEnabled={tooltipsEnabled}
@@ -2167,8 +2207,26 @@ export default function Home() {
       <GameNavigation
         currentView={primaryView}
         unlocks={navigationUnlocks}
-        onNavigate={setPrimaryView}
+        guidedView={planetIntroductionActive ? "settlement" : null}
+        onNavigate={handlePrimaryNavigation}
       />
+
+      {planetIntroductionActive && (
+        <>
+          <div className="destination-guide-scrim" aria-hidden="true" />
+          <section className="destination-guide-card" role="dialog" aria-modal="true" aria-labelledby="destination-guide-title" aria-describedby="destination-guide-description">
+            <div className="destination-guide-speaker">
+              <span aria-hidden="true">A</span>
+              <div><strong>AXIOM // INTERFACE HANDOFF</strong><small>New destination detected</small></div>
+            </div>
+            <p className="destination-guide-eyebrow">NEW DESTINATION // CONTINUITY</p>
+            <h2 id="destination-guide-title">The Planet tab is online</h2>
+            <p id="destination-guide-description">The Foundry has finished the work it can do alone. Planet shows every requirement that remains before the Ark may depart responsibly.</p>
+            <div className="destination-guide-note">Open it now to review Cold Wake and authorize Pelagos orbit. On later worlds, this same screen tracks infrastructure, crises, expeditions, research, and the founding community.</div>
+            <button ref={planetGuideActionRef} type="button" onClick={openPlanetIntroduction}>OPEN PLANET // CONTINUITY</button>
+          </section>
+        </>
+      )}
 
       {offlineNotice && (
         <section className="offline-banner" aria-label="Offline production summary">

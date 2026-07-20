@@ -18,6 +18,7 @@ export type NavigationUnlocks = {
 type GameNavigationProps = {
   currentView: PrimaryView;
   unlocks: NavigationUnlocks;
+  guidedView?: PrimaryView | null;
   onNavigate: (view: PrimaryView) => void;
 };
 
@@ -32,7 +33,7 @@ function groupForView(view: PrimaryView): NavigationGroup {
   return "ark";
 }
 
-export function GameNavigation({ currentView, unlocks, onNavigate }: GameNavigationProps) {
+export function GameNavigation({ currentView, unlocks, guidedView = null, onNavigate }: GameNavigationProps) {
   const activeGroup = groupForView(currentView);
   const mainSystemsAwake =
     1 +
@@ -60,14 +61,17 @@ export function GameNavigation({ currentView, unlocks, onNavigate }: GameNavigat
 
   return (
     <>
-      <nav className="living-foundry-nav primary-destinations" aria-label="Primary destinations">
-        {unlockedDestinations.map((destination) => (
+      <nav className={`living-foundry-nav primary-destinations ${guidedView ? "has-destination-guide" : ""}`} aria-label="Primary destinations">
+        {unlockedDestinations.map((destination) => {
+          const guided = destination.view === guidedView;
+          return (
           <button
-            className={activeGroup === destination.group ? "active" : ""}
+            className={`${activeGroup === destination.group ? "active" : ""} ${guided ? "is-guided-destination" : ""}`}
             type="button"
             aria-current={activeGroup === destination.group ? "page" : undefined}
             aria-label={`${destination.label}: ${destination.tooltip}`}
-            data-pixel-tooltip={destination.tooltip}
+            data-guided-destination={guided ? destination.view : undefined}
+            data-pixel-tooltip={guided ? "New destination: open the Continuity forecast now." : destination.tooltip}
             onClick={() => onNavigate(destination.view)}
             key={destination.view}
           >
@@ -76,8 +80,10 @@ export function GameNavigation({ currentView, unlocks, onNavigate }: GameNavigat
               <strong>{destination.label}</strong>
               <small>{destination.code}{" // "}{destination.detail}</small>
             </span>
+            {guided && <b className="nav-guide-label" aria-hidden="true">NEW // OPEN</b>}
           </button>
-        ))}
+          );
+        })}
         <div className="nav-awakening-status" data-pixel-tooltip="Destinations appear only when their systems wake. The interface expands gradually as AXIOM restores the Ark." tabIndex={0} aria-label={`${mainSystemsAwake} destinations awake. Destinations appear only when their systems wake.`} aria-live="polite">
           <span>{mainSystemsAwake}</span>
           <small>destinations awake</small>

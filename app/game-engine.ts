@@ -241,6 +241,7 @@ export type GameSettings = {
   autoUpgrades: boolean;
   autoTiers: boolean[];
   tutorialComplete: boolean;
+  continuityIntroduced: boolean;
 };
 
 export type MissionStatus = "locked" | "active" | "saved";
@@ -884,6 +885,7 @@ export function createInitialState(now = Date.now()): GameState {
       autoUpgrades: false,
       autoTiers: GENERATORS.map(() => true),
       tutorialComplete: false,
+      continuityIntroduced: false,
     },
     manualPulses: 0,
     researchPurchases: 0,
@@ -1150,6 +1152,7 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
         (_, index) => rawAutoTiers[index] !== false,
       ),
       tutorialComplete: rawSettings.tutorialComplete === true,
+      continuityIntroduced: rawSettings.continuityIntroduced === true,
     },
     manualPulses,
     researchPurchases,
@@ -5128,6 +5131,12 @@ export function setTutorialComplete(state: GameState, complete: boolean) {
       ),
     });
   }
+  return next;
+}
+
+export function setContinuityIntroduced(state: GameState, introduced = true) {
+  const next = cloneGameState(state);
+  next.settings.continuityIntroduced = introduced;
   return next;
 }
 
