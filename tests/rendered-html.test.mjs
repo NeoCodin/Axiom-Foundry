@@ -85,6 +85,7 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(page, /The Planet tab is online/);
   assert.match(page, /guidedView=.*settlement/);
   assert.match(page, /setContinuityIntroduced/);
+  assert.match(page, /createQaPlanetIntroductionCheckpoint/);
   assert.match(arkDeck, /Tune the Core/);
   assert.match(lawHeart, /AXIOM LAW-HEART/);
   assert.match(lawHeart, /LawPressCanvas/);

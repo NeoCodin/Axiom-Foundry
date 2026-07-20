@@ -8,7 +8,8 @@ type QaSandboxProps = {
   collapsed: boolean;
   onToggleCollapsed: () => void;
   onJumpWorld: (worldIndex: number) => void;
-  onFreshColdWake: () => void;
+  onFreshPlayerOpening: () => void;
+  onReplayPlanetIntroduction: () => void;
   onGrantResources: () => void;
   onAddFlux: (amount: number) => void;
   onCompleteResearch: () => void;
@@ -22,7 +23,8 @@ export function QaSandbox({
   collapsed,
   onToggleCollapsed,
   onJumpWorld,
-  onFreshColdWake,
+  onFreshPlayerOpening,
+  onReplayPlanetIntroduction,
   onGrantResources,
   onAddFlux,
   onCompleteResearch,
@@ -63,9 +65,16 @@ export function QaSandbox({
             </div>
           </section>
           <section>
+            <span>PLAYER EXPERIENCE</span>
+            <div className="qa-action-grid">
+              <button type="button" onClick={onFreshPlayerOpening}>Fresh player opening</button>
+              <button type="button" onClick={onReplayPlanetIntroduction}>Replay Planet unlock</button>
+            </div>
+            <small className="qa-section-help">These run the same blocking guides and unlock presentation as the public game.</small>
+          </section>
+          <section>
             <span>TEST OVERRIDES</span>
             <div className="qa-action-grid">
-              <button type="button" onClick={onFreshColdWake}>Fresh opening</button>
               <button type="button" onClick={onGrantResources}>Stock resources</button>
               <button type="button" onClick={onCompleteResearch}>Complete research</button>
               <button type="button" onClick={onBoostCrew}>Max trained skills</button>

@@ -179,10 +179,42 @@ export function createQaCheckpoint(worldIndex: number, now = Date.now()): GameSt
     settings: {
       ...base.settings,
       tutorialComplete: true,
-      continuityIntroduced: true,
+      continuityIntroduced: index > 0,
       autoEnabled: true,
       autoUpgrades: true,
       buyMode: "max",
+    },
+  }, now);
+}
+
+export function createQaPlanetIntroductionCheckpoint(now = Date.now()): GameState {
+  const base = createQaCheckpoint(0, now);
+  const tiers = base.tiers.map((tier, index) =>
+    index === 0 ? { amount: 50, bought: 50 } : tier,
+  );
+  return sanitizeGameState({
+    ...base,
+    axioms: 3,
+    lifetimeAxioms: 3,
+    cycle: 4,
+    manualPulses: 12,
+    tiers,
+    missions: {
+      ...base.missions,
+      stageIndex: MISSIONS[0].stages.length - 1,
+      awaitingAcknowledgement: true,
+      baseline: {
+        ...base.missions.baseline,
+        manualPulses: 12,
+        tierBought: tiers.map((tier) => tier.bought),
+        cycle: 4,
+        lifetimeAxioms: 3,
+      },
+    },
+    settings: {
+      ...base.settings,
+      tutorialComplete: true,
+      continuityIntroduced: false,
     },
   }, now);
 }

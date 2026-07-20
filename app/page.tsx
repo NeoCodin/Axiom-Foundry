@@ -253,6 +253,7 @@ import {
   boostQaCrew,
   completeQaResearch,
   createQaCheckpoint,
+  createQaPlanetIntroductionCheckpoint,
   grantQaResources,
   prepareQaContinuity,
   simulateQaOfflineDay,
@@ -610,7 +611,6 @@ export default function Home() {
   const disclosure = useMemo(() => getProgressiveDisclosure(game), [game]);
   const planetIntroductionActive =
     ready &&
-    !qaMode &&
     game.settings.tutorialComplete &&
     disclosure.settlement &&
     !game.settings.continuityIntroduced &&
@@ -2182,10 +2182,21 @@ export default function Home() {
           collapsed={qaCollapsed}
           onToggleCollapsed={() => setQaCollapsed((collapsed) => !collapsed)}
           onJumpWorld={handleQaJumpWorld}
-          onFreshColdWake={() => {
-            const next = setTutorialComplete(createInitialState(Date.now()), true);
-            applyQaState(next, "Fresh Cold Wake opening loaded in the isolated QA profile.");
+          onFreshPlayerOpening={() => {
+            const next = createInitialState(Date.now());
+            applyQaState(next, "Fresh public-player opening loaded in the isolated QA profile.");
             setPrimaryView("deck");
+            setMobileTab("machines");
+            setQaCollapsed(true);
+            setTourStep(0);
+          }}
+          onReplayPlanetIntroduction={() => {
+            const next = createQaPlanetIntroductionCheckpoint(Date.now());
+            applyQaState(next, "Cold Wake completion loaded. The public Planet introduction is ready.");
+            setPrimaryView("deck");
+            setMobileTab("machines");
+            setQaCollapsed(true);
+            setTourStep(null);
           }}
           onGrantResources={() => applyQaState(grantQaResources(gameRef.current), "QA resources stocked.")}
           onAddFlux={(amount) => {

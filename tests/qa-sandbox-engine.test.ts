@@ -5,12 +5,14 @@ import { SAVE_KEY } from "../app/game-engine.ts";
 import { CAMPAIGN_WORLD_IDS, getCampaignWorld } from "../app/campaign-content.ts";
 import { RESEARCH_PROJECT_DEFINITIONS } from "../app/research-engine.ts";
 import { getSurvivorBestSkillLevel } from "../app/survivor-engine.ts";
+import { getProgressiveDisclosure } from "../app/progressive-disclosure.ts";
 import {
   QA_SAVE_KEY,
   addQaFlux,
   boostQaCrew,
   completeQaResearch,
   createQaCheckpoint,
+  createQaPlanetIntroductionCheckpoint,
   grantQaResources,
   prepareQaContinuity,
 } from "../app/qa-sandbox-engine.ts";
@@ -36,7 +38,7 @@ test("QA checkpoints are isolated, valid campaign snapshots", () => {
     assert.equal(state.settlement.currentWorldId, worldId);
     assert.deepEqual(state.settlement.completedWorldIds, CAMPAIGN_WORLD_IDS.slice(0, index));
     assert.equal(state.settings.tutorialComplete, true);
-    assert.equal(state.settings.continuityIntroduced, true);
+    assert.equal(state.settings.continuityIntroduced, index > 0);
     assert.ok(state.flux > 0);
     assert.equal(state.missions.stageIndex, 0);
     assert.ok(state.runUpgrades.every((level) => level === 0));
@@ -45,6 +47,16 @@ test("QA checkpoints are isolated, valid campaign snapshots", () => {
       state.tiers.map((tier) => tier.bought),
     );
   }
+});
+
+test("QA can replay the exact public Planet unlock without a full campaign wait", () => {
+  const state = createQaPlanetIntroductionCheckpoint(1_000_000);
+  assert.equal(state.missions.currentIndex, 0);
+  assert.equal(state.missions.awaitingAcknowledgement, true);
+  assert.equal(state.lifetimeAxioms, 3);
+  assert.equal(state.settings.tutorialComplete, true);
+  assert.equal(state.settings.continuityIntroduced, false);
+  assert.equal(getProgressiveDisclosure(state).settlement, true);
 });
 
 test("QA overrides expose research, Continuity, resources, and expert crew", () => {
