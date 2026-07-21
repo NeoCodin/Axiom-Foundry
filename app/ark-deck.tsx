@@ -6,6 +6,7 @@ import {
   BeaconReadinessList,
 } from "./beacon-readiness";
 import type { BeaconReadiness } from "./beacon-readiness-engine";
+import type { LifeSupportKey } from "./survivor-engine";
 
 export type ArkViewId =
   | "engineering"
@@ -14,7 +15,7 @@ export type ArkViewId =
   | "settlement";
 
 export type ArkSupportReadout = {
-  id: string;
+  id: LifeSupportKey;
   label: string;
   value: number;
   capacity: number;
@@ -77,7 +78,17 @@ export type ArkDeckProps = {
   fabricationDepth: number;
   fabricationIntensity: number;
   unlockedViews: readonly ArkViewId[];
+  coldWakeCommissioning?: {
+    active: boolean;
+    navigationRestored: boolean;
+    lifeSupportRestored: boolean;
+    actionLabel: string;
+    canAct: boolean;
+  } | null;
+  supportUpgradeCosts?: Partial<Record<LifeSupportKey, number>>;
   onTuneCore: () => void;
+  onCommission?: () => void;
+  onUpgradeSupport?: (key: LifeSupportKey) => void;
   onActivateBeacon: () => void;
   onRescueSignal: (signalId: string) => void;
   onOpenView: (view: ArkViewId) => void;
@@ -142,7 +153,11 @@ function ArkDeck({
   fabricationDepth,
   fabricationIntensity,
   unlockedViews,
+  coldWakeCommissioning = null,
+  supportUpgradeCosts,
   onTuneCore,
+  onCommission,
+  onUpgradeSupport,
   onActivateBeacon,
   onRescueSignal,
   onOpenView,
@@ -161,20 +176,28 @@ function ArkDeck({
   const worldSlug = worldName.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-").replaceAll(/(^-|-$)/g, "");
 
   const unlockedViewSet = new Set(unlockedViews);
+  const isRoomAccessible = (room: ArkRoom) =>
+    room.id !== "core" && unlockedViewSet.has(room.id);
   const engineeringUnlocked = unlockedViewSet.has("engineering");
   const populationUnlocked = unlockedViewSet.has("population");
   const researchUnlocked = unlockedViewSet.has("research");
   const settlementUnlocked = unlockedViewSet.has("settlement");
 
   const fabricationOnline = engineeringUnlocked;
-  const supportOnline = populationUnlocked;
+  const earlyPelagosHabitability = worldName === "Pelagos" && population === 0;
+  const supportOnline =
+    populationUnlocked ||
+    earlyPelagosHabitability ||
+    coldWakeCommissioning?.lifeSupportRestored === true;
   const habitationOnline = populationUnlocked;
   const berthPodCount = Math.min(10, 1 + berthSections);
   const researchOnline = researchUnlocked;
   const educationOnline = populationUnlocked && crew.length > 0;
   const beaconRelevant = worldName !== "Cold Wake";
-  const continuityOnline = settlementUnlocked;
-  const peopleSystemsVisible = populationUnlocked;
+  const continuityOnline =
+    settlementUnlocked &&
+    (!coldWakeCommissioning?.active || coldWakeCommissioning.navigationRestored);
+  const peopleSystemsVisible = populationUnlocked || earlyPelagosHabitability;
 
   const coreEnergy = clamp(0.14 + normalizedWorldProgress * 0.34 + roomRatio * 0.38 + Math.min(0.14, fluxValue / 2_000));
   const coreDuration = 3.9 - coreEnergy * 2.85;
@@ -336,9 +359,9 @@ function ArkDeck({
                   data-kind={room.kind}
                   key={`${room.code}-${room.label}`}
                   type="button"
-                  onClick={() => room.id !== "core" && onOpenView(room.id)}
-                  disabled={!room.online || room.id === "core"}
-                  aria-label={room.online ? `Open ${room.label}` : `${room.label} is dormant`}
+                  onClick={() => room.id !== "core" && unlockedViewSet.has(room.id) && onOpenView(room.id)}
+                  disabled={!room.online || !isRoomAccessible(room)}
+                  aria-label={room.online && isRoomAccessible(room) ? `Open ${room.label}` : `${room.label} is not yet available`}
                 >
                   <span className="ark-room-status" aria-hidden="true" />
                   <span className="ark-room-code">DECK {room.code}</span>
@@ -392,7 +415,9 @@ function ArkDeck({
           <div role="progressbar" aria-label={objectiveLabel} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(normalizedWorldProgress * 100)}>
             <i style={{ width: `${normalizedWorldProgress * 100}%` }} />
           </div>
-          {engineeringUnlocked ? (
+          {coldWakeCommissioning?.active && onCommission ? (
+            <button type="button" disabled={!coldWakeCommissioning.canAct} onClick={onCommission}>{coldWakeCommissioning.actionLabel}</button>
+          ) : engineeringUnlocked ? (
             <button type="button" onClick={() => onOpenView("engineering")}>Open engineering</button>
           ) : (
             <span className="ark-directive-hint">Keep tuning the Core. Fabrication will awaken next.</span>
@@ -419,7 +444,9 @@ function ArkDeck({
               <h3 id="ark-life-support-title">The Ark can begin holding life</h3>
               <p>Capacity expands safely. Nothing here expires while you are away.</p>
             </div>
-            <button type="button" onClick={() => onOpenView("population")}>Enter life support</button>
+            {populationUnlocked
+              ? <button type="button" onClick={() => onOpenView("population")}>Enter life support</button>
+              : <small>Personnel will open after the first rescue.</small>}
           </header>
           <div className="ark-support-grid">
             {support.map((system) => {
@@ -434,6 +461,14 @@ function ArkDeck({
                       <i style={{ width: `${ratio * 100}%` }} />
                     </div>
                     <small>{system.status}</small>
+                    {!populationUnlocked &&
+                      onUpgradeSupport &&
+                      supportUpgradeCosts?.[system.id] !== undefined &&
+                      system.capacity < 2 && (
+                        <button type="button" onClick={() => onUpgradeSupport(system.id)}>
+                          Expand reserve · {supportUpgradeCosts[system.id]} Salvage
+                        </button>
+                      )}
                   </div>
                 </article>
               );
@@ -454,7 +489,7 @@ function ArkDeck({
                 {!beaconOnline ? (
                   <>
                     <h3>No one can hear the Ark yet</h3>
-                    <p>{beaconAvailable ? "Every safety condition is ready. AXIOM can invite the first survivors aboard." : "Complete every condition below. Life-support upgrades are in Personnel → Ark Capacity."}</p>
+                    <p>{beaconAvailable ? "Every safety condition is ready. AXIOM can invite the first survivors aboard." : populationUnlocked ? "Complete every condition below. Life-support upgrades are in Personnel → Ark Capacity." : "Complete every condition below. Commission the highlighted reserves on this Ark screen first."}</p>
                     <BeaconReadinessList readiness={beaconReadiness} />
                     <button type="button" disabled={!beaconAvailable} onClick={onActivateBeacon}>Activate SOS beacon</button>
                   </>

@@ -3,6 +3,10 @@ import test from "node:test";
 
 import { getCommandPriorities } from "../app/command-priorities.ts";
 import {
+  COLD_WAKE_DEPARTURE_STAGE,
+  COLD_WAKE_FOUNDRY_STAGE,
+  COLD_WAKE_LIFE_SUPPORT_STAGE,
+  COLD_WAKE_NAVIGATION_STAGE,
   createInitialState,
   isThreatOperationsActivated,
   setTutorialComplete,
@@ -27,7 +31,7 @@ test("the command board routes the active Cold Wake action to the Ark", () => {
   assert.match(priorities[0]?.detail ?? "", /Strike the Law Press 12 times/);
 });
 
-test("Cold Wake stays on one Core Deck even after automation begins", () => {
+test("Cold Wake reveals one destination at each commissioning handoff", () => {
   const state = setTutorialComplete(createInitialState(0), true);
   state.manualPulses = 50;
   state.tiers[0] = { amount: 25, bought: 25 };
@@ -55,15 +59,15 @@ test("Cold Wake stays on one Core Deck even after automation begins", () => {
   state.settlement.currentWorldId = "pelagos";
   disclosure = getProgressiveDisclosure(state);
   assert.equal(disclosure.engineering, true);
-  assert.equal(disclosure.population, true);
+  assert.equal(disclosure.population, false);
   assert.equal(disclosure.research, false);
 
   state.survivors.beaconOnline = true;
   disclosure = getProgressiveDisclosure(state);
-  assert.equal(disclosure.population, true);
+  assert.equal(disclosure.population, false);
 });
 
-test("Pelagos reveals Personnel before the first beacon so life support cannot deadlock", () => {
+test("Pelagos keeps Personnel hidden until the first rescued witnesses arrive", () => {
   const state = setTutorialComplete(createInitialState(0), true);
   state.missions.currentIndex = 1;
   state.missions.statuses = ["saved", "active", "locked", "locked", "locked", "locked"];
@@ -71,7 +75,39 @@ test("Pelagos reveals Personnel before the first beacon so life support cannot d
   state.settlement.currentWorldId = "pelagos";
   assert.equal(state.survivors.beaconOnline, false);
   assert.equal(state.survivors.survivors.length, 0);
+  assert.equal(getProgressiveDisclosure(state).population, false);
+  state.survivors.survivors = [{ id: "first-witness" } as never];
   assert.equal(getProgressiveDisclosure(state).population, true);
+  state.settings.personnelIntroduced = true;
+  state.survivors.signalsResolved = 1;
+  assert.equal(getProgressiveDisclosure(state).research, false);
+  state.survivors.signalsResolved = 2;
+  assert.equal(getProgressiveDisclosure(state).research, false, "a crew context still needs at least two people");
+  state.survivors.survivors.push({ id: "second-witness" } as never);
+  assert.equal(getProgressiveDisclosure(state).research, true);
+});
+
+test("Cold Wake priorities route Foundry, Ark commissioning, and departure exactly", () => {
+  const state = setTutorialComplete(createInitialState(0), true);
+  state.lifetimeAxioms = 3;
+  state.settings.coldWakeForecastReviewed = true;
+
+  state.missions.stageIndex = COLD_WAKE_FOUNDRY_STAGE;
+  let priority = getCommandPriorities(state).find((entry) => entry.id === "active-directive");
+  assert.equal(priority?.target, "engineering");
+  assert.equal(priority?.panel, "machines");
+
+  state.missions.stageIndex = COLD_WAKE_NAVIGATION_STAGE;
+  priority = getCommandPriorities(state).find((entry) => entry.id === "active-directive");
+  assert.equal(priority?.target, "deck");
+
+  state.missions.stageIndex = COLD_WAKE_LIFE_SUPPORT_STAGE;
+  priority = getCommandPriorities(state).find((entry) => entry.id === "active-directive");
+  assert.equal(priority?.target, "deck");
+
+  state.missions.stageIndex = COLD_WAKE_DEPARTURE_STAGE;
+  priority = getCommandPriorities(state).find((entry) => entry.id === "active-directive");
+  assert.equal(priority?.target, "settlement");
 });
 
 test("Cold Wake law proofs route back to the visible Law Press", () => {

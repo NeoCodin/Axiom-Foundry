@@ -15,8 +15,8 @@ The QA version uses a separate browser save and includes world checkpoints, a fr
 
 ## The game loop
 
-1. Wake the animated Axiom Law-Heart, teach its first Vacuum Taps to repeat, and forge three portable laws through Cold Wake Recalibration.
-2. Enter Pelagos orbit, where Foundry, personnel, research, field work, and Continuity controls reveal only when their first decision is ready.
+1. Wake the animated Axiom Law-Heart, teach its first Vacuum Taps to repeat, forge three portable laws, then commission Continuity, the Foundry, navigation, and life support one step at a time.
+2. Enter Pelagos orbit with only familiar destinations; prepare the SOS beacon from the Ark, meet the first rescued witnesses in Personnel, and open Research after a second rescue gives its crew context time to matter.
 3. Reach a fallen planet and activate its SOS beacon.
 4. Rescue persistent procedural survivor groups with names, histories, traits, aptitudes, and occasional mystery characters.
 5. Let AXIOM staff adults into their strongest work, protect manual assignments, and study new professions while the game is open or closed.
@@ -38,7 +38,7 @@ The campaign moves through Cold Wake, Pelagos, Viridia, Cinder, Nox, and Vesper.
 - Five-destination navigation (Ark, Foundry, Personnel, Research, Planet), with the Armory and Medical Bay under Personnel and Ark operations revealed only when they matter
 - An AXIOM command briefing that translates cross-system blockers into direct next actions without deadlines
 - A contextual AXIOM Field Manual with unlocked-page guides, exact resource sources, and in-place question-mark help
-- A single merged Core Deck during Cold Wake, followed by a clear division between the Ark home screen and the dedicated Foundry floor after Pelagos orbit
+- A staged Cold Wake handoff from the Law-Heart to a one-machine Foundry commissioning deck and finally the whole Ark before Pelagos orbit
 - Zero-human Cold Wake opening and a one-time fresh save generation
 - Deterministic survivor signals that never expire or fail
 - Procedural names, backgrounds, traits, aptitudes, professional roles, and rare authored story hooks

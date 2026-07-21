@@ -14,6 +14,10 @@ import {
   GENERATORS,
   LEGACY_UPGRADES,
   MISSIONS,
+  COLD_WAKE_FOUNDRY_STAGE,
+  COLD_WAKE_NAVIGATION_STAGE,
+  COLD_WAKE_LIFE_SUPPORT_STAGE,
+  COLD_WAKE_DEPARTURE_STAGE,
   RETIRED_SAVE_KEYS,
   RUN_UPGRADES,
   SAVE_KEY,
@@ -30,6 +34,7 @@ import {
   formatNumber,
   getCampaignCrewSummaries,
   getCampaignWorldIndex,
+  getColdWakeOnboardingStatus,
   getColonyLegacyEffects,
   buyDefenseInstallation,
   chooseDefenseDoctrine,
@@ -118,10 +123,12 @@ import {
   setAutoTier,
   setAutoUpgrades,
   setBuyMode,
-  setContinuityIntroduced,
+  setColdWakeForecastReviewed,
+  setInterfaceIntroduction,
   setTutorialComplete,
   simulateGame,
   type GameState,
+  type InterfaceIntroductionId,
   type PurchaseMode,
 } from "./game-engine";
 import { FoundryVista, WORLD_VISUALS } from "./foundry-vista";
@@ -261,6 +268,16 @@ import {
 
 type MobileTab = "machines" | "systems";
 
+type DestinationIntroduction = {
+  id: InterfaceIntroductionId;
+  view: PrimaryView;
+  eyebrow: string;
+  title: string;
+  description: string;
+  note: string;
+  buttonLabel: string;
+};
+
 const TOOLTIP_PREFERENCE_KEY = "axiom-foundry-context-hints";
 
 const purchaseModes: Array<{ value: PurchaseMode; label: string }> = [
@@ -399,7 +416,7 @@ export default function Home() {
   const activeSaveKeyRef = useRef(SAVE_KEY);
   const gameRef = useRef(game);
   const tourActionRef = useRef<HTMLButtonElement>(null);
-  const planetGuideActionRef = useRef<HTMLButtonElement>(null);
+  const destinationGuideActionRef = useRef<HTMLButtonElement>(null);
   const missionSignatureRef = useRef("");
   const stageSignatureRef = useRef("");
 
@@ -608,20 +625,82 @@ export default function Home() {
   );
   const worldEffects = useMemo(() => getWorldEffects(game), [game]);
   const campaignWorldIndex = getCampaignWorldIndex(game);
+  const coldWakeStatus = getColdWakeOnboardingStatus(game);
   const disclosure = useMemo(() => getProgressiveDisclosure(game), [game]);
-  const planetIntroductionActive =
-    ready &&
-    game.settings.tutorialComplete &&
-    disclosure.settlement &&
-    !game.settings.continuityIntroduced &&
-    tourStep === null;
+  const destinationIntroduction: DestinationIntroduction | null =
+    !ready || !game.settings.tutorialComplete || tourStep !== null
+      ? null
+      : disclosure.settlement && !game.settings.continuityIntroduced
+        ? {
+            id: "continuity",
+            view: "settlement",
+            eyebrow: "NEW DESTINATION // CONTINUITY",
+            title: "The Planet forecast is online",
+            description: "Continuity does not mean the Ark can leave yet. This forecast shows what the ship must restore before Pelagos approach is safe.",
+            note: "Review the forecast first. It will introduce the Foundry only after you authorize the next restoration step.",
+            buttonLabel: "OPEN PLANET // FORECAST",
+          }
+        : disclosure.engineering && !game.settings.foundryIntroduced
+          ? {
+              id: "foundry",
+              view: "engineering",
+              eyebrow: "NEW DESTINATION // FOUNDRY",
+              title: "The Foundry Deck is awake",
+              description: "The Law-Heart proved repetition. This separate deck now turns that law into ship-wide fabrication.",
+              note: "Only one mechanism is available. Build the highlighted Vacuum Taps before any larger system appears.",
+              buttonLabel: "ENTER THE FOUNDRY",
+            }
+          : coldWakeStatus.arkOverviewAvailable && !game.settings.arkOverviewIntroduced
+            ? {
+                id: "ark-overview",
+                view: "deck",
+                eyebrow: "ARK VIEW // COMMAND",
+                title: "AXIOM can see the whole Ark",
+                description: "The Law-Heart is no longer the entire interface. Navigation, life support, and the Continuity Bridge are visible as physical rooms aboard the ship.",
+                note: "Dormant rooms are previews, not new chores. Follow the single active directive on Ark Command.",
+                buttonLabel: "OPEN ARK COMMAND",
+              }
+            : coldWakeStatus.active &&
+                game.missions.stageIndex >= COLD_WAKE_DEPARTURE_STAGE &&
+                !game.settings.departureIntroduced
+              ? {
+                  id: "departure",
+                  view: "settlement",
+                  eyebrow: "FINAL COLD WAKE STEP // APPROACH",
+                  title: "Pelagos approach is ready to fund",
+                  description: "Navigation and the empty life-support reserve are stable. The remaining task is a saved, partial Flux commitment for orbital insertion.",
+                  note: "Open Planet again. Commit what you have over time; no timer is running and no partial payment is lost.",
+                  buttonLabel: "OPEN PELAGOS APPROACH",
+                }
+              : disclosure.population && !game.settings.personnelIntroduced
+                ? {
+                    id: "personnel",
+                    view: "population",
+                    eyebrow: "NEW DESTINATION // PERSONNEL",
+                    title: "The Ark has people, not statistics",
+                    description: "Personnel opens only now because the first rescued witnesses are aboard. This is where you learn their names, professions, levels, and assignments.",
+                    note: "Start with the roster. Medical, training, equipment, and advanced management reveal only when they become relevant.",
+                    buttonLabel: "MEET THE CREW",
+                  }
+                : disclosure.research && !game.settings.researchIntroduced
+                  ? {
+                      id: "research",
+                      view: "research",
+                      eyebrow: "NEW DESTINATION // RESEARCH",
+                      title: "The Analysis Core needs a crew",
+                      description: "Research is arriving after two rescue operations, so its staffing, evidence, and field-validation requirements already have context.",
+                      note: "Begin with one program. Later eras and branches stay hidden until earlier work is understood.",
+                      buttonLabel: "OPEN RESEARCH",
+                    }
+                  : null;
+  const guidedDestinationView = destinationIntroduction?.view ?? null;
   useEffect(() => {
-    if (!planetIntroductionActive) return;
+    if (!guidedDestinationView) return;
     document
-      .querySelector('[data-guided-destination="settlement"]')
+      .querySelector(`[data-guided-destination="${guidedDestinationView}"]`)
       ?.scrollIntoView({ behavior: "auto", block: "nearest", inline: "center" });
-    planetGuideActionRef.current?.focus();
-  }, [planetIntroductionActive]);
+    destinationGuideActionRef.current?.focus();
+  }, [guidedDestinationView]);
   useEffect(() => {
     if (!ready || primaryView === "deck") return;
     const viewIsUnlocked: Record<PrimaryView, boolean> = {
@@ -827,8 +906,11 @@ export default function Home() {
     surfaceRecon.multiplier,
   );
   const viabilityForecast = getCurrentViabilityForecast(game);
-  const departureHold = game.expeditions.active
-    ? "An expedition is still away. Wait for its automatic return."
+  const departureHold = game.settlement.currentWorldId === "cold-wake" &&
+    !game.missions.awaitingAcknowledgement
+    ? "Cold Wake commissioning is still active. Complete the one highlighted restoration step before orbital insertion."
+    : game.expeditions.active
+      ? "An expedition is still away. Wait for its automatic return."
     : game.expeditions.stranded
       ? "A stranded party is waiting. Launch a rescue or make the explicit abandonment decision."
       : game.survivors.activeSignal
@@ -1297,6 +1379,36 @@ export default function Home() {
     }
     setPrimaryView(view);
     if (view === "engineering") setMobileTab("machines");
+  };
+
+  const handleAuthorizeFoundryWake = () => {
+    const next = setColdWakeForecastReviewed(gameRef.current);
+    commitGameState(
+      next,
+      "Foundry wake-up authorized. One new destination is ready; build only the highlighted Vacuum Taps.",
+    );
+  };
+
+  const handleColdWakeSequenceAction = () => {
+    const current = gameRef.current;
+    if (current.missions.stageIndex === COLD_WAKE_FOUNDRY_STAGE) {
+      if (!current.settings.coldWakeForecastReviewed) handleAuthorizeFoundryWake();
+      else {
+        setMobileTab("machines");
+        setPrimaryView("engineering");
+      }
+      return;
+    }
+    if (
+      current.missions.stageIndex === COLD_WAKE_NAVIGATION_STAGE ||
+      current.missions.stageIndex === COLD_WAKE_LIFE_SUPPORT_STAGE
+    ) {
+      setPrimaryView("deck");
+      return;
+    }
+    if (current.missions.stageIndex === COLD_WAKE_DEPARTURE_STAGE) {
+      handleMissionContribution();
+    }
   };
 
   const handleToggleTooltips = () => {
@@ -1941,23 +2053,28 @@ export default function Home() {
     setTourStep(0);
   };
 
-  const openPlanetIntroduction = () => {
-    const next = setContinuityIntroduced(gameRef.current);
+  const openDestinationIntroduction = () => {
+    if (!destinationIntroduction) return;
+    const next = setInterfaceIntroduction(
+      gameRef.current,
+      destinationIntroduction.id,
+    );
     gameRef.current = next;
     setGame(next);
-    setPrimaryView("settlement");
+    setPrimaryView(destinationIntroduction.view);
+    if (destinationIntroduction.view === "engineering") setMobileTab("machines");
     setAnnouncement(
-      "Planet interface online. Continuity shows every remaining requirement and the final departure authority.",
+      `${destinationIntroduction.title}. The interface will reveal another destination only when it becomes relevant.`,
     );
-    window.setTimeout(() => persistGame("Planet introduction saved"), 0);
+    window.setTimeout(() => persistGame("Destination introduction saved"), 0);
   };
 
   const handlePrimaryNavigation = (view: PrimaryView) => {
-    if (planetIntroductionActive) {
-      if (view === "settlement") openPlanetIntroduction();
+    if (destinationIntroduction) {
+      if (view === destinationIntroduction.view) openDestinationIntroduction();
       else {
         setAnnouncement(
-          "New destination waiting: open Planet to review the Continuity forecast.",
+          `New destination waiting: open ${destinationIntroduction.title.replace(/^The /, "")}.`,
         );
       }
       return;
@@ -2192,7 +2309,7 @@ export default function Home() {
           }}
           onReplayPlanetIntroduction={() => {
             const next = createQaPlanetIntroductionCheckpoint(Date.now());
-            applyQaState(next, "Cold Wake completion loaded. The public Planet introduction is ready.");
+            applyQaState(next, "Cold Wake laws loaded. The full public Continuity → Foundry → Ark handoff is ready to replay.");
             setPrimaryView("deck");
             setMobileTab("machines");
             setQaCollapsed(true);
@@ -2218,11 +2335,11 @@ export default function Home() {
       <GameNavigation
         currentView={primaryView}
         unlocks={navigationUnlocks}
-        guidedView={planetIntroductionActive ? "settlement" : null}
+        guidedView={guidedDestinationView}
         onNavigate={handlePrimaryNavigation}
       />
 
-      {planetIntroductionActive && (
+      {destinationIntroduction && (
         <>
           <div className="destination-guide-scrim" aria-hidden="true" />
           <section className="destination-guide-card" role="dialog" aria-modal="true" aria-labelledby="destination-guide-title" aria-describedby="destination-guide-description">
@@ -2230,11 +2347,11 @@ export default function Home() {
               <span aria-hidden="true">A</span>
               <div><strong>AXIOM // INTERFACE HANDOFF</strong><small>New destination detected</small></div>
             </div>
-            <p className="destination-guide-eyebrow">NEW DESTINATION // CONTINUITY</p>
-            <h2 id="destination-guide-title">The Planet tab is online</h2>
-            <p id="destination-guide-description">The Foundry has finished the work it can do alone. Planet shows every requirement that remains before the Ark may depart responsibly.</p>
-            <div className="destination-guide-note">Open it now to review Cold Wake and authorize Pelagos orbit. On later worlds, this same screen tracks infrastructure, crises, expeditions, research, and the founding community.</div>
-            <button ref={planetGuideActionRef} type="button" onClick={openPlanetIntroduction}>OPEN PLANET // CONTINUITY</button>
+            <p className="destination-guide-eyebrow">{destinationIntroduction.eyebrow}</p>
+            <h2 id="destination-guide-title">{destinationIntroduction.title}</h2>
+            <p id="destination-guide-description">{destinationIntroduction.description}</p>
+            <div className="destination-guide-note">{destinationIntroduction.note}</div>
+            <button ref={destinationGuideActionRef} type="button" onClick={openDestinationIntroduction}>{destinationIntroduction.buttonLabel}</button>
           </section>
         </>
       )}
@@ -2253,7 +2370,7 @@ export default function Home() {
       )}
 
       {primaryView === "deck" ? (
-        campaignWorldIndex === 0 ? (
+        campaignWorldIndex === 0 && !coldWakeStatus.arkOverviewAvailable ? (
           <AxiomLawHeart
             fluxLabel={formatNumber(game.flux)}
             fluxPerSecondLabel={formatNumber(production.fluxPerSecond)}
@@ -2273,8 +2390,12 @@ export default function Home() {
               outputLabel: formatNumber(production.tierOutputs[0]),
               costLabel: formatNumber(coldWakeTierCost),
               quantity: coldWakePurchaseQuantity,
-              canBuy: coldWakePurchaseQuantity > 0,
-              unlocked: isTierUnlocked(game, 0),
+              canBuy:
+                game.missions.stageIndex < COLD_WAKE_FOUNDRY_STAGE &&
+                coldWakePurchaseQuantity > 0,
+              unlocked:
+                game.missions.stageIndex < COLD_WAKE_FOUNDRY_STAGE &&
+                isTierUnlocked(game, 0),
             }}
             buyMode={game.settings.buyMode}
             lifetimeAxioms={game.lifetimeAxioms}
@@ -2297,7 +2418,7 @@ export default function Home() {
           />
         ) : (
         <>
-        <CommandBriefing priorities={commandPriorities} onNavigate={handleCommandPriorityNavigate} />
+        {campaignWorldIndex > 0 && <CommandBriefing priorities={commandPriorities} onNavigate={handleCommandPriorityNavigate} />}
         <ArkDeck
           foundryName={game.living.foundryName}
           worldName={campaignWorld.name}
@@ -2379,7 +2500,23 @@ export default function Home() {
           fabricationDepth={game.tiers.filter((tier) => tier.bought > 0).length}
           fabricationIntensity={game.tiers.reduce((total, tier) => total + tier.bought, 0)}
           unlockedViews={unlockedArkViews}
+          coldWakeCommissioning={campaignWorldIndex === 0
+            ? {
+                active: !game.missions.awaitingAcknowledgement &&
+                  (game.missions.stageIndex === COLD_WAKE_NAVIGATION_STAGE ||
+                    game.missions.stageIndex === COLD_WAKE_LIFE_SUPPORT_STAGE),
+                navigationRestored: coldWakeStatus.navigationRestored,
+                lifeSupportRestored: coldWakeStatus.lifeSupportRestored,
+                actionLabel: activeStage?.kind === "contributeFlux"
+                  ? `Route ${formatNumber(Math.min(game.flux, Math.max(0, activeStage.target - game.missions.contributedFlux)))} Flux`
+                  : "Route Flux",
+                canAct: game.flux > 0,
+              }
+            : null}
+          supportUpgradeCosts={supportUpgradeCosts}
           onTuneCore={handlePulse}
+          onCommission={handleMissionContribution}
+          onUpgradeSupport={handleUpgradeSupport}
           onActivateBeacon={handleActivateBeacon}
           onRescueSignal={handleRescueSurvivors}
           onOpenView={handleOpenArkView}
@@ -2627,6 +2764,50 @@ export default function Home() {
           planetaryDefenseActive={planetaryDefenseActive}
           planetaryDefenseLoad={operationalLoad.planetaryDefense}
           planetaryDefenseQuotes={planetaryDefenseQuotes}
+          coldWakeSequence={campaignWorldIndex === 0 ? {
+            stepNumber: game.missions.stageIndex <= COLD_WAKE_FOUNDRY_STAGE
+              ? 2
+              : game.missions.stageIndex === COLD_WAKE_NAVIGATION_STAGE
+                ? 3
+                : game.missions.stageIndex === COLD_WAKE_LIFE_SUPPORT_STAGE
+                  ? 4
+                  : 5,
+            stepCount: 5,
+            label: game.missions.stageIndex === COLD_WAKE_FOUNDRY_STAGE &&
+              !game.settings.coldWakeForecastReviewed
+              ? "Review the Ark restoration forecast"
+              : game.missions.awaitingAcknowledgement
+                ? "Authorize Pelagos orbital insertion"
+                : activeStage?.label ?? "Continue Cold Wake commissioning",
+            detail: game.missions.stageIndex === COLD_WAKE_FOUNDRY_STAGE &&
+              !game.settings.coldWakeForecastReviewed
+              ? "The three portable laws are proven. Confirm the forecast before AXIOM wakes another deck."
+              : game.missions.awaitingAcknowledgement
+                ? "Every staged restoration is secure. Departure is now a deliberate choice at the bottom of this page."
+                : activeStage?.instruction ?? campaignWorld.arrivalBrief,
+            progress: game.missions.stageIndex === COLD_WAKE_FOUNDRY_STAGE &&
+              !game.settings.coldWakeForecastReviewed
+              ? 0
+              : game.missions.awaitingAcknowledgement
+                ? 1
+                : missionProgress.ratio,
+            actionLabel: game.missions.awaitingAcknowledgement
+              ? undefined
+              : game.missions.stageIndex === COLD_WAKE_FOUNDRY_STAGE
+                ? game.settings.coldWakeForecastReviewed
+                  ? "Open Foundry Deck"
+                  : "Authorize Foundry wake-up"
+                : game.missions.stageIndex === COLD_WAKE_NAVIGATION_STAGE ||
+                    game.missions.stageIndex === COLD_WAKE_LIFE_SUPPORT_STAGE
+                  ? "Return to Ark Command"
+                  : game.missions.stageIndex === COLD_WAKE_DEPARTURE_STAGE
+                    ? game.flux > 0
+                      ? `Commit ${formatNumber(Math.min(game.flux, Math.max(0, (activeStage?.target ?? 0) - game.missions.contributedFlux)))} Flux`
+                      : "Keep producing Flux"
+                    : undefined,
+            actionDisabled:
+              game.missions.stageIndex === COLD_WAKE_DEPARTURE_STAGE && game.flux <= 0,
+          } : null}
           onToggleSettler={handleToggleSettler}
           onCompleteInfrastructure={handleCompleteInfrastructure}
           onFabricateSupply={handleFabricateSupply}
@@ -2636,6 +2817,7 @@ export default function Home() {
           onAcknowledgeTransmission={handleAcknowledgeTransmission}
           onPlanetaryDoctrine={handlePlanetaryDefenseDoctrine}
           onPlanetaryConstruction={handlePlanetaryDefenseConstruction}
+          onColdWakeAction={handleColdWakeSequenceAction}
           onOpenPopulation={populationUnlocked ? () => setPrimaryView("population") : undefined}
           onOpenResearch={researchUnlocked ? () => setPrimaryView("research") : undefined}
           onOpenHelp={setManualTopic}
@@ -2645,14 +2827,14 @@ export default function Home() {
       <section className="foundry-workspace" aria-labelledby="foundry-workspace-title">
         <header className="foundry-workspace-header">
           <div>
-            <p className="section-kicker">Fabrication deck // systems online</p>
-            <h2 id="foundry-workspace-title">The Foundry Floor</h2>
-            <span>Build the nested mechanisms that turn Core energy into planetary recovery. Core tuning remains aboard the Ark.</span>
+            <p className="section-kicker">{campaignWorldIndex === 0 ? "First restored deck // Cold Wake" : "Fabrication deck // systems online"}</p>
+            <h2 id="foundry-workspace-title">{campaignWorldIndex === 0 ? "Commission the Foundry Deck" : "The Foundry Floor"}</h2>
+            <span>{campaignWorldIndex === 0 ? "One machine line is awake. Build the highlighted Vacuum Taps; the rest of Engineering stays hidden until Pelagos." : "Build the nested mechanisms that turn Core energy into planetary recovery. Core tuning remains aboard the Ark."}</span>
           </div>
           <button className="quiet-button" type="button" onClick={() => setPrimaryView("deck")}>Return to Ark Core</button>
         </header>
 
-        <section className="foundry-telemetry" aria-label="Foundry diagnostics">
+        {campaignWorldIndex > 0 && <section className="foundry-telemetry" aria-label="Foundry diagnostics">
           <div>
             <span>Flux flow</span>
             <strong>{formatNumber(production.fluxPerSecond)}<small>/sec</small></strong>
@@ -2678,9 +2860,16 @@ export default function Home() {
             <strong>{Math.round(operationalLoad.total * 10_000) / 100}<small>%</small></strong>
           </div>
           <span className="foundry-telemetry-flow" aria-hidden="true"><i /><i /><i /><i /></span>
-        </section>
+        </section>}
 
-        <FoundryVista game={game} />
+        {campaignWorldIndex > 0 ? <FoundryVista game={game} /> : (
+          <section className="cold-wake-foundry-brief" aria-label="Cold Wake Foundry commissioning">
+            <span>COMMISSIONING DIRECTIVE // ONE ACTIVE SYSTEM</span>
+            <strong>{activeStage?.label ?? "Commission the Foundry Deck"}</strong>
+            <p>{activeStage?.instruction}</p>
+            <div className="forecast-line-meter" role="progressbar" aria-label="Foundry commissioning" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(missionProgress.ratio * 100)}><i style={{ width: `${missionProgress.ratio * 100}%` }} /></div>
+          </section>
+        )}
 
       <div className="game-grid foundry-grid">
         {fabricationUnlocked && (
@@ -2706,7 +2895,7 @@ export default function Home() {
           </div>
 
           <div className="machine-list">
-            {GENERATORS.slice(0, visibleGeneratorCount).map((generator, index) => {
+            {GENERATORS.slice(0, campaignWorldIndex === 0 ? 1 : visibleGeneratorCount).map((generator, index) => {
               const unlocked = isTierUnlocked(game, index);
               const tier = game.tiers[index];
               const quantity = getPurchaseQuantity(game, index, game.settings.buyMode);

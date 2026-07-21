@@ -876,6 +876,17 @@
 .ark-support-grid article strong small { color: #6f8392; font-size: 10px; }
 .ark-support-grid article > div > div { height: 3px; }
 .ark-support-grid article > div > small { display: block; margin-top: 6px; overflow: hidden; color: #687d8d; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.ark-support-grid article > div > button {
+  width: 100%;
+  margin-top: 9px;
+  padding: 7px 6px;
+  color: var(--world-accent, #55d6e8);
+  border: 1px solid #315263;
+  background: #07131b;
+  font-size: 8px;
+  cursor: pointer;
+}
+.ark-support-grid article > div > button:hover { border-color: var(--world-accent, #55d6e8); background: #0a1d27; }
 
 .ark-awakened-systems {
   display: grid;

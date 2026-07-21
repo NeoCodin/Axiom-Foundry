@@ -82,9 +82,11 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(page, /from "\.\/game-engine"/);
   assert.match(page, /getCommandPriorities/);
   assert.match(page, /GameNavigation/);
-  assert.match(page, /The Planet tab is online/);
-  assert.match(page, /guidedView=.*settlement/);
-  assert.match(page, /setContinuityIntroduced/);
+  assert.match(page, /The Planet forecast is online/);
+  assert.match(page, /destinationIntroduction\?\.view/);
+  assert.match(page, /setInterfaceIntroduction/);
+  assert.match(page, /Commission the Foundry Deck/);
+  assert.match(page, /The Ark has people, not statistics/);
   assert.match(page, /createQaPlanetIntroductionCheckpoint/);
   assert.match(arkDeck, /Tune the Core/);
   assert.match(lawHeart, /AXIOM LAW-HEART/);

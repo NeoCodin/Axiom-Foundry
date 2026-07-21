@@ -68,7 +68,7 @@ export function QaSandbox({
             <span>PLAYER EXPERIENCE</span>
             <div className="qa-action-grid">
               <button type="button" onClick={onFreshPlayerOpening}>Fresh player opening</button>
-              <button type="button" onClick={onReplayPlanetIntroduction}>Replay Planet unlock</button>
+              <button type="button" onClick={onReplayPlanetIntroduction}>Replay staged onboarding</button>
             </div>
             <small className="qa-section-help">These run the same blocking guides and unlock presentation as the public game.</small>
           </section>

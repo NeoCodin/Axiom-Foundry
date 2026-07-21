@@ -1,6 +1,7 @@
 import { ARMORY_ITEM_DEFINITIONS } from "./armory-engine.ts";
 import {
   getCampaignWorldIndex,
+  getColdWakeOnboardingStatus,
   getRecalibrationGain,
   getRecalibrationThreshold,
   isThreatOperationsActivated,
@@ -32,18 +33,22 @@ export function getProgressiveDisclosure(state: GameState): ProgressiveDisclosur
     state.expeditions.active !== null ||
     state.expeditions.stranded !== null ||
     state.expeditions.stats.completed > 0;
+  const coldWake = getColdWakeOnboardingStatus(state);
   const population =
-    worldIndex >= 1 ||
-    state.survivors.beaconOnline ||
-    state.survivors.survivors.length > 0;
+    worldIndex >= 2 || state.survivors.survivors.length > 0;
   const pelagosFieldWorkReady =
     state.survivors.survivors.length >= 3 &&
     state.research.completedProjectIds.includes("closed-loop-atmosphere");
   return {
     engineering:
-      worldIndex >= 1 || state.missions.worldsSaved > 0,
+      worldIndex >= 1 ||
+      state.missions.worldsSaved > 0 ||
+      (coldWake.forecastAvailable && state.settings.coldWakeForecastReviewed),
     research:
-      hasResearchFootprint || state.survivors.survivors.length >= 2,
+      hasResearchFootprint ||
+      (state.settings.personnelIntroduced &&
+        state.survivors.signalsResolved >= 2 &&
+        state.survivors.survivors.length >= 2),
     population,
     medical:
       population &&
@@ -61,18 +66,20 @@ export function getProgressiveDisclosure(state: GameState): ProgressiveDisclosur
         state.research.completedProjectIds.includes(item.requiredResearchId),
       ),
     settlement: worldIndex === 0
-      ? state.missions.awaitingAcknowledgement && state.lifetimeAxioms >= 3
+      ? coldWake.forecastAvailable
       : state.missions.awaitingAcknowledgement || state.missions.worldsSaved > 1 ||
         state.settlement.completedWorldIds.some((worldId) => worldId !== "cold-wake"),
     fabrication:
-      worldIndex >= 1 || state.missions.worldsSaved > 0,
+      worldIndex >= 1 ||
+      state.missions.worldsSaved > 0 ||
+      (coldWake.forecastAvailable && state.settings.coldWakeForecastReviewed),
     systems:
       worldIndex >= 1 &&
       (state.missions.stageIndex >= 1 || state.missions.awaitingAcknowledgement ||
         state.missions.worldsSaved > 1),
     protocols:
       worldIndex >= 1 &&
-      (state.maxFlux >= 1_000 || state.runUpgrades.some((level) => level > 0)),
+      (state.runFlux >= 1_000 || state.runUpgrades.some((level) => level > 0)),
     recalibration:
       worldIndex >= 1 &&
       (state.runFlux >= getRecalibrationThreshold(state) * 0.1 ||

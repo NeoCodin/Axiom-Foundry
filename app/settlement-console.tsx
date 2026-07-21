@@ -62,6 +62,15 @@ export type SettlementConsoleProps = {
   planetaryDefenseActive: boolean;
   planetaryDefenseLoad: number;
   planetaryDefenseQuotes: Partial<Record<CampaignWorldId, Record<PlanetaryInstallationId, PlanetaryConstructionQuoteView>>>;
+  coldWakeSequence?: {
+    stepNumber: number;
+    stepCount: number;
+    label: string;
+    detail: string;
+    progress: number;
+    actionLabel?: string;
+    actionDisabled?: boolean;
+  } | null;
   onToggleSettler: (crewId: string) => void;
   onCompleteInfrastructure: (objectiveId: string) => void;
   onFabricateSupply: (supplyId: string) => void;
@@ -71,6 +80,7 @@ export type SettlementConsoleProps = {
   onAcknowledgeTransmission: () => void;
   onPlanetaryDoctrine: (doctrine: PlanetaryDefenseDoctrine) => void;
   onPlanetaryConstruction: (worldId: CampaignWorldId, installationId: PlanetaryInstallationId) => void;
+  onColdWakeAction?: () => void;
   onOpenPopulation?: () => void;
   onOpenResearch?: () => void;
   onOpenHelp: (topicId: ManualTopicId) => void;
@@ -152,6 +162,7 @@ function SettlementConsole({
   planetaryDefenseActive,
   planetaryDefenseLoad,
   planetaryDefenseQuotes,
+  coldWakeSequence = null,
   onToggleSettler,
   onCompleteInfrastructure,
   onFabricateSupply,
@@ -161,6 +172,7 @@ function SettlementConsole({
   onAcknowledgeTransmission,
   onPlanetaryDoctrine,
   onPlanetaryConstruction,
+  onColdWakeAction,
   onOpenPopulation,
   onOpenResearch,
   onOpenHelp,
@@ -190,6 +202,30 @@ function SettlementConsole({
         <div className="settlement-score"><strong>{forecast.score}%</strong><span>projected viability</span></div>
         <div className="forecast-meter" role="progressbar" aria-label={`${world.name} viability`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={forecast.score}><i style={{ width: `${forecast.score}%` }} /></div>
       </section>
+
+      {coldWakeSequence && (
+        <section className="continuity-panel cold-wake-commissioning" aria-labelledby="cold-wake-commissioning-title">
+          <header>
+            <div>
+              <span>COLD WAKE // STAGED COMMISSIONING</span>
+              <h3 id="cold-wake-commissioning-title">One restoration step at a time</h3>
+            </div>
+            <small>Step {coldWakeSequence.stepNumber} / {coldWakeSequence.stepCount}</small>
+          </header>
+          <div className="cold-wake-active-step">
+            <span>ACTIVE STEP</span>
+            <strong>{coldWakeSequence.label}</strong>
+            <p>{coldWakeSequence.detail}</p>
+            <div className="forecast-line-meter" role="progressbar" aria-label={coldWakeSequence.label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(coldWakeSequence.progress * 100)}>
+              <i style={{ width: `${Math.min(1, Math.max(0, coldWakeSequence.progress)) * 100}%` }} />
+            </div>
+            {coldWakeSequence.actionLabel && onColdWakeAction && (
+              <button className="forecast-action" type="button" disabled={coldWakeSequence.actionDisabled} onClick={onColdWakeAction}>{coldWakeSequence.actionLabel}</button>
+            )}
+          </div>
+          <p className="crew-rarity-note">Nothing else on this page needs attention yet. Finished systems collapse into the requirement ledger; the next destination appears only when this step is secure.</p>
+        </section>
+      )}
 
       {pendingTransmission && (
         <section className="continuity-panel departure-panel">

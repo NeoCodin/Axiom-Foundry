@@ -511,3 +511,23 @@ label.expedition-manifest-row { grid-template-columns: auto auto minmax(0, 1fr) 
   .crisis-requirements li { grid-template-columns: 22px minmax(0, 1fr); }
   .crisis-requirements li > em { grid-column: 2; }
 }
+
+.cold-wake-commissioning {
+  margin: 12px 0;
+  border-color: color-mix(in srgb, var(--world-accent, #55d6e8) 55%, #243a4b);
+  background: #07131b;
+  box-shadow: 4px 4px 0 #02070b;
+}
+
+.cold-wake-active-step {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid #294657;
+  background: #050d13;
+}
+
+.cold-wake-active-step > span { color: var(--world-accent, #55d6e8); font-size: 8px; letter-spacing: .13em; }
+.cold-wake-active-step > strong { color: #edf7fa; font-size: 15px; }
+.cold-wake-active-step > p { margin: 0; color: #8da4b3; line-height: 1.55; }
+.cold-wake-active-step > button { margin-top: 4px; }

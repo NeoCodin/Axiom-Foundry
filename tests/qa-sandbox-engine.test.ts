@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { SAVE_KEY } from "../app/game-engine.ts";
+import { COLD_WAKE_FOUNDRY_STAGE, SAVE_KEY } from "../app/game-engine.ts";
 import { CAMPAIGN_WORLD_IDS, getCampaignWorld } from "../app/campaign-content.ts";
 import { RESEARCH_PROJECT_DEFINITIONS } from "../app/research-engine.ts";
 import { getSurvivorBestSkillLevel } from "../app/survivor-engine.ts";
@@ -49,13 +49,15 @@ test("QA checkpoints are isolated, valid campaign snapshots", () => {
   }
 });
 
-test("QA can replay the exact public Planet unlock without a full campaign wait", () => {
+test("QA can replay the full staged public onboarding without a campaign wait", () => {
   const state = createQaPlanetIntroductionCheckpoint(1_000_000);
   assert.equal(state.missions.currentIndex, 0);
-  assert.equal(state.missions.awaitingAcknowledgement, true);
+  assert.equal(state.missions.stageIndex, COLD_WAKE_FOUNDRY_STAGE);
+  assert.equal(state.missions.awaitingAcknowledgement, false);
   assert.equal(state.lifetimeAxioms, 3);
   assert.equal(state.settings.tutorialComplete, true);
   assert.equal(state.settings.continuityIntroduced, false);
+  assert.equal(state.settings.foundryIntroduced, false);
   assert.equal(getProgressiveDisclosure(state).settlement, true);
 });
 

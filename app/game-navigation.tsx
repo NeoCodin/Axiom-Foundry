@@ -71,7 +71,7 @@ export function GameNavigation({ currentView, unlocks, guidedView = null, onNavi
             aria-current={activeGroup === destination.group ? "page" : undefined}
             aria-label={`${destination.label}: ${destination.tooltip}`}
             data-guided-destination={guided ? destination.view : undefined}
-            data-pixel-tooltip={guided ? "New destination: open the Continuity forecast now." : destination.tooltip}
+            data-pixel-tooltip={guided ? `New destination: open ${destination.label} now.` : destination.tooltip}
             onClick={() => onNavigate(destination.view)}
             key={destination.view}
           >

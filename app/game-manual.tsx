@@ -57,15 +57,15 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
     category: "Page guide // command deck",
     title: "Wake the Ark one system at a time",
     summary:
-      "Cold Wake is one focused Core Deck. Strike the damaged Law Press, teach its first Vacuum Taps to repeat, and forge three portable laws; the wider Ark appears only after Pelagos orbit.",
+      "Cold Wake begins on one focused Law-Heart. After three portable laws, Continuity appears as a forecast, the Foundry wakes for one commissioning task, and the view expands to the whole Ark before Pelagos orbit.",
     steps: [
       { title: "Strike the Law Press", detail: "The opening machine is completely still. Each click drives one clamp strike; earned Vacuum Taps install visible banks, carry Flux packets, and gradually synchronize the mechanism." },
       { title: "Teach the first repetition", detail: "Vacuum Taps reveal after a few manual alignments. They repeat the smallest Core motion while the game is open or closed." },
-      { title: "Restore the approach systems", detail: "A second bank of Vacuum Taps routes stable power into guidance, sealed life support, and the braking grid. Pelagos insertion remains hidden until all three systems are online." },
+      { title: "Read the first Continuity forecast", detail: "After three portable laws, Planet appears as a forecast—not an immediate exit. Review it to authorize the next single restoration step." },
       { title: "Forge three laws", detail: "Cold Wake introduces Recalibration directly on the Core Deck. Containment keeps the hull intact, Conservation protects its reserves, and Transit keeps departure connected to arrival." },
-      { title: "Authorize Pelagos approach", detail: "Only after all three laws survive Recalibration does the final approach reserve appear. Flux committed to that reserve is saved, and no part of Cold Wake has a deadline." },
+      { title: "Commission the Ark in stages", detail: "Wake one Foundry machine line, then restore navigation and the empty life-support reserve from Ark Command. Only after those steps does the saved Pelagos approach reserve appear." },
       { title: "Follow the active directive", detail: "The strip above the Ark always names the next useful action and shows its progress. Nothing in Cold Wake has a deadline." },
-      { title: "Enter awakened destinations", detail: "After Cold Wake, Foundry appears first. Personnel follows the SOS beacon, Research follows the first witnesses, and later facilities appear only with their first real decision." },
+      { title: "Enter awakened destinations", detail: "Foundry arrives during Cold Wake. Pelagos begins with the familiar Ark, Foundry, and Planet views; Personnel opens after the first rescue, Research follows a second rescue and the staffed crew, and later facilities wait for their first real decision." },
       { title: "Read AXIOM's priorities", detail: "The command briefing names up to three useful actions, shows exactly what is missing, names the one action to take, and opens the correct page and sub-panel." },
       { title: "Travel without babysitting", detail: "After Pelagos, departure begins a real corridor journey instead of instantly changing worlds. Open Planet to see route progress and ETA; production, research, training, construction, repair, and Defense all continue online or offline." },
     ],
@@ -135,7 +135,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
       "Rescue groups never expire. The Ark holds at most 48 people; expand living space and life support, then let AXIOM handle routine staffing while you protect the assignments that matter.",
     steps: [
       { title: "Expand living systems", detail: "Living-space sections cost Flux and Salvage, and assigned Engineers speed construction. Atmosphere, water, nutrition, and medical capacity also expand with Salvage. The Ark's absolute limit is 48 people." },
-      { title: "Prepare the SOS beacon", detail: "Reach planetary orbit, maintain at least 2 living spaces, and raise Atmosphere, Water, Nutrition, and Medical capacity to at least 2. The Personnel readiness checklist shows every blocker." },
+      { title: "Prepare the SOS beacon", detail: "Reach planetary orbit, maintain at least 2 living spaces, and raise Atmosphere, Water, Nutrition, and Medical capacity to at least 2. Before the first rescue, the Ark screen shows every blocker and the four reserve controls; Personnel opens only after people arrive." },
       { title: "Activate the SOS beacon", detail: "Once every readiness item is complete, authorize the beacon. It finds a persistent group after 90 seconds, including while the game is closed." },
       { title: "Dispatch the rescue shuttle", detail: "Spend the listed Salvage to bring the entire group aboard. Each person also brings Biological Samples and Cultural Records." },
       { title: "Let AXIOM staff the Ark", detail: "Adults default to their strongest learned profession. Manual assignments stay locked; Ark Reserve covers absences and performs light maintenance. Optimize All Crew performs a complete reshuffle." },

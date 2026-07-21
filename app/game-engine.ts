@@ -189,7 +189,9 @@ import {
   sanitizeSettlementState,
   sanitizeWorldProgress,
   type CampaignCrewSummary,
+  type ForecastLine,
   type SettlementState,
+  type ViabilityDeficit,
   type ViabilityForecast,
   type WorldProgressSummary,
 } from "./settlement-engine.ts";
@@ -218,7 +220,7 @@ import {
   type CausalArchiveView,
 } from "./causal-archive-engine.ts";
 
-export const SAVE_VERSION = 13;
+export const SAVE_VERSION = 14;
 export const SAVE_KEY = "axiom-foundry-save-v5";
 export const RETIRED_SAVE_KEYS = [
   "axiom-foundry-save-v1",
@@ -242,6 +244,12 @@ export type GameSettings = {
   autoTiers: boolean[];
   tutorialComplete: boolean;
   continuityIntroduced: boolean;
+  coldWakeForecastReviewed: boolean;
+  foundryIntroduced: boolean;
+  arkOverviewIntroduced: boolean;
+  departureIntroduced: boolean;
+  personnelIntroduced: boolean;
+  researchIntroduced: boolean;
 };
 
 export type MissionStatus = "locked" | "active" | "saved";
@@ -441,6 +449,10 @@ export const RECALIBRATION_THRESHOLD = 100_000;
 const RECALIBRATION_WORLD_SCALE = 25;
 const COLD_WAKE_LAW_THRESHOLD_SCALE = [1, 2.5, 6] as const;
 export const COLD_WAKE_APPROACH_RESERVE = 250_000;
+export const COLD_WAKE_FOUNDRY_STAGE = 6;
+export const COLD_WAKE_NAVIGATION_STAGE = 7;
+export const COLD_WAKE_LIFE_SUPPORT_STAGE = 8;
+export const COLD_WAKE_DEPARTURE_STAGE = 9;
 
 export const MISSIONS = [
   {
@@ -509,6 +521,28 @@ export const MISSIONS = [
         label: "Prove the law of Transit",
         instruction: "Charge one final cycle, then Recalibrate so the Ark arrives as the same vessel that departed.",
         lore: "Transit is not speed. It is proof that departure, passage, and arrival belong to the same history.",
+      },
+      {
+        kind: "tierPurchaseDelta",
+        tierIndex: 0,
+        target: 25,
+        label: "Commission the Foundry Deck",
+        instruction: "Enter the newly awakened Foundry and build 25 Vacuum Taps for its independent fabrication bus.",
+        lore: "The Law-Heart learned repetition in isolation. The Foundry turns that lesson into a ship-wide industrial language.",
+      },
+      {
+        kind: "contributeFlux",
+        target: 100_000,
+        label: "Restore navigation control",
+        instruction: "Route 100,000 Flux through the Ark overview to wake guidance, braking, and the Continuity Bridge.",
+        lore: "A destination is not a direction until the whole ship agrees which way it is moving.",
+      },
+      {
+        kind: "contributeFlux",
+        target: 150_000,
+        label: "Restore the life-support reserve",
+        instruction: "Route 150,000 Flux through the Ark overview to warm the empty atmosphere, water, nutrition, and medical loops.",
+        lore: "The Ark prepares rooms for people whose names it does not know yet.",
       },
       {
         kind: "contributeFlux",
@@ -886,6 +920,12 @@ export function createInitialState(now = Date.now()): GameState {
       autoTiers: GENERATORS.map(() => true),
       tutorialComplete: false,
       continuityIntroduced: false,
+      coldWakeForecastReviewed: false,
+      foundryIntroduced: false,
+      arkOverviewIntroduced: false,
+      departureIntroduced: false,
+      personnelIntroduced: false,
+      researchIntroduced: false,
     },
     manualPulses: 0,
     researchPurchases: 0,
@@ -959,7 +999,19 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
     hasExpandedCampaign && missionSchema < 4 && expandedCampaignIndex === 0
       ? readNumber(rawMissions.contributedFlux)
       : 0;
-  const flux = safeAdd(readNumber(value.flux), migratedColdWakeContribution);
+  const rawStageIndex = Math.floor(readNumber(rawMissions.stageIndex, 0, 100));
+  const migratesColdWakeOnboarding =
+    sourceVersion < 14 &&
+    missionSchema >= 4 &&
+    expandedCampaignIndex === 0 &&
+    rawStageIndex >= COLD_WAKE_FOUNDRY_STAGE;
+  const legacyColdWakeOnboardingContribution = migratesColdWakeOnboarding
+    ? readNumber(rawMissions.contributedFlux)
+    : 0;
+  const flux = safeAdd(
+    readNumber(value.flux),
+    migratedColdWakeContribution + legacyColdWakeOnboardingContribution,
+  );
   const maxFlux = Math.max(flux, readNumber(value.maxFlux));
   const runFlux = readNumber(value.runFlux);
   const allTimeFlux = Math.max(runFlux, readNumber(value.allTimeFlux));
@@ -986,7 +1038,8 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
     hasExpandedCampaign &&
     !migratesColdWakeSequence &&
     rawMissions.awaitingAcknowledgement === true &&
-    currentMissionIndex < MISSIONS.length;
+    currentMissionIndex < MISSIONS.length &&
+    !(sourceVersion < 14 && currentMissionIndex === 0);
   const missionStatuses: MissionStatus[] = MISSIONS.map((_, index) => {
     if (index < currentMissionIndex) {
       return "saved";
@@ -1054,6 +1107,11 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
         cycle,
         lifetimeAxioms,
       };
+  if (migratesColdWakeOnboarding) {
+    baseline.tierBought = tiers.map((tier) => tier.bought);
+    baseline.cycle = cycle;
+    baseline.lifetimeAxioms = lifetimeAxioms;
+  }
   let living = sanitizeLivingFoundryState(value.living, savedWorlds);
   living = grantLivingFoundryRewards(living, {
     loreIds: syncAutomaticDiscoveries(
@@ -1120,7 +1178,9 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
       holdTime: hasExpandedCampaign
         ? readNumber(rawMissions.holdTime, 0, 1e9)
         : 0,
-      contributedFlux: hasExpandedCampaign && !migratesColdWakeSequence
+      contributedFlux: hasExpandedCampaign &&
+        !migratesColdWakeSequence &&
+        !migratesColdWakeOnboarding
         ? readNumber(rawMissions.contributedFlux)
         : 0,
       baseline,
@@ -1152,12 +1212,29 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
         (_, index) => rawAutoTiers[index] !== false,
       ),
       tutorialComplete: rawSettings.tutorialComplete === true,
-      // Version 12 QA checkpoints marked this complete before the guided
-      // handoff existed. Re-arm Cold Wake saves once, but do not interrupt
-      // players who have already travelled beyond the introduction.
-      continuityIntroduced: sourceVersion < 13
+      // Older checkpoints predate the staged handoff. Re-arm Cold Wake once,
+      // but do not interrupt players who have already travelled beyond it.
+      continuityIntroduced: sourceVersion < 14
         ? currentMissionIndex > 0
         : rawSettings.continuityIntroduced === true,
+      coldWakeForecastReviewed: sourceVersion < 14
+        ? currentMissionIndex > 0
+        : rawSettings.coldWakeForecastReviewed === true,
+      foundryIntroduced: sourceVersion < 14
+        ? currentMissionIndex > 0
+        : rawSettings.foundryIntroduced === true,
+      arkOverviewIntroduced: sourceVersion < 14
+        ? currentMissionIndex > 0
+        : rawSettings.arkOverviewIntroduced === true,
+      departureIntroduced: sourceVersion < 14
+        ? currentMissionIndex > 0
+        : rawSettings.departureIntroduced === true,
+      personnelIntroduced: sourceVersion < 14
+        ? currentMissionIndex > 0
+        : rawSettings.personnelIntroduced === true,
+      researchIntroduced: sourceVersion < 14
+        ? currentMissionIndex > 0
+        : rawSettings.researchIntroduced === true,
     },
     manualPulses,
     researchPurchases,
@@ -1218,6 +1295,28 @@ export function getCampaignWorldIndex(state: GameState) {
     MISSIONS.length - 1,
     Math.max(0, Number.isFinite(rawIndex) ? Math.floor(rawIndex) : 0),
   );
+}
+
+export function getColdWakeOnboardingStatus(state: GameState) {
+  const active = state.missions.currentIndex === 0;
+  const stageIndex = state.missions.stageIndex;
+  const completed = state.missions.awaitingAcknowledgement;
+  return {
+    active,
+    forecastAvailable:
+      active &&
+      state.lifetimeAxioms >= 3 &&
+      (stageIndex >= COLD_WAKE_FOUNDRY_STAGE || completed),
+    foundryCommissioned:
+      active && (stageIndex > COLD_WAKE_FOUNDRY_STAGE || completed),
+    arkOverviewAvailable:
+      active && (stageIndex >= COLD_WAKE_NAVIGATION_STAGE || completed),
+    navigationRestored:
+      active && (stageIndex > COLD_WAKE_NAVIGATION_STAGE || completed),
+    lifeSupportRestored:
+      active && (stageIndex > COLD_WAKE_LIFE_SUPPORT_STAGE || completed),
+    departureReady: active && completed,
+  };
 }
 
 /** The first interplanetary route introduces weather; Nox always reveals contacts. */
@@ -1339,12 +1438,125 @@ export function getCurrentViabilityForecast(
 ): ViabilityForecast | null {
   const worldId = state.settlement.currentWorldId;
   if (!worldId) return null;
-  return getViabilityForecast(
+  const base = getViabilityForecast(
     state.settlement,
     worldId,
     getCampaignCrewSummaries(state),
     currentProgressWithResearch(state),
   );
+  if (worldId !== "cold-wake") return base;
+
+  const status = getColdWakeOnboardingStatus(state);
+  const activeStage = state.missions.stageIndex;
+  const approachCurrent =
+    activeStage === COLD_WAKE_DEPARTURE_STAGE
+      ? state.missions.contributedFlux
+      : status.departureReady
+        ? COLD_WAKE_APPROACH_RESERVE
+        : 0;
+  const commissioningLines: ForecastLine[] = [
+    {
+      kind: "infrastructure",
+      id: "commission-foundry-deck",
+      label: "Commission Foundry Deck",
+      baseValue: status.foundryCommissioned ? 1 : 0,
+      substitutionValue: 0,
+      currentValue: status.foundryCommissioned ? 1 : 0,
+      requiredValue: 1,
+      met: status.foundryCommissioned,
+      detail: "Wake the Ark's first independent fabrication deck.",
+      contributors: [],
+    },
+    {
+      kind: "infrastructure",
+      id: "restore-navigation-control",
+      label: "Restore navigation control",
+      baseValue: status.navigationRestored ? 1 : 0,
+      substitutionValue: 0,
+      currentValue: status.navigationRestored ? 1 : 0,
+      requiredValue: 1,
+      met: status.navigationRestored,
+      detail: "Wake guidance, braking, and the Continuity Bridge.",
+      contributors: [],
+    },
+    {
+      kind: "infrastructure",
+      id: "restore-life-support-reserve",
+      label: "Restore life-support reserve",
+      baseValue: status.lifeSupportRestored ? 1 : 0,
+      substitutionValue: 0,
+      currentValue: status.lifeSupportRestored ? 1 : 0,
+      requiredValue: 1,
+      met: status.lifeSupportRestored,
+      detail: "Warm the Ark's empty atmosphere, water, nutrition, and medical loops.",
+      contributors: [],
+    },
+    {
+      kind: "supplies",
+      id: "pelagos-approach-reserve",
+      label: "Commit Pelagos approach reserve",
+      baseValue: approachCurrent,
+      substitutionValue: 0,
+      currentValue: approachCurrent,
+      requiredValue: COLD_WAKE_APPROACH_RESERVE,
+      met: status.departureReady,
+      detail: "Reserve the final propulsion and orbital-insertion Flux.",
+      contributors: [],
+    },
+  ];
+  const visibleCommissioningLines = commissioningLines.slice(
+    0,
+    status.departureReady
+      ? commissioningLines.length
+      : Math.max(
+          1,
+          Math.min(
+            commissioningLines.length,
+            activeStage - COLD_WAKE_FOUNDRY_STAGE + 1,
+          ),
+        ),
+  );
+  const deficits: ViabilityDeficit[] = visibleCommissioningLines
+    .filter((line) => !line.met)
+    .map((line) => ({
+      kind: line.kind,
+      id: line.id,
+      label: line.label,
+      missing: Math.max(0, line.requiredValue - line.currentValue),
+      message:
+        line.id === "commission-foundry-deck"
+          ? "The Foundry Deck has not completed its first independent machine run."
+          : line.id === "restore-navigation-control"
+            ? "The Ark cannot steer or brake as one vessel yet."
+            : line.id === "restore-life-support-reserve"
+              ? "The Ark cannot safely receive biological life yet."
+              : "Pelagos orbital insertion has not been fully funded.",
+      alternatives: [
+        line.id === "commission-foundry-deck"
+          ? "Authorize the Foundry wake-up, then build 25 Vacuum Taps there."
+          : line.id === "restore-navigation-control"
+            ? "Return to Ark Command and route Flux into navigation control."
+            : line.id === "restore-life-support-reserve"
+              ? "Return to Ark Command and route Flux into the life-support reserve."
+              : "Open Planet and commit the remaining approach reserve. Partial payments are saved.",
+      ],
+    }));
+  const lines = [...base.lines, ...visibleCommissioningLines];
+  const score = Math.round(
+    (lines.reduce(
+      (total, line) => total + Math.min(1, line.currentValue / Math.max(1, line.requiredValue)),
+      0,
+    ) /
+      Math.max(1, lines.length)) *
+      100,
+  );
+  return {
+    ...base,
+    lines,
+    deficits: [...base.deficits, ...deficits],
+    score,
+    canDepart: base.canDepart && status.departureReady,
+  };
 }
 
 export function getColonyLegacyEffects(state: GameState) {
@@ -3846,6 +4058,15 @@ export function departCurrentWorld(
       nextWorldId: null,
     };
   }
+  if (worldId === "cold-wake" && !state.missions.awaitingAcknowledgement) {
+    return {
+      state,
+      ok: false,
+      reason: "requirements-unmet",
+      departedWorldId: worldId,
+      nextWorldId: worldId,
+    };
+  }
   if (state.expeditions.active) {
     return {
       state,
@@ -5142,6 +5363,35 @@ export function setTutorialComplete(state: GameState, complete: boolean) {
 export function setContinuityIntroduced(state: GameState, introduced = true) {
   const next = cloneGameState(state);
   next.settings.continuityIntroduced = introduced;
+  return next;
+}
+
+export type InterfaceIntroductionId =
+  | "continuity"
+  | "foundry"
+  | "ark-overview"
+  | "departure"
+  | "personnel"
+  | "research";
+
+export function setInterfaceIntroduction(
+  state: GameState,
+  id: InterfaceIntroductionId,
+  introduced = true,
+) {
+  const next = cloneGameState(state);
+  if (id === "continuity") next.settings.continuityIntroduced = introduced;
+  if (id === "foundry") next.settings.foundryIntroduced = introduced;
+  if (id === "ark-overview") next.settings.arkOverviewIntroduced = introduced;
+  if (id === "departure") next.settings.departureIntroduced = introduced;
+  if (id === "personnel") next.settings.personnelIntroduced = introduced;
+  if (id === "research") next.settings.researchIntroduced = introduced;
+  return next;
+}
+
+export function setColdWakeForecastReviewed(state: GameState, reviewed = true) {
+  const next = cloneGameState(state);
+  next.settings.coldWakeForecastReviewed = reviewed;
   return next;
 }
 

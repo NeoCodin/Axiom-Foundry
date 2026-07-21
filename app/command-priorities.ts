@@ -10,6 +10,10 @@ import {
   getResearchLeadStatus,
   getResearchPowerAvailable,
   getActiveAutomationEffects,
+  COLD_WAKE_FOUNDRY_STAGE,
+  COLD_WAKE_NAVIGATION_STAGE,
+  COLD_WAKE_LIFE_SUPPORT_STAGE,
+  COLD_WAKE_DEPARTURE_STAGE,
   MISSIONS,
   type GameState,
 } from "./game-engine.ts";
@@ -219,8 +223,16 @@ export function getCommandPriorities(state: GameState): CommandPriority[] {
   if (mission && !state.missions.awaitingAcknowledgement && !activeTransit) {
     const stage = mission.stages[state.missions.stageIndex] ?? mission.stages[0];
     const progress = getMissionProgress(state);
-    const coldWakeCoreDeck = state.missions.currentIndex === 0;
-    const route = coldWakeCoreDeck ? { target: "deck" as const } : missionRoute(stage.kind);
+    const coldWake = state.missions.currentIndex === 0;
+    const coldWakeRoute = state.missions.stageIndex < COLD_WAKE_FOUNDRY_STAGE
+      ? { target: "deck" as const }
+      : state.missions.stageIndex === COLD_WAKE_FOUNDRY_STAGE
+        ? { target: "engineering" as const, panel: "machines" as const }
+        : state.missions.stageIndex === COLD_WAKE_NAVIGATION_STAGE ||
+            state.missions.stageIndex === COLD_WAKE_LIFE_SUPPORT_STAGE
+          ? { target: "deck" as const }
+          : { target: "settlement" as const };
+    const route = coldWake ? coldWakeRoute : missionRoute(stage.kind);
     add({
       id: "active-directive",
       eyebrow: "Planetfall directive",
@@ -232,8 +244,12 @@ export function getCommandPriorities(state: GameState): CommandPriority[] {
           : stage.kind === "pulseDelta"
           ? "Tune the Core"
           : stage.kind === "tierPurchaseDelta"
-            ? coldWakeCoreDeck ? "Build Vacuum Taps" : "Open required machine"
-            : "Open exact directive control",
+            ? coldWake ? "Open the Foundry Deck" : "Open required machine"
+            : coldWake && state.missions.stageIndex === COLD_WAKE_DEPARTURE_STAGE
+              ? "Open Pelagos approach"
+              : coldWake
+                ? "Return to Ark Command"
+                : "Open exact directive control",
       target: route.target,
       panel: route.panel,
       missing: stage.label,
@@ -246,6 +262,7 @@ export function getCommandPriorities(state: GameState): CommandPriority[] {
   if (state.survivors.activeSignal) {
     const rescue = getArkRescueQuote(state);
     const blocked = rescueBlockCopy(rescue.reason);
+    const personnelAwake = getProgressiveDisclosure(state).population;
     add({
       id: "survivor-signal",
       eyebrow: rescue.canRescue ? "Rescue ready" : "Persistent signal",
@@ -253,8 +270,12 @@ export function getCommandPriorities(state: GameState): CommandPriority[] {
       detail: rescue.canRescue
         ? "Quarters, life support, Salvage, and the shuttle reserve are ready. The signal never expires."
         : blocked.detail,
-      actionLabel: rescue.canRescue ? "Dispatch rescue" : blocked.actionLabel,
-      target: rescue.canRescue ? "population" : blocked.target,
+      actionLabel: personnelAwake
+        ? rescue.canRescue ? "Dispatch rescue" : blocked.actionLabel
+        : "Open Ark rescue signal",
+      target: personnelAwake
+        ? rescue.canRescue ? "population" : blocked.target
+        : "deck",
       panel: rescue.canRescue ? undefined : blocked.panel,
       missing: rescue.canRescue ? undefined : blocked.missing,
       nextAction: rescue.canRescue ? "Dispatch the prepared rescue shuttle" : blocked.nextAction,

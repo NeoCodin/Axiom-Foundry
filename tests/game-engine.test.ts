@@ -3,6 +3,10 @@ import test from "node:test";
 import {
   MISSIONS,
   COLD_WAKE_APPROACH_RESERVE,
+  COLD_WAKE_FOUNDRY_STAGE,
+  COLD_WAKE_NAVIGATION_STAGE,
+  COLD_WAKE_LIFE_SUPPORT_STAGE,
+  COLD_WAKE_DEPARTURE_STAGE,
   RECALIBRATION_THRESHOLD,
   RETIRED_SAVE_KEYS,
   RUN_UPGRADES,
@@ -16,6 +20,7 @@ import {
   getCampaignRelics,
   getCampaignCrewSummaries,
   getCampaignWorldIndex,
+  getColdWakeOnboardingStatus,
   getColonyLegacyEffects,
   fabricateWorldEquipment,
   getArkRescueQuote,
@@ -48,6 +53,8 @@ import {
   recalibrate,
   sanitizeGameState,
   setContinuityIntroduced,
+  setColdWakeForecastReviewed,
+  setInterfaceIntroduction,
   setTutorialComplete,
   simulateGame,
 } from "../app/game-engine.ts";
@@ -473,7 +480,7 @@ test("planetary directives do not expose countdown state", () => {
   assert.equal("timeLimit" in MISSIONS[0], false);
 });
 
-test("the Planet destination introduction is a one-time persisted playthrough flag", () => {
+test("every staged destination introduction persists independently", () => {
   const initial = createInitialState(0);
   assert.equal(initial.settings.continuityIntroduced, false);
 
@@ -506,6 +513,18 @@ test("the Planet destination introduction is a one-time persisted playthrough fl
     sanitizeGameState(preGuideLaterWorld, 100).settings.continuityIntroduced,
     true,
   );
+
+  const staged = setInterfaceIntroduction(
+    setInterfaceIntroduction(
+      setColdWakeForecastReviewed(initial),
+      "foundry",
+    ),
+    "ark-overview",
+  );
+  assert.equal(staged.settings.coldWakeForecastReviewed, true);
+  assert.equal(staged.settings.foundryIntroduced, true);
+  assert.equal(staged.settings.arkOverviewIntroduced, true);
+  assert.equal(initial.settings.foundryIntroduced, false);
 });
 
 test("Cold Wake proves its approach systems and three laws before revealing the orbital reserve", () => {
@@ -533,6 +552,34 @@ test("Cold Wake proves its approach systems and three laws before revealing the 
     assert.equal(state.lifetimeAxioms, lawIndex + 1);
     assert.equal(state.missions.stageIndex, 4 + lawIndex);
   }
+
+  assert.equal(state.missions.stageIndex, COLD_WAKE_FOUNDRY_STAGE);
+  assert.equal(getColdWakeOnboardingStatus(state).forecastAvailable, true);
+  assert.equal(getColdWakeOnboardingStatus(state).arkOverviewAvailable, false);
+
+  state.tiers[0] = {
+    amount: state.missions.baseline.tierBought[0]! + 25,
+    bought: state.missions.baseline.tierBought[0]! + 25,
+  };
+  state = simulateGame(state, 0.1, 1);
+  assert.equal(state.missions.stageIndex, COLD_WAKE_NAVIGATION_STAGE);
+  assert.equal(getColdWakeOnboardingStatus(state).arkOverviewAvailable, true);
+
+  state.flux = 100_000;
+  state.maxFlux = 100_000;
+  state.runFlux = 100_000;
+  state = contributeToMission(state);
+  state = simulateGame(state, 0.1, 1);
+  assert.equal(state.missions.stageIndex, COLD_WAKE_LIFE_SUPPORT_STAGE);
+  assert.equal(getColdWakeOnboardingStatus(state).navigationRestored, true);
+
+  state.flux = 150_000;
+  state.maxFlux = 150_000;
+  state.runFlux = 150_000;
+  state = contributeToMission(state);
+  state = simulateGame(state, 0.1, 1);
+  assert.equal(state.missions.stageIndex, COLD_WAKE_DEPARTURE_STAGE);
+  assert.equal(getColdWakeOnboardingStatus(state).lifeSupportRestored, true);
 
   const approach = MISSIONS[0].stages[state.missions.stageIndex];
   assert.equal(approach?.kind, "contributeFlux");
@@ -631,6 +678,26 @@ test("old Cold Wake approach saves migrate back before systems and law proofs wi
   assert.equal(migrated.missions.statuses[0], "active");
   assert.equal(migrated.missions.contributedFlux, 0);
   assert.equal(migrated.flux, 15_000);
+});
+
+test("pre-onboarding Cold Wake completions restart at Foundry commissioning and refund approach Flux", () => {
+  const old = setTutorialComplete(createInitialState(0), true);
+  old.version = 13;
+  old.missions.schema = 5;
+  old.missions.stageIndex = 6;
+  old.missions.awaitingAcknowledgement = true;
+  old.missions.contributedFlux = 42_000;
+  old.flux = 10_000;
+  old.tiers[0] = { amount: 80, bought: 80 };
+
+  const migrated = sanitizeGameState(old, 1_000);
+  assert.equal(migrated.missions.stageIndex, COLD_WAKE_FOUNDRY_STAGE);
+  assert.equal(migrated.missions.awaitingAcknowledgement, false);
+  assert.equal(migrated.missions.contributedFlux, 0);
+  assert.equal(migrated.missions.baseline.tierBought[0], 80);
+  assert.equal(migrated.flux, 52_000);
+  assert.equal(migrated.settings.continuityIntroduced, false);
+  assert.equal(migrated.settings.coldWakeForecastReviewed, false);
 });
 
 test("Cold Wake departure requires the full Ark-readiness forecast", () => {

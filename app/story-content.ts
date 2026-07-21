@@ -20,7 +20,7 @@ export const TOUR_STEPS = [
     target: "flux",
     eyebrow: "AXIOM // awakening protocol 02",
     title: "The Ark will teach you one system at a time",
-    body: "Keep the Law-Heart stable and follow the single highlighted objective. Cold Wake stays on this Core Deck; Foundry, personnel, research, and continuity controls appear later only when their first real decision is ready.",
+    body: "Keep the Law-Heart stable and follow the single highlighted objective. Continuity first appears as a forecast, the Foundry wakes as one machine deck, and the Ark then unfolds room by room. Personnel waits for the first rescued witnesses; Research waits until those people can staff it.",
     note: "Nothing expires, and no hidden timer is running. Every newly lit room is progress you earned.",
   },
 ] as const;
