@@ -218,7 +218,7 @@ import {
   type CausalArchiveView,
 } from "./causal-archive-engine.ts";
 
-export const SAVE_VERSION = 12;
+export const SAVE_VERSION = 13;
 export const SAVE_KEY = "axiom-foundry-save-v5";
 export const RETIRED_SAVE_KEYS = [
   "axiom-foundry-save-v1",
@@ -1152,7 +1152,12 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
         (_, index) => rawAutoTiers[index] !== false,
       ),
       tutorialComplete: rawSettings.tutorialComplete === true,
-      continuityIntroduced: rawSettings.continuityIntroduced === true,
+      // Version 12 QA checkpoints marked this complete before the guided
+      // handoff existed. Re-arm Cold Wake saves once, but do not interrupt
+      // players who have already travelled beyond the introduction.
+      continuityIntroduced: sourceVersion < 13
+        ? currentMissionIndex > 0
+        : rawSettings.continuityIntroduced === true,
     },
     manualPulses,
     researchPurchases,

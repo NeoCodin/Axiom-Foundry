@@ -7,6 +7,7 @@ import {
   RETIRED_SAVE_KEYS,
   RUN_UPGRADES,
   SAVE_KEY,
+  SAVE_VERSION,
   buyTier,
   buyRunUpgrade,
   contributeToMission,
@@ -490,6 +491,21 @@ test("the Planet destination introduction is a one-time persisted playthrough fl
     sanitizeGameState(legacy, 100).settings.continuityIntroduced,
     false,
   );
+
+  const preGuideColdWake = JSON.parse(JSON.stringify(introduced));
+  preGuideColdWake.version = 12;
+  assert.equal(
+    sanitizeGameState(preGuideColdWake, 100).settings.continuityIntroduced,
+    false,
+  );
+
+  const preGuideLaterWorld = JSON.parse(JSON.stringify(introduced));
+  preGuideLaterWorld.version = 12;
+  preGuideLaterWorld.missions.currentIndex = 1;
+  assert.equal(
+    sanitizeGameState(preGuideLaterWorld, 100).settings.continuityIntroduced,
+    true,
+  );
 });
 
 test("Cold Wake proves its approach systems and three laws before revealing the orbital reserve", () => {
@@ -792,7 +808,7 @@ test("v2 saves enter the expanded campaign without replaying old Flux progress",
       statuses: MISSIONS.map(() => "saved"),
     },
   }, 100);
-  assert.equal(migrated.version, 12);
+  assert.equal(migrated.version, SAVE_VERSION);
   assert.equal(migrated.missions.currentIndex, 0);
   assert.equal(migrated.missions.stageIndex, 0);
   assert.equal(migrated.missions.worldsSaved, 0);
@@ -817,7 +833,7 @@ test("v3 timed saves recover lost worlds under the untimed campaign", () => {
     },
   }, 100);
 
-  assert.equal(migrated.version, 12);
+  assert.equal(migrated.version, SAVE_VERSION);
   assert.equal(migrated.missions.schema, 5);
   assert.deepEqual(migrated.missions.statuses.slice(0, 4), [
     "saved",
@@ -1320,7 +1336,7 @@ test("economy v2 migration dissolves produced stockpiles into bought counts", ()
       { amount: 0, bought: 0 },
     ],
   }, 100);
-  assert.equal(migrated.version, 12);
+  assert.equal(migrated.version, SAVE_VERSION);
   for (const tier of migrated.tiers) {
     assert.equal(tier.amount, tier.bought, "amount mirrors bought after v2");
   }
