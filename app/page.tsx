@@ -1504,7 +1504,10 @@ export default function Home() {
     const next = createQaCheckpoint(worldIndex, Date.now());
     setPrimaryView("deck");
     setMobileTab("machines");
-    applyQaState(next, `QA checkpoint loaded: ${MISSIONS[worldIndex]?.world ?? "Cold Wake"}.`);
+    applyQaState(next, `Fresh ${MISSIONS[worldIndex]?.world ?? "Cold Wake"} opening loaded with its normal arrival resources.`);
+    setQaCollapsed(true);
+    setContextGuide(null);
+    setTourStep(null);
   };
 
   const handleReturnToPlayerSave = () => {

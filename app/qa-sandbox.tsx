@@ -61,12 +61,15 @@ export function QaSandbox({
         <div className="qa-sandbox-body">
           <header><span>ISOLATED TEST PROFILE</span><strong>AXIOM QA Sandbox</strong><small>These controls never write to your player save.</small></header>
           <section>
-            <span>WORLD CHECKPOINTS</span>
+            <span>FRESH WORLD OPENINGS</span>
             <div className="qa-world-grid">
               {CAMPAIGN_WORLD_IDS.map((worldId, index) => (
-                <button type="button" key={worldId} onClick={() => onJumpWorld(index)}>{String(index).padStart(2, "0")} {getCampaignWorld(worldId)?.name}</button>
+                <button type="button" key={worldId} onClick={() => onJumpWorld(index)}>
+                  {index === 0 ? "WAKE" : "ARRIVE"}{" // "}{getCampaignWorld(worldId)?.name}
+                </button>
               ))}
             </div>
+            <small className="qa-section-help">Each opening completes only earlier worlds, resets the active chapter to its first phase, and grants only its normal arrival cache. Use Test Overrides when you want to accelerate.</small>
           </section>
           <section>
             <span>PLAYER EXPERIENCE</span>

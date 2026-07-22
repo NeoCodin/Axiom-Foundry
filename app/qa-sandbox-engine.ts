@@ -34,7 +34,12 @@ export const QA_QUERY_PARAMETER = "qa";
 export const QA_RESOURCE_GRANT = 1_000_000_000_000_000;
 
 const RESEARCH_ERA_ORDER = ["recovery", "integration", "synthesis", "convergence"] as const;
-const WORLD_RESEARCH_ERA = [-1, -1, 0, 1, 2, 3] as const;
+// A world-opening checkpoint carries only work that could have been completed
+// before the selected arrival. Viridia introduces Research, so its opening is
+// deliberately still empty rather than arriving with the Recovery era solved.
+const WORLD_RESEARCH_ERA = [-1, -1, -1, 0, 1, 2] as const;
+const WORLD_OPENING_AXIOMS = [0, 3, 5, 8, 12, 17] as const;
+const WORLD_OPENING_CREW = [0, 0, 16, 19, 22, 25] as const;
 const ALL_CONTEXT_GUIDE_IDS = Object.keys(CONTEXT_GUIDES);
 const RESEARCH_INPUT_IDS = [
   "calibration-data",
@@ -47,17 +52,18 @@ const RESEARCH_INPUT_IDS = [
 ] as const;
 
 function createQaCrew(worldIndex: number) {
-  if (worldIndex === 0) return createSurvivorSystemState(0x41_58_49_4f);
-  const target = Math.min(40, 14 + worldIndex * 5);
+  if (worldIndex <= 1) return createSurvivorSystemState(0x41_58_49_4f);
+  const target = WORLD_OPENING_CREW[worldIndex] ?? WORLD_OPENING_CREW.at(-1)!;
   const worldId = CAMPAIGN_WORLD_IDS[Math.max(1, worldIndex)] as Exclude<CampaignWorldId, "cold-wake">;
   let crew = createSurvivorSystemState(0x41_58_49_4f + worldIndex);
-  crew.berthSections = 6;
-  crew.trainingSlots = 12;
+  crew.berthSections = Math.min(6, worldIndex + 1);
+  crew.trainingSlots = Math.min(6, worldIndex + 1);
+  const supportCapacity = Math.min(48, 20 + worldIndex * 6);
   crew = setLifeSupportCapacity(crew, {
-    atmosphere: 48,
-    water: 48,
-    nutrition: 48,
-    medical: 48,
+    atmosphere: supportCapacity,
+    water: supportCapacity,
+    nutrition: supportCapacity,
+    medical: supportCapacity,
   });
   crew = setSosBeaconOnline(crew, true, worldId);
 
@@ -67,7 +73,9 @@ function createQaCrew(worldIndex: number) {
     crew = rescueSurvivorSignal(crew, QA_RESOURCE_GRANT).state;
   }
 
-  const level = Math.min(8, 2 + worldIndex);
+  // These are credible returning crew, not a continuity-clearing strike team.
+  // The dedicated Max trained skills override remains available for that.
+  const level = Math.min(4, Math.max(1, worldIndex - 1));
   const skillXp = Math.pow(Math.max(0, level - 1), 2) * 120;
   crew.survivors = crew.survivors.map((survivor) => ({
     ...survivor,
@@ -107,26 +115,49 @@ function completedColonies(worldIndex: number, now: number) {
     .filter((colony): colony is NonNullable<typeof colony> => colony !== null);
 }
 
+function openingGuideIds(worldIndex: number) {
+  if (worldIndex === 1) {
+    return ALL_CONTEXT_GUIDE_IDS.filter(
+      (id) => !id.startsWith("pelagos-") && id !== "viridia-research",
+    );
+  }
+  if (worldIndex === 2) {
+    return ALL_CONTEXT_GUIDE_IDS.filter((id) => id !== "viridia-research");
+  }
+  return [...ALL_CONTEXT_GUIDE_IDS];
+}
+
+function earnedSalvageAtWorldOpening(worldIndex: number) {
+  let salvage = 35;
+  for (let index = 0; index < worldIndex; index += 1) {
+    const stageCount = MISSIONS[index]?.stages.length ?? 0;
+    const stageRewards = 6 * (index + 1) * stageCount * (stageCount + 1) / 2;
+    salvage += stageRewards + 30 * (index + 1);
+  }
+  return salvage;
+}
+
 export function createQaCheckpoint(worldIndex: number, now = Date.now()): GameState {
   const index = Math.max(0, Math.min(MISSIONS.length - 1, Math.floor(worldIndex)));
   const worldId = CAMPAIGN_WORLD_IDS[index];
   const base = createInitialState(now);
   const researchIds = completedResearchForWorld(index);
-  const stockedInputs = Object.fromEntries(RESEARCH_INPUT_IDS.map((id) => [id, 250_000])) as GameState["researchStock"];
   const survivors = createQaCrew(index);
+  const openingFlux = index > 0 ? MISSIONS[index - 1]?.landingFlux ?? 0 : 0;
+  const seedTaps = index >= 5 ? 5 : 0;
   const startingTiers = GENERATORS.map((_, tierIndex) => {
-    const bought = index > 0 && tierIndex === 0 ? 25 : 0;
+    const bought = tierIndex === 0 ? seedTaps : 0;
     return { amount: bought, bought };
   });
-  const startingAxioms = index === 0 ? 0 : 250;
-  const startingCycle = index === 0 ? 1 : 8;
+  const startingAxioms = WORLD_OPENING_AXIOMS[index] ?? WORLD_OPENING_AXIOMS.at(-1)!;
+  const startingCycle = startingAxioms + 1;
 
   return sanitizeGameState({
     ...base,
-    flux: QA_RESOURCE_GRANT,
-    maxFlux: QA_RESOURCE_GRANT,
-    runFlux: QA_RESOURCE_GRANT,
-    allTimeFlux: QA_RESOURCE_GRANT,
+    flux: openingFlux,
+    maxFlux: openingFlux,
+    runFlux: 0,
+    allTimeFlux: openingFlux,
     axioms: startingAxioms,
     lifetimeAxioms: startingAxioms,
     stellarRelays: index,
@@ -135,7 +166,7 @@ export function createQaCheckpoint(worldIndex: number, now = Date.now()): GameSt
     researchPurchases: 0,
     tiers: startingTiers,
     runUpgrades: RUN_UPGRADES.map(() => 0),
-    legacyUpgrades: LEGACY_UPGRADES.map(() => 5),
+    legacyUpgrades: LEGACY_UPGRADES.map(() => 0),
     missions: {
       ...base.missions,
       currentIndex: index,
@@ -152,32 +183,24 @@ export function createQaCheckpoint(worldIndex: number, now = Date.now()): GameSt
     },
     living: {
       ...base.living,
-      salvage: 1_000_000,
-      cohesion: 100,
-      rooms: base.living.rooms.map((room) => ({ ...room, unlocked: true, level: 5 })),
+      salvage: earnedSalvageAtWorldOpening(index),
     },
     survivors,
     research: {
       ...base.research,
       assignedCrew: Math.min(6, survivors.survivors.filter((survivor) => survivor.assignedRole === "researcher").length),
-      inventory: stockedInputs,
       completedProjectIds: researchIds,
     },
-    researchStock: stockedInputs,
     settlement: {
       ...base.settlement,
       currentWorldId: worldId,
       completedWorldIds: CAMPAIGN_WORLD_IDS.slice(0, index),
       colonies: completedColonies(index, now),
     },
-    expeditions: {
-      ...base.expeditions,
-      stats: { ...base.expeditions.stats, launched: index * 2, completed: index * 2 },
-    },
-    defense: index >= 3 ? {
+    defense: index >= 4 ? {
       ...base.defense,
       installations: { shieldArray: 1, pointDefense: 1, repairDrones: 1, earlyWarningRelay: 1 },
-      firstContactResolved: index >= 4,
+      firstContactResolved: index >= 5,
     } : base.defense,
     settings: {
       ...base.settings,
@@ -187,12 +210,12 @@ export function createQaCheckpoint(worldIndex: number, now = Date.now()): GameSt
       foundryIntroduced: index > 0,
       arkOverviewIntroduced: index > 0,
       departureIntroduced: index > 0,
-      personnelIntroduced: index > 0,
-      researchIntroduced: index >= 2,
-      completedGuideIds: [...ALL_CONTEXT_GUIDE_IDS],
-      autoEnabled: true,
-      autoUpgrades: true,
-      buyMode: "max",
+      personnelIntroduced: index >= 2,
+      researchIntroduced: index >= 3,
+      completedGuideIds: openingGuideIds(index),
+      autoEnabled: index > 0,
+      autoUpgrades: false,
+      buyMode: "1",
     },
   }, now);
 }

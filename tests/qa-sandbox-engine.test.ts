@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { COLD_WAKE_FOUNDRY_STAGE, SAVE_KEY } from "../app/game-engine.ts";
+import { COLD_WAKE_FOUNDRY_STAGE, MISSIONS, SAVE_KEY } from "../app/game-engine.ts";
 import { CAMPAIGN_WORLD_IDS, getCampaignWorld } from "../app/campaign-content.ts";
 import { RESEARCH_PROJECT_DEFINITIONS } from "../app/research-engine.ts";
 import { getSurvivorBestSkillLevel } from "../app/survivor-engine.ts";
 import { getProgressiveDisclosure } from "../app/progressive-disclosure.ts";
 import {
   QA_SAVE_KEY,
+  QA_RESOURCE_GRANT,
   addQaFlux,
   boostQaCrew,
   completeQaResearch,
@@ -32,18 +33,29 @@ test("custom QA Flux grants are additive, tracked, and safely bounded", () => {
   assert.equal(addQaFlux(state, Number.POSITIVE_INFINITY).flux, 1e280);
 });
 
-test("QA checkpoints are isolated, valid campaign snapshots", () => {
+test("QA world checkpoints are fresh arrivals rather than completed or overpowered saves", () => {
   assert.notEqual(QA_SAVE_KEY, SAVE_KEY);
   for (const [index, worldId] of CAMPAIGN_WORLD_IDS.entries()) {
     const state = createQaCheckpoint(index, 1_000_000);
+    const expectedFlux = index === 0 ? 0 : MISSIONS[index - 1].landingFlux;
     assert.equal(state.missions.currentIndex, index);
     assert.equal(state.settlement.currentWorldId, worldId);
     assert.deepEqual(state.settlement.completedWorldIds, CAMPAIGN_WORLD_IDS.slice(0, index));
     assert.equal(state.settings.tutorialComplete, true);
     assert.equal(state.settings.continuityIntroduced, index > 0);
-    assert.equal(state.settings.researchIntroduced, index >= 2);
-    assert.ok(state.flux > 0);
+    assert.equal(state.settings.researchIntroduced, index >= 3);
+    assert.equal(state.flux, expectedFlux);
+    assert.equal(state.maxFlux, expectedFlux);
+    assert.equal(state.runFlux, 0);
+    assert.ok(state.flux < QA_RESOURCE_GRANT);
+    assert.ok(state.axioms < 100);
+    assert.ok(state.living.salvage < 100_000);
     assert.equal(state.missions.stageIndex, 0);
+    assert.equal(state.missions.awaitingAcknowledgement, false);
+    assert.deepEqual(state.worldProgress.completedInfrastructureIds, []);
+    assert.deepEqual(state.worldProgress.resolvedCrisisIds, []);
+    assert.equal(state.worldProgress.surveysCompleted, 0);
+    assert.equal(state.expeditions.active, null);
     assert.ok(state.runUpgrades.every((level) => level === 0));
     assert.deepEqual(
       state.missions.baseline.tierBought,
