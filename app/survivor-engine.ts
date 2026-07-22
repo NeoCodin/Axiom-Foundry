@@ -1288,8 +1288,9 @@ function generateSurvivorSignalMutable(
   // hurt, and some professionals arrive already experienced. Later worlds
   // shelter harder people. Authored story-hook characters stay pristine.
   const worldIndex = Math.max(0, SOS_WORLD_IDS.indexOf(beaconWorldId));
+  const protectedPelagosArrival = beaconWorldId === "pelagos" && sequence === 1;
   for (const survivor of survivors) {
-    if (!survivor.storyHookId) {
+    if (!survivor.storyHookId && !protectedPelagosArrival) {
       const woundRoll = nextRandom(state);
       if (woundRoll < 0.08) {
         survivor.health = 15 + randomInt(state, 21);

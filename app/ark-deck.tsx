@@ -2,6 +2,7 @@
 
 import { useState, type CSSProperties } from "react";
 import { HelpTrigger, type ManualTopicId } from "./game-manual";
+import { LawPressCanvas, type LawPressState } from "./law-press-canvas";
 import {
   BeaconReadinessList,
 } from "./beacon-readiness";
@@ -89,8 +90,6 @@ export type ArkDeckProps = {
   onTuneCore: () => void;
   onCommission?: () => void;
   onUpgradeSupport?: (key: LifeSupportKey) => void;
-  onActivateBeacon: () => void;
-  onRescueSignal: (signalId: string) => void;
   onOpenView: (view: ArkViewId) => void;
   onOpenHelp: (topicId: ManualTopicId) => void;
 };
@@ -158,8 +157,6 @@ function ArkDeck({
   onTuneCore,
   onCommission,
   onUpgradeSupport,
-  onActivateBeacon,
-  onRescueSignal,
   onOpenView,
   onOpenHelp,
 }: ArkDeckProps) {
@@ -185,6 +182,7 @@ function ArkDeck({
 
   const fabricationOnline = engineeringUnlocked;
   const earlyPelagosHabitability = worldName === "Pelagos" && population === 0;
+  const pelagosFirstContact = worldName === "Pelagos" && population === 0;
   const supportOnline =
     populationUnlocked ||
     earlyPelagosHabitability ||
@@ -198,6 +196,15 @@ function ArkDeck({
     settlementUnlocked &&
     (!coldWakeCommissioning?.active || coldWakeCommissioning.navigationRestored);
   const peopleSystemsVisible = populationUnlocked || earlyPelagosHabitability;
+  const lawHeartState: LawPressState = fabricationIntensity >= 150
+    ? "synchronized"
+    : fabricationIntensity >= 50
+      ? "rapid"
+      : fabricationIntensity >= 15
+        ? "active"
+        : fabricationIntensity > 0
+          ? "warming"
+          : "manual";
 
   const coreEnergy = clamp(0.14 + normalizedWorldProgress * 0.34 + roomRatio * 0.38 + Math.min(0.14, fluxValue / 2_000));
   const coreDuration = 3.9 - coreEnergy * 2.85;
@@ -404,6 +411,47 @@ function ArkDeck({
         </p>
       </section>
 
+      <section className={`ark-law-heart is-${lawHeartState}`} data-guide-target="ark-law-heart" aria-labelledby="ark-law-heart-title">
+        <header>
+          <div>
+            <span>LAW-HEART // AUTOMATION WINDOW</span>
+            <h3 id="ark-law-heart-title">The motion Cold Wake taught the Ark is still running</h3>
+            <p>Every Vacuum Tap adds another visible press bank. The machine accelerates as the Foundry grows; strike the center whenever you want to add a manual pulse.</p>
+          </div>
+          <strong>{fabricationIntensity}<small> mechanisms linked</small></strong>
+        </header>
+        <div className="ark-law-heart-body">
+          <button
+            className="ark-law-heart-machine"
+            type="button"
+            onClick={handleCoreTune}
+            aria-label={`Strike the Law-Heart for ${manualGainLabel} Flux`}
+            data-pixel-tooltip={`The Ark's original Law-Heart. Strike it for ${manualGainLabel} Flux; every built mechanism makes its automatic motion faster and more elaborate.`}
+          >
+            <LawPressCanvas
+              state={lawHeartState}
+              machineCount={fabricationIntensity}
+              manualPulses={corePulse}
+              pulseSerial={corePulse}
+              recalibrationProgress={normalizedWorldProgress}
+              provenLaws={Math.min(3, fabricationDepth)}
+              preparingRecalibration={false}
+            />
+            <span className="ark-law-heart-readout">
+              <small>STRIKE LAW</small>
+              <strong>{fluxLabel}</strong>
+              <em>+{manualGainLabel}</em>
+            </span>
+            {corePulse > 0 && <span className="ark-law-heart-gain" key={`ark-law-gain-${corePulse}`} aria-hidden="true">+{manualGainLabel}</span>}
+          </button>
+          <div className="ark-law-heart-telemetry" aria-label="Law-Heart automation telemetry">
+            <article><span>Tap banks</span><strong>{Math.min(16, Math.max(1, Math.ceil(fabricationIntensity / 3)))}</strong><small>visible automation clusters</small></article>
+            <article><span>Chain depth</span><strong>{Math.max(1, fabricationDepth)}</strong><small>nested mechanisms online</small></article>
+            <article><span>Automatic motion</span><strong>{fluxPerSecondLabel}<em>/sec</em></strong><small>continues while the page is closed</small></article>
+          </div>
+        </div>
+      </section>
+
       <aside className="ark-stage-directive" data-guide-target="ark-directive" aria-labelledby="ark-objective-title">
         <div className="ark-directive-copy">
           <span>ACTIVE DIRECTIVE // {worldName.toUpperCase()}</span>
@@ -417,6 +465,8 @@ function ArkDeck({
           </div>
           {coldWakeCommissioning?.active && onCommission ? (
             <button type="button" disabled={!coldWakeCommissioning.canAct} onClick={onCommission}>{coldWakeCommissioning.actionLabel}</button>
+          ) : worldName === "Pelagos" && population === 0 && settlementUnlocked ? (
+            <button type="button" onClick={() => onOpenView("settlement")}>Open Continuity</button>
           ) : engineeringUnlocked ? (
             <button type="button" onClick={() => onOpenView("engineering")}>Open engineering</button>
           ) : (
@@ -485,13 +535,17 @@ function ArkDeck({
                 <span /><i /><i /><i />
               </div>
               <div className="ark-bay-content">
-                <header><span>PELAGOS SOS ARRAY</span><strong>{beaconOnline ? "Broadcasting" : "Waiting"}</strong></header>
+                <header><span>{worldName.toUpperCase()} SOS ARRAY</span><strong>{beaconOnline ? "Broadcasting" : "Waiting"}</strong></header>
                 {!beaconOnline ? (
                   <>
                     <h3>No one can hear the Ark yet</h3>
-                    <p>{beaconAvailable ? "Every safety condition is ready. AXIOM can invite the first survivors aboard." : populationUnlocked ? "Complete every condition below. Life-support upgrades are in Personnel → Ark Capacity." : "Complete every condition below. Commission the highlighted reserves on this Ark screen first."}</p>
+                    <p>{pelagosFirstContact
+                      ? beaconAvailable
+                        ? "The receiver and habitat are ready. Authorize the broadcast from Continuity."
+                        : "Continuity owns this first-contact sequence. Complete its receiver and habitat steps before broadcasting."
+                      : "Ongoing rescue broadcasts are managed beside the people and life-support systems in Personnel."}</p>
                     <BeaconReadinessList readiness={beaconReadiness} />
-                    <button type="button" disabled={!beaconAvailable} onClick={onActivateBeacon}>Activate SOS beacon</button>
+                    <button type="button" onClick={() => onOpenView(pelagosFirstContact ? "settlement" : "population")}>{pelagosFirstContact ? "Open Continuity sequence" : "Open rescue operations"}</button>
                   </>
                 ) : pendingSignal ? (
                   <article className="ark-signal-card">
@@ -499,8 +553,8 @@ function ArkDeck({
                     <h3>{pendingSignal.label}</h3>
                     <p>{pendingSignal.location} · {pendingSignal.groupSize} life signs</p>
                     <div>{pendingSignal.roles.map((role) => <small key={role}>{role}</small>)}</div>
-                    <button type="button" disabled={!pendingSignal.canRescue} onClick={() => onRescueSignal(pendingSignal.id)}>
-                      Dispatch rescue shuttle · {pendingSignal.rescueCost} Salvage
+                    <button type="button" onClick={() => onOpenView(populationUnlocked ? "population" : "settlement")}>
+                      {populationUnlocked ? "Open rescue operations" : "Return to Continuity"}
                     </button>
                     {!pendingSignal.canRescue && <em>{pendingSignal.blockedReason ?? "Increase safe capacity first."}</em>}
                   </article>

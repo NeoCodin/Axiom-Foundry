@@ -2,12 +2,11 @@ import { ARMORY_ITEM_DEFINITIONS } from "./armory-engine.ts";
 import {
   getCampaignWorldIndex,
   getColdWakeOnboardingStatus,
-  getRecalibrationGain,
-  getRecalibrationThreshold,
   isThreatOperationsActivated,
+  PELAGOS_PROTOCOL_STAGE,
+  PELAGOS_TOW_STAGE,
   type GameState,
 } from "./game-engine.ts";
-import { getSurvivorHealthCap } from "./survivor-engine.ts";
 
 export type ProgressiveDisclosure = {
   engineering: boolean;
@@ -52,37 +51,32 @@ export function getProgressiveDisclosure(state: GameState): ProgressiveDisclosur
     population,
     medical:
       population &&
-      (worldIndex >= 2 || state.survivors.medBayIds.length > 0 ||
-        state.survivors.survivors.some((survivor) =>
-          survivor.health < getSurvivorHealthCap(survivor) || survivor.injury !== null,
-        ) || state.research.completedProjectIds.includes("clinical-commons")),
+      (worldIndex >= 2 || state.survivors.signalsResolved >= 2 ||
+        state.survivors.medBayIds.length > 0 ||
+        state.research.completedProjectIds.includes("clinical-commons")),
     expeditions:
       hasExpeditionFootprint || pelagosFieldWorkReady || worldIndex >= 2,
     defense: isThreatOperationsActivated(state),
     armory:
-      state.expeditions.stats.completed > 0 ||
-      ARMORY_ITEM_DEFINITIONS.some((item) =>
-        state.armory.stock[item.id].some((count) => count > 0) ||
-        state.research.completedProjectIds.includes(item.requiredResearchId),
-      ),
+      worldIndex >= 4 ||
+      (worldIndex === 3 && state.expeditions.stats.completed >= 1) ||
+      state.armory.activeProject !== null ||
+      ARMORY_ITEM_DEFINITIONS.some((item) => state.armory.marks[item.id] > 1),
     settlement: worldIndex === 0
       ? coldWake.forecastAvailable
-      : state.missions.awaitingAcknowledgement || state.missions.worldsSaved > 1 ||
-        state.settlement.completedWorldIds.some((worldId) => worldId !== "cold-wake"),
+      : worldIndex >= 1,
     fabrication:
       worldIndex >= 1 ||
       state.missions.worldsSaved > 0 ||
       (coldWake.forecastAvailable && state.settings.coldWakeForecastReviewed),
-    systems:
-      worldIndex >= 1 &&
-      (state.missions.stageIndex >= 1 || state.missions.awaitingAcknowledgement ||
-        state.missions.worldsSaved > 1),
+    systems: worldIndex >= 1,
     protocols:
       worldIndex >= 1 &&
-      (state.runFlux >= 1_000 || state.runUpgrades.some((level) => level > 0)),
+      (worldIndex >= 2 || state.missions.stageIndex >= PELAGOS_PROTOCOL_STAGE ||
+        state.runUpgrades.some((level) => level > 0)),
     recalibration:
       worldIndex >= 1 &&
-      (state.runFlux >= getRecalibrationThreshold(state) * 0.1 ||
-        getRecalibrationGain(state) > 0),
+      (worldIndex >= 2 || state.missions.stageIndex >= PELAGOS_TOW_STAGE ||
+        state.cycle > 4),
   };
 }

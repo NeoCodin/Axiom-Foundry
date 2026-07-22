@@ -531,3 +531,34 @@ label.expedition-manifest-row { grid-template-columns: auto auto minmax(0, 1fr) 
 .cold-wake-active-step > strong { color: #edf7fa; font-size: 15px; }
 .cold-wake-active-step > p { margin: 0; color: #8da4b3; line-height: 1.55; }
 .cold-wake-active-step > button { margin-top: 4px; }
+.pelagos-signal-sequence {
+  display: grid;
+  gap: 14px;
+  padding: 22px;
+  border: 4px double #2f5962;
+  background:
+    linear-gradient(rgba(86, 224, 232, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(86, 224, 232, 0.045) 1px, transparent 1px),
+    #061014;
+  background-size: 16px 16px;
+  box-shadow: 6px 6px 0 #010304;
+}
+.pelagos-signal-sequence > header { display: flex; align-items: end; justify-content: space-between; gap: 16px; }
+.pelagos-signal-sequence > header h3 { margin: 6px 0 0; font-size: clamp(22px, 2.4vw, 34px); }
+.pelagos-signal-step { display: grid; padding: 20px; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 18px; border: 3px solid #31545d; background: #07171c; box-shadow: 4px 4px 0 #000; }
+.pelagos-signal-step > span { color: var(--world-accent); font-size: 10px; letter-spacing: 0.12em; }
+.pelagos-signal-step > strong { grid-column: 1; color: #e6f5f1; font-size: clamp(19px, 2vw, 27px); }
+.pelagos-signal-step > p { grid-column: 1; max-width: 900px; margin: 0; line-height: 1.55; }
+.pelagos-signal-step > .forecast-line-meter { grid-column: 1; margin-top: 8px; }
+.pelagos-signal-step > small { grid-column: 1; color: #7ed8d7; }
+.pelagos-signal-step > button { grid-column: 2; grid-row: 1 / span 5; min-width: 260px; align-self: stretch; }
+.pelagos-sequence-preview { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+.pelagos-sequence-preview span { min-height: 54px; padding: 12px 8px; border: 2px solid #293f46; background: #040a0d; color: #667b7e; font-size: 10px; text-align: center; }
+.pelagos-sequence-preview span.is-complete { border-color: #347467; background: #08211d; color: #75e9ae; }
+.pelagos-sequence-preview span.is-active { border-color: #5fe4e9; background: #0b2930; color: #ddffff; box-shadow: inset 0 -4px 0 #5fe4e9; }
+@media (max-width: 760px) {
+  .pelagos-signal-step { grid-template-columns: 1fr; }
+  .pelagos-signal-step > * { grid-column: 1 !important; grid-row: auto !important; }
+  .pelagos-signal-step > button { min-width: 0; }
+  .pelagos-sequence-preview { grid-template-columns: 1fr; }
+}

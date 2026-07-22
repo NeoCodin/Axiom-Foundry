@@ -255,7 +255,7 @@ export function createQaPelagosOnboardingCheckpoint(now = Date.now()): GameState
       personnelIntroduced: false,
       researchIntroduced: false,
       completedGuideIds: ALL_CONTEXT_GUIDE_IDS.filter(
-        (id) => id !== "pelagos-arrival" && id !== "pelagos-personnel",
+        (id) => !id.startsWith("pelagos-"),
       ),
     },
   }, now);

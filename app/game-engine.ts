@@ -220,7 +220,7 @@ import {
   type CausalArchiveView,
 } from "./causal-archive-engine.ts";
 
-export const SAVE_VERSION = 15;
+export const SAVE_VERSION = 16;
 export const SAVE_KEY = "axiom-foundry-save-v5";
 export const RETIRED_SAVE_KEYS = [
   "axiom-foundry-save-v1",
@@ -262,7 +262,11 @@ export type MissionStageKind =
   | "contributeFlux"
   | "resonanceHold"
   | "axiomProof"
-  | "recalibrateGain";
+  | "recalibrateGain"
+  | "beaconReady"
+  | "beaconOnline"
+  | "signalDetected"
+  | "survivorCount";
 
 export type MissionBaseline = {
   manualPulses: number;
@@ -454,6 +458,14 @@ export const COLD_WAKE_FOUNDRY_STAGE = 6;
 export const COLD_WAKE_NAVIGATION_STAGE = 7;
 export const COLD_WAKE_LIFE_SUPPORT_STAGE = 8;
 export const COLD_WAKE_DEPARTURE_STAGE = 9;
+export const PELAGOS_RECEIVER_STAGE = 0;
+export const PELAGOS_HABITABILITY_STAGE = 1;
+export const PELAGOS_BEACON_STAGE = 2;
+export const PELAGOS_SIGNAL_STAGE = 3;
+export const PELAGOS_FIRST_RESCUE_STAGE = 4;
+export const PELAGOS_FERRY_STAGE = 5;
+export const PELAGOS_PROTOCOL_STAGE = 6;
+export const PELAGOS_TOW_STAGE = 7;
 
 export const MISSIONS = [
   {
@@ -554,16 +566,16 @@ export const MISSIONS = [
       },
     ],
     landingFlux: 100,
-    rewardLabel: "Pelagos orbit + SOS beacon access + 100-Flux orbital cache",
+    rewardLabel: "Pelagos orbit + receiver restoration access + 100-Flux orbital cache",
     success:
-      "The Ark enters Pelagos orbit. Flooded shelters begin replying before AXIOM activates the SOS beacon.",
+      "The Ark enters Pelagos orbit. Emergency bands remain silent until AXIOM rebuilds the receiver and deliberately authorizes a broadcast.",
   },
   {
     world: "Pelagos",
     epithet: "The Ocean Habitats",
-    title: "Return the oceans to the world",
+    title: "Find Pelagos, then return its oceans",
     briefing:
-      "Gravity is releasing Pelagos's seas into orbit. Build coils strong enough to tow the water home and hold an evacuation corridor open.",
+      "Pelagos's emergency bands are silent while gravity releases its seas into orbit. Restore contact, bring the first witnesses aboard, then build coils strong enough to tow the water home.",
     arrival:
       "Blue continents hang above Pelagos like broken moons. Habitat rings are disappearing beneath airborne tides.",
     hazardLabel: "Tidal shear",
@@ -578,6 +590,42 @@ export const MISSIONS = [
       resonance: 1,
     },
     stages: [
+      {
+        kind: "tierPurchaseDelta",
+        tierIndex: 0,
+        target: 10,
+        label: "Restore the orbital receiver",
+        instruction: "Build 10 new Vacuum Taps in the Foundry to power Pelagos signal acquisition.",
+        lore: "The Ark can see the drowned world, but its emergency bands remain a field of silent static.",
+      },
+      {
+        kind: "beaconReady",
+        target: 1,
+        label: "Prepare the receiving deck",
+        instruction: "Complete two living spaces and raise every life-support reserve to 2 before inviting anyone aboard.",
+        lore: "A rescue signal is not permission to endanger the people answering it.",
+      },
+      {
+        kind: "beaconOnline",
+        target: 1,
+        label: "Broadcast the Pelagos SOS carrier",
+        instruction: "Return to Continuity and authorize the restored SOS array.",
+        lore: "For the first time since AXIOM woke, the Ark deliberately asks the dark whether anyone is alive.",
+      },
+      {
+        kind: "signalDetected",
+        target: 1,
+        label: "Listen for witnesses",
+        instruction: "The receiver is scanning automatically. The first decoded signal will never expire and scanning continues offline.",
+        lore: "Static separates into weather, failing municipal relays, and finally a human voice repeating coordinates.",
+      },
+      {
+        kind: "survivorCount",
+        target: 1,
+        label: "Bring the first witnesses aboard",
+        instruction: "Dispatch the prepared rescue shuttle from Continuity when its Flux, Salvage, and capacity checks are ready.",
+        lore: "AXIOM's first passengers will also become the first people capable of questioning why it was awake before them.",
+      },
       {
         kind: "tierPurchaseDelta",
         tierIndex: 1,
@@ -965,7 +1013,7 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
     ? rawBaseline.tierBought
     : [];
   const sourceVersion = Math.floor(readNumber(value.version, 1, SAVE_VERSION));
-  const missionSchema = Math.floor(readNumber(rawMissions.schema, 0, 5));
+  const missionSchema = Math.floor(readNumber(rawMissions.schema, 0, 6));
   const hasExpandedCampaign = sourceVersion >= 3 && missionSchema >= 2;
   const expandedCampaignIndex = Math.min(
     MISSIONS.length,
@@ -1002,6 +1050,14 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
       ? readNumber(rawMissions.contributedFlux)
       : 0;
   const rawStageIndex = Math.floor(readNumber(rawMissions.stageIndex, 0, 100));
+  const rawSurvivorState = isRecord(value.survivors) ? value.survivors : {};
+  const rawSurvivorCount = Array.isArray(rawSurvivorState.survivors)
+    ? rawSurvivorState.survivors.length
+    : 0;
+  const migratesPelagosOnboarding =
+    sourceVersion < 16 && expandedCampaignIndex === 1;
+  const resetsUnwitnessedPelagos =
+    migratesPelagosOnboarding && rawSurvivorCount === 0;
   const migratesColdWakeOnboarding =
     sourceVersion < 14 &&
     missionSchema >= 4 &&
@@ -1010,9 +1066,13 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
   const legacyColdWakeOnboardingContribution = migratesColdWakeOnboarding
     ? readNumber(rawMissions.contributedFlux)
     : 0;
+  const legacyPelagosContribution =
+    resetsUnwitnessedPelagos && rawStageIndex >= 2
+      ? readNumber(rawMissions.contributedFlux)
+      : 0;
   const flux = safeAdd(
     readNumber(value.flux),
-    migratedColdWakeContribution + legacyColdWakeOnboardingContribution,
+    migratedColdWakeContribution + legacyColdWakeOnboardingContribution + legacyPelagosContribution,
   );
   const maxFlux = Math.max(flux, readNumber(value.maxFlux));
   const runFlux = readNumber(value.runFlux);
@@ -1064,7 +1124,11 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
     : 0;
   const stageIndex = migratesColdWakeSequence && loadedStageIndex >= 2
     ? 2
-    : loadedStageIndex;
+    : resetsUnwitnessedPelagos
+      ? PELAGOS_RECEIVER_STAGE
+      : migratesPelagosOnboarding
+        ? Math.min(activeStageCount - 1, loadedStageIndex + PELAGOS_FERRY_STAGE)
+        : loadedStageIndex;
   const baseline: MissionBaseline = hasExpandedCampaign
     ? {
         manualPulses: Math.floor(
@@ -1114,6 +1178,13 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
     baseline.cycle = cycle;
     baseline.lifetimeAxioms = lifetimeAxioms;
   }
+  if (resetsUnwitnessedPelagos) {
+    baseline.tierBought = tiers.map((tier) => tier.bought);
+    baseline.researchLevels = runUpgrades.reduce((sum, level) => sum + level, 0);
+    baseline.researchPurchases = researchPurchases;
+    baseline.cycle = cycle;
+    baseline.lifetimeAxioms = lifetimeAxioms;
+  }
   let living = sanitizeLivingFoundryState(value.living, savedWorlds);
   living = grantLivingFoundryRewards(living, {
     loreIds: syncAutomaticDiscoveries(
@@ -1123,6 +1194,15 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
     ),
   });
   const survivors = sanitizeSurvivorSystemState(value.survivors);
+  if (resetsUnwitnessedPelagos) {
+    survivors.beaconOnline = false;
+    survivors.beaconWorldId = null;
+    survivors.beaconProgressSeconds = 0;
+    survivors.activeSignal = null;
+    survivors.signalsGenerated = 0;
+    survivors.signalsResolved = 0;
+    survivors.worldSignalCount = 0;
+  }
   const research = sanitizeResearchLatticeState(value.research);
   const researchStock = sanitizeResearchStock(value.researchStock);
   const settlement = sanitizeSettlementState(value.settlement);
@@ -1171,7 +1251,7 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
     runUpgrades,
     legacyUpgrades,
     missions: {
-      schema: 5,
+      schema: 6,
       currentIndex: currentMissionIndex,
       stageIndex,
       statuses: missionStatuses,
@@ -1182,7 +1262,8 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
         : 0,
       contributedFlux: hasExpandedCampaign &&
         !migratesColdWakeSequence &&
-        !migratesColdWakeOnboarding
+        !migratesColdWakeOnboarding &&
+        !resetsUnwitnessedPelagos
         ? readNumber(rawMissions.contributedFlux)
         : 0,
       baseline,
@@ -4247,6 +4328,13 @@ export function getWorldEffects(state: GameState) {
 }
 
 export function isTierUnlocked(state: GameState, index: number) {
+  if (
+    state.missions.currentIndex === 1 &&
+    index === 1 &&
+    state.missions.stageIndex < PELAGOS_FERRY_STAGE
+  ) {
+    return false;
+  }
   return (
     index <= getCampaignWorldIndex(state) &&
     state.maxFlux >= GENERATORS[index].unlockAt
@@ -4372,6 +4460,27 @@ export function getMissionProgress(
                 state.missions.baseline.lifetimeAxioms,
             )
           : 0;
+      break;
+    case "beaconReady": {
+      const support = getLifeSupportStatus(state.survivors).capacity;
+      const readyChecks = [
+        getBerthCapacity(state.survivors) >= 2,
+        support.atmosphere >= 2,
+        support.water >= 2,
+        support.nutrition >= 2,
+        support.medical >= 2,
+      ];
+      value = readyChecks.filter(Boolean).length / readyChecks.length;
+      break;
+    }
+    case "beaconOnline":
+      value = state.survivors.beaconOnline ? 1 : 0;
+      break;
+    case "signalDetected":
+      value = state.survivors.activeSignal || state.survivors.signalsGenerated > 0 ? 1 : 0;
+      break;
+    case "survivorCount":
+      value = state.survivors.survivors.length;
       break;
   }
 

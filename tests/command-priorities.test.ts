@@ -7,7 +7,10 @@ import {
   COLD_WAKE_FOUNDRY_STAGE,
   COLD_WAKE_LIFE_SUPPORT_STAGE,
   COLD_WAKE_NAVIGATION_STAGE,
+  PELAGOS_PROTOCOL_STAGE,
+  PELAGOS_TOW_STAGE,
   createInitialState,
+  isTierUnlocked,
   isThreatOperationsActivated,
   setTutorialComplete,
 } from "../app/game-engine.ts";
@@ -91,6 +94,31 @@ test("Pelagos keeps Personnel hidden until the first rescued witnesses arrive", 
   state.settlement.completedWorldIds = ["cold-wake", "pelagos"];
   state.settlement.currentWorldId = "viridia";
   assert.equal(getProgressiveDisclosure(state).research, true);
+});
+
+test("Pelagos Foundry consoles reveal from named directive stages, not accumulated Flux", () => {
+  const state = setTutorialComplete(createInitialState(0), true);
+  state.missions.currentIndex = 1;
+  state.settlement.currentWorldId = "pelagos";
+  state.missions.statuses = ["saved", "active", "locked", "locked", "locked", "locked"];
+  state.flux = 1e30;
+  state.maxFlux = 1e30;
+  state.runFlux = 1e30;
+
+  let disclosure = getProgressiveDisclosure(state);
+  assert.equal(isTierUnlocked(state, 1), false);
+  assert.equal(disclosure.systems, true);
+  assert.equal(disclosure.protocols, false);
+  assert.equal(disclosure.recalibration, false);
+
+  state.missions.stageIndex = PELAGOS_PROTOCOL_STAGE;
+  disclosure = getProgressiveDisclosure(state);
+  assert.equal(isTierUnlocked(state, 1), true);
+  assert.equal(disclosure.protocols, true);
+  assert.equal(disclosure.recalibration, false);
+
+  state.missions.stageIndex = PELAGOS_TOW_STAGE;
+  assert.equal(getProgressiveDisclosure(state).recalibration, true);
 });
 
 test("Cold Wake priorities route Foundry, Ark commissioning, and departure exactly", () => {

@@ -73,7 +73,7 @@ export function QaSandbox({
             <div className="qa-action-grid">
               <button type="button" onClick={onFreshPlayerOpening}>Fresh player opening</button>
               <button type="button" onClick={onReplayPlanetIntroduction}>Cold Wake tab handoff</button>
-              <button type="button" onClick={onReplayPelagosIntroduction}>Pelagos arrival + Personnel</button>
+              <button type="button" onClick={onReplayPelagosIntroduction}>Pelagos first-contact sequence</button>
               <button type="button" onClick={onReplayResearchIntroduction}>Viridia Research handoff</button>
             </div>
             <small className="qa-section-help">These run the same blocking guides and unlock presentation as the public game.</small>

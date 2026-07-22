@@ -188,7 +188,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     kind: "planet",
     subtitle: "Drowned world // first continuity settlement",
     arrivalBrief:
-      "Flooded cities answer the restored SOS beacon. The Ark has room for survivors now, but Pelagos needs founders more than passengers.",
+      "Flooded city relays are buried beneath static. The Ark has reached Pelagos, but AXIOM must rebuild its receiver, prepare safe rooms, and choose when to announce that help has arrived.",
     environment:
       "Endless storm water, scattered rooftops, tidal turbines, and municipal shelters running on their final filters.",
     theme: {

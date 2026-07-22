@@ -18,6 +18,14 @@ import {
   COLD_WAKE_NAVIGATION_STAGE,
   COLD_WAKE_LIFE_SUPPORT_STAGE,
   COLD_WAKE_DEPARTURE_STAGE,
+  PELAGOS_RECEIVER_STAGE,
+  PELAGOS_HABITABILITY_STAGE,
+  PELAGOS_BEACON_STAGE,
+  PELAGOS_SIGNAL_STAGE,
+  PELAGOS_FIRST_RESCUE_STAGE,
+  PELAGOS_FERRY_STAGE,
+  PELAGOS_PROTOCOL_STAGE,
+  PELAGOS_TOW_STAGE,
   RETIRED_SAVE_KEYS,
   RUN_UPGRADES,
   SAVE_KEY,
@@ -719,7 +727,17 @@ export default function Home() {
     if (coldWake && primaryView === "deck" && game.settings.arkOverviewIntroduced && !completed.has("cold-wake-ark")) return "cold-wake-ark";
     if (coldWake && primaryView === "settlement" && game.settings.departureIntroduced && !completed.has("cold-wake-departure")) return "cold-wake-departure";
     if (worldId === "pelagos" && primaryView === "deck" && !completed.has("pelagos-arrival")) return "pelagos-arrival";
+    if (worldId === "pelagos" && primaryView === "settlement" && game.missions.stageIndex < PELAGOS_FERRY_STAGE && !completed.has("pelagos-sos")) return "pelagos-sos";
+    if (worldId === "pelagos" && primaryView === "engineering" && game.missions.stageIndex < PELAGOS_PROTOCOL_STAGE && !completed.has("pelagos-foundry-expansion")) return "pelagos-foundry-expansion";
     if (worldId === "pelagos" && primaryView === "population" && game.settings.personnelIntroduced && !completed.has("pelagos-personnel")) return "pelagos-personnel";
+    if (worldId === "pelagos" && primaryView === "population" && completed.has("pelagos-personnel") && !completed.has("pelagos-support")) return "pelagos-support";
+    if (worldId === "pelagos" && primaryView === "population" && game.survivors.completedTrainings > 0 && game.survivors.signalsResolved >= 3 && !completed.has("pelagos-command")) return "pelagos-command";
+    if (worldId === "pelagos" && primaryView === "medical" && !completed.has("pelagos-medical")) return "pelagos-medical";
+    if (worldId === "pelagos" && primaryView === "expeditions" && !completed.has("pelagos-expeditions")) return "pelagos-expeditions";
+    if (worldId === "pelagos" && primaryView === "engineering" && game.missions.stageIndex >= PELAGOS_FERRY_STAGE && !completed.has("pelagos-gravity-ferry")) return "pelagos-gravity-ferry";
+    if (worldId === "pelagos" && primaryView === "engineering" && game.missions.stageIndex >= PELAGOS_PROTOCOL_STAGE && !completed.has("pelagos-protocols")) return "pelagos-protocols";
+    if (worldId === "pelagos" && primaryView === "engineering" && game.missions.stageIndex >= PELAGOS_TOW_STAGE && !completed.has("pelagos-recalibration")) return "pelagos-recalibration";
+    if (worldId === "pelagos" && primaryView === "engineering" && game.lifetimeAxioms > 3 && !completed.has("pelagos-automation")) return "pelagos-automation";
     if (worldId === "viridia" && primaryView === "research" && game.settings.researchIntroduced && !completed.has("viridia-research")) return "viridia-research";
     return null;
   })();
@@ -842,9 +860,11 @@ export default function Home() {
     (_, index) => !isTierUnlocked(game, index),
   );
   const visibleGeneratorCount =
-    firstLockedGenerator === -1
-      ? GENERATORS.length
-      : Math.min(GENERATORS.length, firstLockedGenerator + 1);
+    game.missions.currentIndex === 1 && game.missions.stageIndex < PELAGOS_FERRY_STAGE
+      ? 1
+      : firstLockedGenerator === -1
+        ? GENERATORS.length
+        : Math.min(GENERATORS.length, firstLockedGenerator + 1);
   const campaignWorld =
     (game.settlement.currentWorldId
       ? getCampaignWorld(game.settlement.currentWorldId)
@@ -1738,6 +1758,14 @@ export default function Home() {
       setAnnouncement("The SOS array cannot transmit until the Ark reaches a planetary orbit.");
       return;
     }
+    if (
+      worldId === "pelagos" &&
+      !current.survivors.beaconOnline &&
+      current.missions.stageIndex !== PELAGOS_BEACON_STAGE
+    ) {
+      setAnnouncement("Continuity has not completed the receiver and habitability sequence yet.");
+      return;
+    }
     const survivors = setSosBeaconOnline(current.survivors, true, worldId);
     if (survivors === current.survivors) return;
     commitGameState(
@@ -1770,6 +1798,27 @@ export default function Home() {
       next,
       `${rescued} survivors are safely aboard. Their names, aptitudes, and histories are now part of the Ark.`,
     );
+  };
+
+  const handlePelagosSequenceAction = () => {
+    const current = gameRef.current;
+    if (current.missions.currentIndex !== 1) return;
+    if (current.missions.stageIndex === PELAGOS_RECEIVER_STAGE) {
+      setPrimaryView("engineering");
+      setMobileTab("machines");
+      return;
+    }
+    if (current.missions.stageIndex === PELAGOS_HABITABILITY_STAGE) {
+      setPrimaryView("deck");
+      return;
+    }
+    if (current.missions.stageIndex === PELAGOS_BEACON_STAGE) {
+      handleActivateBeacon();
+      return;
+    }
+    if (current.missions.stageIndex === PELAGOS_FIRST_RESCUE_STAGE) {
+      handleRescueSurvivors();
+    }
   };
 
   const handleLaunchExpedition = (
@@ -2629,8 +2678,6 @@ export default function Home() {
           onTuneCore={handlePulse}
           onCommission={handleMissionContribution}
           onUpgradeSupport={handleUpgradeSupport}
-          onActivateBeacon={handleActivateBeacon}
-          onRescueSignal={handleRescueSurvivors}
           onOpenView={handleOpenArkView}
           onOpenHelp={setManualTopic}
         />
@@ -2641,6 +2688,8 @@ export default function Home() {
           state={game.survivors}
           salvage={game.living.salvage}
           currentWorldName={campaignWorld.name}
+          systemsUnlocked={campaignWorldIndex >= 2 || game.settings.completedGuideIds.includes("pelagos-personnel")}
+          commandUnlocked={campaignWorldIndex >= 2 || (game.survivors.signalsResolved >= 3 && game.survivors.completedTrainings > 0)}
           beaconReadiness={beaconReadiness}
           capacityMultiplier={lifeSupportCapacityMultiplier}
           crewGrowthMultiplier={
@@ -2920,6 +2969,40 @@ export default function Home() {
             actionDisabled:
               game.missions.stageIndex === COLD_WAKE_DEPARTURE_STAGE && game.flux <= 0,
           } : null}
+          pelagosSequence={game.missions.currentIndex === 1 &&
+            game.missions.stageIndex < PELAGOS_FERRY_STAGE &&
+            !game.missions.awaitingAcknowledgement ? {
+              stepNumber: game.missions.stageIndex + 1,
+              stepCount: PELAGOS_FERRY_STAGE,
+              label: activeStage?.label ?? "Restore contact with Pelagos",
+              detail: activeStage?.instruction ?? campaignWorld.arrivalBrief,
+              progress: missionProgress.ratio,
+              status: game.missions.stageIndex === PELAGOS_RECEIVER_STAGE
+                ? `${formatNumber(missionProgress.value)} / ${formatNumber(missionProgress.target)} new Vacuum Taps`
+                : game.missions.stageIndex === PELAGOS_HABITABILITY_STAGE
+                  ? `${Math.round(missionProgress.ratio * 5)} / 5 receiving-deck safety checks ready`
+                  : game.missions.stageIndex === PELAGOS_BEACON_STAGE
+                    ? beaconReadiness.ready ? "Receiver and habitat checks are ready" : "Complete the highlighted habitability checks first"
+                    : game.missions.stageIndex === PELAGOS_SIGNAL_STAGE
+                      ? `${Math.round(game.survivors.beaconProgressSeconds)} / ${Math.round(scanDurationSeconds)} seconds decoded`
+                      : game.survivors.activeSignal
+                        ? `${game.survivors.activeSignal.survivors.length} people waiting · the signal never expires`
+                        : "The first human signal is still being decoded",
+              actionLabel: game.missions.stageIndex === PELAGOS_RECEIVER_STAGE
+                ? "Open the Foundry receiver project"
+                : game.missions.stageIndex === PELAGOS_HABITABILITY_STAGE
+                  ? "Open Ark habitability controls"
+                  : game.missions.stageIndex === PELAGOS_BEACON_STAGE
+                    ? "Authorize the SOS carrier"
+                    : game.missions.stageIndex === PELAGOS_FIRST_RESCUE_STAGE
+                      ? rescueQuote.canRescue ? "Dispatch the first rescue shuttle" : "Rescue shuttle not ready"
+                      : undefined,
+              actionDisabled: game.missions.stageIndex === PELAGOS_BEACON_STAGE
+                ? !beaconReadiness.ready
+                : game.missions.stageIndex === PELAGOS_FIRST_RESCUE_STAGE
+                  ? !rescueQuote.canRescue
+                  : false,
+            } : null}
           onToggleSettler={handleToggleSettler}
           onCompleteInfrastructure={handleCompleteInfrastructure}
           onFabricateSupply={handleFabricateSupply}
@@ -2930,6 +3013,7 @@ export default function Home() {
           onPlanetaryDoctrine={handlePlanetaryDefenseDoctrine}
           onPlanetaryConstruction={handlePlanetaryDefenseConstruction}
           onColdWakeAction={handleColdWakeSequenceAction}
+          onPelagosAction={handlePelagosSequenceAction}
           onOpenPopulation={populationUnlocked ? () => setPrimaryView("population") : undefined}
           onOpenResearch={researchUnlocked ? () => setPrimaryView("research") : undefined}
           onOpenHelp={setManualTopic}
@@ -2941,7 +3025,7 @@ export default function Home() {
           <div>
             <p className="section-kicker">{campaignWorldIndex === 0 ? "First restored deck // Cold Wake" : "Fabrication deck // systems online"}</p>
             <h2 id="foundry-workspace-title">{campaignWorldIndex === 0 ? "Commission the Foundry Deck" : "The Foundry Floor"}</h2>
-            <span>{campaignWorldIndex === 0 ? "One machine line is awake. Build the highlighted Vacuum Taps; the rest of Engineering stays hidden until Pelagos." : "Build the nested mechanisms that turn Core energy into planetary recovery. Core tuning remains aboard the Ark."}</span>
+            <span>{campaignWorldIndex === 0 ? "One machine line is awake. Build the highlighted Vacuum Taps; the rest of Engineering stays hidden until Pelagos." : "Build nested mechanisms on the floor. New console bays awaken only when the current directive needs them. Core tuning remains aboard the Ark through the Law-Heart."}</span>
           </div>
           <button className="quiet-button" type="button" onClick={() => setPrimaryView("deck")}>Return to Ark Core</button>
         </header>
@@ -3085,7 +3169,7 @@ export default function Home() {
         {(systemsUnlocked || protocolsUnlocked || recalibrationUnlocked) && (
         <aside className={`systems-column mobile-section ${mobileTab === "systems" ? "is-mobile-active" : ""}`}>
           {systemsUnlocked && (
-          <section id="planetary-directives" className="panel mission-panel">
+          <section id="planetary-directives" className="panel mission-panel foundry-directive-console" data-guide-target="foundry-directive">
             <div className="panel-heading mission-heading">
               <div>
                 <p className="section-kicker danger-text">Planetfall campaign</p>
@@ -3224,7 +3308,7 @@ export default function Home() {
           )}
 
           {protocolsUnlocked && (
-          <section className="panel upgrades-panel">
+          <section className="panel upgrades-panel" data-guide-target="foundry-protocols">
             <div className="panel-heading">
               <div>
                 <p className="section-kicker brass">Temporary engineering optimizations</p>
@@ -3264,7 +3348,7 @@ export default function Home() {
           )}
 
           {recalibrationUnlocked && (
-          <section className="panel recalibration-panel foundry-recalibration">
+          <section className="panel recalibration-panel foundry-recalibration" data-guide-target="foundry-recalibration">
             <div className="panel-heading">
               <div>
                 <p className="section-kicker violet">Permanent layer</p>
@@ -3299,8 +3383,8 @@ export default function Home() {
           </section>
           )}
 
-          {recalibrationUnlocked && game.lifetimeAxioms > 0 && (
-          <section className="panel automation-panel">
+          {recalibrationUnlocked && game.lifetimeAxioms > 3 && (
+          <section className="panel automation-panel" data-guide-target="foundry-automation">
             <div className="panel-heading">
               <div>
                 <p className="section-kicker">Cycle control</p>
@@ -3336,7 +3420,7 @@ export default function Home() {
           </section>
           )}
 
-          {recalibrationUnlocked && game.lifetimeAxioms > 0 && (
+          {recalibrationUnlocked && game.lifetimeAxioms > 3 && (
           <section className="panel legacy-panel">
             <div className="panel-heading">
               <div>

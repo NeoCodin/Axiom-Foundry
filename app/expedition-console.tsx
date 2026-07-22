@@ -127,7 +127,7 @@ function ExpeditionConsole({
   ).length;
 
   return (
-    <section className="continuity-console expedition-console" aria-labelledby="expedition-console-title">
+    <section className="continuity-console expedition-console" data-guide-target="expedition-console" aria-labelledby="expedition-console-title">
       <header className="continuity-console-header">
         <div>
           <p>EXPEDITION COMMAND // {currentWorldName.toUpperCase()}</p>

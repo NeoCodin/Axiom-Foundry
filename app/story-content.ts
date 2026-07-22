@@ -33,7 +33,17 @@ export type ContextGuideId =
   | "cold-wake-ark"
   | "cold-wake-departure"
   | "pelagos-arrival"
+  | "pelagos-sos"
+  | "pelagos-foundry-expansion"
   | "pelagos-personnel"
+  | "pelagos-support"
+  | "pelagos-medical"
+  | "pelagos-command"
+  | "pelagos-expeditions"
+  | "pelagos-gravity-ferry"
+  | "pelagos-protocols"
+  | "pelagos-recalibration"
+  | "pelagos-automation"
   | "viridia-research";
 
 export type ContextGuideStep = {
@@ -72,13 +82,45 @@ export const CONTEXT_GUIDES: Record<ContextGuideId, readonly ContextGuideStep[]>
     { target: "planet-departure", eyebrow: "COLD WAKE // DEPARTURE AUTHORITY", title: "Approach is now a deliberate choice", body: "The three laws, navigation, and life-support reserve are ready. Commit the final approach Flux over any number of payments, then authorize Pelagos orbit here.", note: "Departure has no timer and no partial contribution can be lost." },
   ],
   "pelagos-arrival": [
-    { target: "ark-visual", eyebrow: "PELAGOS ORBIT // FIRST WITNESSES", title: "The Ark has reached a living world", body: "Pelagos's oceans are lifting into orbit, but sealed shelters still answer. The Ark's first task is to make room, restore the SOS array, and bring witnesses aboard.", note: "Ark, Foundry, and Planet are already familiar. Personnel will not appear until an actual person is rescued." },
-    { target: "ark-life-support", eyebrow: "PELAGOS // HABITABLE CAPACITY", title: "Prepare space before broadcasting", body: "Living space sets the hard crew capacity. Atmosphere, water, nutrition, and medical reserves must all cover the people already aboard plus the next rescue.", note: "The beacon explains any missing requirement before it can be activated." },
+    { target: "ark-law-heart", eyebrow: "PELAGOS ORBIT // LAW-HEART", title: "The machine you woke came with you", body: "The Law-Heart remains the Ark's active center. Foundry machines now appear around it as visible tap banks, relays, and phase hardware, so production has a physical result you can watch and click.", note: "Core tuning belongs on the Ark. The Foundry builds the machinery that changes this display." },
+    { target: "ark-directive", eyebrow: "PELAGOS // FIRST CONTACT", title: "Continuity now controls the rescue sequence", body: "Pelagos's emergency bands are silent. Open Continuity to restore the receiver, prepare a safe habitat, broadcast, listen, and only then dispatch the first shuttle.", note: "Personnel will remain hidden until actual witnesses are safely aboard." },
+  ],
+  "pelagos-sos": [
+    { target: "planet-world", eyebrow: "CONTINUITY // PELAGOS ORBIT", title: "A new world begins as a question", body: "The forecast remains available throughout Pelagos. It explains why the Ark is here, what the world needs, and why later systems are still folded away.", note: "Continuity is now the permanent spine of every planetary chapter." },
+    { target: "pelagos-signal-sequence", eyebrow: "FIRST CONTACT // FIVE OPERATIONS", title: "Restore contact before managing a population", body: "Receiver power, a safe habitat, the SOS broadcast, signal decoding, and the first rescue happen in order. Stored Cold Wake resources can help, but they cannot skip a missing operation.", note: "Each operation points to exactly one destination. No deadline is running." },
+  ],
+  "pelagos-foundry-expansion": [
+    { target: "foundry-chain", eyebrow: "PELAGOS FOUNDRY // EXPANDED FLOOR", title: "The factory floor now has a planetary purpose", body: "Build the receiver's highlighted Vacuum Taps here. Later machine tiers extend the same visible chain rather than appearing as unrelated boxes.", note: "The full Continuity plan remains on the Continuity page." },
+    { target: "foundry-directive", eyebrow: "FOUNDRY // CURRENT ORDER", title: "This console mirrors one exact Continuity task", body: "The compact directive reports the current planetary engineering operation and links back to its complete explanation.", note: "Protocols, Recalibration, and Autonomy stay sealed until the story teaches them." },
   ],
   "pelagos-personnel": [
     { target: "personnel-summary", eyebrow: "PERSONNEL // ARK POPULATION", title: "These are people, not production units", body: "The summary tracks capacity, community size, available study slots, answered signals, and Salvage without hiding the limits behind a submenu.", note: "Rarity describes how unusual a person's aptitude profile is; it never measures human worth." },
-    { target: "personnel-tabs", eyebrow: "PERSONNEL // THREE WORKSPACES", title: "Learn the roster before advanced management", body: "Systems handles living space and rescue signals. Crew Roster opens individual personnel files. Command becomes useful only after the community grows.", note: "Start with Crew Roster; later facilities reveal only when they have a real purpose." },
+    { target: "personnel-tabs", eyebrow: "PERSONNEL // ONE WORKSPACE", title: "Start with the people themselves", body: "Only Crew Roster is available during this handoff. Rescue support, command doctrine, medicine, and equipment reveal later when the community creates a real need for them.", note: "Select a name before learning another Personnel system." },
     { target: "personnel-roster", eyebrow: "PERSONNEL // CREW ROSTER", title: "Select a name to open the complete file", body: "Each row shows role, health, assignment, and rarity. The personnel file makes profession level, experience, callsign, and Continuity contribution explicit.", note: "AXIOM can automate routine placement, but manual assignments remain protected." },
+  ],
+  "pelagos-support": [
+    { target: "personnel-tabs", eyebrow: "PERSONNEL // RESCUE & SUPPORT", title: "The roster has unlocked its first operational workspace", body: "Rescue & Support now holds continuing signals, living-space construction, and life-support capacity. These controls moved here after the first rescue so they have human context.", note: "The Ark page shows their status; Personnel performs the ongoing work." },
+  ],
+  "pelagos-medical": [
+    { target: "medical-console", eyebrow: "PERSONNEL FACILITY // MEDICAL", title: "Medical opens when care becomes real work", body: "The Medical Bay treats wounded crew and supports planetary crises. It did not appear with the first healthy witnesses because an empty clinic was not yet a responsibility.", note: "Care continues offline. Nobody dies because the page was closed." },
+  ],
+  "pelagos-command": [
+    { target: "personnel-tabs", eyebrow: "PERSONNEL // COMMAND", title: "A larger crew now needs standing policy", body: "Command manages Team Alpha, automated assignments, and training doctrine only after the Ark has enough trained people for those choices to matter.", note: "Automation never overwrites a manual assignment you protected." },
+  ],
+  "pelagos-expeditions": [
+    { target: "expedition-console", eyebrow: "ARK FACILITY // EXPEDITION BAY", title: "Field work begins after the Ark has a real crew", body: "Every Pelagos operation shows its difficulty, preparations, projected outcome, and whether it is repeatable. Crews return automatically, including while the game is closed.", note: "The first critical operations also feed Continuity; later expeditions provide resources and story evidence." },
+  ],
+  "pelagos-gravity-ferry": [
+    { target: "foundry-chain", eyebrow: "PELAGOS FOUNDRY // SECOND MECHANISM", title: "First contact has given fabrication a new purpose", body: "The Phase Coil appears only now because the gravity-ferry directive requires it. Coils do not replace Vacuum Taps; they form the next nested layer of the same production chain.", note: "Build 10 new Phase Coils. Their visible output, cost, and milestone bar all belong to this cycle." },
+  ],
+  "pelagos-protocols": [
+    { target: "foundry-protocols", eyebrow: "FOUNDRY CONSOLE // CORE PROTOCOLS", title: "Engineering optimization is now a deliberate system", body: "Core Protocols improve the current fabrication cycle. They appear because the gravity-ferry operation now requires them—not because an invisible Flux total was crossed.", note: "Protocol levels reset during Recalibration, so buy them for the current cycle's goal." },
+  ],
+  "pelagos-recalibration": [
+    { target: "foundry-recalibration", eyebrow: "FOUNDRY CONSOLE // RECALIBRATION", title: "Portable laws return as a normal progression layer", body: "Recalibration now appears at a named Pelagos milestone. It resets Flux, machines, and temporary Protocols while preserving proven Axioms and permanent upgrades.", note: "The preview states the exact yield before you commit." },
+  ],
+  "pelagos-automation": [
+    { target: "foundry-automation", eyebrow: "FOUNDRY CONSOLE // AUTONOMY", title: "The first Pelagos law can operate the factory", body: "After the first normal Recalibration, Autonomy and the Legacy Matrix open together. Automatic purchasing supports the idle loop; permanent Axiom spending shapes later cycles.", note: "Both systems were withheld until their costs and consequences had context." },
   ],
   "viridia-research": [
     { target: "research-header", eyebrow: "VIRIDIA // ANALYSIS CORE", title: "Pelagos created evidence; Viridia creates Research", body: "The Analysis Core opens now because the Ark has a crew, a restored settlement to study, and a living biosphere that cannot be repaired by fabrication alone.", note: "Research was intentionally absent from Pelagos so its people and Continuity systems could be learned first." },

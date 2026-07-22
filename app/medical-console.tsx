@@ -68,7 +68,7 @@ function MedicalConsole({
     : BASE_HEALTH_RECOVERY_PER_HOUR;
 
   return (
-    <section className="continuity-console medical-console" aria-labelledby="medical-console-title">
+    <section className="continuity-console medical-console" data-guide-target="medical-console" aria-labelledby="medical-console-title">
       <header className="continuity-console-header">
         <div>
           <p>MEDICAL BAY // {currentWorldName.toUpperCase()}</p>

@@ -107,6 +107,8 @@ export type PopulationConsoleProps = {
   state: SurvivorSystemState;
   salvage: number;
   currentWorldName: string;
+  systemsUnlocked: boolean;
+  commandUnlocked: boolean;
   beaconReadiness: BeaconReadiness;
   capacityMultiplier: number;
   crewGrowthMultiplier: number;
@@ -164,6 +166,8 @@ function PopulationConsole({
   state,
   salvage,
   currentWorldName,
+  systemsUnlocked,
+  commandUnlocked,
   beaconReadiness,
   capacityMultiplier,
   crewGrowthMultiplier,
@@ -272,18 +276,18 @@ function PopulationConsole({
       </div>
 
       <nav className="personnel-console-tabs" data-guide-target="personnel-tabs" aria-label="Personnel console sections">
-        <button className={consoleView === "systems" ? "is-active" : ""} type="button" aria-pressed={consoleView === "systems"} onClick={() => setConsoleView("systems")}>
+        {systemsUnlocked && <button className={consoleView === "systems" ? "is-active" : ""} type="button" aria-pressed={consoleView === "systems"} onClick={() => setConsoleView("systems")}>
           <span className="personnel-tab-sprite sprite-signal" aria-hidden="true"><i /></span>
           <strong>Rescue & Support</strong><small>Beacon, living space, life support</small>
-        </button>
+        </button>}
         <button className={consoleView === "roster" ? "is-active" : ""} type="button" aria-pressed={consoleView === "roster"} onClick={() => setConsoleView("roster")}>
           <span className="personnel-tab-sprite sprite-roster" aria-hidden="true"><i /></span>
           <strong>Crew Roster</strong><small>{state.survivors.length} people aboard</small>
         </button>
-        <button className={consoleView === "command" ? "is-active" : ""} type="button" aria-pressed={consoleView === "command"} onClick={() => setConsoleView("command")}>
+        {commandUnlocked && <button className={consoleView === "command" ? "is-active" : ""} type="button" aria-pressed={consoleView === "command"} onClick={() => setConsoleView("command")}>
           <span className="personnel-tab-sprite sprite-command" aria-hidden="true"><i /></span>
           <strong>Command</strong><small>Staffing, Team Alpha, doctrine</small>
-        </button>
+        </button>}
       </nav>
 
       {consoleView === "systems" && (

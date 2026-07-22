@@ -53,7 +53,7 @@ export function GameNavigation({ currentView, unlocks, guidedView = null, onNavi
     { view: "engineering", group: "foundry", code: "01", label: "Foundry", detail: "Fabrication", tooltip: "Build nested mechanisms, increase Flux production, manage automation, and prepare planetary materials.", sprite: "foundry", unlocked: unlocks.engineering },
     { view: "population", group: "personnel", code: "02", label: "Personnel", detail: "Crew & care", tooltip: "Rescue, train, assign, heal, and equip the people living aboard the Ark.", sprite: "crew", unlocked: unlocks.population },
     { view: "research", group: "research", code: "03", label: "Research", detail: "Analysis", tooltip: "Route recovered evidence through the Analysis Core to unlock systems, equipment, and deeper Null knowledge.", sprite: "research", unlocked: unlocks.research },
-    { view: "settlement", group: "planet", code: "04", label: "Planet", detail: "Continuity", tooltip: "Review planetary crises, infrastructure, founding requirements, colony history, and continuity readiness.", sprite: "planet", unlocked: unlocks.settlement },
+    { view: "settlement", group: "planet", code: "04", label: "Continuity", detail: "Current world", tooltip: "Follow the current world sequence, then review crises, infrastructure, founding requirements, colony history, and departure readiness.", sprite: "planet", unlocked: unlocks.settlement },
   ];
   const unlockedDestinations = destinations.filter((destination) => destination.unlocked);
 

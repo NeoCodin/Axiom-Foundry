@@ -71,6 +71,16 @@ export type SettlementConsoleProps = {
     actionLabel?: string;
     actionDisabled?: boolean;
   } | null;
+  pelagosSequence?: {
+    stepNumber: number;
+    stepCount: number;
+    label: string;
+    detail: string;
+    progress: number;
+    status: string;
+    actionLabel?: string;
+    actionDisabled?: boolean;
+  } | null;
   onToggleSettler: (crewId: string) => void;
   onCompleteInfrastructure: (objectiveId: string) => void;
   onFabricateSupply: (supplyId: string) => void;
@@ -81,6 +91,7 @@ export type SettlementConsoleProps = {
   onPlanetaryDoctrine: (doctrine: PlanetaryDefenseDoctrine) => void;
   onPlanetaryConstruction: (worldId: CampaignWorldId, installationId: PlanetaryInstallationId) => void;
   onColdWakeAction?: () => void;
+  onPelagosAction?: () => void;
   onOpenPopulation?: () => void;
   onOpenResearch?: () => void;
   onOpenHelp: (topicId: ManualTopicId) => void;
@@ -163,6 +174,7 @@ function SettlementConsole({
   planetaryDefenseLoad,
   planetaryDefenseQuotes,
   coldWakeSequence = null,
+  pelagosSequence = null,
   onToggleSettler,
   onCompleteInfrastructure,
   onFabricateSupply,
@@ -173,6 +185,7 @@ function SettlementConsole({
   onPlanetaryDoctrine,
   onPlanetaryConstruction,
   onColdWakeAction,
+  onPelagosAction,
   onOpenPopulation,
   onOpenResearch,
   onOpenHelp,
@@ -227,6 +240,38 @@ function SettlementConsole({
         </section>
       )}
 
+      {pelagosSequence && (
+        <section className="continuity-panel pelagos-signal-sequence" data-guide-target="pelagos-signal-sequence" aria-labelledby="pelagos-signal-sequence-title">
+          <header>
+            <div>
+              <span>PELAGOS ORBIT // FIRST CONTACT</span>
+              <h3 id="pelagos-signal-sequence-title">Restore contact one system at a time</h3>
+            </div>
+            <small>Step {pelagosSequence.stepNumber} / {pelagosSequence.stepCount}</small>
+          </header>
+          <div className="pelagos-signal-step">
+            <span>ACTIVE OPERATION</span>
+            <strong>{pelagosSequence.label}</strong>
+            <p>{pelagosSequence.detail}</p>
+            <div className="forecast-line-meter" role="progressbar" aria-label={pelagosSequence.label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pelagosSequence.progress * 100)}>
+              <i style={{ width: `${Math.min(1, Math.max(0, pelagosSequence.progress)) * 100}%` }} />
+            </div>
+            <small>{pelagosSequence.status}</small>
+            {pelagosSequence.actionLabel && onPelagosAction && (
+              <button className="forecast-action" type="button" disabled={pelagosSequence.actionDisabled} onClick={onPelagosAction}>{pelagosSequence.actionLabel}</button>
+            )}
+          </div>
+          <div className="pelagos-sequence-preview">
+            <span className={pelagosSequence.stepNumber > 1 ? "is-complete" : "is-active"}>01 Receiver</span>
+            <span className={pelagosSequence.stepNumber > 2 ? "is-complete" : pelagosSequence.stepNumber === 2 ? "is-active" : ""}>02 Habitat</span>
+            <span className={pelagosSequence.stepNumber > 3 ? "is-complete" : pelagosSequence.stepNumber === 3 ? "is-active" : ""}>03 Broadcast</span>
+            <span className={pelagosSequence.stepNumber > 4 ? "is-complete" : pelagosSequence.stepNumber === 4 ? "is-active" : ""}>04 Listen</span>
+            <span className={pelagosSequence.stepNumber === 5 ? "is-active" : ""}>05 Rescue</span>
+          </div>
+          <p className="crew-rarity-note">Later settlement requirements remain folded away until witnesses are safely aboard. Nothing here expires, and listening continues while the game is closed.</p>
+        </section>
+      )}
+
       {pendingTransmission && (
         <section className="continuity-panel departure-panel">
           <header><div><span>COLONY TRANSMISSION</span><h3>{pendingTransmission.colonyName}</h3></div><small>Legacy settlements remain alive</small></header>
@@ -235,6 +280,7 @@ function SettlementConsole({
         </section>
       )}
 
+      {!pelagosSequence && (
       <div className="settlement-flow-region">
       <div className="settlement-layout">
         <section className="continuity-panel" data-guide-target="planet-requirements">
@@ -421,6 +467,7 @@ function SettlementConsole({
       </div>
       )}
       </div>
+      )}
 
       {planetaryDefenseActive && colonies.length > 0 && (
         <section className="continuity-panel planetary-defense-panel">

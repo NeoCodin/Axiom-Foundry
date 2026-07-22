@@ -66,6 +66,9 @@ function deficitTarget(deficit: ViabilityDeficit): PrimaryView {
 function missionRoute(kind: string): { target: PrimaryView; panel?: CommandPriorityPanel } {
   if (kind === "pulseDelta" || kind === "axiomProof") return { target: "deck" };
   if (kind === "tierPurchaseDelta") return { target: "engineering", panel: "machines" };
+  if (["beaconReady", "beaconOnline", "signalDetected", "survivorCount"].includes(kind)) {
+    return { target: "settlement" };
+  }
   return { target: "engineering", panel: "systems" };
 }
 
@@ -245,6 +248,14 @@ export function getCommandPriorities(state: GameState): CommandPriority[] {
           ? "Tune the Core"
           : stage.kind === "tierPurchaseDelta"
             ? coldWake ? "Open the Foundry Deck" : "Open required machine"
+            : stage.kind === "beaconReady"
+              ? "Open Pelagos receiving plan"
+              : stage.kind === "beaconOnline"
+                ? "Authorize the SOS carrier"
+                : stage.kind === "signalDetected"
+                  ? "Review the listening watch"
+                  : stage.kind === "survivorCount"
+                    ? "Open the rescue dossier"
             : coldWake && state.missions.stageIndex === COLD_WAKE_DEPARTURE_STAGE
               ? "Open Pelagos approach"
               : coldWake
@@ -272,10 +283,10 @@ export function getCommandPriorities(state: GameState): CommandPriority[] {
         : blocked.detail,
       actionLabel: personnelAwake
         ? rescue.canRescue ? "Dispatch rescue" : blocked.actionLabel
-        : "Open Ark rescue signal",
+        : "Open Continuity rescue dossier",
       target: personnelAwake
         ? rescue.canRescue ? "population" : blocked.target
-        : "deck",
+        : "settlement",
       panel: rescue.canRescue ? undefined : blocked.panel,
       missing: rescue.canRescue ? undefined : blocked.missing,
       nextAction: rescue.canRescue ? "Dispatch the prepared rescue shuttle" : blocked.nextAction,

@@ -65,8 +65,10 @@ import {
   type SurvivorSystemState,
 } from "../app/survivor-engine.ts";
 
-function detectSignal(seed = 123_456) {
+function detectSignal(seed = 123_456, previousSignals = 0) {
   let state = createSurvivorSystemState(seed);
+  state.signalsGenerated = previousSignals;
+  state.worldSignalCount = previousSignals;
   state = setSosBeaconOnline(state, true, "pelagos");
   state = advanceSurvivorSystem(state, 2_400);
   assert.ok(state.activeSignal);
@@ -1414,7 +1416,7 @@ test("signals are treasure troves: cargo, arrival wounds, and experienced surviv
   let sawExperienced = false;
   let sawGear = false;
   for (let seed = 1; seed <= 40; seed += 1) {
-    const state = detectSignal(seed * 7_919);
+    const state = detectSignal(seed * 7_919, 1);
     const signal = state.activeSignal!;
     assert.ok(signal.cargo.schematics > 0, "every shelter kept schematics");
     assert.ok(

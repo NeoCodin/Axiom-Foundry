@@ -1971,3 +1971,56 @@ html body .game-shell :where(button:not(:disabled), a, summary, select, [role="b
 html body .game-shell :where(button:disabled, [aria-disabled="true"]) {
   cursor: var(--cursor-pixel) !important;
 }
+
+/* Foundry progression reads as one factory floor with compact console bays below it. */
+.game-shell .foundry-grid {
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 12px;
+}
+.game-shell .foundry-grid > .systems-column {
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr));
+  align-items: start;
+  gap: 12px;
+}
+.game-shell .foundry-grid > .systems-column > :where(.panel, .drone-operations-panel) {
+  min-width: 0;
+  margin: 0;
+  align-self: start;
+}
+.game-shell .foundry-directive-console {
+  grid-column: 1 / -1;
+}
+.game-shell .foundry-directive-console .mission-stages,
+.game-shell .foundry-directive-console .mission-lore-impact,
+.game-shell .foundry-directive-console .mission-hazard,
+.game-shell .foundry-directive-console .mission-stakes,
+.game-shell .foundry-directive-console .mission-footer {
+  display: none;
+}
+.game-shell .foundry-directive-console .mission-body {
+  display: grid;
+  padding: 14px;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(300px, 1.2fr);
+  gap: 8px 16px;
+}
+.game-shell .foundry-directive-console .mission-world-line,
+.game-shell .foundry-directive-console .mission-body > h4,
+.game-shell .foundry-directive-console .mission-body > p:not(.mission-lore-impact) {
+  grid-column: 1;
+}
+.game-shell .foundry-directive-console .mission-goal,
+.game-shell .foundry-directive-console .mission-progress,
+.game-shell .foundry-directive-console .mission-contribute,
+.game-shell .foundry-directive-console .orientation-button {
+  grid-column: 2;
+}
+.game-shell .foundry-directive-console .mission-goal { grid-row: 1 / span 3; align-self: center; }
+.game-shell .foundry-directive-console .mission-progress { align-self: end; }
+
+@media (max-width: 760px) {
+  .game-shell .foundry-grid > .systems-column { grid-template-columns: 1fr; }
+  .game-shell .foundry-directive-console .mission-body { grid-template-columns: 1fr; }
+  .game-shell .foundry-directive-console .mission-body > * { grid-column: 1 !important; grid-row: auto !important; }
+}

@@ -7,6 +7,12 @@ import {
   COLD_WAKE_NAVIGATION_STAGE,
   COLD_WAKE_LIFE_SUPPORT_STAGE,
   COLD_WAKE_DEPARTURE_STAGE,
+  PELAGOS_PROTOCOL_STAGE,
+  PELAGOS_RECEIVER_STAGE,
+  PELAGOS_HABITABILITY_STAGE,
+  PELAGOS_SIGNAL_STAGE,
+  PELAGOS_FIRST_RESCUE_STAGE,
+  PELAGOS_FERRY_STAGE,
   RECALIBRATION_THRESHOLD,
   RETIRED_SAVE_KEYS,
   RUN_UPGRADES,
@@ -73,6 +79,8 @@ import {
   advanceSurvivorSystem,
   getSurvivorRarity,
   sanitizeSurvivorSystemState,
+  setLifeSupportCapacity,
+  setSosBeaconOnline,
   type Survivor,
 } from "../app/survivor-engine.ts";
 import { getArmoryReadyCount } from "../app/armory-engine.ts";
@@ -631,7 +639,7 @@ test("Core Protocol directives count lifetime purchases and remain possible afte
   assert.doesNotMatch(directiveCopy, /Run Research/i);
   let state = setTutorialComplete(createInitialState(0), true);
   state.missions.currentIndex = 1;
-  state.missions.stageIndex = 1;
+  state.missions.stageIndex = PELAGOS_PROTOCOL_STAGE;
   state.missions.statuses = ["saved", "active", "locked", "locked", "locked", "locked"];
   state.settlement.currentWorldId = "pelagos";
   state.settlement.completedWorldIds = ["cold-wake"];
@@ -650,7 +658,58 @@ test("Core Protocol directives count lifetime purchases and remain possible afte
   state = buyRunUpgrade(state, 0);
   assert.equal(getMissionProgress(state).value, 2);
   state = simulateGame(state, 0.1, 1);
-  assert.equal(state.missions.stageIndex, 2);
+  assert.equal(state.missions.stageIndex, PELAGOS_PROTOCOL_STAGE + 1);
+});
+
+test("Pelagos first contact advances receiver, habitat, broadcast, and listening one step at a time", () => {
+  let state = setTutorialComplete(createInitialState(0), true);
+  state.missions.currentIndex = 1;
+  state.missions.stageIndex = PELAGOS_RECEIVER_STAGE;
+  state.missions.statuses = ["saved", "active", "locked", "locked", "locked", "locked"];
+  state.settlement.currentWorldId = "pelagos";
+  state.settlement.completedWorldIds = ["cold-wake"];
+  state.missions.baseline.tierBought[0] = 0;
+  state.tiers[0] = { amount: 10, bought: 10 };
+
+  state = simulateGame(state, 0.1, 1);
+  assert.equal(state.missions.stageIndex, PELAGOS_HABITABILITY_STAGE);
+
+  state.survivors = setLifeSupportCapacity(state.survivors, {
+    atmosphere: 2,
+    water: 2,
+    nutrition: 2,
+    medical: 2,
+  });
+  state = simulateGame(state, 0.1, 1);
+  assert.equal(state.missions.stageIndex, PELAGOS_HABITABILITY_STAGE + 1);
+
+  state.survivors = setSosBeaconOnline(state.survivors, true, "pelagos");
+  state = simulateGame(state, 0.1, 1);
+  assert.equal(state.missions.stageIndex, PELAGOS_SIGNAL_STAGE);
+
+  state = simulateGame(state, 100, 100);
+  assert.equal(state.missions.stageIndex, PELAGOS_FIRST_RESCUE_STAGE);
+  assert.ok(state.survivors.activeSignal);
+  assert.ok(state.survivors.activeSignal.survivors.every((survivor) => survivor.health === 100 && survivor.injury === null));
+});
+
+test("pre-sequence Pelagos saves without rescued witnesses restart with a quiet receiver", () => {
+  const old = setTutorialComplete(createInitialState(0), true);
+  old.version = 15;
+  old.missions.currentIndex = 1;
+  old.missions.stageIndex = 2;
+  old.missions.statuses = ["saved", "active", "locked", "locked", "locked", "locked"];
+  old.settlement.currentWorldId = "pelagos";
+  old.settlement.completedWorldIds = ["cold-wake"];
+  old.survivors = setSosBeaconOnline(old.survivors, true, "pelagos");
+  old.survivors = advanceSurvivorSystem(old.survivors, 100);
+  assert.ok(old.survivors.activeSignal);
+
+  const migrated = sanitizeGameState(old, 1_000);
+  assert.equal(migrated.missions.stageIndex, PELAGOS_RECEIVER_STAGE);
+  assert.equal(migrated.survivors.beaconOnline, false);
+  assert.equal(migrated.survivors.activeSignal, null);
+  assert.equal(migrated.survivors.signalsGenerated, 0);
 });
 
 test("old Cold Wake approach saves migrate back before systems and law proofs without losing committed Flux", () => {
@@ -664,7 +723,7 @@ test("old Cold Wake approach saves migrate back before systems and law proofs wi
   old.missions.baseline.tierBought[0] = 25;
 
   const migrated = sanitizeGameState(old, 1_000);
-  assert.equal(migrated.missions.schema, 5);
+  assert.equal(migrated.missions.schema, 6);
   assert.equal(migrated.missions.stageIndex, 2);
   assert.equal(migrated.missions.awaitingAcknowledgement, false);
   assert.equal(migrated.missions.statuses[0], "active");
@@ -797,6 +856,7 @@ test("planet blueprints gate upper tiers even when an old save has huge Flux", (
   assert.equal(isTierUnlocked(state, 0), true);
   assert.equal(isTierUnlocked(state, 1), false);
   state.missions.currentIndex = 1;
+  state.missions.stageIndex = PELAGOS_FERRY_STAGE;
   state.missions.statuses[0] = "saved";
   state.missions.statuses[1] = "active";
   assert.equal(isTierUnlocked(state, 1), true);
@@ -893,7 +953,7 @@ test("v3 timed saves recover lost worlds under the untimed campaign", () => {
   }, 100);
 
   assert.equal(migrated.version, SAVE_VERSION);
-  assert.equal(migrated.missions.schema, 5);
+  assert.equal(migrated.missions.schema, 6);
   assert.deepEqual(migrated.missions.statuses.slice(0, 4), [
     "saved",
     "saved",
