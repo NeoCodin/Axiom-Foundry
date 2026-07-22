@@ -3216,7 +3216,7 @@ export default function Home() {
                   ))}
                 </div>
                 <label className={`toggle-row ${game.lifetimeAxioms < 3 ? "disabled" : ""}`}>
-                  <span><strong>Research routing</strong><small>{game.lifetimeAxioms < 3 ? "Unlocks at 3 lifetime Axioms." : "Automatically buys affordable run research."}</small></span>
+                  <span><strong>Protocol routing</strong><small>{game.lifetimeAxioms < 3 ? "Unlocks at 3 lifetime Axioms." : "Automatically buys affordable Core Protocol levels."}</small></span>
                   <input type="checkbox" disabled={game.lifetimeAxioms < 3} checked={game.settings.autoUpgrades} onChange={(event) => setGame((current) => setAutoUpgrades(current, event.target.checked))} />
                 </label>
               </>

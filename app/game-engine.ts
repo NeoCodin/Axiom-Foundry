@@ -313,7 +313,7 @@ export type GameState = {
   bioadaptation: BioadaptationState;
   settings: GameSettings;
   manualPulses: number;
-  /** Lifetime count of purchased Run Research levels, including prior cycles. */
+  /** Lifetime count of purchased Core Protocol levels, including prior cycles. */
   researchPurchases: number;
   playTime: number;
   runTime: number;
@@ -589,7 +589,7 @@ export const MISSIONS = [
         kind: "researchDelta",
         target: 2,
         label: "Model the returning tide",
-        instruction: "Purchase 2 new levels of Run Research.",
+        instruction: "Purchase 2 new Core Protocol levels in the Foundry.",
         lore: "The ferry cannot push an ocean. It must persuade gravity to remember the shore.",
       },
       {
@@ -686,7 +686,7 @@ export const MISSIONS = [
         kind: "researchDelta",
         target: 3,
         label: "Model a worker-safe restart",
-        instruction: "Purchase 3 new levels of Run Research.",
+        instruction: "Purchase 3 new Core Protocol levels in the Foundry.",
         lore: "The Foundry simulates the restart until the people beside each furnace can shut it down safely.",
       },
       {

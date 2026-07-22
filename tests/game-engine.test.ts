@@ -636,7 +636,10 @@ test("Cold Wake cannot fabricate before strike twelve or prove multiple laws in 
   assert.strictEqual(recalibrate(state, 2_000), state);
 });
 
-test("Run Research directives count lifetime purchases and remain possible after a maxed cycle", () => {
+test("Core Protocol directives count lifetime purchases and remain possible after a maxed cycle", () => {
+  const directiveCopy = MISSIONS.flatMap((mission) => mission.stages).map((stage) => stage.instruction).join(" ");
+  assert.match(directiveCopy, /Core Protocol levels in the Foundry/);
+  assert.doesNotMatch(directiveCopy, /Run Research/i);
   let state = setTutorialComplete(createInitialState(0), true);
   state.missions.currentIndex = 1;
   state.missions.stageIndex = 1;
