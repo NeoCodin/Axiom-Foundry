@@ -60,7 +60,7 @@ const CATEGORY_COPY: Record<ArchiveCategoryId, { code: string; label: string; de
   memory: { code: "MEM", label: "Core Memory", description: "Verified records AXIOM is currently authorized to read." },
   fragments: { code: "ERR", label: "Contradictions", description: "Recovered records that disagree with the official archive." },
   causal: { code: "CAU", label: "Contacts", description: "Evidence concerning vessels that do not obey local chronology." },
-  worlds: { code: "WRL", label: "Known Worlds", description: "Only destinations AXIOM has reached or is presently approaching." },
+  worlds: { code: "WRL", label: "Known Worlds", description: "Only worlds AXIOM has disclosed to this interface. Hidden route data is never previewed here." },
 };
 
 function buildMemoryPages(entries: readonly ArchiveMemoryEntry[]): ArchivePage[] {

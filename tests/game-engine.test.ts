@@ -522,6 +522,9 @@ test("every staged destination introduction persists independently", () => {
   assert.equal(staged.settings.foundryIntroduced, true);
   assert.equal(staged.settings.arkOverviewIntroduced, true);
   assert.equal(initial.settings.foundryIntroduced, false);
+  const withExpeditionHandoff = setInterfaceIntroduction(staged, "expeditions");
+  assert.equal(withExpeditionHandoff.settings.completedGuideIds.includes("interface-expeditions"), true);
+  assert.equal(staged.settings.completedGuideIds.includes("interface-expeditions"), false);
 });
 
 test("Cold Wake proves its approach systems and three laws before revealing the orbital reserve", () => {

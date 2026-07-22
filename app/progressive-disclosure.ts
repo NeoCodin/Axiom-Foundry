@@ -36,8 +36,9 @@ export function getProgressiveDisclosure(state: GameState): ProgressiveDisclosur
   const population =
     worldIndex >= 2 || state.survivors.survivors.length > 0;
   const pelagosFieldWorkReady =
+    worldIndex === 1 &&
+    state.missions.stageIndex >= PELAGOS_TOW_STAGE &&
     state.survivors.survivors.length >= 3 &&
-    state.survivors.signalsResolved >= 2 &&
     state.settings.personnelIntroduced;
   return {
     engineering:

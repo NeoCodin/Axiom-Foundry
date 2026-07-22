@@ -5487,6 +5487,7 @@ export type InterfaceIntroductionId =
   | "ark-overview"
   | "departure"
   | "personnel"
+  | "expeditions"
   | "research";
 
 export function setInterfaceIntroduction(
@@ -5500,6 +5501,12 @@ export function setInterfaceIntroduction(
   if (id === "ark-overview") next.settings.arkOverviewIntroduced = introduced;
   if (id === "departure") next.settings.departureIntroduced = introduced;
   if (id === "personnel") next.settings.personnelIntroduced = introduced;
+  if (id === "expeditions") {
+    const handoffId = "interface-expeditions";
+    next.settings.completedGuideIds = introduced
+      ? [...new Set([...next.settings.completedGuideIds, handoffId])]
+      : next.settings.completedGuideIds.filter((guideId) => guideId !== handoffId);
+  }
   if (id === "research") next.settings.researchIntroduced = introduced;
   return next;
 }

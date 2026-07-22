@@ -82,11 +82,12 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
     category: "Page guide // fabrication floor",
     title: "Build the machine that builds the next machine",
     summary:
-      "The Foundry owns fabrication, Planetfall directives, Core Protocols, automation, Recalibration, and statistics. Core tuning stays on the Ark.",
+      "The Foundry owns the interactive Law-Heart, fabrication, Core Protocols, automation, and Recalibration. Continuity owns every planetary directive and departure requirement.",
     steps: [
-      { title: "Buy the first mechanism", detail: "Every machine produces Flux directly - each tier simply produces far more per unit. Your Flux/sec only changes when you buy something; nothing grows on its own." },
+      { title: "Strike the Law-Heart", detail: "The Foundry is the only page where the Law-Heart produces manual Flux. The Ark's Axiom Chamber is a read-only status monitor." },
+      { title: "Buy the first mechanism", detail: "Every machine produces Flux directly—each tier simply produces far more per unit. Your Flux/sec only changes when you build or improve something; nothing grows on its own." },
       { title: "Keep adjacent tiers balanced", detail: "Groups of 15 across neighboring tiers create Resonance and improve the whole chain." },
-      { title: "Complete Planetfall phases", detail: "Directives award Salvage and crew experience while progressively revealing the Foundry's deeper systems." },
+      { title: "Follow Continuity separately", detail: "When a world needs engineering work, Continuity names the requirement and sends you here. The Foundry does not repeat the planetary plan." },
       { title: "Allocate utility drones", detail: "After Automated Personnel Logistics, fabricate up to eight permanent support frames. Assign them to researched programs; each active frame diverts 1.25% production and multiplies people instead of replacing them." },
       { title: "Recalibrate when worthwhile", detail: "Recalibration resets the current assembly but awards permanent Axioms and preserves people, research, and restored worlds." },
     ],
@@ -302,7 +303,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
     title: "Record how the damaged Core responds",
     summary: "Calibration Data comes from operating and observing the Axiom Chamber.",
     steps: [
-      { title: "Tune the Core", detail: "Every manual Core tune immediately adds 1 Calibration Data to Ark Supply." },
+      { title: "Strike the Law-Heart", detail: "Every manual Law-Heart strike in the Foundry immediately adds 1 Calibration Data to Ark Supply." },
       { title: "Let instruments observe", detail: "The Ark also records 90 Calibration Data per hour passively." },
       { title: "Transfer it", detail: "Open Evidence Reservoirs and press +25 before a project can consume it." },
     ],

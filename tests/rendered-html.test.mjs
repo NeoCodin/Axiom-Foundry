@@ -50,11 +50,12 @@ test("server-renders the Axiom Foundry game surface", async () => {
 });
 
 test("removes all temporary starter-preview wiring", async () => {
-  const [page, arkDeck, lawHeart, lawPress, loreArchive, layout, pagesEntry, packageJson, css, arkCss, continuityCss, researchCss, manualCss, awakeningCss, pixelCss, lawHeartCss, loreArchiveCss, story, manual, survivorEngine, populationConsole, settlementConsole, continuityExpertise, campaignContent, researchEngine] =
+  const [page, arkDeck, lawHeart, foundryLawHeart, lawPress, loreArchive, layout, pagesEntry, packageJson, css, arkCss, continuityCss, researchCss, manualCss, awakeningCss, pixelCss, lawHeartCss, loreArchiveCss, story, manual, survivorEngine, populationConsole, settlementConsole, continuityExpertise, campaignContent, researchEngine] =
     await Promise.all([
       readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/ark-deck.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/axiom-law-heart.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/foundry-law-heart.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/law-press-canvas.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/lore-archive.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
@@ -88,7 +89,10 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(page, /Commission the Foundry Deck/);
   assert.match(page, /The Ark has people, not statistics/);
   assert.match(page, /createQaPlanetIntroductionCheckpoint/);
-  assert.match(arkDeck, /Tune the Core/);
+  assert.doesNotMatch(arkDeck, /onTuneCore|Tune the Core/);
+  assert.match(arkDeck, /Foundry output monitor/);
+  assert.match(foundryLawHeart, /Strike the Law-Heart/);
+  assert.match(foundryLawHeart, /LawPressCanvas/);
   assert.match(lawHeart, /AXIOM LAW-HEART/);
   assert.match(lawHeart, /LawPressCanvas/);
   assert.doesNotMatch(lawHeart, /law-heart-ring|law-heart-particle-field/);
@@ -112,15 +116,16 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.doesNotMatch(loreArchive, /lore-grid|ledger-worlds/);
   assert.match(page, /!game\.missions\.awaitingAcknowledgement/);
   assert.match(page, /The Foundry Floor/);
-  assert.match(page, /Core tuning remains aboard the Ark/);
+  assert.match(page, /Planetary planning remains in Continuity/);
   assert.doesNotMatch(page, /className=.*tune-button/);
   assert.match(page, /Fabrication Chain/);
-  assert.match(page, /No deadline/);
+  assert.match(settlementConsole, /Nothing expires/);
   assert.match(layout, /Axiom Foundry — Restore Worlds\. Question Your Orders\./);
   assert.doesNotMatch(page, /SkeletonPreview|codex-preview/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.match(css, /\.machine-panel\s*\{[^}]*overflow:\s*clip/s);
-  assert.match(css, /\.foundry-vista\s*\{/);
+  assert.doesNotMatch(page, /<FoundryVista/);
+  assert.match(lawHeartCss, /\.foundry-law-heart\s*\{/);
   assert.match(css, /\.mission-stages\s*\{/);
   assert.match(arkCss, /\.ark-visual-stage\s*\{/);
   assert.match(continuityCss, /\.settler-selection-list\s*\{/);

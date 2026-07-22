@@ -236,8 +236,8 @@
 @keyframes law-heart-breathe { 50% { transform: scale(0.84); } }
 @keyframes law-heart-click-gain { to { top: 11%; opacity: 0; } }
 
-/* The Law-Heart remains the Ark's visual idle centerpiece after Cold Wake. */
-.ark-law-heart {
+/* The Law-Heart is the Foundry's single interactive production centerpiece. */
+.foundry-law-heart {
   display: grid;
   border: 4px solid #263e48;
   background: #040b0e;
@@ -245,34 +245,28 @@
   color: #a9bec0;
   overflow: hidden;
 }
-.ark-law-heart > header {
+.foundry-law-heart > header {
   display: flex;
-  min-height: 112px;
+  min-height: 104px;
   padding: 20px 24px;
   align-items: center;
-  justify-content: space-between;
-  gap: 24px;
   border-bottom: 4px double #263e48;
   background: #09161b;
 }
-.ark-law-heart > header span { color: var(--world-accent); font-size: 11px; letter-spacing: 0.15em; }
-.ark-law-heart > header h3 { margin: 8px 0 5px; color: #e4f4ef; font-size: clamp(20px, 2vw, 32px); }
-.ark-law-heart > header p { max-width: 900px; margin: 0; color: #89a0a3; font-size: 13px; line-height: 1.5; }
-.ark-law-heart > header > strong { min-width: 160px; color: #63e7ed; font-size: 27px; text-align: right; }
-.ark-law-heart > header > strong small { display: block; color: #728a8e; font-size: 9px; }
-.ark-law-heart-body {
+.foundry-law-heart > header span { color: var(--world-accent); font-size: 11px; letter-spacing: 0.15em; }
+.foundry-law-heart > header h3 { margin: 8px 0 5px; color: #e4f4ef; font-size: clamp(20px, 2vw, 32px); }
+.foundry-law-heart > header p { max-width: 900px; margin: 0; color: #89a0a3; font-size: 13px; line-height: 1.5; }
+.foundry-law-heart-body {
   display: grid;
   padding: 24px;
-  grid-template-columns: minmax(420px, 640px) minmax(260px, 340px);
-  align-items: stretch;
+  grid-template-columns: minmax(320px, 640px);
   justify-content: center;
-  gap: 24px;
   background-image:
     linear-gradient(rgba(82, 228, 236, 0.05) 1px, transparent 1px),
     linear-gradient(90deg, rgba(82, 228, 236, 0.05) 1px, transparent 1px);
   background-size: 16px 16px;
 }
-.ark-law-heart-machine {
+.foundry-law-heart-machine {
   position: relative;
   width: 100%;
   aspect-ratio: 1;
@@ -287,10 +281,10 @@
   cursor: var(--cursor-pixel-active);
   image-rendering: pixelated;
 }
-.ark-law-heart-machine:hover { border-color: #63e7ed; }
-.ark-law-heart-machine:focus-visible { outline: 4px solid #f0c367; outline-offset: 5px; }
-.ark-law-heart-machine .law-press-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-.ark-law-heart-readout {
+.foundry-law-heart-machine:hover { border-color: #63e7ed; }
+.foundry-law-heart-machine:focus-visible { outline: 4px solid #f0c367; outline-offset: 5px; }
+.foundry-law-heart-machine .law-press-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.foundry-law-heart-readout {
   position: absolute;
   z-index: 4;
   top: 50%;
@@ -305,19 +299,13 @@
   color: #e8ffff;
   transform: translate(-50%, -50%);
 }
-.ark-law-heart-readout small { color: #7a9da1; font-size: 9px; letter-spacing: 0.12em; }
-.ark-law-heart-readout strong { margin: 6px 0; font-size: 27px; }
-.ark-law-heart-readout em { color: #f0c367; font-size: 11px; font-style: normal; }
-.ark-law-heart-gain { position: absolute; z-index: 7; top: 30%; left: 56%; padding: 6px 10px; border: 2px solid #f0c367; background: #0c2026; color: #f0c367; animation: law-heart-click-gain 800ms steps(6, end) forwards; }
-.ark-law-heart-telemetry { display: grid; grid-template-rows: repeat(3, 1fr); gap: 10px; }
-.ark-law-heart-telemetry article { display: grid; min-height: 0; padding: 18px; align-content: center; border: 3px double #2d4a53; background: #071217; box-shadow: 4px 4px 0 #000; }
-.ark-law-heart-telemetry span { color: var(--world-accent); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; }
-.ark-law-heart-telemetry strong { margin: 8px 0; color: #e3f4ef; font-size: clamp(24px, 2.6vw, 38px); }
-.ark-law-heart-telemetry strong em { color: #789092; font-size: 11px; font-style: normal; }
-.ark-law-heart-telemetry small { color: #718589; font-size: 10px; }
-.ark-law-heart.is-rapid .ark-law-heart-machine,
-.ark-law-heart.is-synchronized .ark-law-heart-machine { border-color: #58cfd5; }
-.ark-law-heart.is-synchronized .ark-law-heart-machine { box-shadow: 6px 6px 0 #000, inset 0 0 0 4px #0c3238; }
+.foundry-law-heart-readout small { color: #7a9da1; font-size: 9px; letter-spacing: 0.12em; }
+.foundry-law-heart-readout strong { margin: 6px 0; font-size: 27px; }
+.foundry-law-heart-readout em { color: #f0c367; font-size: 11px; font-style: normal; }
+.foundry-law-heart-gain { position: absolute; z-index: 7; top: 30%; left: 56%; padding: 6px 10px; border: 2px solid #f0c367; background: #0c2026; color: #f0c367; animation: law-heart-click-gain 800ms steps(6, end) forwards; }
+.foundry-law-heart.is-rapid .foundry-law-heart-machine,
+.foundry-law-heart.is-synchronized .foundry-law-heart-machine { border-color: #58cfd5; }
+.foundry-law-heart.is-synchronized .foundry-law-heart-machine { box-shadow: 6px 6px 0 #000, inset 0 0 0 4px #0c3238; }
 
 @media (max-width: 1050px) {
   .command-bar.metric-count-0 { grid-template-columns: minmax(300px, 1fr) minmax(180px, 0.5fr) minmax(280px, 0.8fr); }
@@ -326,9 +314,8 @@
   .law-heart-directive { margin: 0 24px 24px; }
   .law-heart-controls { grid-template-columns: 1fr; }
   .law-heart-controls > section + section { border-left: 0; border-top: 4px solid #263e48; }
-  .ark-law-heart-body { grid-template-columns: minmax(0, 1fr); }
-  .ark-law-heart-machine { width: min(100%, 640px); justify-self: center; }
-  .ark-law-heart-telemetry { grid-template-columns: repeat(3, 1fr); grid-template-rows: none; }
+  .foundry-law-heart-body { grid-template-columns: minmax(0, 1fr); }
+  .foundry-law-heart-machine { width: min(100%, 640px); justify-self: center; }
 }
 
 @media (max-width: 767px) {
@@ -345,11 +332,9 @@
   .law-purchase-row { flex-direction: column; }
   .law-buy-modes button { flex: 1; }
   .law-slot-grid { grid-template-columns: 1fr; }
-  .ark-law-heart > header { align-items: flex-start; flex-direction: column; padding: 16px; }
-  .ark-law-heart > header > strong { min-width: 0; text-align: left; }
-  .ark-law-heart-body { min-height: 0; padding: 12px; }
-  .ark-law-heart-machine { width: min(100%, 520px); min-height: 0; }
-  .ark-law-heart-telemetry { grid-template-columns: 1fr; }
+  .foundry-law-heart > header { align-items: flex-start; flex-direction: column; padding: 16px; }
+  .foundry-law-heart-body { min-height: 0; padding: 12px; }
+  .foundry-law-heart-machine { width: min(100%, 520px); min-height: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

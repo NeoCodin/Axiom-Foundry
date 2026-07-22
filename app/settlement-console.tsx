@@ -24,6 +24,7 @@ import {
   type PlanetaryInstallationId,
 } from "./planetary-defense-engine";
 import type { CampaignWorldId } from "./campaign-content";
+import type { DoctrineId } from "./discovery-content";
 
 export type ContinuityActionQuote = {
   canAfford: boolean;
@@ -81,6 +82,22 @@ export type SettlementConsoleProps = {
     actionLabel?: string;
     actionDisabled?: boolean;
   } | null;
+  finalDoctrine?: {
+    chosen: {
+      title: string;
+      commitment: string;
+      lyraResponse: string;
+      epilogue: string;
+    } | null;
+    options: readonly {
+      id: DoctrineId;
+      shortName: string;
+      thesis: string;
+      choiceLabel: string;
+      available: boolean;
+      recordsRequired: number;
+    }[];
+  } | null;
   onToggleSettler: (crewId: string) => void;
   onCompleteInfrastructure: (objectiveId: string) => void;
   onFabricateSupply: (supplyId: string) => void;
@@ -92,6 +109,7 @@ export type SettlementConsoleProps = {
   onPlanetaryConstruction: (worldId: CampaignWorldId, installationId: PlanetaryInstallationId) => void;
   onColdWakeAction?: () => void;
   onPelagosAction?: () => void;
+  onChooseFinalDoctrine?: (doctrineId: DoctrineId) => void;
   onOpenPopulation?: () => void;
   onOpenResearch?: () => void;
   onOpenHelp: (topicId: ManualTopicId) => void;
@@ -186,6 +204,8 @@ function SettlementConsole({
   onPlanetaryConstruction,
   onColdWakeAction,
   onPelagosAction,
+  finalDoctrine = null,
+  onChooseFinalDoctrine,
   onOpenPopulation,
   onOpenResearch,
   onOpenHelp,
@@ -277,6 +297,39 @@ function SettlementConsole({
           <header><div><span>COLONY TRANSMISSION</span><h3>{pendingTransmission.colonyName}</h3></div><small>Legacy settlements remain alive</small></header>
           <blockquote>{pendingTransmission.transmission}</blockquote>
           <button className="forecast-action" type="button" onClick={onAcknowledgeTransmission}>Archive transmission</button>
+        </section>
+      )}
+
+      {finalDoctrine && (
+        <section className="continuity-panel campaign-complete" aria-labelledby="continuity-final-doctrine-title">
+          {finalDoctrine.chosen ? (
+            <>
+              <span>CONTINUITY DOCTRINE // RECORDED</span>
+              <h3 id="continuity-final-doctrine-title">{finalDoctrine.chosen.title}</h3>
+              <p>{finalDoctrine.chosen.commitment}</p>
+              <blockquote>{finalDoctrine.chosen.lyraResponse}</blockquote>
+              <p>{finalDoctrine.chosen.epilogue}</p>
+              <small>The choice is written beneath the reset layer. This campaign will remember.</small>
+            </>
+          ) : (
+            <>
+              <span>CONTINUITY DOCTRINE // FINAL AUTHORITY</span>
+              <h3 id="continuity-final-doctrine-title">The Vesper Choice</h3>
+              <p>The recovered record does not support AXIOM&apos;s bootstrap history. Choose what the Foundry carries into the next reality.</p>
+              <div className="doctrine-grid">
+                {finalDoctrine.options.map((doctrine) => (
+                  <article className={doctrine.available ? "available" : "locked"} key={doctrine.id}>
+                    <span>{doctrine.available ? "Doctrine available" : "Evidence incomplete"}</span>
+                    <strong>{doctrine.shortName}</strong>
+                    <p>{doctrine.thesis}</p>
+                    <button type="button" disabled={!doctrine.available || !onChooseFinalDoctrine} onClick={() => onChooseFinalDoctrine?.(doctrine.id)}>
+                      {doctrine.available ? doctrine.choiceLabel : `${doctrine.recordsRequired} records required`}
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </>
+          )}
         </section>
       )}
 

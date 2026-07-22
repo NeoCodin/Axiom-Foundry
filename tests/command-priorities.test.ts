@@ -88,7 +88,9 @@ test("Pelagos keeps Personnel hidden until the first rescued witnesses arrive", 
   assert.equal(getProgressiveDisclosure(state).research, false, "Research does not interrupt the Pelagos crew lesson");
   state.survivors.survivors.push({ id: "second-witness" } as never);
   state.survivors.survivors.push({ id: "third-witness" } as never);
-  assert.equal(getProgressiveDisclosure(state).expeditions, true, "Pelagos introduces one field operation after crew is familiar");
+  assert.equal(getProgressiveDisclosure(state).expeditions, false, "Crew count alone cannot reveal the Expedition Bay");
+  state.missions.stageIndex = PELAGOS_TOW_STAGE;
+  assert.equal(getProgressiveDisclosure(state).expeditions, true, "Pelagos introduces field work only during its final engineering phase");
   assert.equal(getProgressiveDisclosure(state).research, false);
   state.missions.currentIndex = 2;
   state.settlement.completedWorldIds = ["cold-wake", "pelagos"];

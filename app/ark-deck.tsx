@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { type CSSProperties } from "react";
 import { HelpTrigger, type ManualTopicId } from "./game-manual";
-import { LawPressCanvas, type LawPressState } from "./law-press-canvas";
 import {
   BeaconReadinessList,
 } from "./beacon-readiness";
@@ -55,7 +54,6 @@ export type ArkDeckProps = {
   objectiveDetail: string;
   fluxLabel: string;
   fluxPerSecondLabel: string;
-  manualGainLabel: string;
   population: number;
   populationCapacity: number;
   berthCapacity: number;
@@ -87,7 +85,6 @@ export type ArkDeckProps = {
     canAct: boolean;
   } | null;
   supportUpgradeCosts?: Partial<Record<LifeSupportKey, number>>;
-  onTuneCore: () => void;
   onCommission?: () => void;
   onUpgradeSupport?: (key: LifeSupportKey) => void;
   onOpenView: (view: ArkViewId) => void;
@@ -128,7 +125,6 @@ function ArkDeck({
   objectiveDetail,
   fluxLabel,
   fluxPerSecondLabel,
-  manualGainLabel,
   population,
   populationCapacity,
   berthCapacity,
@@ -154,13 +150,11 @@ function ArkDeck({
   unlockedViews,
   coldWakeCommissioning = null,
   supportUpgradeCosts,
-  onTuneCore,
   onCommission,
   onUpgradeSupport,
   onOpenView,
   onOpenHelp,
 }: ArkDeckProps) {
-  const [corePulse, setCorePulse] = useState(0);
   const beaconAvailable = beaconReadiness.ready;
   const normalizedWorldProgress = clamp(worldProgress);
   const normalizedResearchProgress = clamp(researchProgress);
@@ -196,16 +190,6 @@ function ArkDeck({
     settlementUnlocked &&
     (!coldWakeCommissioning?.active || coldWakeCommissioning.navigationRestored);
   const peopleSystemsVisible = populationUnlocked || earlyPelagosHabitability;
-  const lawHeartState: LawPressState = fabricationIntensity >= 150
-    ? "synchronized"
-    : fabricationIntensity >= 50
-      ? "rapid"
-      : fabricationIntensity >= 15
-        ? "active"
-        : fabricationIntensity > 0
-          ? "warming"
-          : "manual";
-
   const coreEnergy = clamp(0.14 + normalizedWorldProgress * 0.34 + roomRatio * 0.38 + Math.min(0.14, fluxValue / 2_000));
   const coreDuration = 3.9 - coreEnergy * 2.85;
   const researchDuration = clamp(7.5 / (1 + researchRate * 0.35 + normalizedResearchProgress * 2.5), 0.65, 7.5);
@@ -273,11 +257,6 @@ function ArkDeck({
     },
   ];
 
-  const handleCoreTune = () => {
-    setCorePulse((value) => value + 1);
-    onTuneCore();
-  };
-
   return (
     <section className={`ark-command-deck fabrication-depth-${Math.min(6, fabricationDepth)} ${fabricationIntensity >= 150 ? "core-phase-locked" : ""}`} style={shipStyle} aria-labelledby="ark-command-title">
       <header className="ark-command-heading">
@@ -332,11 +311,9 @@ function ArkDeck({
           <span className="ark-ship-nameplate">ARK // ITERATION 44</span>
 
           <div className="ark-core-bay">
-            <button
-              className="ark-core-engine"
-              type="button"
-              onClick={handleCoreTune}
-              aria-label={`Tune the Core for ${manualGainLabel} Flux`}
+            <div
+              className="ark-core-engine is-readonly"
+              aria-label={`Axiom Chamber monitor: ${fluxLabel} Flux stored and ${fluxPerSecondLabel} Flux per second routed through the Foundry`}
             >
               <span className="ark-core-orbit ark-core-orbit-one" aria-hidden="true"><i /><i /><i /></span>
               <span className="ark-core-orbit ark-core-orbit-two" aria-hidden="true"><i /><i /><i /><i /></span>
@@ -351,10 +328,8 @@ function ArkDeck({
                 <strong>{fluxLabel}</strong>
                 <em>{fluxPerSecondLabel}/sec</em>
               </span>
-              {corePulse > 0 && <span className="ark-core-shockwave" key={`wave-${corePulse}`} aria-hidden="true" />}
-              {corePulse > 0 && <span className="ark-core-gain" key={`gain-${corePulse}`} aria-hidden="true">+{manualGainLabel}</span>}
-            </button>
-            <span className="ark-core-instruction">Tune the Core</span>
+            </div>
+            <span className="ark-core-instruction">Foundry output monitor</span>
           </div>
 
           <div className="ark-hull-frame">
@@ -406,50 +381,7 @@ function ArkDeck({
           </div>
         </div>
 
-        <p className="ark-screen-reader-status" aria-live="polite">
-          {corePulse > 0 ? `Core tuned. ${manualGainLabel} Flux added.` : ""}
-        </p>
-      </section>
-
-      <section className={`ark-law-heart is-${lawHeartState}`} data-guide-target="ark-law-heart" aria-labelledby="ark-law-heart-title">
-        <header>
-          <div>
-            <span>LAW-HEART // AUTOMATION WINDOW</span>
-            <h3 id="ark-law-heart-title">The motion Cold Wake taught the Ark is still running</h3>
-            <p>Every Vacuum Tap adds another visible press bank. The machine accelerates as the Foundry grows; strike the center whenever you want to add a manual pulse.</p>
-          </div>
-          <strong>{fabricationIntensity}<small> mechanisms linked</small></strong>
-        </header>
-        <div className="ark-law-heart-body">
-          <button
-            className="ark-law-heart-machine"
-            type="button"
-            onClick={handleCoreTune}
-            aria-label={`Strike the Law-Heart for ${manualGainLabel} Flux`}
-            data-pixel-tooltip={`The Ark's original Law-Heart. Strike it for ${manualGainLabel} Flux; every built mechanism makes its automatic motion faster and more elaborate.`}
-          >
-            <LawPressCanvas
-              state={lawHeartState}
-              machineCount={fabricationIntensity}
-              manualPulses={corePulse}
-              pulseSerial={corePulse}
-              recalibrationProgress={normalizedWorldProgress}
-              provenLaws={Math.min(3, fabricationDepth)}
-              preparingRecalibration={false}
-            />
-            <span className="ark-law-heart-readout">
-              <small>STRIKE LAW</small>
-              <strong>{fluxLabel}</strong>
-              <em>+{manualGainLabel}</em>
-            </span>
-            {corePulse > 0 && <span className="ark-law-heart-gain" key={`ark-law-gain-${corePulse}`} aria-hidden="true">+{manualGainLabel}</span>}
-          </button>
-          <div className="ark-law-heart-telemetry" aria-label="Law-Heart automation telemetry">
-            <article><span>Tap banks</span><strong>{Math.min(16, Math.max(1, Math.ceil(fabricationIntensity / 3)))}</strong><small>visible automation clusters</small></article>
-            <article><span>Chain depth</span><strong>{Math.max(1, fabricationDepth)}</strong><small>nested mechanisms online</small></article>
-            <article><span>Automatic motion</span><strong>{fluxPerSecondLabel}<em>/sec</em></strong><small>continues while the page is closed</small></article>
-          </div>
-        </div>
+        <p className="ark-screen-reader-status" aria-live="polite" />
       </section>
 
       <aside className="ark-stage-directive" data-guide-target="ark-directive" aria-labelledby="ark-objective-title">

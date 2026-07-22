@@ -490,6 +490,13 @@
 
 .ark-core-engine:hover { filter: brightness(1.2); transform: scale(1.018); }
 .ark-core-engine:active { transform: scale(0.985); }
+.ark-core-engine.is-readonly,
+.ark-core-engine.is-readonly:hover,
+.ark-core-engine.is-readonly:active {
+  cursor: var(--cursor-pixel);
+  filter: none;
+  transform: none;
+}
 
 .ark-core-engine::before,
 .ark-core-engine::after {

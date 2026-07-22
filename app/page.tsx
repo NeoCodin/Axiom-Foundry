@@ -87,7 +87,6 @@ import {
   getLegacyUpgradeCost,
   getManualGain,
   getMissionProgress,
-  getMissionStageProgress,
   getOfflineCapHours,
   getProductionSnapshot,
   getPurchaseQuantity,
@@ -121,7 +120,6 @@ import {
   getRunUpgradeCost,
   getSupplyFabricationQuote,
   getTierCost,
-  getWorldEffects,
   isTierUnlocked,
   pulseCore,
   recalibrate,
@@ -140,9 +138,10 @@ import {
   type InterfaceIntroductionId,
   type PurchaseMode,
 } from "./game-engine";
-import { FoundryVista, WORLD_VISUALS } from "./foundry-vista";
+import { WORLD_VISUALS } from "./foundry-vista";
 import ArkDeck, { type ArkViewId } from "./ark-deck";
 import { AxiomLawHeart } from "./axiom-law-heart";
+import { FoundryLawHeart } from "./foundry-law-heart";
 import { getBeaconReadiness } from "./beacon-readiness-engine";
 import {
   GameManualDialog,
@@ -493,7 +492,7 @@ export default function Home() {
           );
         } else if (expandedCampaignWasNew) {
           setAnnouncement(
-            "Cold-wake charts loaded. AXIOM is alone, Pelagos is ahead, and the continuity route is ready.",
+            "Cold-wake charts loaded. AXIOM is alone, and Pelagos is the only destination currently disclosed.",
           );
         } else if (untimedDirectivesWereNew) {
           setAnnouncement(
@@ -645,7 +644,6 @@ export default function Home() {
     () => getMissionProgress(game),
     [game],
   );
-  const worldEffects = useMemo(() => getWorldEffects(game), [game]);
   const campaignWorldIndex = getCampaignWorldIndex(game);
   const coldWakeStatus = getColdWakeOnboardingStatus(game);
   const disclosure = useMemo(() => getProgressiveDisclosure(game), [game]);
@@ -704,6 +702,17 @@ export default function Home() {
                     note: "Start with the roster. Medical, training, equipment, and advanced management reveal only when they become relevant.",
                     buttonLabel: "MEET THE CREW",
                   }
+                : campaignWorldIndex === 1 && disclosure.expeditions &&
+                    !game.settings.completedGuideIds.includes("interface-expeditions")
+                  ? {
+                      id: "expeditions",
+                      view: "expeditions",
+                      eyebrow: "NEW ARK FACILITY // EXPEDITION BAY",
+                      title: "Pelagos field work is finally authorized",
+                      description: "The first crew is established and the gravity operation has reached its final phase. Continuity can now request a deliberate planetary survey.",
+                      note: "The Bay did not open when the first witnesses arrived. It opens now because the current world has created a specific field assignment.",
+                      buttonLabel: "OPEN EXPEDITION BAY",
+                    }
                 : disclosure.research && !game.settings.researchIntroduced
                   ? {
                       id: "research",
@@ -2234,12 +2243,16 @@ export default function Home() {
   const medicalUnlocked = disclosure.medical;
   const settlementUnlocked = disclosure.settlement;
   const fabricationUnlocked = disclosure.fabrication;
-  const systemsUnlocked = disclosure.systems;
   const protocolsUnlocked = disclosure.protocols;
   const recalibrationUnlocked = disclosure.recalibration;
+  const advancedFoundryVisible =
+    protocolsUnlocked ||
+    recalibrationUnlocked ||
+    automationFrameQuote.researchMet ||
+    game.automation.framesBuilt > 0;
   const engineeringMobileTabs: Array<[MobileTab, string]> = [["machines", "Fabricate"]];
-  if (systemsUnlocked || protocolsUnlocked || recalibrationUnlocked) {
-    engineeringMobileTabs.push(["systems", "Campaign"]);
+  if (advancedFoundryVisible) {
+    engineeringMobileTabs.push(["systems", "Systems"]);
   }
   const unlockedArkViews: ArkViewId[] = [];
   if (engineeringUnlocked) unlockedArkViews.push("engineering");
@@ -2589,7 +2602,6 @@ export default function Home() {
           objectiveDetail={activeStage?.instruction ?? campaignWorld.arrivalBrief}
           fluxLabel={formatNumber(game.flux)}
           fluxPerSecondLabel={formatNumber(production.fluxPerSecond)}
-          manualGainLabel={formatNumber(manualGain)}
           population={game.survivors.survivors.length}
           populationCapacity={Math.min(berthCapacity, ...Object.values(lifeSupport.capacity))}
           berthCapacity={berthCapacity}
@@ -2675,7 +2687,6 @@ export default function Home() {
               }
             : null}
           supportUpgradeCosts={supportUpgradeCosts}
-          onTuneCore={handlePulse}
           onCommission={handleMissionContribution}
           onUpgradeSupport={handleUpgradeSupport}
           onOpenView={handleOpenArkView}
@@ -3003,6 +3014,22 @@ export default function Home() {
                   ? !rescueQuote.canRescue
                   : false,
             } : null}
+          finalDoctrine={game.missions.currentIndex >= MISSIONS.length ? {
+            chosen: chosenDoctrine ? {
+              title: chosenDoctrine.title,
+              commitment: chosenDoctrine.commitment,
+              lyraResponse: chosenDoctrine.lyraResponse,
+              epilogue: chosenDoctrine.epilogue,
+            } : null,
+            options: doctrineAvailability.map(({ doctrine, available }) => ({
+              id: doctrine.id,
+              shortName: doctrine.shortName,
+              thesis: doctrine.thesis,
+              choiceLabel: doctrine.choiceLabel,
+              available,
+              recordsRequired: doctrine.unlock.minDiscoveries,
+            })),
+          } : null}
           onToggleSettler={handleToggleSettler}
           onCompleteInfrastructure={handleCompleteInfrastructure}
           onFabricateSupply={handleFabricateSupply}
@@ -3014,6 +3041,7 @@ export default function Home() {
           onPlanetaryConstruction={handlePlanetaryDefenseConstruction}
           onColdWakeAction={handleColdWakeSequenceAction}
           onPelagosAction={handlePelagosSequenceAction}
+          onChooseFinalDoctrine={handleDoctrineChoice}
           onOpenPopulation={populationUnlocked ? () => setPrimaryView("population") : undefined}
           onOpenResearch={researchUnlocked ? () => setPrimaryView("research") : undefined}
           onOpenHelp={setManualTopic}
@@ -3025,40 +3053,22 @@ export default function Home() {
           <div>
             <p className="section-kicker">{campaignWorldIndex === 0 ? "First restored deck // Cold Wake" : "Fabrication deck // systems online"}</p>
             <h2 id="foundry-workspace-title">{campaignWorldIndex === 0 ? "Commission the Foundry Deck" : "The Foundry Floor"}</h2>
-            <span>{campaignWorldIndex === 0 ? "One machine line is awake. Build the highlighted Vacuum Taps; the rest of Engineering stays hidden until Pelagos." : "Build nested mechanisms on the floor. New console bays awaken only when the current directive needs them. Core tuning remains aboard the Ark through the Law-Heart."}</span>
+            <span>{campaignWorldIndex === 0 ? "One machine line is awake. Build the highlighted Vacuum Taps; the rest of Engineering stays hidden until Pelagos." : "Strike the Law-Heart, build nested mechanisms, and expand automation. Planetary planning remains in Continuity."}</span>
           </div>
-          <button className="quiet-button" type="button" onClick={() => setPrimaryView("deck")}>Return to Ark Core</button>
+          <button className="quiet-button" type="button" onClick={() => setPrimaryView("deck")}>Return to Ark Overview</button>
         </header>
 
-        {campaignWorldIndex > 0 && <section className="foundry-telemetry" aria-label="Foundry diagnostics">
-          <div>
-            <span>Flux flow</span>
-            <strong>{formatNumber(production.fluxPerSecond)}<small>/sec</small></strong>
-          </div>
-          <div>
-            <span>Machine multiplier</span>
-            <strong>×{formatNumber(production.globalMultiplier)}</strong>
-          </div>
-          <div>
-            <span>Balanced links</span>
-            <strong>{production.resonance.levels}<small> active</small></strong>
-          </div>
-          <div>
-            <span>Lifetime Axioms</span>
-            <strong>{formatNumber(game.lifetimeAxioms)}</strong>
-          </div>
-          <div>
-            <span>Chain depth</span>
-            <strong>{Math.max(1, visibleGeneratorCount)}<small> / {GENERATORS.length}</small></strong>
-          </div>
-          <div title="The share of production currently diverted to medical care, utility drones, restored-world defenses, and hostile compromises.">
-            <span>Operational load</span>
-            <strong>{Math.round(operationalLoad.total * 10_000) / 100}<small>%</small></strong>
-          </div>
-          <span className="foundry-telemetry-flow" aria-hidden="true"><i /><i /><i /><i /></span>
-        </section>}
-
-        {campaignWorldIndex > 0 ? <FoundryVista game={game} /> : (
+        {campaignWorldIndex > 0 ? (
+          <FoundryLawHeart
+            fluxLabel={formatNumber(game.flux)}
+            manualGainLabel={formatNumber(manualGain)}
+            manualPulses={game.manualPulses}
+            fabricationDepth={game.tiers.filter((tier) => tier.bought > 0).length}
+            fabricationIntensity={game.tiers.reduce((total, tier) => total + tier.bought, 0)}
+            worldProgress={missionProgress.ratio}
+            onTune={handlePulse}
+          />
+        ) : (
           <section className="cold-wake-foundry-brief" aria-label="Cold Wake Foundry commissioning">
             <span>COMMISSIONING DIRECTIVE // ONE ACTIVE SYSTEM</span>
             <strong>{activeStage?.label ?? "Commission the Foundry Deck"}</strong>
@@ -3166,132 +3176,8 @@ export default function Home() {
         </section>
         )}
 
-        {(systemsUnlocked || protocolsUnlocked || recalibrationUnlocked) && (
+        {advancedFoundryVisible && (
         <aside className={`systems-column mobile-section ${mobileTab === "systems" ? "is-mobile-active" : ""}`}>
-          {systemsUnlocked && (
-          <section id="planetary-directives" className="panel mission-panel foundry-directive-console" data-guide-target="foundry-directive">
-            <div className="panel-heading mission-heading">
-              <div>
-                <p className="section-kicker danger-text">Planetfall campaign</p>
-                <h2>Planetary Directives</h2>
-              </div>
-              <button className="archive-button" type="button" onClick={() => setLoreOpen(true)}>Archive</button>
-            </div>
-
-            {game.missions.awaitingAcknowledgement && activeMission ? (
-              <div className="mission-outcome saved">
-                <p>Engineering directive complete</p>
-                <h3>{activeMission.world}</h3>
-                <span>The Ark has solved the mechanical problem. Departure still requires infrastructure, research, supplies, crisis resolution, Community Readiness, and the required Expertise.</span>
-                <button type="button" onClick={() => setPrimaryView("settlement")}>Open continuity forecast</button>
-                <small>No timer is running. This world waits until its settlement can survive without AXIOM.</small>
-              </div>
-            ) : activeMission && activeStage ? (
-              <div className="mission-body">
-                <div className="mission-world-line">
-                  <div>
-                    <span>World {game.missions.currentIndex + 1} of {MISSIONS.length} · Phase {game.missions.stageIndex + 1} of {activeMission.stages.length}</span>
-                    <h3>{activeMission.world}</h3>
-                    <small>{activeMission.epithet}</small>
-                  </div>
-                </div>
-                <h4>{activeMission.title}</h4>
-                <p>{activeMission.briefing}</p>
-                <ol className="mission-stages" aria-label={`${activeMission.world} operation phases`}>
-                  {activeMission.stages.map((stage, index) => {
-                    const progress = getMissionStageProgress(game, index);
-                    const phaseState = index < game.missions.stageIndex
-                      ? "complete"
-                      : index === game.missions.stageIndex
-                        ? "active"
-                        : "pending";
-                    return (
-                      <li className={phaseState} key={stage.label}>
-                        <span>{index < game.missions.stageIndex ? "✓" : index + 1}</span>
-                        <div><strong>{stage.label}</strong><small>{stage.instruction}</small></div>
-                        {index === game.missions.stageIndex && <b>{Math.round(progress.ratio * 100)}%</b>}
-                      </li>
-                    );
-                  })}
-                </ol>
-                <div className="mission-goal">
-                  <div>
-                    <span>Active operation</span>
-                    <strong>{activeStage.instruction}</strong>
-                  </div>
-                  <span className="mission-numbers">
-                    {activeStage.kind === "resonanceHold"
-                      ? `${formatDuration(missionProgress.value)} / ${formatDuration(missionProgress.target)}`
-                      : `${formatNumber(missionProgress.value)} / ${formatNumber(missionProgress.target)}`}
-                  </span>
-                </div>
-                <div className="mission-progress" role="progressbar" aria-label={`${activeMission.world}: ${activeStage.instruction}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(missionProgress.ratio * 100)}>
-                  <span style={{ width: `${missionProgress.ratio * 100}%` }} />
-                </div>
-                <p className="mission-lore-impact">{activeStage.lore}</p>
-                {activeStage.kind === "contributeFlux" && (
-                  <button
-                    className="mission-contribute"
-                    type="button"
-                    disabled={game.flux <= 0 || !game.settings.tutorialComplete}
-                    onClick={handleMissionContribution}
-                  >
-                    Divert {formatNumber(Math.min(game.flux, Math.max(0, activeStage.target - game.missions.contributedFlux)))} Flux
-                  </button>
-                )}
-                <div className="mission-hazard">
-                  <div><span>Local physics hazard</span><strong>{activeMission.hazardLabel}</strong></div>
-                  <b>{Math.round(worldEffects.repairProgress * 100)}% stabilized</b>
-                  <p>{activeMission.hazard}</p>
-                </div>
-                <div className="mission-stakes">
-                  <span><b>Rescue grant</b>{activeMission.rewardLabel}</span>
-                  <span><b>Foundry protocol</b>No deadline. Progress saves automatically, so every operation can be completed at your pace.</span>
-                </div>
-                {!game.settings.tutorialComplete && (
-                  <button className="orientation-button" type="button" onClick={() => setTourStep(0)}>Complete orientation to begin</button>
-                )}
-              </div>
-            ) : (
-              <div className="campaign-complete">
-                <span aria-hidden="true">✦</span>
-                {chosenDoctrine ? (
-                  <>
-                    <h3>{chosenDoctrine.title}</h3>
-                    <p>{chosenDoctrine.commitment}</p>
-                    <blockquote>{chosenDoctrine.lyraResponse}</blockquote>
-                    <p>{chosenDoctrine.epilogue}</p>
-                    <small>The choice is written beneath the reset layer. This campaign will remember.</small>
-                  </>
-                ) : (
-                  <>
-                    <h3>The Vesper Choice</h3>
-                    <p>The route is complete, but the recovered record does not support AXIOM&apos;s bootstrap history. Choose what the Foundry carries into the next reality.</p>
-                    <div className="doctrine-grid">
-                      {doctrineAvailability.map(({ doctrine, available }) => (
-                        <article key={doctrine.id} className={available ? "available" : "locked"}>
-                          <span>{available ? "Doctrine available" : "Evidence incomplete"}</span>
-                          <strong>{doctrine.shortName}</strong>
-                          <p>{doctrine.thesis}</p>
-                          <button type="button" disabled={!available} onClick={() => handleDoctrineChoice(doctrine.id)}>
-                            {available ? doctrine.choiceLabel : `${doctrine.unlock.minDiscoveries} records required`}
-                          </button>
-                        </article>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-
-            <div className="mission-footer">
-              <span><b>{game.missions.worldsSaved}</b> saved</span>
-              <span><b>{Math.max(0, MISSIONS.length - game.missions.currentIndex)}</b> remaining</span>
-              <span><b>{Math.round(production.hazardShield * 100)}%</b> relay shielding</span>
-            </div>
-          </section>
-          )}
-
           {(automationFrameQuote.researchMet || game.automation.framesBuilt > 0) && (
             <AutomationConsole
               state={game.automation}
@@ -3449,17 +3335,14 @@ export default function Home() {
           </section>
           )}
 
-          {systemsUnlocked && (
           <details className="panel statistics-panel">
             <summary>Foundry statistics</summary>
             <dl>
-              <div><dt>Current world</dt><dd>{MISSIONS[campaignWorldIndex].world}</dd></div>
-              <div><dt>Campaign phase</dt><dd>{Math.min(MISSIONS.length, game.missions.currentIndex + 1)} / {MISSIONS.length}</dd></div>
               <div><dt>This cycle</dt><dd>{formatDuration(game.runTime)}</dd></div>
               <div><dt>Total play</dt><dd>{formatDuration(game.playTime)}</dd></div>
               <div><dt>Run Flux</dt><dd>{formatNumber(game.runFlux)}</dd></div>
               <div><dt>All-time Flux</dt><dd>{formatNumber(game.allTimeFlux)}</dd></div>
-              <div><dt>Core tunes</dt><dd>{formatNumber(game.manualPulses)}</dd></div>
+              <div><dt>Law-Heart strikes</dt><dd>{formatNumber(game.manualPulses)}</dd></div>
               <div><dt>Offline cap</dt><dd>{getOfflineCapHours(game)} hours</dd></div>
             </dl>
             <div className="help-actions">
@@ -3476,7 +3359,6 @@ export default function Home() {
               </div>
             )}
           </details>
-          )}
         </aside>
         )}
       </div>

@@ -933,6 +933,13 @@ img.pixelated,
 }
 .ark-core-engine:hover { filter: brightness(1.15); transform: translate(-2px, -2px); }
 .ark-core-engine:active { box-shadow: inset 0 0 0 8px #071117; transform: translate(4px, 4px); }
+.ark-core-engine.is-readonly,
+.ark-core-engine.is-readonly:hover,
+.ark-core-engine.is-readonly:active {
+  cursor: var(--cursor-pixel);
+  filter: none;
+  transform: none;
+}
 .ark-core-copy strong { font-family: var(--font-display); font-size: 38px; text-shadow: 3px 3px 0 #000; }
 .ark-core-copy small { font-size: 10px; }
 .ark-core-orbit,

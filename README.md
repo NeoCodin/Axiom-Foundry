@@ -32,13 +32,14 @@ The campaign moves through Cold Wake, Pelagos, Viridia, Cinder, Nox, and Vesper.
 ## Major systems
 
 - Six-tier nested incremental production with buy-one, buy-ten, and buy-max controls
-- Manual Core tuning that evolves from emergency power into optional anomaly probing
+- Manual Law-Heart strikes on the Foundry floor, with the Ark chamber reserved for read-only ship status
 - A physical Ark cross-section that lights and fills as systems and people come online
 - Full-width cinematic presentation with a pulsing Axiom Chamber, animated planetary theater, and physical research machinery
 - Five-destination navigation (Ark, Foundry, Personnel, Research, Planet), with the Armory and Medical Bay under Personnel and Ark operations revealed only when they matter
 - An AXIOM command briefing that translates cross-system blockers into direct next actions without deadlines
 - A contextual AXIOM Field Manual with unlocked-page guides, exact resource sources, and in-place question-mark help
 - A staged Cold Wake handoff from the Law-Heart to a one-machine Foundry commissioning deck and finally the whole Ark before Pelagos orbit
+- A deliberately lean Foundry page: Law-Heart, fabrication, and progressively introduced production systems only; planetary work remains in Continuity
 - Zero-human Cold Wake opening and a one-time fresh save generation
 - Deterministic survivor signals that never expire or fail
 - Procedural names, backgrounds, traits, aptitudes, professional roles, and rare authored story hooks
