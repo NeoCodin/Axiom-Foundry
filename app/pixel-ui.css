@@ -1650,6 +1650,149 @@ img.pixelated,
 
 /* One-time destination handoff ------------------------------------------ */
 
+/* Reusable section-by-section onboarding. Four scrim panels leave the
+   current control physically visible instead of faking a screenshot. */
+.context-guide-layer {
+  position: fixed;
+  z-index: 7200;
+  inset: 0;
+  pointer-events: none;
+}
+
+.context-guide-scrim-piece,
+.context-guide-full-scrim {
+  position: fixed;
+  z-index: 7200;
+  background: rgb(1 4 6 / 0.86);
+  pointer-events: auto;
+}
+
+.context-guide-full-scrim { inset: 0; }
+
+.context-guide-outline {
+  position: fixed;
+  z-index: 7201;
+  border: 3px solid #ffd475;
+  box-shadow:
+    0 0 0 3px #050a0e,
+    0 0 0 6px var(--world-accent, #55d6e8),
+    8px 8px 0 rgb(0 0 0 / 0.72);
+  pointer-events: none;
+  animation: context-guide-outline-pulse 900ms steps(2, end) infinite;
+}
+
+.context-guide-card {
+  position: fixed;
+  z-index: 7202;
+  left: 50%;
+  width: min(680px, calc(100vw - 32px));
+  padding: 18px;
+  border: 4px solid #506872;
+  background-color: #071016;
+  background-image:
+    linear-gradient(rgb(var(--world-accent-rgb) / 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--world-accent-rgb) / 0.06) 1px, transparent 1px);
+  background-size: 16px 16px;
+  box-shadow: inset 0 0 0 3px #0d1c23, 8px 8px 0 #000;
+  color: #dce9e4;
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
+.context-guide-card.is-below { bottom: 20px; }
+.context-guide-card.is-above { top: 20px; }
+
+.context-guide-speaker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.context-guide-speaker > span {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 2px solid var(--world-accent, #55d6e8);
+  color: var(--world-accent, #55d6e8);
+  font-family: var(--font-display);
+  font-size: 21px;
+}
+
+.context-guide-speaker > div { display: grid; gap: 2px; }
+.context-guide-speaker strong,
+.context-guide-eyebrow { color: #ffd475; font-size: 10px; letter-spacing: 0.12em; }
+.context-guide-speaker small { color: #87a29b; font-size: 9px; }
+.context-guide-eyebrow { margin: 0; }
+
+.context-guide-card h2 {
+  margin: 5px 0 9px;
+  color: #f1faf6;
+  font-family: var(--font-display);
+  font-size: clamp(25px, 3vw, 36px);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 1.05;
+}
+
+.context-guide-card > p:not(.context-guide-eyebrow) {
+  margin: 0;
+  color: #b4c8c2;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.context-guide-note {
+  margin: 12px 0;
+  padding: 9px 11px;
+  border-left: 4px solid var(--world-accent, #55d6e8);
+  background: #0a1a20;
+  color: #a9c3bd;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.context-guide-progress { display: flex; gap: 4px; margin-bottom: 12px; }
+.context-guide-progress i { width: 28px; height: 5px; border: 1px solid #38505a; background: #071016; }
+.context-guide-progress i.is-complete { border-color: #61ba88; background: #61ba88; }
+.context-guide-progress i.is-active { border-color: #ffd475; background: #ffd475; }
+
+.context-guide-actions,
+.context-guide-actions > div { display: flex; align-items: center; gap: 8px; }
+.context-guide-actions { justify-content: space-between; }
+.context-guide-actions button {
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 2px solid #4a626c;
+  background: #0b171d;
+  color: #b9ccc7;
+  box-shadow: 3px 3px 0 #000;
+}
+.context-guide-actions button:disabled { opacity: 0.35; }
+.context-guide-actions .context-guide-next { border-color: #ffd475; background: #332711; color: #fff0b0; }
+.context-guide-actions .context-guide-skip { border-color: transparent; box-shadow: none; color: #78908b; }
+
+@keyframes context-guide-outline-pulse {
+  0%, 49% { filter: brightness(1); }
+  50%, 100% { filter: brightness(1.35); }
+}
+
+@media (max-width: 640px) {
+  .context-guide-card { width: calc(100vw - 20px); padding: 14px; }
+  .context-guide-card.is-below { bottom: 10px; }
+  .context-guide-card.is-above { top: 10px; }
+  .context-guide-card h2 { font-size: 27px; }
+  .context-guide-card > p:not(.context-guide-eyebrow) { font-size: 11px; }
+  .context-guide-note { font-size: 9px; }
+  .context-guide-actions { align-items: stretch; flex-direction: column; }
+  .context-guide-actions > div { justify-content: flex-end; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .context-guide-outline { animation: none; }
+}
+
 .living-foundry-nav.primary-destinations.has-destination-guide {
   z-index: 7001;
 }

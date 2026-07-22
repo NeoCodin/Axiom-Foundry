@@ -290,7 +290,7 @@ function ArkDeck({
         </div>
       </header>
 
-      <section className="ark-visual-stage" data-world={worldSlug} aria-label={`The Ark approaching ${worldName}`}>
+      <section className="ark-visual-stage" data-guide-target="ark-visual" data-world={worldSlug} aria-label={`The Ark approaching ${worldName}`}>
         <div className="ark-space" aria-hidden="true">
           <span className="ark-star-field ark-star-field-near" />
           <span className="ark-star-field ark-star-field-far" />
@@ -404,7 +404,7 @@ function ArkDeck({
         </p>
       </section>
 
-      <aside className="ark-stage-directive" aria-labelledby="ark-objective-title">
+      <aside className="ark-stage-directive" data-guide-target="ark-directive" aria-labelledby="ark-objective-title">
         <div className="ark-directive-copy">
           <span>ACTIVE DIRECTIVE // {worldName.toUpperCase()}</span>
           <h3 id="ark-objective-title">{objectiveLabel}</h3>
@@ -437,7 +437,7 @@ function ArkDeck({
       </section>
 
       {supportOnline && (
-        <section className="ark-life-support" aria-labelledby="ark-life-support-title">
+        <section className="ark-life-support" data-guide-target="ark-life-support" aria-labelledby="ark-life-support-title">
           <header>
             <div>
               <span>HABITABILITY ENVELOPE</span>

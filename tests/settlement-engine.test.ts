@@ -125,7 +125,8 @@ test("campaign content moves from a crewless Cold Wake through five distinct wor
     assert.ok(world.infrastructure.length >= 3);
     assert.ok(world.roleRequirements.length > 0);
     assert.ok(world.expertiseRequirements.length > 0);
-    assert.ok(world.requiredResearchIds.length > 0);
+    if (world.id === "pelagos") assert.deepEqual(world.requiredResearchIds, []);
+    else assert.ok(world.requiredResearchIds.length > 0);
     assert.ok(world.crisisIds.length > 0);
     assert.ok(world.transmissions.length >= 3);
     assert.match(world.continuityProtocolExcerpt, /CONTINUITY DIRECTIVE/);
@@ -270,7 +271,7 @@ test("a founding community can never take more than half the full Ark", () => {
   assert.equal(selected.selectedSettlerIds.length, MAX_FOUNDING_COMMUNITY_SIZE);
 });
 
-test("Pelagos forecast reports clear community, expertise, and project deficits", () => {
+test("Pelagos forecast teaches community and field work without exposing Research", () => {
   const state = reachPelagos();
   const forecast = getViabilityForecast(state, "pelagos", pelagosCrew(), {});
 
@@ -287,8 +288,8 @@ test("Pelagos forecast reports clear community, expertise, and project deficits"
   const medical = forecast.deficits.find((deficit) => deficit.id === "medicine");
   assert.ok(medical);
   assert.match(medical.message, /Medical expertise/i);
-  assert.match(medical.alternatives.join(" "), /mobile field clinic/i);
-  assert.ok(forecast.deficits.some((deficit) => deficit.kind === "research"));
+  assert.match(medical.alternatives.join(" "), /train selected civilians/i);
+  assert.equal(forecast.deficits.some((deficit) => deficit.kind === "research"), false);
   assert.ok(
     forecast.deficits.some((deficit) => deficit.kind === "infrastructure"),
   );
@@ -330,7 +331,7 @@ test("community readiness and expertise totals reward a balanced founding group"
   );
 });
 
-test("equipment and research cover bounded expertise gaps without fake headcounts", () => {
+test("Viridia equipment and research cover bounded expertise gaps without fake headcounts", () => {
   const crew = pelagosCrew();
   const secondDoctorIndex = crew.findIndex((member) => member.id === "doctor-2");
   crew[secondDoctorIndex] = {
@@ -340,25 +341,23 @@ test("equipment and research cover bounded expertise gaps without fake headcount
     expertise: {},
   };
   let state = reachPelagos();
+  state.currentWorldId = "viridia";
   state = setSelectedSettlers(
     state,
     crew,
     crew.map((member) => member.id),
   );
   const progress = {
-    ...completeProgress("pelagos"),
-    completedResearchIds: [
-      ...completeProgress("pelagos").completedResearchIds,
-      "adaptive-curriculum",
-    ],
+    ...completeProgress("viridia"),
     equipment: { "mobile-field-clinic": 99 },
   };
-  const forecast = getViabilityForecast(state, "pelagos", crew, progress);
+  const forecast = getViabilityForecast(state, "viridia", crew, progress);
   const expertiseLine = forecast.lines.find((line) => line.id === "medicine");
 
   assert.equal(expertiseLine?.baseValue, 4);
-  assert.equal(expertiseLine?.substitutionValue, 6);
-  assert.equal(forecast.canDepart, true);
+  assert.equal(expertiseLine?.substitutionValue, 11);
+  const medicalRoleLine = forecast.lines.find((line) => line.id === "medical-team");
+  assert.equal(medicalRoleLine, undefined, "equipment never fabricates a fake person or headcount line");
 });
 
 test("an unready departure is safe, untimed, and does not mutate progress", () => {

@@ -50,11 +50,11 @@ export function GameCommandBar({
 
   return (
     <header className={`command-bar metric-count-${metricCount} ${focusWelcome || focusFlux ? "tour-focus" : ""}`}>
-      <div className="brand-lockup" data-pixel-tooltip={cycleTooltip} tabIndex={0} aria-label={cycleTooltip}>
+      <div className="brand-lockup" data-guide-target="command-context" data-pixel-tooltip={cycleTooltip} tabIndex={0} aria-label={cycleTooltip}>
         <span className="brand-mark" aria-hidden="true">◇</span>
         <div><p className="eyebrow">{worldName.toUpperCase()} · CYCLE {String(cycle).padStart(2, "0")}</p><h1>{arrival}</h1></div>
       </div>
-      <div className={`resource-readout ${focusFlux ? "tour-focus" : ""}`} data-pixel-tooltip={fluxTooltip} tabIndex={0} aria-label={fluxTooltip}>
+      <div className={`resource-readout ${focusFlux ? "tour-focus" : ""}`} data-guide-target="command-flux" data-pixel-tooltip={fluxTooltip} tabIndex={0} aria-label={fluxTooltip}>
         <span className="resource-label">Local Flux</span><strong>{fluxLabel}</strong><span className="rate">+{fluxPerSecondLabel} / sec</span>
       </div>
       {metricCount > 0 && <div className="header-metrics">
@@ -71,6 +71,7 @@ export function GameCommandBar({
       </div>
       <div
         className="objective-strip"
+        data-guide-target="command-objective"
         data-pixel-tooltip={objectiveTooltip}
         data-tooltip-place="above"
         tabIndex={0}

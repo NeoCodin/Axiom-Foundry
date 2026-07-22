@@ -220,7 +220,7 @@ import {
   type CausalArchiveView,
 } from "./causal-archive-engine.ts";
 
-export const SAVE_VERSION = 14;
+export const SAVE_VERSION = 15;
 export const SAVE_KEY = "axiom-foundry-save-v5";
 export const RETIRED_SAVE_KEYS = [
   "axiom-foundry-save-v1",
@@ -250,6 +250,7 @@ export type GameSettings = {
   departureIntroduced: boolean;
   personnelIntroduced: boolean;
   researchIntroduced: boolean;
+  completedGuideIds: string[];
 };
 
 export type MissionStatus = "locked" | "active" | "saved";
@@ -926,6 +927,7 @@ export function createInitialState(now = Date.now()): GameState {
       departureIntroduced: false,
       personnelIntroduced: false,
       researchIntroduced: false,
+      completedGuideIds: [],
     },
     manualPulses: 0,
     researchPurchases: 0,
@@ -1235,6 +1237,9 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
       researchIntroduced: sourceVersion < 14
         ? currentMissionIndex > 0
         : rawSettings.researchIntroduced === true,
+      completedGuideIds: Array.isArray(rawSettings.completedGuideIds)
+        ? [...new Set(rawSettings.completedGuideIds.filter((id): id is string => typeof id === "string"))]
+        : [],
     },
     manualPulses,
     researchPurchases,
@@ -1285,6 +1290,7 @@ export function cloneGameState(state: GameState): GameState {
     settings: {
       ...state.settings,
       autoTiers: [...state.settings.autoTiers],
+      completedGuideIds: [...state.settings.completedGuideIds],
     },
   };
 }
@@ -5392,6 +5398,18 @@ export function setInterfaceIntroduction(
 export function setColdWakeForecastReviewed(state: GameState, reviewed = true) {
   const next = cloneGameState(state);
   next.settings.coldWakeForecastReviewed = reviewed;
+  return next;
+}
+
+export function setGuideCompleted(
+  state: GameState,
+  guideId: string,
+  completed = true,
+) {
+  const next = cloneGameState(state);
+  next.settings.completedGuideIds = completed
+    ? [...new Set([...next.settings.completedGuideIds, guideId])]
+    : next.settings.completedGuideIds.filter((id) => id !== guideId);
   return next;
 }
 

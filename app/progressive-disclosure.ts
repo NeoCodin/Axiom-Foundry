@@ -38,7 +38,8 @@ export function getProgressiveDisclosure(state: GameState): ProgressiveDisclosur
     worldIndex >= 2 || state.survivors.survivors.length > 0;
   const pelagosFieldWorkReady =
     state.survivors.survivors.length >= 3 &&
-    state.research.completedProjectIds.includes("closed-loop-atmosphere");
+    state.survivors.signalsResolved >= 2 &&
+    state.settings.personnelIntroduced;
   return {
     engineering:
       worldIndex >= 1 ||
@@ -46,9 +47,8 @@ export function getProgressiveDisclosure(state: GameState): ProgressiveDisclosur
       (coldWake.forecastAvailable && state.settings.coldWakeForecastReviewed),
     research:
       hasResearchFootprint ||
-      (state.settings.personnelIntroduced &&
-        state.survivors.signalsResolved >= 2 &&
-        state.survivors.survivors.length >= 2),
+      (state.settings.researchIntroduced && worldIndex >= 1) ||
+      (worldIndex >= 2 && state.settlement.currentWorldId !== null),
     population,
     medical:
       population &&

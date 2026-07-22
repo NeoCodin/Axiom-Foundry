@@ -27,13 +27,15 @@ import {
   setLifeSupportCapacity,
   setSosBeaconOnline,
 } from "./survivor-engine.ts";
+import { CONTEXT_GUIDES } from "./story-content.ts";
 
 export const QA_SAVE_KEY = "axiom-foundry-qa-sandbox-v1";
 export const QA_QUERY_PARAMETER = "qa";
 export const QA_RESOURCE_GRANT = 1_000_000_000_000_000;
 
 const RESEARCH_ERA_ORDER = ["recovery", "integration", "synthesis", "convergence"] as const;
-const WORLD_RESEARCH_ERA = [-1, 0, 0, 1, 2, 3] as const;
+const WORLD_RESEARCH_ERA = [-1, -1, 0, 1, 2, 3] as const;
+const ALL_CONTEXT_GUIDE_IDS = Object.keys(CONTEXT_GUIDES);
 const RESEARCH_INPUT_IDS = [
   "calibration-data",
   "engineering-models",
@@ -186,7 +188,8 @@ export function createQaCheckpoint(worldIndex: number, now = Date.now()): GameSt
       arkOverviewIntroduced: index > 0,
       departureIntroduced: index > 0,
       personnelIntroduced: index > 0,
-      researchIntroduced: index > 0,
+      researchIntroduced: index >= 2,
+      completedGuideIds: [...ALL_CONTEXT_GUIDE_IDS],
       autoEnabled: true,
       autoUpgrades: true,
       buyMode: "max",
@@ -228,6 +231,46 @@ export function createQaPlanetIntroductionCheckpoint(now = Date.now()): GameStat
       departureIntroduced: false,
       personnelIntroduced: false,
       researchIntroduced: false,
+      completedGuideIds: ["cold-wake-automation", "cold-wake-recalibration"],
+    },
+  }, now);
+}
+
+export function createQaPelagosOnboardingCheckpoint(now = Date.now()): GameState {
+  const base = createQaCheckpoint(1, now);
+  let survivors = createSurvivorSystemState(0x50_45_4c_41);
+  survivors.berthSections = 2;
+  survivors = setLifeSupportCapacity(survivors, {
+    atmosphere: 12,
+    water: 12,
+    nutrition: 12,
+    medical: 12,
+  });
+  return sanitizeGameState({
+    ...base,
+    survivors,
+    research: createInitialState(now).research,
+    settings: {
+      ...base.settings,
+      personnelIntroduced: false,
+      researchIntroduced: false,
+      completedGuideIds: ALL_CONTEXT_GUIDE_IDS.filter(
+        (id) => id !== "pelagos-arrival" && id !== "pelagos-personnel",
+      ),
+    },
+  }, now);
+}
+
+export function createQaResearchIntroductionCheckpoint(now = Date.now()): GameState {
+  const base = createQaCheckpoint(2, now);
+  const freshResearch = createInitialState(now).research;
+  return sanitizeGameState({
+    ...base,
+    research: freshResearch,
+    settings: {
+      ...base.settings,
+      researchIntroduced: false,
+      completedGuideIds: ALL_CONTEXT_GUIDE_IDS.filter((id) => id !== "viridia-research"),
     },
   }, now);
 }

@@ -262,7 +262,7 @@ function PopulationConsole({
         <button type="button" onClick={onBack}>Return to Ark Deck</button>
       </header>
 
-      <div className="continuity-summary-band">
+      <div className="continuity-summary-band" data-guide-target="personnel-summary">
         <div><span>Crew capacity</span><strong>{state.survivors.length}/{berthQuote.capacity}</strong></div>
         <div><span>Community</span><strong>{ageCounts.adults} adults / {ageCounts.children} children / {ageCounts.elders} elders</strong></div>
         <div><span>Stable capacity</span><strong>{Math.min(berthQuote.capacity, ...Object.values(lifeSupport.capacity))}</strong></div>
@@ -271,7 +271,7 @@ function PopulationConsole({
         <div className="continuity-summary-help"><span>Available Salvage <HelpTrigger label="How do I get Salvage?" onClick={() => onOpenHelp("salvage")} /></span><strong>{Math.floor(salvage)}</strong></div>
       </div>
 
-      <nav className="personnel-console-tabs" aria-label="Personnel console sections">
+      <nav className="personnel-console-tabs" data-guide-target="personnel-tabs" aria-label="Personnel console sections">
         <button className={consoleView === "systems" ? "is-active" : ""} type="button" aria-pressed={consoleView === "systems"} onClick={() => setConsoleView("systems")}>
           <span className="personnel-tab-sprite sprite-signal" aria-hidden="true"><i /></span>
           <strong>Rescue & Support</strong><small>Beacon, living space, life support</small>
@@ -502,7 +502,7 @@ function PopulationConsole({
 
       {consoleView === "roster" && (
       <div className="crew-management-grid">
-        <section className="continuity-panel crew-roster-panel">
+        <section className="continuity-panel crew-roster-panel" data-guide-target="personnel-roster">
           {(() => {
             const trainingIds = new Set(state.training.map((program) => program.survivorId));
             const reserveCount = state.survivors.filter(

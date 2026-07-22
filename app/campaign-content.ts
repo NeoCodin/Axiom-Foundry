@@ -269,50 +269,10 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
       { id: "settlement-supplies", label: "Settlement supplies", amount: 500 },
       { id: "water-modules", label: "Water-processing modules", amount: 4 },
     ],
-    equipment: [
-      {
-        id: "mobile-field-clinic",
-        name: "Mobile field clinic",
-        description:
-          "A self-contained treatment bay that can stand in for one medical post and supplement medical expertise.",
-        maxUnits: 1,
-        requiredResearchId: "clinical-commons",
-      },
-    ],
-    requiredResearchIds: ["continuity-index", "adaptive-instruction"],
+    equipment: [],
+    requiredResearchIds: [],
     crisisIds: ["pelagos-brine-sickness"],
-    substitutions: [
-      {
-        id: "pelagos-field-clinic-role",
-        label: "A mobile field clinic supplements medical expertise",
-        targetKind: "expertise",
-        targetId: "medicine",
-        sourceKind: "equipment",
-        sourceId: "mobile-field-clinic",
-        contribution: 2,
-        maxContribution: 2,
-      },
-      {
-        id: "pelagos-field-clinic-skill",
-        label: "Field diagnostics supplement medical expertise",
-        targetKind: "expertise",
-        targetId: "medicine",
-        sourceKind: "equipment",
-        sourceId: "mobile-field-clinic",
-        contribution: 4,
-        maxContribution: 4,
-      },
-      {
-        id: "pelagos-curriculum-role",
-        label: "Adaptive curriculum supplements education expertise",
-        targetKind: "expertise",
-        targetId: "education",
-        sourceKind: "research",
-        sourceId: "adaptive-instruction",
-        contribution: 2,
-        maxContribution: 2,
-      },
-    ],
+    substitutions: [],
     legacyBenefits: [
       {
         id: "pelagos-signal-net",
@@ -410,6 +370,14 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     ],
     equipment: [
       {
+        id: "mobile-field-clinic",
+        name: "Mobile field clinic",
+        description:
+          "A self-contained treatment bay developed from Pelagos triage records; it supplements medical expertise on living worlds.",
+        maxUnits: 1,
+        requiredResearchId: "clinical-commons",
+      },
+      {
         id: "autonomous-growbed",
         name: "Autonomous growbed",
         description:
@@ -421,6 +389,16 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     requiredResearchIds: ["clinical-commons", "predictive-fabrication"],
     crisisIds: ["viridia-spore-fever"],
     substitutions: [
+      {
+        id: "viridia-field-clinic",
+        label: "A mobile field clinic supplements medical expertise",
+        targetKind: "expertise",
+        targetId: "medicine",
+        sourceKind: "equipment",
+        sourceId: "mobile-field-clinic",
+        contribution: 6,
+        maxContribution: 6,
+      },
       {
         id: "viridia-auto-farms",
         label: "Autonomous growbeds supplement ecology expertise",

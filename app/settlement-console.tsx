@@ -195,7 +195,7 @@ function SettlementConsole({
         <button type="button" onClick={onBack}>Return to Ark Deck</button>
       </header>
 
-      <section className="settlement-hero">
+      <section className="settlement-hero" data-guide-target="planet-world">
         <div className="settlement-kicker">{world.subtitle.toUpperCase()}</div>
         <h3>{world.name}</h3>
         <p>{world.arrivalBrief}</p>
@@ -204,7 +204,7 @@ function SettlementConsole({
       </section>
 
       {coldWakeSequence && (
-        <section className="continuity-panel cold-wake-commissioning" aria-labelledby="cold-wake-commissioning-title">
+        <section className="continuity-panel cold-wake-commissioning" data-guide-target="planet-current-step" aria-labelledby="cold-wake-commissioning-title">
           <header>
             <div>
               <span>COLD WAKE // STAGED COMMISSIONING</span>
@@ -237,7 +237,7 @@ function SettlementConsole({
 
       <div className="settlement-flow-region">
       <div className="settlement-layout">
-        <section className="continuity-panel">
+        <section className="continuity-panel" data-guide-target="planet-requirements">
           <header><div><span>CONTINUITY REQUIREMENTS</span><h3>{forecast.deficits.length === 0 ? "Every requirement is met" : `${forecast.deficits.length} deficits remain`}</h3></div><div className="continuity-header-help"><small>Nothing expires</small><HelpTrigger label="Explain Continuity requirements" onClick={() => onOpenHelp("settlement")} /></div></header>
           <div className="continuity-readiness-overview">
             <div><span>SECURED</span><strong>{securedRequirementCount}</strong></div>
@@ -268,7 +268,7 @@ function SettlementConsole({
           </details>
         </section>
 
-        <section className="continuity-panel">
+        <section className="continuity-panel" data-guide-target="planet-deficits">
           <header><div><span>EXPLICIT DEFICITS</span><h3>What this world still needs</h3></div><small>Profile gates are visible · quality safety net active</small></header>
           {forecast.deficits.length > 0 ? (
             <ul className="deficit-list">
@@ -314,8 +314,9 @@ function SettlementConsole({
         </section>
       </div>
 
+      {(!coldWakeSequence || coldWakeSequence.stepNumber >= 3) && (
       <div className="settlement-layout">
-        <section className="continuity-panel">
+        <section className="continuity-panel" data-guide-target="planet-world-works">
           <header><div><span>WORLD WORKS</span><h3>Infrastructure, supplies, and crisis response</h3></div><small>Permanent planetary work</small></header>
           <div className="world-progress-actions">
             {world.infrastructure.map((objective) => {
@@ -393,10 +394,10 @@ function SettlementConsole({
         </section>
 
         <div className="settlement-side-column">
-        <section className="continuity-panel">
+        {world.settlementRequired && (
+        <section className="continuity-panel" data-guide-target="planet-founding">
           <header><div><span>{world.settlementRequired ? "FOUNDING COMMUNITY" : "ORBITAL TRANSITION"}</span><h3>{world.settlementRequired ? `${forecast.selectedSettlerIds.length}/${MAX_FOUNDING_COMMUNITY_SIZE} people selected` : "No founders required in deep space"}</h3></div><small>The Ark never releases more than half its full crew capacity</small></header>
-          {world.settlementRequired ? (
-            <div className="settler-selection-list">
+          <div className="settler-selection-list">
               {crew.map((member) => (
                 <label className={`${member.rarity ? `crew-rarity-${member.rarity}` : ""} ${selected.has(member.id) ? "is-selected" : ""}`} key={member.id}>
                   <input type="checkbox" disabled={member.available === false || member.canSettle === false || (!selected.has(member.id) && selected.size >= MAX_FOUNDING_COMMUNITY_SIZE)} checked={selected.has(member.id)} onChange={() => onToggleSettler(member.id)} />
@@ -405,13 +406,11 @@ function SettlementConsole({
                   <span className="settler-row-status"><em className="crew-rarity-badge" title={member.rarityDescription}>{member.rarityLabel ?? "Standard"}</em><b>{member.protectedForArk ? "ARK PROTECTED" : member.available === false || member.canSettle === false ? "UNAVAILABLE" : selected.has(member.id) ? "FOUNDER" : selected.size >= MAX_FOUNDING_COMMUNITY_SIZE ? "LIMIT" : "ARK"}</b></span>
                 </label>
               ))}
-            </div>
-          ) : (
-            <div className="continuity-empty-state"><strong>Cold Wake is an Ark restoration chapter.</strong><p>Complete the works, prove closed-loop atmosphere, resolve the reactor desynchronization, and commit the Pelagos orbital insertion.</p></div>
-          )}
+          </div>
         </section>
+        )}
 
-        <section className="continuity-panel departure-panel">
+        <section className="continuity-panel departure-panel" data-guide-target="planet-departure">
           <header><div><span>DEPARTURE AUTHORITY</span><h3>{forecast.canDepart && !departureHold ? `AXIOM may leave ${world.name}` : `The Ark is still needed at ${world.name}`}</h3></div><small>{world.continuityProtocolExcerpt}</small></header>
           <blockquote>{world.departureQuestion}</blockquote>
           {departureHold && <p className="crew-rarity-note"><strong>DEPARTURE HOLD:</strong> {departureHold}</p>}
@@ -420,6 +419,7 @@ function SettlementConsole({
         </section>
         </div>
       </div>
+      )}
       </div>
 
       {planetaryDefenseActive && colonies.length > 0 && (

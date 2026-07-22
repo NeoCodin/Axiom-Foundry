@@ -192,7 +192,7 @@ test("every planetary crisis exposes a complete data-driven resolution checklist
   }
 });
 
-test("Pelagos Brine Sickness names every gate and unlocks only when all are ready", () => {
+test("Pelagos Brine Sickness stays fully resolvable before Research unlocks", () => {
   const state = createInitialState(0);
   const pelagos = CAMPAIGN_WORLDS.find((world) => world.id === "pelagos")!;
   state.settlement.currentWorldId = "pelagos";
@@ -210,8 +210,6 @@ test("Pelagos Brine Sickness names every gate and unlocks only when all are read
     "Restart the tidal grid",
     "Build the purification spine",
     "Seal the highwater habitat",
-    "Continuity Index",
-    "Adaptive Instruction",
     "Reserve 500.00K Flux",
   ]) {
     assert.ok(
@@ -220,12 +218,7 @@ test("Pelagos Brine Sickness names every gate and unlocks only when all are read
     );
   }
   assert.match(readiness.requirements[0]!.detail, /Current objective/);
-  assert.match(
-    readiness.requirements.find(
-      (requirement) => requirement.id === "research:adaptive-instruction",
-    )!.detail,
-    /Closed-Loop Atmosphere/,
-  );
+  assert.equal(readiness.requirements.some((requirement) => requirement.category === "Research"), false);
 
   state.missions.stageIndex = 1;
   readiness = getCrisisReadiness(state, "pelagos-brine-sickness");
@@ -236,10 +229,6 @@ test("Pelagos Brine Sickness names every gate and unlocks only when all are read
   state.worldProgress.completedInfrastructureIds = pelagos.infrastructure.map(
     (objective) => objective.id,
   );
-  state.research.completedProjectIds = [
-    "continuity-index",
-    "adaptive-instruction",
-  ];
   state.flux = getCrisisFluxCost(state);
   readiness = getCrisisReadiness(state, "pelagos-brine-sickness");
   assert.equal(readiness.canResolve, true);
@@ -1104,8 +1093,9 @@ test("colony legacies drive their named systems, prices, and effective cohesion"
 
 test("continuity equipment is fabricated with Flux and feeds substitutions", () => {
   const state = setTutorialComplete(createInitialState(0), true);
-  state.settlement.completedWorldIds = ["cold-wake"];
-  state.settlement.currentWorldId = "pelagos";
+  state.missions.currentIndex = 2;
+  state.settlement.completedWorldIds = ["cold-wake", "pelagos"];
+  state.settlement.currentWorldId = "viridia";
 
   const unknownQuote = getEquipmentFabricationQuote(state, "not-real-equipment");
   assert.equal(unknownQuote.atLimit, true);
@@ -1156,7 +1146,7 @@ test("continuity equipment is fabricated with Flux and feeds substitutions", () 
   const medicineSkill = forecast?.lines.find(
     (line) => line.kind === "expertise" && line.id === "medicine",
   );
-  assert.equal(medicineSkill?.substitutionValue, 6);
+  assert.equal(medicineSkill?.substitutionValue, 11);
 
   // The unit limit is enforced.
   const limitQuote = getEquipmentFabricationQuote(bought, "mobile-field-clinic");
@@ -1167,16 +1157,17 @@ test("continuity equipment is fabricated with Flux and feeds substitutions", () 
 
 test("equipment and berth prices scale with campaign progression, never with live production", () => {
   const early = setTutorialComplete(createInitialState(0), true);
-  early.settlement.completedWorldIds = ["cold-wake"];
-  early.settlement.currentWorldId = "pelagos";
+  early.missions.currentIndex = 2;
+  early.settlement.completedWorldIds = ["cold-wake", "pelagos"];
+  early.settlement.currentWorldId = "viridia";
   const earlyQuote = getEquipmentFabricationQuote(early, "mobile-field-clinic");
 
   // A compounding economy must never move the price target: pricing that
   // tracks live production outruns any wallet during hypergrowth.
   const industrial = setTutorialComplete(createInitialState(0), true);
-  industrial.settlement.completedWorldIds = ["cold-wake"];
-  industrial.settlement.currentWorldId = "pelagos";
-  industrial.missions.currentIndex = 1;
+  industrial.settlement.completedWorldIds = ["cold-wake", "pelagos"];
+  industrial.settlement.currentWorldId = "viridia";
+  industrial.missions.currentIndex = 2;
   industrial.tiers[0] = { amount: 500, bought: 500 };
   industrial.maxFlux = 1_000_000;
   const industrialQuote = getEquipmentFabricationQuote(
@@ -1193,6 +1184,7 @@ test("equipment and berth prices scale with campaign progression, never with liv
   const late = setTutorialComplete(createInitialState(0), true);
   late.settlement.completedWorldIds = ["cold-wake", "pelagos", "viridia"];
   late.settlement.currentWorldId = "cinder";
+  late.missions.currentIndex = 3;
   const lateQuote = getEquipmentFabricationQuote(late, "automated-fabricator-rig");
   assert.ok(lateQuote.cost > earlyQuote.cost);
   const before = getBerthConstructionQuote(late).cost;

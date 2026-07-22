@@ -124,6 +124,7 @@ import {
   setAutoUpgrades,
   setBuyMode,
   setColdWakeForecastReviewed,
+  setGuideCompleted,
   setInterfaceIntroduction,
   setTutorialComplete,
   simulateGame,
@@ -248,10 +249,16 @@ import {
   type DefenseInstallationId,
   type EnvironmentalDoctrine,
 } from "./defense-engine";
-import { LORE_ENTRIES, TOUR_STEPS } from "./story-content";
+import {
+  CONTEXT_GUIDES,
+  LORE_ENTRIES,
+  TOUR_STEPS,
+  type ContextGuideId,
+} from "./story-content";
 import { LoreArchive, type ArchiveWorldEntry } from "./lore-archive";
 import { getProgressiveDisclosure } from "./progressive-disclosure";
 import { PixelTooltipLayer } from "./pixel-tooltip-layer";
+import { ContextualGuide } from "./contextual-guide";
 import { QaSandbox } from "./qa-sandbox";
 import {
   QA_QUERY_PARAMETER,
@@ -260,7 +267,9 @@ import {
   boostQaCrew,
   completeQaResearch,
   createQaCheckpoint,
+  createQaPelagosOnboardingCheckpoint,
   createQaPlanetIntroductionCheckpoint,
+  createQaResearchIntroductionCheckpoint,
   grantQaResources,
   prepareQaContinuity,
   simulateQaOfflineDay,
@@ -407,6 +416,10 @@ export default function Home() {
   const [confirmPrestige, setConfirmPrestige] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [tourStep, setTourStep] = useState<number | null>(null);
+  const [contextGuide, setContextGuide] = useState<{
+    id: ContextGuideId;
+    step: number;
+  } | null>(null);
   const [loreOpen, setLoreOpen] = useState(false);
   const [manualTopic, setManualTopic] = useState<ManualTopicId | null>(null);
   const [tooltipsEnabled, setTooltipsEnabled] = useState(true);
@@ -416,6 +429,7 @@ export default function Home() {
   const activeSaveKeyRef = useRef(SAVE_KEY);
   const gameRef = useRef(game);
   const tourActionRef = useRef<HTMLButtonElement>(null);
+  const contextGuideActionRef = useRef<HTMLButtonElement>(null);
   const destinationGuideActionRef = useRef<HTMLButtonElement>(null);
   const missionSignatureRef = useRef("");
   const stageSignatureRef = useRef("");
@@ -536,7 +550,7 @@ export default function Home() {
           current,
           elapsed,
           Math.min(720, Math.max(1, Math.ceil(elapsed * 4))),
-          document.visibilityState === "visible" && tourStep === null,
+          document.visibilityState === "visible" && tourStep === null && contextGuide === null,
         ),
       );
     }, 100);
@@ -560,7 +574,7 @@ export default function Home() {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", settleVisibility);
     };
-  }, [ready, tourStep]);
+  }, [contextGuide, ready, tourStep]);
 
   const persistGame = useCallback((message = "Progress saved") => {
     try {
@@ -628,7 +642,7 @@ export default function Home() {
   const coldWakeStatus = getColdWakeOnboardingStatus(game);
   const disclosure = useMemo(() => getProgressiveDisclosure(game), [game]);
   const destinationIntroduction: DestinationIntroduction | null =
-    !ready || !game.settings.tutorialComplete || tourStep !== null
+    !ready || !game.settings.tutorialComplete || tourStep !== null || contextGuide !== null
       ? null
       : disclosure.settlement && !game.settings.continuityIntroduced
         ? {
@@ -686,13 +700,40 @@ export default function Home() {
                   ? {
                       id: "research",
                       view: "research",
-                      eyebrow: "NEW DESTINATION // RESEARCH",
-                      title: "The Analysis Core needs a crew",
-                      description: "Research is arriving after two rescue operations, so its staffing, evidence, and field-validation requirements already have context.",
-                      note: "Begin with one program. Later eras and branches stay hidden until earlier work is understood.",
+                      eyebrow: "VIRIDIA DESTINATION // RESEARCH",
+                      title: "The Analysis Core can finally open",
+                      description: "Pelagos supplied witnesses and settlement records. Viridia presents a living problem fabrication cannot solve, so AXIOM can now turn those records into deliberate Research.",
+                      note: "You already know crew and expeditions. Research will now connect their expertise and field evidence one program at a time.",
                       buttonLabel: "OPEN RESEARCH",
                     }
                   : null;
+  const pendingContextGuideId: ContextGuideId | null = (() => {
+    if (!ready || !game.settings.tutorialComplete || destinationIntroduction || contextGuide) return null;
+    const completed = new Set(game.settings.completedGuideIds);
+    const worldId = game.settlement.currentWorldId;
+    const coldWake = worldId === "cold-wake";
+    if (coldWake && primaryView === "deck" && game.manualPulses >= 6 && !completed.has("cold-wake-automation")) return "cold-wake-automation";
+    if (coldWake && primaryView === "deck" && game.missions.stageIndex >= 3 && !completed.has("cold-wake-recalibration")) return "cold-wake-recalibration";
+    if (coldWake && primaryView === "settlement" && game.settings.continuityIntroduced && !completed.has("cold-wake-continuity")) return "cold-wake-continuity";
+    if (coldWake && primaryView === "engineering" && game.settings.foundryIntroduced && !completed.has("cold-wake-foundry")) return "cold-wake-foundry";
+    if (coldWake && primaryView === "deck" && game.settings.arkOverviewIntroduced && !completed.has("cold-wake-ark")) return "cold-wake-ark";
+    if (coldWake && primaryView === "settlement" && game.settings.departureIntroduced && !completed.has("cold-wake-departure")) return "cold-wake-departure";
+    if (worldId === "pelagos" && primaryView === "deck" && !completed.has("pelagos-arrival")) return "pelagos-arrival";
+    if (worldId === "pelagos" && primaryView === "population" && game.settings.personnelIntroduced && !completed.has("pelagos-personnel")) return "pelagos-personnel";
+    if (worldId === "viridia" && primaryView === "research" && game.settings.researchIntroduced && !completed.has("viridia-research")) return "viridia-research";
+    return null;
+  })();
+
+  useEffect(() => {
+    if (!pendingContextGuideId) return;
+    if (pendingContextGuideId === "viridia-research") {
+      setResearchEntry((current) => ({
+        view: "core",
+        nonce: (current?.nonce ?? 0) + 1,
+      }));
+    }
+    setContextGuide({ id: pendingContextGuideId, step: 0 });
+  }, [pendingContextGuideId]);
   const guidedDestinationView = destinationIntroduction?.view ?? null;
   useEffect(() => {
     if (!guidedDestinationView) return;
@@ -1919,7 +1960,7 @@ export default function Home() {
     const next = resolveCurrentCrisis(current, crisisId);
     if (next === current) {
       setAnnouncement(
-        "Finish this world's Engineering directive, infrastructure, and required research before resolving its crisis.",
+        "Finish every item in this crisis's visible checklist before resolving it.",
       );
       return;
     }
@@ -2044,12 +2085,61 @@ export default function Home() {
     else setTourStep(tourStep + 1);
   };
 
+  const finishContextGuide = () => {
+    if (!contextGuide) return;
+    const next = setGuideCompleted(gameRef.current, contextGuide.id);
+    gameRef.current = next;
+    setGame(next);
+    setContextGuide(null);
+    setAnnouncement("Guide complete. Only the current directive requires attention.");
+    window.setTimeout(() => persistGame("Guide saved"), 0);
+  };
+
+  const advanceContextGuide = () => {
+    if (!contextGuide) return;
+    const steps = CONTEXT_GUIDES[contextGuide.id];
+    if (contextGuide.step >= steps.length - 1) finishContextGuide();
+    else {
+      const nextStep = contextGuide.step + 1;
+      if (contextGuide.id === "viridia-research") {
+        const view = nextStep === 1
+          ? "technology"
+          : nextStep === 2 || nextStep === 3
+            ? "lattice"
+            : "core";
+        setResearchEntry((current) => ({
+          view,
+          nonce: (current?.nonce ?? 0) + 1,
+        }));
+      }
+      setContextGuide({ ...contextGuide, step: nextStep });
+    }
+  };
+
+  const retreatContextGuide = () => {
+    if (!contextGuide) return;
+    const nextStep = Math.max(0, contextGuide.step - 1);
+    if (contextGuide.id === "viridia-research") {
+      const view = nextStep === 1
+        ? "technology"
+        : nextStep === 2 || nextStep === 3
+          ? "lattice"
+          : "core";
+      setResearchEntry((current) => ({
+        view,
+        nonce: (current?.nonce ?? 0) + 1,
+      }));
+    }
+    setContextGuide({ ...contextGuide, step: nextStep });
+  };
+
   const replayTour = () => {
     const next = setTutorialComplete(gameRef.current, false);
     gameRef.current = next;
     setGame(next);
     setLoreOpen(false);
     setPrimaryView("deck");
+    setContextGuide(null);
     setTourStep(0);
   };
 
@@ -2062,6 +2152,7 @@ export default function Home() {
     gameRef.current = next;
     setGame(next);
     setPrimaryView(destinationIntroduction.view);
+    setContextGuide(null);
     if (destinationIntroduction.view === "engineering") setMobileTab("machines");
     setAnnouncement(
       `${destinationIntroduction.title}. The interface will reveal another destination only when it becomes relevant.`,
@@ -2087,6 +2178,7 @@ export default function Home() {
   };
 
   const currentTour = tourStep === null ? null : TOUR_STEPS[tourStep];
+  const currentContextGuide = contextGuide ? CONTEXT_GUIDES[contextGuide.id] : null;
   const engineeringUnlocked = disclosure.engineering;
   const researchUnlocked = disclosure.research;
   const populationUnlocked = disclosure.population;
@@ -2268,8 +2360,8 @@ export default function Home() {
         showOperations={campaignWorldIndex >= 2 || operationalLoad.total > 0.001}
         saveStatus={saveStatus}
         ready={ready}
-        focusWelcome={currentTour?.target === "welcome"}
-        focusFlux={currentTour?.target === "flux"}
+        focusWelcome={currentTour?.target === "command-context"}
+        focusFlux={currentTour?.target === "command-flux"}
         objective={activeTransit ? {
           label: `Navigate to ${activeTransit.destinationName}`,
           currentLabel: `${Math.round(activeTransit.progress * 1000) / 10}%`,
@@ -2305,6 +2397,7 @@ export default function Home() {
             setPrimaryView("deck");
             setMobileTab("machines");
             setQaCollapsed(true);
+            setContextGuide(null);
             setTourStep(0);
           }}
           onReplayPlanetIntroduction={() => {
@@ -2313,7 +2406,26 @@ export default function Home() {
             setPrimaryView("deck");
             setMobileTab("machines");
             setQaCollapsed(true);
+            setContextGuide(null);
             setTourStep(null);
+          }}
+          onReplayPelagosIntroduction={() => {
+            const next = createQaPelagosOnboardingCheckpoint(Date.now());
+            applyQaState(next, "Pelagos arrival loaded. The public arrival guide, beacon sequence, and Personnel handoff are ready to test.");
+            setPrimaryView("deck");
+            setMobileTab("machines");
+            setQaCollapsed(true);
+            setTourStep(null);
+            setContextGuide(null);
+          }}
+          onReplayResearchIntroduction={() => {
+            const next = createQaResearchIntroductionCheckpoint(Date.now());
+            applyQaState(next, "Viridia loaded before Research. Open the guided destination to test the complete Analysis Core introduction.");
+            setPrimaryView("deck");
+            setMobileTab("machines");
+            setQaCollapsed(true);
+            setTourStep(null);
+            setContextGuide(null);
           }}
           onGrantResources={() => applyQaState(grantQaResources(gameRef.current), "QA resources stocked.")}
           onAddFlux={(amount) => {
@@ -2825,7 +2937,7 @@ export default function Home() {
         />
       ) : (
       <section className="foundry-workspace" aria-labelledby="foundry-workspace-title">
-        <header className="foundry-workspace-header">
+        <header className="foundry-workspace-header" data-guide-target="foundry-heading">
           <div>
             <p className="section-kicker">{campaignWorldIndex === 0 ? "First restored deck // Cold Wake" : "Fabrication deck // systems online"}</p>
             <h2 id="foundry-workspace-title">{campaignWorldIndex === 0 ? "Commission the Foundry Deck" : "The Foundry Floor"}</h2>
@@ -2873,7 +2985,7 @@ export default function Home() {
 
       <div className="game-grid foundry-grid">
         {fabricationUnlocked && (
-        <section className={`panel machine-panel mobile-section ${mobileTab === "machines" ? "is-mobile-active" : ""}`}>
+        <section className={`panel machine-panel mobile-section ${mobileTab === "machines" ? "is-mobile-active" : ""}`} data-guide-target="foundry-chain">
           <div className="panel-heading machine-heading">
             <div>
               <p className="section-kicker">Nested mechanisms</p>
@@ -3287,35 +3399,30 @@ export default function Home() {
       </section>
       )}
 
-      {currentTour && (
-        <div className="tour-layer">
-          <div className="tour-scrim" aria-hidden="true" />
-          <section className="tour-card" role="dialog" aria-modal="true" aria-labelledby="tour-title" aria-describedby="tour-description">
-            <div className="tour-speaker">
-              <span aria-hidden="true">A</span>
-              <div>
-                <strong>AXIOM</strong>
-                <small>Ark caretaker intelligence</small>
-              </div>
-            </div>
-            <p className="tour-eyebrow">{currentTour.eyebrow}</p>
-            <h2 id="tour-title">{currentTour.title}</h2>
-            <p id="tour-description">{currentTour.body}</p>
-            <div className="tour-note">{currentTour.note}</div>
-            <div className="tour-progress" aria-label={`Tour step ${tourStep! + 1} of ${TOUR_STEPS.length}`}>
-              {TOUR_STEPS.map((step, index) => (
-                <span key={step.target} className={index === tourStep ? "active" : index < tourStep! ? "complete" : ""} />
-              ))}
-            </div>
-            <div className="tour-actions">
-              <button className="tour-skip" type="button" onClick={finishTour}>Skip orientation</button>
-              <div>
-                <button className="quiet-button" type="button" disabled={tourStep === 0} onClick={() => setTourStep((current) => current === null ? 0 : Math.max(0, current - 1))}>Back</button>
-                <button ref={tourActionRef} className="tour-next" type="button" onClick={advanceTour}>{tourStep === TOUR_STEPS.length - 1 ? "Begin Cold Wake" : "Next"}</button>
-              </div>
-            </div>
-          </section>
-        </div>
+      {currentTour && tourStep !== null && (
+        <ContextualGuide
+          label="Cold Wake orientation"
+          steps={TOUR_STEPS}
+          stepIndex={tourStep}
+          actionRef={tourActionRef}
+          finalLabel="Begin Cold Wake"
+          onBack={() => setTourStep((current) => current === null ? 0 : Math.max(0, current - 1))}
+          onNext={advanceTour}
+          onSkip={finishTour}
+        />
+      )}
+
+      {contextGuide && currentContextGuide && (
+        <ContextualGuide
+          label={contextGuide.id.replaceAll("-", " ")}
+          steps={currentContextGuide}
+          stepIndex={contextGuide.step}
+          actionRef={contextGuideActionRef}
+          finalLabel="Continue"
+          onBack={retreatContextGuide}
+          onNext={advanceContextGuide}
+          onSkip={finishContextGuide}
+        />
       )}
 
       {loreOpen && (

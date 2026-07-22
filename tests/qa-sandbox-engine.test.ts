@@ -12,7 +12,9 @@ import {
   boostQaCrew,
   completeQaResearch,
   createQaCheckpoint,
+  createQaPelagosOnboardingCheckpoint,
   createQaPlanetIntroductionCheckpoint,
+  createQaResearchIntroductionCheckpoint,
   grantQaResources,
   prepareQaContinuity,
 } from "../app/qa-sandbox-engine.ts";
@@ -39,6 +41,7 @@ test("QA checkpoints are isolated, valid campaign snapshots", () => {
     assert.deepEqual(state.settlement.completedWorldIds, CAMPAIGN_WORLD_IDS.slice(0, index));
     assert.equal(state.settings.tutorialComplete, true);
     assert.equal(state.settings.continuityIntroduced, index > 0);
+    assert.equal(state.settings.researchIntroduced, index >= 2);
     assert.ok(state.flux > 0);
     assert.equal(state.missions.stageIndex, 0);
     assert.ok(state.runUpgrades.every((level) => level === 0));
@@ -47,6 +50,20 @@ test("QA checkpoints are isolated, valid campaign snapshots", () => {
       state.tiers.map((tier) => tier.bought),
     );
   }
+});
+
+test("QA can replay Pelagos and Viridia introductions with public unlock rules", () => {
+  const pelagos = createQaPelagosOnboardingCheckpoint(1_000_000);
+  assert.equal(pelagos.settlement.currentWorldId, "pelagos");
+  assert.equal(pelagos.survivors.survivors.length, 0);
+  assert.equal(getProgressiveDisclosure(pelagos).research, false);
+  assert.equal(pelagos.settings.completedGuideIds.includes("pelagos-arrival"), false);
+
+  const viridia = createQaResearchIntroductionCheckpoint(1_000_000);
+  assert.equal(viridia.settlement.currentWorldId, "viridia");
+  assert.equal(viridia.settings.researchIntroduced, false);
+  assert.equal(getProgressiveDisclosure(viridia).research, true);
+  assert.equal(viridia.settings.completedGuideIds.includes("viridia-research"), false);
 });
 
 test("QA can replay the full staged public onboarding without a campaign wait", () => {

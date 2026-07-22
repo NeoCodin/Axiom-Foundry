@@ -164,6 +164,7 @@ export function AxiomLawHeart({
 
         <button
           className="law-heart-core"
+          data-guide-target="law-heart-core"
           type="button"
           onClick={tune}
           aria-label={`Strike the Axiom Law Press for ${manualGainLabel} Flux`}
@@ -189,7 +190,7 @@ export function AxiomLawHeart({
           </span>
         </button>
 
-        <aside className="law-heart-directive">
+        <aside className="law-heart-directive" data-guide-target="law-heart-directive">
           <span>ACTIVE DIRECTIVE // PHASE {stageIndex + 1} / {stageCount}</span>
           <h3>{objectiveLabel}</h3>
           <p>{objectiveDetail}</p>
@@ -225,7 +226,7 @@ export function AxiomLawHeart({
       </div>
 
       <div className="law-heart-controls">
-        <section className={`law-heart-automation ${automationVisible ? "is-revealed" : "is-veiled"}`}>
+        <section className={`law-heart-automation ${automationVisible ? "is-revealed" : "is-veiled"}`} data-guide-target="law-heart-automation">
           <header>
             <div><span>FIRST AUTOMATION</span><h3>{automationVisible ? machine.name : "Signal unresolved"}</h3></div>
             {automationVisible && <strong>{machine.bought}<small> built</small></strong>}
@@ -254,7 +255,7 @@ export function AxiomLawHeart({
           )}
         </section>
 
-        <section className={`law-heart-axioms ${recalibrationVisible ? "is-revealed" : "is-veiled"}`}>
+        <section className={`law-heart-axioms ${recalibrationVisible ? "is-revealed" : "is-veiled"}`} data-guide-target="law-heart-recalibration">
           <header><div><span>PORTABLE PHYSICS</span><h3>{recalibrationVisible ? "Three laws for Pelagos" : "Signal encrypted"}</h3></div><strong>{provenLawCount}/3</strong></header>
           {recalibrationVisible ? (
             <>

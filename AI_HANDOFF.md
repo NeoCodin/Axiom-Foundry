@@ -70,7 +70,7 @@ Every major feature should reinforce at least one of these pillars:
 11. Finish planetary infrastructure, supplies, crisis resolution, and founder requirements.
 12. Select the exact founders who will remain on the planet.
 13. Depart only when the Continuity forecast proves the world can survive without the Ark.
-14. After Pelagos, cross a timed interplanetary corridor. Travel, Foundry production, Research, training, construction, repairs, and Defense all advance offline; destination directives wait for orbital arrival.
+14. After Pelagos, cross a timed interplanetary corridor. Travel, Foundry production, training, construction, repairs, and unlocked Research or Defense work all advance offline; destination directives wait for orbital arrival.
 15. Prepare separate environmental and hostile-contact doctrines, build Ark Defense installations through Mark I-IV projects, and inspect deterministic incident reports.
 16. Carry research, colonies, Axioms, and permanent legacy effects into later worlds.
 

@@ -211,7 +211,7 @@ export function ResearchLattice({
       style={machineStyle}
       aria-label="Research Lattice"
     >
-      <header className="research-lattice-header">
+      <header className="research-lattice-header" data-guide-target="research-header">
         <div>
           <p className="research-lattice-kicker">ANALYSIS DECK // {RESEARCH_ERAS.find((item) => item.id === era)?.code}</p>
           <h1>{view === "core" ? "Analysis Core" : view === "technology" ? "Technology Map" : view === "lattice" ? "Research Lattice" : "Research Archive"}</h1>
@@ -310,7 +310,7 @@ export function ResearchLattice({
         </div>
       </div>
 
-      <section className="research-operations-panel" aria-label="Operational expertise">
+      <section className="research-operations-panel" data-guide-target="research-crew" aria-label="Operational expertise">
         <div>
           <span>ACTIVE STAGE</span>
           <strong>{activeDefinition ? network.stageLabel : "Awaiting a program"}</strong>
@@ -351,7 +351,7 @@ export function ResearchLattice({
       )}
 
       <div className="research-lattice-workspace">
-        <aside className="research-lattice-input-bank">
+        <aside className="research-lattice-input-bank" data-guide-target="research-evidence">
           <div className="research-lattice-section-heading">
             <div>
               <span>01</span>
@@ -419,7 +419,7 @@ export function ResearchLattice({
           </div>
         </aside>
 
-        <main className="research-lattice-network-panel">
+        <main className="research-lattice-network-panel" data-guide-target="research-network">
           <div className="research-lattice-section-heading">
             <div>
               <span>02</span>
@@ -567,7 +567,7 @@ export function ResearchLattice({
         </main>
       </div>
 
-      <section className="research-lattice-projects">
+      <section className="research-lattice-projects" data-guide-target="research-programs">
         <div className="research-lattice-section-heading">
           <div>
             <span>03</span>

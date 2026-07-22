@@ -10,6 +10,8 @@ type QaSandboxProps = {
   onJumpWorld: (worldIndex: number) => void;
   onFreshPlayerOpening: () => void;
   onReplayPlanetIntroduction: () => void;
+  onReplayPelagosIntroduction: () => void;
+  onReplayResearchIntroduction: () => void;
   onGrantResources: () => void;
   onAddFlux: (amount: number) => void;
   onCompleteResearch: () => void;
@@ -25,6 +27,8 @@ export function QaSandbox({
   onJumpWorld,
   onFreshPlayerOpening,
   onReplayPlanetIntroduction,
+  onReplayPelagosIntroduction,
+  onReplayResearchIntroduction,
   onGrantResources,
   onAddFlux,
   onCompleteResearch,
@@ -68,7 +72,9 @@ export function QaSandbox({
             <span>PLAYER EXPERIENCE</span>
             <div className="qa-action-grid">
               <button type="button" onClick={onFreshPlayerOpening}>Fresh player opening</button>
-              <button type="button" onClick={onReplayPlanetIntroduction}>Replay staged onboarding</button>
+              <button type="button" onClick={onReplayPlanetIntroduction}>Cold Wake tab handoff</button>
+              <button type="button" onClick={onReplayPelagosIntroduction}>Pelagos arrival + Personnel</button>
+              <button type="button" onClick={onReplayResearchIntroduction}>Viridia Research handoff</button>
             </div>
             <small className="qa-section-help">These run the same blocking guides and unlock presentation as the public game.</small>
           </section>

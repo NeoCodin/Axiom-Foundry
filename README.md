@@ -16,7 +16,7 @@ The QA version uses a separate browser save and includes world checkpoints, a fr
 ## The game loop
 
 1. Wake the animated Axiom Law-Heart, teach its first Vacuum Taps to repeat, forge three portable laws, then commission Continuity, the Foundry, navigation, and life support one step at a time.
-2. Enter Pelagos orbit with only familiar destinations; prepare the SOS beacon from the Ark, meet the first rescued witnesses in Personnel, and open Research after a second rescue gives its crew context time to matter.
+2. Enter Pelagos orbit with only familiar destinations; prepare the SOS beacon from the Ark, meet the first rescued witnesses in Personnel, and learn one safe planetary expedition before Research arrives on Viridia.
 3. Reach a fallen planet and activate its SOS beacon.
 4. Rescue persistent procedural survivor groups with names, histories, traits, aptitudes, and occasional mystery characters.
 5. Let AXIOM staff adults into their strongest work, protect manual assignments, and study new professions while the game is open or closed.
