@@ -106,6 +106,7 @@ import {
   getAutomationFrameQuote,
   getOperationalLoad,
   isAutomationProgramUnlocked,
+  isAutonomyUnlocked,
   fabricateAutomationFrame,
   setAutomationAllocation,
   setAutomationMaintenancePolicy,
@@ -746,7 +747,7 @@ export default function Home() {
     if (worldId === "pelagos" && primaryView === "engineering" && game.missions.stageIndex >= PELAGOS_FERRY_STAGE && !completed.has("pelagos-gravity-ferry")) return "pelagos-gravity-ferry";
     if (worldId === "pelagos" && primaryView === "engineering" && game.missions.stageIndex >= PELAGOS_PROTOCOL_STAGE && !completed.has("pelagos-protocols")) return "pelagos-protocols";
     if (worldId === "pelagos" && primaryView === "engineering" && game.missions.stageIndex >= PELAGOS_TOW_STAGE && !completed.has("pelagos-recalibration")) return "pelagos-recalibration";
-    if (worldId === "pelagos" && primaryView === "engineering" && game.lifetimeAxioms > 3 && !completed.has("pelagos-automation")) return "pelagos-automation";
+    if (worldId === "pelagos" && primaryView === "engineering" && isAutonomyUnlocked(game) && !completed.has("pelagos-automation")) return "pelagos-automation";
     if (worldId === "viridia" && primaryView === "research" && game.settings.researchIntroduced && !completed.has("viridia-research")) return "viridia-research";
     return null;
   })();
@@ -2248,6 +2249,7 @@ export default function Home() {
   const fabricationUnlocked = disclosure.fabrication;
   const protocolsUnlocked = disclosure.protocols;
   const recalibrationUnlocked = disclosure.recalibration;
+  const autonomyUnlocked = isAutonomyUnlocked(game);
   const advancedFoundryVisible =
     protocolsUnlocked ||
     recalibrationUnlocked ||
@@ -3272,7 +3274,7 @@ export default function Home() {
           </section>
           )}
 
-          {recalibrationUnlocked && game.lifetimeAxioms > 3 && (
+          {autonomyUnlocked && (
           <section className="panel automation-panel" data-guide-target="foundry-automation">
             <div className="panel-heading">
               <div>
@@ -3289,7 +3291,7 @@ export default function Home() {
             ) : (
               <>
                 <label className="toggle-row">
-                  <span><strong>Autonomous fabrication</strong><small>AXIOM buys one affordable unit from each enabled tier every second.</small></span>
+                  <span><strong>Autonomous fabrication</strong><small>Off by default. When enabled, AXIOM buys one affordable unit from each selected tier every second.</small></span>
                   <input type="checkbox" checked={game.settings.autoEnabled} onChange={(event) => setGame((current) => setAutoEnabled(current, event.target.checked))} />
                 </label>
                 <div className="tier-toggles" aria-label="Automatic machine tiers">

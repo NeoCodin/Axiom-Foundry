@@ -13,6 +13,7 @@ import {
   PELAGOS_SIGNAL_STAGE,
   PELAGOS_FIRST_RESCUE_STAGE,
   PELAGOS_FERRY_STAGE,
+  PELAGOS_TOW_STAGE,
   RECALIBRATION_THRESHOLD,
   RETIRED_SAVE_KEYS,
   RUN_UPGRADES,
@@ -54,12 +55,14 @@ import {
   getProfileElevationQuote,
   elevateCrewProfile,
   getTierCost,
+  isAutonomyUnlocked,
   isTierUnlocked,
   pulseCore,
   recalibrate,
   sanitizeGameState,
   setContinuityIntroduced,
   setColdWakeForecastReviewed,
+  setAutoEnabled,
   setInterfaceIntroduction,
   setTutorialComplete,
   simulateGame,
@@ -330,6 +333,41 @@ test("Recalibration starts as a Cold Wake lesson and scales with each world", ()
   state.missions.currentIndex = 3;
   state.settlement.currentWorldId = "cinder";
   assert.equal(getRecalibrationThreshold(state), RECALIBRATION_THRESHOLD * 25 ** 3);
+});
+
+test("Autonomy stays off and inert until the player reaches and enables its visible control", () => {
+  const hidden = createInitialState(0);
+  hidden.missions.currentIndex = 1;
+  hidden.missions.statuses = MISSIONS.map((_, index) => index === 0 ? "saved" : index === 1 ? "active" : "locked");
+  hidden.missions.stageIndex = PELAGOS_TOW_STAGE - 1;
+  hidden.settlement.currentWorldId = "pelagos";
+  hidden.lifetimeAxioms = 5;
+  hidden.axioms = 5;
+  hidden.cycle = 4;
+  hidden.flux = 1_000_000;
+  hidden.maxFlux = 1_000_000;
+  hidden.settings.autoEnabled = true;
+
+  assert.equal(isAutonomyUnlocked(hidden), false);
+  const hiddenAfter = simulateGame(hidden, 2, 2, false);
+  assert.ok(hiddenAfter.tiers.every((tier) => tier.bought === 0));
+
+  const revealed = cloneGameState(hidden);
+  revealed.missions.stageIndex = PELAGOS_TOW_STAGE;
+  revealed.settings.autoEnabled = false;
+  assert.equal(isAutonomyUnlocked(revealed), true);
+  const enabled = setAutoEnabled(revealed, true);
+  assert.equal(enabled.settings.autoEnabled, true);
+  const enabledAfter = simulateGame(enabled, 2, 2, false);
+  assert.ok(enabledAfter.tiers.some((tier) => tier.bought > 0));
+
+  const oldSave = cloneGameState(revealed);
+  oldSave.version = 16;
+  oldSave.settings.autoEnabled = true;
+  oldSave.settings.autoUpgrades = true;
+  const migrated = sanitizeGameState(oldSave, 100);
+  assert.equal(migrated.settings.autoEnabled, false);
+  assert.equal(migrated.settings.autoUpgrades, false);
 });
 
 test("Profile Elevation preserves a favorite crew member's identity and XP", () => {

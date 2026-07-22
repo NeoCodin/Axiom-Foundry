@@ -220,7 +220,7 @@ import {
   type CausalArchiveView,
 } from "./causal-archive-engine.ts";
 
-export const SAVE_VERSION = 16;
+export const SAVE_VERSION = 17;
 export const SAVE_KEY = "axiom-foundry-save-v5";
 export const RETIRED_SAVE_KEYS = [
   "axiom-foundry-save-v1",
@@ -1289,8 +1289,11 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
         rawSettings.buyMode === "10" || rawSettings.buyMode === "max"
           ? rawSettings.buyMode
           : "1",
-      autoEnabled: rawSettings.autoEnabled === true,
-      autoUpgrades: rawSettings.autoUpgrades === true,
+      // Version 17 retires the old implicit auto-buyer state. Every existing
+      // profile receives one clean OFF migration, then future saves preserve
+      // the player's explicit choice normally.
+      autoEnabled: sourceVersion >= 17 && rawSettings.autoEnabled === true,
+      autoUpgrades: sourceVersion >= 17 && rawSettings.autoUpgrades === true,
       autoTiers: GENERATORS.map(
         (_, index) => rawAutoTiers[index] !== false,
       ),
@@ -4889,6 +4892,16 @@ export function recalibrate(state: GameState, now = Date.now()) {
   return fresh;
 }
 
+export function isAutonomyUnlocked(state: GameState) {
+  const worldIndex = getCampaignWorldIndex(state);
+  const recalibrationAvailable =
+    worldIndex >= 1 &&
+    (worldIndex >= 2 ||
+      state.missions.stageIndex >= PELAGOS_TOW_STAGE ||
+      state.cycle > 4);
+  return recalibrationAvailable && state.lifetimeAxioms > 3;
+}
+
 function runAutomation(state: GameState) {
   let next = state;
   for (let index = GENERATORS.length - 1; index >= 0; index -= 1) {
@@ -5440,7 +5453,7 @@ export function simulateGame(
       next = advanceMission(next, missionDelta);
     }
 
-    if (next.lifetimeAxioms >= 1 && next.settings.autoEnabled) {
+    if (isAutonomyUnlocked(next) && next.settings.autoEnabled) {
       next.autoTimer += delta;
       const passes = Math.min(8, Math.floor(next.autoTimer));
       if (passes > 0) {
@@ -5561,12 +5574,14 @@ export function acknowledgeNextMission(state: GameState) {
 }
 
 export function setAutoEnabled(state: GameState, enabled: boolean) {
+  if (enabled && !isAutonomyUnlocked(state)) return state;
   const next = cloneGameState(state);
   next.settings.autoEnabled = enabled;
   return next;
 }
 
 export function setAutoUpgrades(state: GameState, enabled: boolean) {
+  if (enabled && !isAutonomyUnlocked(state)) return state;
   const next = cloneGameState(state);
   next.settings.autoUpgrades = enabled;
   return next;

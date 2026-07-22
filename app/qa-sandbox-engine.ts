@@ -213,7 +213,7 @@ export function createQaCheckpoint(worldIndex: number, now = Date.now()): GameSt
       personnelIntroduced: index >= 2,
       researchIntroduced: index >= 3,
       completedGuideIds: openingGuideIds(index),
-      autoEnabled: index > 0,
+      autoEnabled: false,
       autoUpgrades: false,
       buyMode: "1",
     },

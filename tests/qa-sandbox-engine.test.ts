@@ -52,6 +52,8 @@ test("QA world checkpoints are fresh arrivals rather than completed or overpower
     assert.ok(state.living.salvage < 100_000);
     assert.equal(state.missions.stageIndex, 0);
     assert.equal(state.missions.awaitingAcknowledgement, false);
+    assert.equal(state.settings.autoEnabled, false);
+    assert.equal(state.settings.autoUpgrades, false);
     assert.deepEqual(state.worldProgress.completedInfrastructureIds, []);
     assert.deepEqual(state.worldProgress.resolvedCrisisIds, []);
     assert.equal(state.worldProgress.surveysCompleted, 0);
