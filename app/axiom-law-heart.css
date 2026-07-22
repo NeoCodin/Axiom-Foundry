@@ -262,10 +262,10 @@
 .ark-law-heart > header > strong small { display: block; color: #728a8e; font-size: 9px; }
 .ark-law-heart-body {
   display: grid;
-  min-height: 470px;
   padding: 24px;
-  grid-template-columns: minmax(420px, 1.35fr) minmax(260px, 0.65fr);
+  grid-template-columns: minmax(420px, 640px) minmax(260px, 340px);
   align-items: stretch;
+  justify-content: center;
   gap: 24px;
   background-image:
     linear-gradient(rgba(82, 228, 236, 0.05) 1px, transparent 1px),
@@ -274,8 +274,10 @@
 }
 .ark-law-heart-machine {
   position: relative;
-  place-self: stretch;
-  min-height: 420px;
+  width: 100%;
+  aspect-ratio: 1;
+  place-self: center stretch;
+  min-height: 0;
   padding: 0;
   overflow: hidden;
   border: 4px solid #31535e;
@@ -324,7 +326,8 @@
   .law-heart-directive { margin: 0 24px 24px; }
   .law-heart-controls { grid-template-columns: 1fr; }
   .law-heart-controls > section + section { border-left: 0; border-top: 4px solid #263e48; }
-  .ark-law-heart-body { grid-template-columns: 1fr; }
+  .ark-law-heart-body { grid-template-columns: minmax(0, 1fr); }
+  .ark-law-heart-machine { width: min(100%, 640px); justify-self: center; }
   .ark-law-heart-telemetry { grid-template-columns: repeat(3, 1fr); grid-template-rows: none; }
 }
 
@@ -345,7 +348,7 @@
   .ark-law-heart > header { align-items: flex-start; flex-direction: column; padding: 16px; }
   .ark-law-heart > header > strong { min-width: 0; text-align: left; }
   .ark-law-heart-body { min-height: 0; padding: 12px; }
-  .ark-law-heart-machine { min-height: 330px; }
+  .ark-law-heart-machine { width: min(100%, 520px); min-height: 0; }
   .ark-law-heart-telemetry { grid-template-columns: 1fr; }
 }
 
