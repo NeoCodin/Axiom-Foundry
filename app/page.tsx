@@ -3052,46 +3052,41 @@ export default function Home() {
         />
         </>
       ) : (
-      <section className={`foundry-workspace ${campaignWorldIndex > 0 ? "has-reactor-workspace" : "is-cold-wake-workspace"}`} aria-labelledby="foundry-workspace-title">
+      <section className="foundry-workspace has-reactor-workspace" aria-labelledby="foundry-workspace-title">
         <header className="foundry-workspace-header" data-guide-target="foundry-heading">
           <div>
             <p className="section-kicker">{campaignWorldIndex === 0 ? "First restored deck // Cold Wake" : "Fabrication deck // systems online"}</p>
             <h2 id="foundry-workspace-title">{campaignWorldIndex === 0 ? "Commission the Foundry Deck" : "The Foundry Floor"}</h2>
             <span>{campaignWorldIndex === 0 ? "One machine line is awake. Build the highlighted Vacuum Taps; the rest of Engineering stays hidden until Pelagos." : "Strike the Law-Heart, build nested mechanisms, and expand automation. Planetary planning remains in Continuity."}</span>
           </div>
-          <button className="quiet-button" type="button" onClick={() => setPrimaryView("deck")}>Return to Ark Overview</button>
+          <button className="quiet-button" type="button" onClick={() => setPrimaryView("deck")}>
+            {campaignWorldIndex === 0 && !coldWakeStatus.arkOverviewAvailable
+              ? "Return to Core Deck"
+              : "Return to Ark Overview"}
+          </button>
         </header>
 
-        {campaignWorldIndex > 0 ? (
-          <FoundryLawHeart
-            flux={game.flux}
-            fluxLabel={formatNumber(game.flux)}
-            fluxPerSecond={production.fluxPerSecond}
-            fluxPerSecondLabel={formatNumber(production.fluxPerSecond)}
-            manualGain={manualGain}
-            manualGainLabel={formatNumber(manualGain)}
-            manualPulses={game.manualPulses}
-            lifetimeAxioms={game.lifetimeAxioms}
-            lifetimeAxiomsLabel={formatNumber(game.lifetimeAxioms)}
-            tiers={game.tiers.map((tier, index) => ({
-              count: tier.bought,
-              output: production.tierOutputs[index],
-            }))}
-            worldProgress={missionProgress.ratio}
-            onTune={handlePulse}
-          />
-        ) : (
-          <section className="cold-wake-foundry-brief" aria-label="Cold Wake Foundry commissioning">
-            <span>COMMISSIONING DIRECTIVE // ONE ACTIVE SYSTEM</span>
-            <strong>{activeStage?.label ?? "Commission the Foundry Deck"}</strong>
-            <p>{activeStage?.instruction}</p>
-            <div className="forecast-line-meter" role="progressbar" aria-label="Foundry commissioning" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(missionProgress.ratio * 100)}><i style={{ width: `${missionProgress.ratio * 100}%` }} /></div>
-          </section>
-        )}
+        <FoundryLawHeart
+          flux={game.flux}
+          fluxLabel={formatNumber(game.flux)}
+          fluxPerSecond={production.fluxPerSecond}
+          fluxPerSecondLabel={formatNumber(production.fluxPerSecond)}
+          manualGain={manualGain}
+          manualGainLabel={formatNumber(manualGain)}
+          manualPulses={game.manualPulses}
+          lifetimeAxioms={game.lifetimeAxioms}
+          lifetimeAxiomsLabel={formatNumber(game.lifetimeAxioms)}
+          tiers={game.tiers.map((tier, index) => ({
+            count: tier.bought,
+            output: production.tierOutputs[index],
+          }))}
+          worldProgress={missionProgress.ratio}
+          onTune={handlePulse}
+        />
 
       <div className="game-grid foundry-grid">
         {fabricationUnlocked && (
-        <section className={`panel machine-panel ${campaignWorldIndex > 0 ? "foundry-chain-sidebar" : ""} mobile-section ${mobileTab === "machines" ? "is-mobile-active" : ""}`} data-guide-target="foundry-chain">
+        <section className={`panel machine-panel foundry-chain-sidebar mobile-section ${mobileTab === "machines" ? "is-mobile-active" : ""}`} data-guide-target="foundry-chain">
           <div className="panel-heading machine-heading">
             <div>
               <p className="section-kicker">Nested mechanisms</p>

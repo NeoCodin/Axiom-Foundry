@@ -93,6 +93,12 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(arkDeck, /Foundry output monitor/);
   assert.match(foundryLawHeart, /Strike the Law-Heart/);
   assert.match(foundryLawHeart, /LawPressCanvas.*law-heart-particle-field/s);
+  assert.match(page, /className="foundry-workspace has-reactor-workspace"/);
+  assert.doesNotMatch(page, /campaignWorldIndex > 0 \? \(\s*<FoundryLawHeart/);
+  assert.doesNotMatch(page, /cold-wake-foundry-brief/);
+  assert.match(page, /Return to Core Deck/);
+  assert.match(story, /The star you woke remains the center/);
+  assert.match(story, /Manual Flux production always remains here/);
   assert.match(lawHeart, /AXIOM LAW-HEART/);
   assert.match(lawHeart, /LawPressCanvas.*law-heart-particle-field/s);
   assert.doesNotMatch(lawHeart, /law-heart-vessel|law-heart-grid|law-hull|law-conduit/);

@@ -71,6 +71,7 @@ export const CONTEXT_GUIDES: Record<ContextGuideId, readonly ContextGuideStep[]>
   ],
   "cold-wake-foundry": [
     { target: "foundry-heading", eyebrow: "FOUNDRY // FABRICATION DECK", title: "The Foundry turns one law into an industry", body: "The Law-Heart proved that the motion works. This deck repeats that motion across a larger fabrication bus.", note: "Cold Wake exposes only one machine line here. Later mechanisms remain hidden." },
+    { target: "foundry-law-heart", eyebrow: "FOUNDRY // LAW-HEART TRANSFER", title: "The star you woke remains the center", body: "The same Law-Heart from the opening deck is now mounted inside the commissioned Foundry. It remains clickable, keeps every earned Axiom, and continues visualizing the production you have built.", note: "Ark Command shows the ship. Manual Flux production always remains here beside the fabrication chain." },
     { target: "foundry-chain", eyebrow: "FOUNDRY // NESTED MECHANISMS", title: "Machines create the idle economy", body: "Build the highlighted Vacuum Taps until the commissioning directive is complete. Purchase modes change quantity, not the underlying price curve.", note: "The next Ark view will appear only after this single task is secure." },
   ],
   "cold-wake-ark": [
