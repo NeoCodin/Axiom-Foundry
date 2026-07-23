@@ -35,9 +35,6 @@ function groupForView(view: PrimaryView): NavigationGroup {
 
 export function GameNavigation({ currentView, unlocks, guidedView = null, onNavigate }: GameNavigationProps) {
   const activeGroup = groupForView(currentView);
-  const mainSystemsAwake =
-    1 +
-    [unlocks.engineering, unlocks.population, unlocks.research, unlocks.settlement].filter(Boolean).length;
   const arkFacilities = [unlocks.expeditions, unlocks.defense].filter(Boolean).length;
   const destinations: Array<{
     view: PrimaryView;
@@ -49,7 +46,7 @@ export function GameNavigation({ currentView, unlocks, guidedView = null, onNavi
     sprite: string;
     unlocked: boolean;
   }> = [
-    { view: "deck", group: "ark", code: "A", label: "Ark", detail: "Command", tooltip: "Inspect the Ark, monitor its rooms and living systems, and follow the current command objective.", sprite: "ark", unlocked: true },
+    { view: "deck", group: "ark", code: "A", label: "Ark", detail: "Command", tooltip: "Inspect the Ark itself: its illuminated rooms, population, SOS array, and physical systems.", sprite: "ark", unlocked: true },
     { view: "engineering", group: "foundry", code: "01", label: "Foundry", detail: "Fabrication", tooltip: "Build nested mechanisms, increase Flux production, manage automation, and prepare planetary materials.", sprite: "foundry", unlocked: unlocks.engineering },
     { view: "population", group: "personnel", code: "02", label: "Personnel", detail: "Crew & care", tooltip: "Rescue, train, assign, heal, and equip the people living aboard the Ark.", sprite: "crew", unlocked: unlocks.population },
     { view: "research", group: "research", code: "03", label: "Research", detail: "Analysis", tooltip: "Route recovered evidence through the Analysis Core to unlock systems, equipment, and deeper Null knowledge.", sprite: "research", unlocked: unlocks.research },
@@ -84,16 +81,12 @@ export function GameNavigation({ currentView, unlocks, guidedView = null, onNavi
           </button>
           );
         })}
-        <div className="nav-awakening-status" data-pixel-tooltip="Destinations appear only when their systems wake. The interface expands gradually as AXIOM restores the Ark." tabIndex={0} aria-label={`${mainSystemsAwake} destinations awake. Destinations appear only when their systems wake.`} aria-live="polite">
-          <span>{mainSystemsAwake}</span>
-          <small>destinations awake</small>
-        </div>
       </nav>
 
       {(activeGroup === "ark" || guidedView === "expeditions" || guidedView === "defense") && arkFacilities > 0 && (
         <nav className="facility-navigation" aria-label="Ark facilities">
           <div className="facility-navigation-label"><span>Ark facilities</span><small>Operations stay aboard the ship</small></div>
-          <button className={currentView === "deck" ? "active" : ""} type="button" aria-current={currentView === "deck" ? "page" : undefined} data-pixel-tooltip="Return to the Ark cutaway, Axiom Chamber, life-support overview, and current command objective." onClick={() => onNavigate("deck")}>Command Deck</button>
+          <button className={currentView === "deck" ? "active" : ""} type="button" aria-current={currentView === "deck" ? "page" : undefined} data-pixel-tooltip="Return to the Ark cutaway, its illuminated rooms, SOS array, and physical systems." onClick={() => onNavigate("deck")}>Command Deck</button>
           {unlocks.expeditions && <button className={`${currentView === "expeditions" ? "active" : ""} ${guidedView === "expeditions" ? "is-guided-destination" : ""}`} type="button" aria-current={currentView === "expeditions" ? "page" : undefined} data-guided-destination={guidedView === "expeditions" ? "expeditions" : undefined} data-pixel-tooltip={guidedView === "expeditions" ? "New facility: open Expedition Bay now." : "Choose a current-world operation, prepare a qualified team, and launch an offline-safe expedition."} onClick={() => onNavigate("expeditions")}>Expedition Bay{guidedView === "expeditions" && <b className="nav-guide-label" aria-hidden="true">NEW // OPEN</b>}</button>}
           {unlocks.defense && <button className={currentView === "defense" ? "active" : ""} type="button" aria-current={currentView === "defense" ? "page" : undefined} data-pixel-tooltip="Set standing doctrines, construct defensive Marks, and review forecasted hazards and incident reports." onClick={() => onNavigate("defense")}>Defense Grid</button>}
         </nav>

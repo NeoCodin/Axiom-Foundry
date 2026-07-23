@@ -923,6 +923,23 @@ img.pixelated,
   border-color: var(--world-accent);
   background: #102127;
 }
+.ark-room.is-commissioning,
+.ark-room.is-commissioning:disabled {
+  border-color: #ffc36b;
+  background: #17170e;
+  color: #fff0c2;
+  box-shadow: inset 0 0 0 2px #302812, 4px 4px 0 #010202;
+}
+.ark-room.is-commissioning .ark-room-status {
+  background: #ffc36b;
+  box-shadow: 0 0 8px #ffc36b;
+}
+.ark-room-commissioning-label {
+  border-width: 2px;
+  border-radius: 0;
+  background: #171208;
+  box-shadow: 2px 2px 0 #000;
+}
 .ark-room-status { border-radius: 0; box-shadow: none; }
 
 .ark-core-engine {

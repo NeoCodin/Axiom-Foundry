@@ -1,7 +1,6 @@
 "use client";
 
 import { type CSSProperties } from "react";
-import { HelpTrigger, type ManualTopicId } from "./game-manual";
 import {
   BeaconReadinessList,
 } from "./beacon-readiness";
@@ -50,8 +49,6 @@ export type ArkDeckProps = {
   worldName: string;
   worldSubtitle: string;
   worldProgress: number;
-  objectiveLabel: string;
-  objectiveDetail: string;
   fluxLabel: string;
   fluxPerSecondLabel: string;
   population: number;
@@ -59,7 +56,6 @@ export type ArkDeckProps = {
   berthCapacity: number;
   berthSections: number;
   berthConstructionProgress: number | null;
-  cohesion: number;
   salvageLabel: string;
   support: readonly ArkSupportReadout[];
   crew: readonly ArkCrewPreview[];
@@ -88,7 +84,6 @@ export type ArkDeckProps = {
   onCommission?: () => void;
   onUpgradeSupport?: (key: LifeSupportKey) => void;
   onOpenView: (view: ArkViewId) => void;
-  onOpenHelp: (topicId: ManualTopicId) => void;
 };
 
 type ArkRoom = {
@@ -121,8 +116,6 @@ function ArkDeck({
   worldName,
   worldSubtitle,
   worldProgress,
-  objectiveLabel,
-  objectiveDetail,
   fluxLabel,
   fluxPerSecondLabel,
   population,
@@ -130,7 +123,6 @@ function ArkDeck({
   berthCapacity,
   berthSections,
   berthConstructionProgress,
-  cohesion,
   salvageLabel,
   support,
   crew,
@@ -153,15 +145,14 @@ function ArkDeck({
   onCommission,
   onUpgradeSupport,
   onOpenView,
-  onOpenHelp,
 }: ArkDeckProps) {
   const beaconAvailable = beaconReadiness.ready;
   const normalizedWorldProgress = clamp(worldProgress);
   const normalizedResearchProgress = clamp(researchProgress);
-  const normalizedCohesion = clamp(cohesion / 100) * 100;
   const normalizedSettlement = clamp(settlementScore / 100) * 100;
   const occupiedDots = Math.min(8, Math.max(0, population));
   const fluxValue = numericLabelValue(fluxLabel);
+  const recoveredMaterialsValue = numericLabelValue(salvageLabel);
   const researchRate = numericLabelValue(researchThroughput);
   const roomRatio = clamp(onlineRoomCount / Math.max(1, totalRoomCount));
   const worldSlug = worldName.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-").replaceAll(/(^-|-$)/g, "");
@@ -177,6 +168,7 @@ function ArkDeck({
   const fabricationOnline = engineeringUnlocked;
   const earlyPelagosHabitability = worldName === "Pelagos" && population === 0;
   const pelagosFirstContact = worldName === "Pelagos" && population === 0;
+  const firstContactSupportMissing = pelagosFirstContact && support.some((system) => system.capacity < 2);
   const supportOnline =
     populationUnlocked ||
     earlyPelagosHabitability ||
@@ -269,10 +261,7 @@ function ArkDeck({
           </div>
         </div>
         <div className="ark-heading-metrics" aria-label="Ark status">
-          <div><span>Population</span><strong>{population}/{populationCapacity}</strong></div>
-          <div><span>Cohesion</span><strong>{Math.round(normalizedCohesion)}%</strong></div>
-          <div className="ark-metric-with-help"><span>Salvage <HelpTrigger label="How do I get Salvage?" onClick={() => onOpenHelp("salvage")} /></span><strong>{salvageLabel}</strong></div>
-          <div><span>Ark awake</span><strong>{onlineRoomCount}/{totalRoomCount}</strong></div>
+          <div><span>Population aboard</span><strong>{population}/{populationCapacity}</strong></div>
         </div>
       </header>
 
@@ -334,21 +323,49 @@ function ArkDeck({
 
           <div className="ark-hull-frame">
             <div className="ark-room-grid">
-              {rooms.map((room) => (
+              {rooms.map((room) => {
+                const commissioningRoom = coldWakeCommissioning?.active === true && (
+                  (!coldWakeCommissioning.navigationRestored && room.kind === "bridge") ||
+                  (coldWakeCommissioning.navigationRestored && !coldWakeCommissioning.lifeSupportRestored && room.kind === "support")
+                );
+                const roomAccessible = room.online && isRoomAccessible(room);
+                const roomInteractive = commissioningRoom
+                  ? Boolean(onCommission) && coldWakeCommissioning.canAct
+                  : roomAccessible;
+                const roomState = room.online || commissioningRoom ? "is-online" : "is-dormant";
+                return (
                 <button
-                  className={`ark-room ark-room-${room.kind} ${room.online ? "is-online" : "is-dormant"}`}
+                  className={`ark-room ark-room-${room.kind} ${roomState} ${commissioningRoom ? "is-commissioning" : ""}`}
                   data-room={room.id}
                   data-kind={room.kind}
+                  data-guide-target={commissioningRoom ? "ark-commissioning-room" : undefined}
                   key={`${room.code}-${room.label}`}
                   type="button"
-                  onClick={() => room.id !== "core" && unlockedViewSet.has(room.id) && onOpenView(room.id)}
-                  disabled={!room.online || !isRoomAccessible(room)}
-                  aria-label={room.online && isRoomAccessible(room) ? `Open ${room.label}` : `${room.label} is not yet available`}
+                  onClick={() => {
+                    if (commissioningRoom) {
+                      onCommission?.();
+                      return;
+                    }
+                    if (room.id !== "core" && roomAccessible) onOpenView(room.id);
+                  }}
+                  disabled={!roomInteractive}
+                  aria-label={commissioningRoom
+                    ? coldWakeCommissioning.canAct
+                      ? `${coldWakeCommissioning.actionLabel} into ${room.label}`
+                      : `${room.label} is awaiting available Flux`
+                    : roomAccessible
+                      ? `Open ${room.label}`
+                      : `${room.label} is not yet available`}
                 >
                   <span className="ark-room-status" aria-hidden="true" />
                   <span className="ark-room-code">DECK {room.code}</span>
                   <strong>{room.label}</strong>
-                  <small>{room.online ? room.sublabel : "Awakens later"}</small>
+                  <small>{commissioningRoom
+                    ? coldWakeCommissioning.canAct
+                      ? coldWakeCommissioning.actionLabel
+                      : "Produce Flux in the Foundry"
+                    : room.online ? room.sublabel : "Awakens later"}</small>
+                  {commissioningRoom && <em className="ark-room-commissioning-label">COMMISSION</em>}
 
                   <span className="ark-room-scene" aria-hidden="true">
                     <i /><i /><i /><i /><i /><i />
@@ -376,7 +393,8 @@ function ArkDeck({
                     </span>
                   )}
                 </button>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
@@ -384,85 +402,10 @@ function ArkDeck({
         <p className="ark-screen-reader-status" aria-live="polite" />
       </section>
 
-      <aside className="ark-stage-directive" data-guide-target="ark-directive" aria-labelledby="ark-objective-title">
-        <div className="ark-directive-copy">
-          <span>ACTIVE DIRECTIVE // {worldName.toUpperCase()}</span>
-          <h3 id="ark-objective-title">{objectiveLabel}</h3>
-          <p>{objectiveDetail}</p>
-        </div>
-        <div className="ark-directive-progress">
-          <strong>{Math.round(normalizedWorldProgress * 100)}%</strong>
-          <div role="progressbar" aria-label={objectiveLabel} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(normalizedWorldProgress * 100)}>
-            <i style={{ width: `${normalizedWorldProgress * 100}%` }} />
-          </div>
-          {coldWakeCommissioning?.active && onCommission ? (
-            <button type="button" disabled={!coldWakeCommissioning.canAct} onClick={onCommission}>{coldWakeCommissioning.actionLabel}</button>
-          ) : worldName === "Pelagos" && population === 0 && settlementUnlocked ? (
-            <button type="button" onClick={() => onOpenView("settlement")}>Open Continuity</button>
-          ) : engineeringUnlocked ? (
-            <button type="button" onClick={() => onOpenView("engineering")}>Open engineering</button>
-          ) : (
-            <span className="ark-directive-hint">Keep tuning the Core. Fabrication will awaken next.</span>
-          )}
-        </div>
-      </aside>
-
-      <section className="ark-flight-ribbon" aria-label="Current voyage">
-        <div>
-          <span>CONTINUITY ROUTE</span>
-          <strong>{worldName}</strong>
-        </div>
-        <div className="ark-flight-track" role="progressbar" aria-label={`${worldName} chapter readiness`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(normalizedWorldProgress * 100)}>
-          <i style={{ width: `${normalizedWorldProgress * 100}%` }}><b /></i>
-        </div>
-        <strong>{Math.round(normalizedWorldProgress * 100)}%</strong>
-      </section>
-
-      {supportOnline && (
-        <section className="ark-life-support" data-guide-target="ark-life-support" aria-labelledby="ark-life-support-title">
-          <header>
-            <div>
-              <span>HABITABILITY ENVELOPE</span>
-              <h3 id="ark-life-support-title">The Ark can begin holding life</h3>
-              <p>Capacity expands safely. Nothing here expires while you are away.</p>
-            </div>
-            {populationUnlocked
-              ? <button type="button" onClick={() => onOpenView("population")}>Enter life support</button>
-              : <small>Personnel will open after the first rescue.</small>}
-          </header>
-          <div className="ark-support-grid">
-            {support.map((system) => {
-              const ratio = clamp(system.value / Math.max(1, system.capacity));
-              return (
-                <article key={system.id}>
-                  <span className="ark-support-icon" aria-hidden="true"><i /></span>
-                  <div>
-                    <span>{system.label}</span>
-                    <strong>{system.value}<small> / {system.capacity}</small></strong>
-                    <div role="progressbar" aria-label={`${system.label} use`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(ratio * 100)}>
-                      <i style={{ width: `${ratio * 100}%` }} />
-                    </div>
-                    <small>{system.status}</small>
-                    {!populationUnlocked &&
-                      onUpgradeSupport &&
-                      supportUpgradeCosts?.[system.id] !== undefined &&
-                      system.capacity < 2 && (
-                        <button type="button" onClick={() => onUpgradeSupport(system.id)}>
-                          Expand reserve · {supportUpgradeCosts[system.id]} Salvage
-                        </button>
-                      )}
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
       {(beaconRelevant || peopleSystemsVisible || researchUnlocked || settlementUnlocked) ? (
         <div className="ark-awakened-systems">
           {(beaconRelevant || beaconOnline) && (
-            <section className={`ark-system-bay ark-beacon-card ${beaconOnline ? "is-broadcasting" : ""}`}>
+            <section className={`ark-system-bay ark-beacon-card ${beaconOnline ? "is-broadcasting" : ""}`} data-guide-target="ark-sos-array">
               <div className="ark-bay-visual ark-beacon-visual" aria-hidden="true">
                 <span /><i /><i /><i />
               </div>
@@ -474,9 +417,37 @@ function ArkDeck({
                     <p>{pelagosFirstContact
                       ? beaconAvailable
                         ? "The receiver and habitat are ready. Authorize the broadcast from Continuity."
-                        : "Continuity owns this first-contact sequence. Complete its receiver and habitat steps before broadcasting."
+                        : "Restore the receiver through Continuity, then prepare every missing receiving-deck reserve below."
                       : "Ongoing rescue broadcasts are managed beside the people and life-support systems in Personnel."}</p>
-                    <BeaconReadinessList readiness={beaconReadiness} />
+                    <BeaconReadinessList
+                      readiness={beaconReadiness}
+                      renderAction={pelagosFirstContact ? (item) => {
+                        if (item.ready || !onUpgradeSupport) return null;
+                        const system = support.find((entry) => entry.id === item.id);
+                        const cost = system ? supportUpgradeCosts?.[system.id] : undefined;
+                        if (!system || cost === undefined || system.capacity >= 2) return null;
+                        return (
+                          <button
+                            type="button"
+                            disabled={recoveredMaterialsValue < cost}
+                            onClick={() => onUpgradeSupport(system.id)}
+                          >
+                            Restore reserve · {cost} materials
+                          </button>
+                        );
+                      } : undefined}
+                    />
+                    {firstContactSupportMissing && (
+                      <div
+                        className="ark-first-contact-materials"
+                        data-pixel-tooltip="Recovered Materials are durable parts, tools, electronics, and structural stock that Flux cannot replace. Ark recovery continues while the game is closed."
+                        tabIndex={0}
+                      >
+                        <span>Recovered materials</span>
+                        <strong>{salvageLabel}</strong>
+                        <small>Reclaimed automatically · Fabricators and Technicians improve recovery</small>
+                      </div>
+                    )}
                     <button type="button" onClick={() => onOpenView(pelagosFirstContact ? "settlement" : "population")}>{pelagosFirstContact ? "Open Continuity sequence" : "Open rescue operations"}</button>
                   </>
                 ) : pendingSignal ? (

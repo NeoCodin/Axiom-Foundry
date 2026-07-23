@@ -75,15 +75,15 @@ export const CONTEXT_GUIDES: Record<ContextGuideId, readonly ContextGuideStep[]>
   ],
   "cold-wake-ark": [
     { target: "ark-visual", eyebrow: "ARK // COMMAND OVERVIEW", title: "The Law-Heart belongs to a much larger ship", body: "This cutaway shows the Ark as physical rooms. Lit rooms are usable; dark rooms are previews, not new responsibilities.", note: "The Axiom Chamber is a status monitor here. Manual Flux production belongs to the Foundry." },
-    { target: "ark-directive", eyebrow: "ARK // RESTORATION ORDER", title: "Command still gives you one job at a time", body: "Navigation and life support wake in separate steps. Partial Flux commitments are saved permanently.", note: "You never need the entire requested amount at once." },
-    { target: "ark-life-support", eyebrow: "ARK // HUMAN-SAFE RESERVE", title: "The empty ship must become habitable", body: "Atmosphere, water, nutrition, and medical reserves determine how many people the Ark can safely support after Pelagos arrival.", note: "Personnel remains hidden because there are no people aboard yet." },
+    { target: "ark-commissioning-room", eyebrow: "ARK // RESTORATION ORDER", title: "The highlighted room is the work itself", body: "Route available Flux directly into the room awaiting commissioning. Partial contributions are saved permanently, so you never need the entire reserve at once.", note: "Navigation wakes first. The Ark will highlight Life Support next." },
+    { target: "ark-room-support", eyebrow: "ARK // HUMAN-SAFE RESERVE", title: "The empty ship must become habitable", body: "After navigation, this room warms the atmosphere, water, nutrition, and medical loops needed before Pelagos first contact.", note: "Personnel remains hidden because there are no people aboard yet." },
   ],
   "cold-wake-departure": [
     { target: "planet-departure", eyebrow: "COLD WAKE // DEPARTURE AUTHORITY", title: "Approach is now a deliberate choice", body: "The three laws, navigation, and life-support reserve are ready. Commit the final approach Flux over any number of payments, then authorize Pelagos orbit here.", note: "Departure has no timer and no partial contribution can be lost." },
   ],
   "pelagos-arrival": [
     { target: "ark-visual", eyebrow: "PELAGOS ORBIT // ARK OVERVIEW", title: "The Ark is now a ship, not a production button", body: "Command shows the Ark's rooms, population systems, destination, and physical condition. Its Axiom Chamber reports Foundry output but no longer produces Flux when clicked.", note: "The interactive Law-Heart now lives on the Foundry page beside the machines it powers." },
-    { target: "ark-directive", eyebrow: "PELAGOS // FIRST CONTACT", title: "Continuity now controls the rescue sequence", body: "Pelagos's emergency bands are silent. Open Continuity to restore the receiver, prepare a safe habitat, broadcast, listen, and only then dispatch the first shuttle.", note: "Personnel will remain hidden until actual witnesses are safely aboard." },
+    { target: "ark-sos-array", eyebrow: "PELAGOS // FIRST CONTACT", title: "The SOS Array holds every receiving-deck check", body: "Restore the receiver through Continuity, then prepare atmosphere, water, nutrition, and medical reserves directly inside this panel before broadcasting.", note: "Personnel will remain hidden until actual witnesses are safely aboard." },
   ],
   "pelagos-sos": [
     { target: "planet-world", eyebrow: "CONTINUITY // PELAGOS ORBIT", title: "A new world begins as a question", body: "The forecast remains available throughout Pelagos. It explains why the Ark is here, what the world needs, and why later systems are still folded away.", note: "Continuity is now the permanent spine of every planetary chapter." },
@@ -99,7 +99,7 @@ export const CONTEXT_GUIDES: Record<ContextGuideId, readonly ContextGuideStep[]>
     { target: "personnel-roster", eyebrow: "PERSONNEL // CREW ROSTER", title: "Select a name to open the complete file", body: "Each row shows role, health, assignment, and rarity. The personnel file makes profession level, experience, callsign, and Continuity contribution explicit.", note: "AXIOM can automate routine placement, but manual assignments remain protected." },
   ],
   "pelagos-support": [
-    { target: "personnel-tabs", eyebrow: "PERSONNEL // RESCUE & SUPPORT", title: "The roster has unlocked its first operational workspace", body: "Rescue & Support now holds continuing signals, living-space construction, and life-support capacity. These controls moved here after the first rescue so they have human context.", note: "The Ark page shows their status; Personnel performs the ongoing work." },
+    { target: "personnel-tabs", eyebrow: "PERSONNEL // RESCUE & SUPPORT", title: "The roster has unlocked its first operational workspace", body: "Rescue & Support now holds continuing signals, living-space construction, and life-support capacity. These controls moved here after the first rescue so they have human context.", note: "The Ark keeps the SOS status; Personnel performs all continuing support work." },
   ],
   "pelagos-medical": [
     { target: "medical-console", eyebrow: "PERSONNEL FACILITY // MEDICAL", title: "Medical opens when care becomes real work", body: "The Medical Bay treats wounded crew and supports planetary crises. It did not appear with the first healthy witnesses because an empty clinic was not yet a responsibility.", note: "Care continues offline. Nobody dies because the page was closed." },

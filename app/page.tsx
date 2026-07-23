@@ -80,7 +80,6 @@ import {
   getDefenseInstallationQuote,
   getCrisisReadiness,
   getCurrentViabilityForecast,
-  getEffectiveCohesion,
   getEquipmentFabricationQuote,
   getInfrastructureFluxCost,
   startArkBerthConstruction,
@@ -2596,15 +2595,11 @@ export default function Home() {
             onContribute={handleMissionContribution}
           />
         ) : (
-        <>
-        {campaignWorldIndex > 0 && <CommandBriefing priorities={commandPriorities} onNavigate={handleCommandPriorityNavigate} />}
         <ArkDeck
           foundryName={game.living.foundryName}
           worldName={campaignWorld.name}
           worldSubtitle={campaignWorld.subtitle}
           worldProgress={(viabilityForecast?.score ?? objective.progress * 100) / 100}
-          objectiveLabel={objective.label}
-          objectiveDetail={activeStage?.instruction ?? campaignWorld.arrivalBrief}
           fluxLabel={formatNumber(game.flux)}
           fluxPerSecondLabel={formatNumber(production.fluxPerSecond)}
           population={game.survivors.survivors.length}
@@ -2612,7 +2607,6 @@ export default function Home() {
           berthCapacity={berthCapacity}
           berthSections={game.survivors.berthSections}
           berthConstructionProgress={berthConstruction ? berthPanelQuote.progressRatio : null}
-          cohesion={getEffectiveCohesion(game)}
           salvageLabel={formatNumber(game.living.salvage)}
           support={(Object.keys(game.survivors.lifeSupport) as LifeSupportKey[]).map((key) => ({
             id: key,
@@ -2695,9 +2689,7 @@ export default function Home() {
           onCommission={handleMissionContribution}
           onUpgradeSupport={handleUpgradeSupport}
           onOpenView={handleOpenArkView}
-          onOpenHelp={setManualTopic}
         />
-        </>
         )
       ) : primaryView === "population" ? (
         <PopulationConsole
@@ -2922,6 +2914,8 @@ export default function Home() {
           onBack={() => setPrimaryView("deck")}
         />
       ) : primaryView === "settlement" && viabilityForecast ? (
+        <>
+        {campaignWorldIndex > 0 && <CommandBriefing priorities={commandPriorities} onNavigate={handleCommandPriorityNavigate} />}
         <SettlementConsole
           world={campaignWorld}
           forecast={viabilityForecast}
@@ -3007,7 +3001,7 @@ export default function Home() {
               actionLabel: game.missions.stageIndex === PELAGOS_RECEIVER_STAGE
                 ? "Open the Foundry receiver project"
                 : game.missions.stageIndex === PELAGOS_HABITABILITY_STAGE
-                  ? "Open Ark habitability controls"
+                  ? "Open the SOS receiving deck"
                   : game.missions.stageIndex === PELAGOS_BEACON_STAGE
                     ? "Authorize the SOS carrier"
                     : game.missions.stageIndex === PELAGOS_FIRST_RESCUE_STAGE
@@ -3052,6 +3046,7 @@ export default function Home() {
           onOpenHelp={setManualTopic}
           onBack={() => setPrimaryView("deck")}
         />
+        </>
       ) : (
       <section className="foundry-workspace" aria-labelledby="foundry-workspace-title">
         <header className="foundry-workspace-header" data-guide-target="foundry-heading">

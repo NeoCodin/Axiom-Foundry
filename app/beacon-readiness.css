@@ -22,6 +22,10 @@
   background: rgb(255 176 92 / 0.045);
 }
 
+.beacon-readiness-list li.has-action {
+  align-items: start;
+}
+
 .beacon-readiness-list li > span {
   display: grid;
   width: 22px;
@@ -67,6 +71,38 @@
   font-size: 0.54rem;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.beacon-readiness-list .beacon-readiness-action {
+  display: block;
+  grid-column: 1 / -1;
+}
+
+.beacon-readiness-action button {
+  width: 100%;
+  min-height: 30px;
+  padding: 6px 8px;
+  border: 1px solid rgb(255 176 92 / 0.48);
+  background: #111008;
+  color: #ffd08d;
+  font-family: var(--font-mono, "Cascadia Mono", Consolas, monospace);
+  font-size: 0.55rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.beacon-readiness-action button:hover:not(:disabled) {
+  border-color: #ffd08d;
+  background: #1b170c;
+  color: #fff2c7;
+}
+
+.beacon-readiness-action button:disabled {
+  border-color: #2b3537;
+  background: #070b0d;
+  color: #657276;
+  cursor: not-allowed;
 }
 
 @media (max-width: 620px) {
