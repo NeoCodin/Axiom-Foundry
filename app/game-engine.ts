@@ -2151,9 +2151,14 @@ export function getExpeditionResearchSupport(state: GameState): ExpeditionResear
     strengthBonus += automation.expeditionStrengthBonus;
     rewardBonus += automation.expeditionRewardMultiplier - 1;
   }
+  const living = getLivingFoundryBonuses(state.living);
+  if (living.expeditionRewardMultiplier > 1) {
+    activeProtocols.push("Expedition Bay Reinforcement");
+    rewardBonus += living.expeditionRewardMultiplier - 1;
+  }
   return {
     strengthBonus: Math.min(3, strengthBonus),
-    rewardMultiplier: 1 + Math.min(0.2, rewardBonus),
+    rewardMultiplier: 1 + Math.min(0.25, rewardBonus),
     activeProtocols,
   };
 }
@@ -2270,7 +2275,11 @@ function autoTransferResearchInputs(state: GameState) {
   if (!project) return;
   const status = getAutoTransferStatus(state);
   if (!status.common) return;
-  const projectCosts = getResearchProjectCosts(state.research, project);
+  const projectCosts = getResearchProjectCosts(
+    state.research,
+    project,
+    getResearchCostMultiplier(state),
+  );
   const moved: Partial<ResearchInputBundle> = {};
   let any = false;
   for (const inputId of Object.keys(state.researchStock) as Array<
@@ -4536,6 +4545,27 @@ export function getLegacyMatrixStatus(state: GameState) {
   };
 }
 
+/**
+ * Research evidence costs are affected by the active world's condition, the
+ * permanent Cinder recovery legacy, and physical Analysis rooms aboard the
+ * Ark. The bounded product is shared by simulation, auto-transfer, and UI so
+ * the displayed requirement always matches what the lattice consumes.
+ */
+export function getResearchCostMultiplier(state: GameState) {
+  const world = getWorldEffects(state);
+  const relics = getCampaignRelics(state);
+  const living = getLivingFoundryBonuses(state.living);
+  return Math.min(
+    1.5,
+    Math.max(
+      0.65,
+      world.researchCost *
+        relics.researchCostMultiplier *
+        living.researchCostMultiplier,
+    ),
+  );
+}
+
 export function getLegacyUpgradeEffectLabel(index: number, level: number) {
   const safeLevel = Math.min(
     LEGACY_MAX_MARK,
@@ -4744,7 +4774,6 @@ function advanceMission(state: GameState, elapsedSeconds: number) {
       const completedStage = state.missions.stageIndex;
       state.living = grantLivingFoundryRewards(state.living, {
         salvage: 6 * (index + 1) * (completedStage + 1),
-        crewXp: 3 * (index + 1),
       });
       state.missions.stageIndex += 1;
       state.missions.holdTime = 0;
@@ -5419,6 +5448,7 @@ export function simulateGame(
     powerAvailable: getResearchPowerAvailable(next),
     crewAvailable: getResearchCrewAvailable(next),
     externalSpeedMultiplier: colonyBonuses.researchSpeedMultiplier,
+    costMultiplier: getResearchCostMultiplier(next),
     fieldValidationMultiplier: fieldValidation.multiplier,
     automationMultiplier: automationEffects.researchRoutingMultiplier,
     expertise: researchExpertise,

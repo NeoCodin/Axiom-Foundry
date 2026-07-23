@@ -98,6 +98,7 @@ import {
   releaseLegacyUpgrade,
   commitLegacyMatrix,
   getResearchCrewAvailable,
+  getResearchCostMultiplier,
   getResearchFieldValidation,
   getOperationalResearchExpertise,
   getResearchLeadStatus,
@@ -149,7 +150,7 @@ import {
   type InterfaceIntroductionId,
   type PurchaseMode,
 } from "./game-engine";
-import { WORLD_VISUALS } from "./foundry-vista";
+import { WORLD_VISUALS } from "./world-visuals";
 import ArkDeck, { type ArkViewId } from "./ark-deck";
 import { AxiomLawHeart } from "./axiom-law-heart";
 import { FoundryLawHeart } from "./foundry-law-heart";
@@ -188,10 +189,13 @@ import {
   getNextArchiveDiscovery,
   syncAutomaticDiscoveries,
 } from "./discovery-engine";
-import { type DoctrineId } from "./discovery-content";
+import { type DoctrineId, type RoomId } from "./discovery-content";
 import {
   chooseDoctrine,
+  getRoomUpgradeCost,
   grantLivingFoundryRewards,
+  ROOM_DEFINITIONS,
+  upgradeRoom,
 } from "./living-foundry-engine";
 import {
   assignSurvivorToRole,
@@ -420,6 +424,17 @@ function getNextObjective(state: GameState) {
     ),
   };
 }
+
+const ROOM_REINFORCEMENT_EFFECTS = {
+  "axiom-chamber": "Improves manual Law-Heart strikes and total Foundry output.",
+  "fabrication-floor": "Reduces the Flux price of every nested mechanism.",
+  "planetfall-bridge": "Improves total Foundry output under planetary load.",
+  "resonance-gallery": "Strengthens every balanced Resonance link.",
+  "memory-archive": "Reduces the evidence consumed by Research programs.",
+  "research-observatory": "Reduces the evidence consumed by Research programs.",
+  "expedition-bay": "Improves Salvage, Schematics, and evidence recovered by expeditions.",
+  "recalibration-vault": "Improves total Foundry output after later-world recovery.",
+} satisfies Partial<Record<RoomId, string>>;
 
 export default function Home() {
   const [game, setGame] = useState<GameState>(() => createInitialState(0));
@@ -1028,6 +1043,7 @@ export default function Home() {
   const campaignCrew = getCampaignCrewSummaries(game);
   const researchPowerAvailable = getResearchPowerAvailable(game);
   const researchCrewAvailable = getResearchCrewAvailable(game);
+  const researchCostMultiplier = getResearchCostMultiplier(game);
   const researchExpertise = getOperationalResearchExpertise(game);
   const researchLead = getResearchLeadStatus(game);
   const researchFieldValidation = getResearchFieldValidation(game);
@@ -1036,6 +1052,7 @@ export default function Home() {
       getResearchNetworkStatus(game.research, {
         powerAvailable: researchPowerAvailable,
         crewAvailable: researchCrewAvailable,
+        costMultiplier: researchCostMultiplier,
         externalSpeedMultiplier:
           colonyLegacyEffects.researchSpeedMultiplier,
         expertise: researchExpertise,
@@ -1047,6 +1064,7 @@ export default function Home() {
     [
       colonyLegacyEffects.researchSpeedMultiplier,
       game.research,
+      researchCostMultiplier,
       researchExpertise,
       researchLead,
       researchFieldValidation.multiplier,
@@ -1079,6 +1097,23 @@ export default function Home() {
       ) as Record<LifeSupportKey, number>,
     [game.settlement.completedWorldIds.length, game.survivors.lifeSupport],
   );
+  const roomReinforcements = campaignWorldIndex >= 2
+    ? ROOM_DEFINITIONS.flatMap((definition) => {
+        const room = game.living.rooms.find((candidate) => candidate.id === definition.id);
+        const effect = ROOM_REINFORCEMENT_EFFECTS[definition.id];
+        if (!room?.unlocked || !effect) return [];
+        const cost = getRoomUpgradeCost(game.living, definition.id);
+        return [{
+          id: definition.id,
+          name: definition.name,
+          level: room.level,
+          maxLevel: definition.maxLevel,
+          effect,
+          costLabel: Number.isFinite(cost) ? `${formatNumber(cost)} Salvage` : "MAXIMUM MARK",
+          canUpgrade: Number.isFinite(cost) && game.living.salvage >= cost,
+        }];
+      })
+    : [];
   const currentWorldProgress = useMemo(
     () => {
       const coldWakeLawIds = [
@@ -2163,6 +2198,15 @@ export default function Home() {
     return true;
   };
 
+  const handleUpgradeLivingRoom = (roomId: RoomId) => {
+    const definition = ROOM_DEFINITIONS.find((candidate) => candidate.id === roomId);
+    if (!definition) return;
+    commitLivingChange(
+      (living) => upgradeRoom(living, roomId),
+      `${definition.name} reinforcement completed.`,
+    );
+  };
+
   const handleArchiveInvestigation = () => {
     const current = gameRef.current;
     const fragment = getNextArchiveDiscovery(current.living.discoveredLore);
@@ -2802,8 +2846,10 @@ export default function Home() {
                 canAct: game.flux > 0,
               }
             : null}
+          roomReinforcements={roomReinforcements}
           supportUpgradeCosts={supportUpgradeCosts}
           onCommission={handleMissionContribution}
+          onReinforceRoom={handleUpgradeLivingRoom}
           onUpgradeSupport={handleUpgradeSupport}
           onOpenView={handleOpenArkView}
         />
@@ -2924,6 +2970,7 @@ export default function Home() {
           resources={game.researchStock}
           availableCrew={researchCrewAvailable}
           powerAvailable={researchPowerAvailable}
+          costMultiplier={researchCostMultiplier}
           externalSpeedMultiplier={
             colonyLegacyEffects.researchSpeedMultiplier
           }

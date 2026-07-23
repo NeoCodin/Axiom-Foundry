@@ -50,6 +50,7 @@ import {
   getProductionSnapshot,
   getRunUpgradeCost,
   getResearchCrewAvailable,
+  getResearchCostMultiplier,
   getResearchPowerAvailable,
   getResearchFieldValidation,
   getLawHeartPhaseGateStatus,
@@ -98,6 +99,28 @@ import {
   type Survivor,
 } from "../app/survivor-engine.ts";
 import { getArmoryReadyCount } from "../app/armory-engine.ts";
+
+test("Research cost combines world pressure, restored-world legacy, and Ark rooms", () => {
+  const state = createInitialState(0);
+  const baseline = getResearchCostMultiplier(state);
+
+  state.missions.currentIndex = 3;
+  state.missions.statuses = ["saved", "saved", "saved", "active", "locked", "locked"];
+  state.missions.stageIndex = 0;
+  state.missions.awaitingAcknowledgement = false;
+  const cinderPressure = getResearchCostMultiplier(state);
+  assert.ok(cinderPressure > baseline);
+
+  state.missions.statuses[3] = "saved";
+  for (const room of state.living.rooms) {
+    if (room.id === "research-observatory" || room.id === "memory-archive") {
+      room.unlocked = true;
+      room.level = 5;
+    }
+  }
+  const restoredAndUpgraded = getResearchCostMultiplier(state);
+  assert.ok(restoredAndUpgraded < cinderPressure);
+});
 import { beginTransit } from "../app/transit-engine.ts";
 
 function testCrewMember(

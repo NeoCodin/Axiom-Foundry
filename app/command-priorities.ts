@@ -9,6 +9,7 @@ import {
   getRecalibrationGain,
   formatNumber,
   getResearchCrewAvailable,
+  getResearchCostMultiplier,
   getResearchFieldValidation,
   getResearchLeadStatus,
   getResearchPowerAvailable,
@@ -135,6 +136,7 @@ function researchInputGuidance(state: GameState, inputId: ResearchInputId) {
 
 export function getCommandPriorities(state: GameState): CommandPriority[] {
   const priorities: CommandPriority[] = [];
+  const disclosure = getProgressiveDisclosure(state);
   const add = (priority: Omit<CommandPriority, "cadence"> & { cadence?: CommandPriorityCadence }) => {
     if (!priorities.some((entry) => entry.id === priority.id)) {
       priorities.push({ cadence: "action", ...priority });
@@ -276,7 +278,7 @@ export function getCommandPriorities(state: GameState): CommandPriority[] {
   if (state.survivors.activeSignal) {
     const rescue = getArkRescueQuote(state);
     const blocked = rescueBlockCopy(rescue.reason);
-    const personnelAwake = getProgressiveDisclosure(state).population;
+    const personnelAwake = disclosure.population;
     add({
       id: "survivor-signal",
       eyebrow: rescue.canRescue ? "Rescue ready" : "Persistent signal",
@@ -360,7 +362,6 @@ export function getCommandPriorities(state: GameState): CommandPriority[] {
     });
   }
 
-  const disclosure = getProgressiveDisclosure(state);
   if (getCampaignWorldIndex(state) >= 3 && !disclosure.armory) {
     add({
       id: "armory-locked",
@@ -396,6 +397,7 @@ export function getCommandPriorities(state: GameState): CommandPriority[] {
       const network = getResearchNetworkStatus(state.research, {
         powerAvailable: getResearchPowerAvailable(state),
         crewAvailable: getResearchCrewAvailable(state),
+        costMultiplier: getResearchCostMultiplier(state),
         expertise: getOperationalResearchExpertise(state),
         leadResearcherLevel: lead.level,
         exceptionalLeadAvailable: lead.exceptional,
@@ -520,5 +522,10 @@ export function getCommandPriorities(state: GameState): CommandPriority[] {
     });
   }
 
-  return priorities.slice(0, 3);
+  const targetIsAwake = (target: PrimaryView) => {
+    if (target === "deck") return true;
+    return disclosure[target];
+  };
+
+  return priorities.filter((priority) => targetIsAwake(priority.target)).slice(0, 3);
 }

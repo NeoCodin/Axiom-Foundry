@@ -85,6 +85,7 @@ test("physical-room bonuses remain bounded and positive", () => {
   assert.ok(bonuses.machineCostMultiplier >= 0.85 && bonuses.machineCostMultiplier <= 1);
   assert.ok(bonuses.researchCostMultiplier >= 0.85 && bonuses.researchCostMultiplier <= 1);
   assert.ok(bonuses.resonanceMultiplier >= 1 && bonuses.resonanceMultiplier <= 1.15);
+  assert.ok(bonuses.expeditionRewardMultiplier >= 1 && bonuses.expeditionRewardMultiplier <= 1.08);
 });
 
 test("idle advancement cannot mutate the physical Ark snapshot", () => {
@@ -100,7 +101,6 @@ test("external rewards are immutable, deduplicated, and capped", () => {
   const rewarded = grantLivingFoundryRewards(initial, {
     salvage: 1e20,
     loreIds: ["awakening.cold-wake", "awakening.cold-wake"],
-    crewXp: 100_000,
   });
   assert.equal(initial.salvage, 35);
   assert.equal(rewarded.salvage, 1e12);

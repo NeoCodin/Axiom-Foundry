@@ -39,6 +39,7 @@ export type LivingFoundryBonuses = {
   machineCostMultiplier: number;
   researchCostMultiplier: number;
   resonanceMultiplier: number;
+  expeditionRewardMultiplier: number;
 };
 
 export const LIVING_FOUNDRY_SCHEMA = 2;
@@ -185,6 +186,7 @@ export function getLivingFoundryBonuses(state: LivingFoundryState): LivingFoundr
   const resonance = roomScore(state, "resonance-gallery");
   const research = roomScore(state, "research-observatory");
   const archive = roomScore(state, "memory-archive");
+  const expedition = roomScore(state, "expedition-bay");
   const vault = roomScore(state, "recalibration-vault");
   const cohesionBonus = Math.max(0, state.cohesion - 50) * 0.001;
   return {
@@ -193,6 +195,7 @@ export function getLivingFoundryBonuses(state: LivingFoundryState): LivingFoundr
     machineCostMultiplier: Math.max(0.85, 1 - fabrication * 0.008),
     researchCostMultiplier: Math.max(0.85, 1 - (research + archive) * 0.006),
     resonanceMultiplier: 1 + Math.min(0.15, resonance * 0.008),
+    expeditionRewardMultiplier: 1 + Math.min(0.08, expedition * 0.012),
   };
 }
 
@@ -202,7 +205,7 @@ export function advanceLivingFoundry(state: LivingFoundryState, elapsedSeconds: 
 
 export function grantLivingFoundryRewards(
   state: LivingFoundryState,
-  rewards: { salvage?: number; loreIds?: readonly string[]; crewXp?: number },
+  rewards: { salvage?: number; loreIds?: readonly string[] },
 ) {
   const next = cloneLivingFoundryState(state);
   next.salvage = Math.min(1e12, next.salvage + finite(rewards.salvage, 0, 1e12));

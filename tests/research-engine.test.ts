@@ -40,6 +40,38 @@ test("a new Research Lattice is safe, empty, and ready for AXIOM routing", () =>
   );
 });
 
+test("campaign Research cost modifiers change displayed and consumed evidence together", () => {
+  const project = RESEARCH_PROJECT_DEFINITIONS.find(
+    (candidate) => candidate.id === "auxiliary-power-routing",
+  )!;
+  const initial = createResearchLatticeState();
+  const baseCosts = getResearchProjectCosts(initial, project);
+  const discountedCosts = getResearchProjectCosts(initial, project, 0.8);
+  const pressuredCosts = getResearchProjectCosts(initial, project, 1.2);
+
+  for (const input of RESEARCH_INPUT_DEFINITIONS) {
+    const base = baseCosts[input.id] ?? 0;
+    assert.equal(discountedCosts[input.id] ?? 0, base * 0.8);
+    assert.equal(pressuredCosts[input.id] ?? 0, base * 1.2);
+  }
+
+  let state = selectResearchProject(initial, project.id);
+  state = setResearchCrew(state, 1, 1);
+  state = addResearchInputs(state, pressuredCosts);
+  const result = advanceResearch(state, 1_000_000, {
+    powerAvailable: 100,
+    crewAvailable: 1,
+    costMultiplier: 1.2,
+  });
+  assert.equal(result.completedProjectId, project.id);
+  for (const input of RESEARCH_INPUT_DEFINITIONS) {
+    assert.ok(
+      Math.abs(result.consumed[input.id] - (pressuredCosts[input.id] ?? 0)) < 1e-7,
+      `${input.id} consumption must match its displayed modified cost`,
+    );
+  }
+});
+
 test("Axiom Theory includes the three permanent Lawheart phase proofs", () => {
   const gates = [
     ["resonance-stabilization", "recovery"],

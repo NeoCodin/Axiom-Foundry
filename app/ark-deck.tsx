@@ -5,6 +5,7 @@ import {
   BeaconReadinessList,
 } from "./beacon-readiness";
 import type { BeaconReadiness } from "./beacon-readiness-engine";
+import type { RoomId } from "./discovery-content";
 import type { LifeSupportKey } from "./survivor-engine";
 
 export type ArkViewId =
@@ -44,6 +45,16 @@ export type ArkSignalPreview = {
   rare?: boolean;
 };
 
+export type ArkRoomReinforcement = {
+  id: RoomId;
+  name: string;
+  level: number;
+  maxLevel: number;
+  effect: string;
+  costLabel: string;
+  canUpgrade: boolean;
+};
+
 export type ArkDeckProps = {
   foundryName: string;
   worldName: string;
@@ -80,8 +91,10 @@ export type ArkDeckProps = {
     actionLabel: string;
     canAct: boolean;
   } | null;
+  roomReinforcements?: readonly ArkRoomReinforcement[];
   supportUpgradeCosts?: Partial<Record<LifeSupportKey, number>>;
   onCommission?: () => void;
+  onReinforceRoom?: (roomId: RoomId) => void;
   onUpgradeSupport?: (key: LifeSupportKey) => void;
   onOpenView: (view: ArkViewId) => void;
 };
@@ -141,8 +154,10 @@ function ArkDeck({
   fabricationIntensity,
   unlockedViews,
   coldWakeCommissioning = null,
+  roomReinforcements = [],
   supportUpgradeCosts,
   onCommission,
+  onReinforceRoom,
   onUpgradeSupport,
   onOpenView,
 }: ArkDeckProps) {
@@ -534,6 +549,38 @@ function ArkDeck({
           <span aria-hidden="true"><i /><i /><i /><i /></span>
           <div><strong>The rest of the Ark is silent.</strong><small>Wake the chamber. The ship will reveal itself as it remembers.</small></div>
         </div>
+      )}
+
+      {roomReinforcements.length > 0 && (
+        <details className="ark-reinforcement-console">
+          <summary
+            data-pixel-tooltip="Permanent physical upgrades for rooms already visible on the Ark. Reinforcement spends recovered Salvage, survives Recalibration, and changes the named system immediately."
+          >
+            <span>ARK REINFORCEMENT</span>
+            <strong>{salvageLabel} SALVAGE AVAILABLE</strong>
+          </summary>
+          <div className="ark-reinforcement-grid">
+            {roomReinforcements.map((room) => {
+              const maximum = room.level >= room.maxLevel;
+              return (
+                <article key={room.id}>
+                  <header>
+                    <span>{room.name}</span>
+                    <strong>MARK {room.level}/{room.maxLevel}</strong>
+                  </header>
+                  <p>{room.effect}</p>
+                  <button
+                    type="button"
+                    disabled={maximum || !room.canUpgrade}
+                    onClick={() => onReinforceRoom?.(room.id)}
+                  >
+                    {maximum ? "FULLY REINFORCED" : `REINFORCE · ${room.costLabel}`}
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+        </details>
       )}
     </section>
   );

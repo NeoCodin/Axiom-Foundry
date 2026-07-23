@@ -15,6 +15,7 @@ import {
   setTutorialComplete,
 } from "../app/game-engine.ts";
 import { getProgressiveDisclosure } from "../app/progressive-disclosure.ts";
+import { createQaCheckpoint } from "../app/qa-sandbox-engine.ts";
 import { selectResearchProject } from "../app/research-engine.ts";
 import { beginTransit } from "../app/transit-engine.ts";
 
@@ -96,6 +97,59 @@ test("Pelagos keeps Personnel hidden until the first rescued witnesses arrive", 
   state.settlement.completedWorldIds = ["cold-wake", "pelagos"];
   state.settlement.currentWorldId = "viridia";
   assert.equal(getProgressiveDisclosure(state).research, true);
+});
+
+test("the command board never routes into a system before that system awakens", () => {
+  const targetIsAwake = (
+    target: ReturnType<typeof getCommandPriorities>[number]["target"],
+    disclosure: ReturnType<typeof getProgressiveDisclosure>,
+  ) => target === "deck" || disclosure[target];
+
+  for (let worldIndex = 0; worldIndex < 6; worldIndex += 1) {
+    const state = createQaCheckpoint(worldIndex, 1_700_000_000_000);
+    const disclosure = getProgressiveDisclosure(state);
+    for (const priority of getCommandPriorities(state)) {
+      assert.equal(
+        targetIsAwake(priority.target, disclosure),
+        true,
+        `${priority.id} routed ${worldIndex} to sleeping ${priority.target}`,
+      );
+    }
+  }
+
+  const pelagos = createQaCheckpoint(1, 1_700_000_000_000);
+  pelagos.tiers[0] = { amount: 1, bought: 1 };
+  pelagos.lifetimeAxioms = 5;
+  const pelagosPriorities = getCommandPriorities(pelagos);
+  assert.equal(
+    pelagosPriorities.some((priority) => priority.target === "research"),
+    false,
+    "Pelagos must not reveal Research through idle-core or phase-gate guidance",
+  );
+  assert.equal(
+    pelagosPriorities.some((priority) => priority.target === "population"),
+    false,
+    "Pelagos must not reveal Personnel through Continuity guidance before first contact",
+  );
+
+  const viridia = createQaCheckpoint(2, 1_700_000_000_000);
+  pelagos.survivors = structuredClone(viridia.survivors);
+  pelagos.survivors.signalsResolved = 1;
+  pelagos.survivors.medBayIds = [];
+  pelagos.missions.stageIndex = PELAGOS_TOW_STAGE;
+  pelagos.settings.personnelIntroduced = true;
+  pelagos.research.activeProjectId = null;
+  pelagos.research.completedProjectIds = [];
+  pelagos.survivors.survivors[0]!.health = 20;
+  pelagos.survivors.survivors[0]!.injury = "major";
+  const latePelagosDisclosure = getProgressiveDisclosure(pelagos);
+  assert.equal(latePelagosDisclosure.expeditions, true);
+  assert.equal(latePelagosDisclosure.medical, false);
+  assert.equal(
+    getCommandPriorities(pelagos).some((priority) => priority.target === "medical"),
+    false,
+    "an early expedition injury must not route to the Medical Bay before it awakens",
+  );
 });
 
 test("Pelagos Foundry consoles reveal from named directive stages, not accumulated Flux", () => {

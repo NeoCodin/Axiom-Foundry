@@ -7,6 +7,7 @@ import {
   RESEARCH_INPUT_DEFINITIONS,
   RESEARCH_BRANCHES,
   RESEARCH_ERAS,
+  RESEARCH_STAGES,
   RESEARCH_PROJECT_DEFINITIONS,
   canStartResearchProject,
   getAvailableResearchEras,
@@ -32,6 +33,7 @@ import {
   type ResearchInputBundle,
   type ResearchInputId,
   type ResearchLatticeState,
+  type ResearchProjectId,
 } from "./research-engine";
 
 import "./research-lattice.css";
@@ -43,6 +45,7 @@ export type ResearchLatticeProps = {
   powerAvailable: number;
   externalSpeedMultiplier?: number;
   automationMultiplier?: number;
+  costMultiplier?: number;
   expertise: ResearchExpertise;
   leadResearcher: { level: number; exceptional: boolean; name: string | null };
   fieldValidation: {
@@ -63,6 +66,48 @@ export type ResearchLatticeProps = {
 const BRANCHES = RESEARCH_BRANCHES;
 
 export type ResearchView = "core" | "technology" | "lattice" | "archive";
+
+type ResearchDomainId = "systems" | "humanity" | "worlds" | "causal";
+
+const RESEARCH_DOMAINS: readonly {
+  id: ResearchDomainId;
+  code: string;
+  name: string;
+  description: string;
+  branches: readonly ResearchBranch[];
+}[] = [
+  {
+    id: "systems",
+    code: "SYS",
+    name: "Ark Systems",
+    description: "Keep the Ark powered, fabricated, repaired, and responsibly automated.",
+    branches: ["ark-engineering", "robotics-automation"],
+  },
+  {
+    id: "humanity",
+    code: "LIFE",
+    name: "Human Continuity",
+    description: "Protect bodies, memory, education, and the right to choose a future.",
+    branches: ["human-continuity", "medicine-biology"],
+  },
+  {
+    id: "worlds",
+    code: "WRLD",
+    name: "World Recovery",
+    description: "Understand damaged planets and survive the forces contesting them.",
+    branches: ["planetary-sciences", "threat-operations"],
+  },
+  {
+    id: "causal",
+    code: "NULL",
+    name: "Causal Physics",
+    description: "Study Axioms, impossible materials, and signals arriving from futures that should not exist.",
+    branches: ["axiom-theory", "null-studies"],
+  },
+] as const;
+
+const getDomainForBranch = (branch: ResearchBranch) =>
+  RESEARCH_DOMAINS.find((domain) => domain.branches.includes(branch)) ?? RESEARCH_DOMAINS[0];
 
 const INPUT_ACCENTS: Record<ResearchInputId, string> = {
   "calibration-data": "72 215 235",
@@ -108,6 +153,7 @@ export function ResearchLattice({
   powerAvailable,
   externalSpeedMultiplier = 1,
   automationMultiplier = 1,
+  costMultiplier = 1,
   expertise,
   leadResearcher,
   fieldValidation,
@@ -123,15 +169,26 @@ export function ResearchLattice({
   const activeDefinition = state.activeProjectId
     ? getResearchProjectDefinition(state.activeProjectId)
     : undefined;
-  const [branch, setBranch] = useState<ResearchBranch>(
-    activeDefinition?.branch ?? "ark-engineering",
-  );
+  const lastCompletedDefinition =
+    state.completedProjectIds.length > 0
+      ? getResearchProjectDefinition(state.completedProjectIds[state.completedProjectIds.length - 1])
+      : undefined;
   const [view, setView] = useState<ResearchView>(
     initialView ?? (state.activeProjectId || state.completedProjectIds.length > 0 ? "core" : "technology"),
   );
   const [era, setEra] = useState<ResearchEra>(
     activeDefinition ? getResearchProjectEra(activeDefinition) : getCurrentResearchEra(state),
   );
+  const [domain, setDomain] = useState<ResearchDomainId>(
+    getDomainForBranch(activeDefinition?.branch ?? "ark-engineering").id,
+  );
+  const [selectedProjectId, setSelectedProjectId] = useState<ResearchProjectId | null>(
+    activeDefinition?.id ?? null,
+  );
+  const [archiveMode, setArchiveMode] = useState<ResearchEra | "contradictions">(
+    lastCompletedDefinition ? getResearchProjectEra(lastCompletedDefinition) : getCurrentResearchEra(state),
+  );
+  const [archiveEntryId, setArchiveEntryId] = useState<string | null>(null);
   const resolvedRoutes = useMemo(
     () => getResolvedResearchRoutes(state),
     [state],
@@ -142,13 +199,14 @@ export function ResearchLattice({
         powerAvailable,
         crewAvailable: availableCrew,
         externalSpeedMultiplier,
+        costMultiplier,
         fieldValidationMultiplier: fieldValidation.multiplier,
         automationMultiplier,
         expertise,
         leadResearcherLevel: leadResearcher.level,
         exceptionalLeadAvailable: leadResearcher.exceptional,
       }),
-    [automationMultiplier, availableCrew, expertise, externalSpeedMultiplier, fieldValidation.multiplier, leadResearcher, powerAvailable, state],
+    [automationMultiplier, availableCrew, costMultiplier, expertise, externalSpeedMultiplier, fieldValidation.multiplier, leadResearcher, powerAvailable, state],
   );
   const echoes = getResearchNullEchoes(state);
   const activeProgress = activeDefinition
@@ -161,6 +219,9 @@ export function ResearchLattice({
     activeDefinition && network.progressPerSecond > 0
       ? remainingWork / network.progressPerSecond
       : Number.POSITIVE_INFINITY;
+  const activeCosts = activeDefinition
+    ? getResearchProjectCosts(state, activeDefinition, costMultiplier)
+    : {};
 
   const changeCrew = (amount: number) => {
     const nextAmount = Math.max(
@@ -202,11 +263,45 @@ export function ResearchLattice({
     "--research-packet-speed": `${Math.max(0.58, 2.8 - activity * 1.55 - connectedRoutes * 0.12)}s`,
     "--research-completion": `${completedResearch / RESEARCH_PROJECT_DEFINITIONS.length}`,
   } as CSSProperties;
+  const visibleProjects = RESEARCH_PROJECT_DEFINITIONS.filter(
+    (project) =>
+      getResearchProjectEra(project) === era &&
+      RESEARCH_DOMAINS.find((candidate) => candidate.id === domain)?.branches.includes(project.branch),
+  );
+  const selectedProject =
+    visibleProjects.find((project) => project.id === selectedProjectId) ??
+    visibleProjects[0] ??
+    null;
+  const selectedProjectPresentation = selectedProject
+    ? getResearchProjectPresentation(state, selectedProject.id)
+    : null;
+  const selectedProjectCosts = selectedProject
+    ? getResearchProjectCosts(state, selectedProject, costMultiplier)
+    : {};
+  const activeStageIndex = Math.max(
+    0,
+    RESEARCH_STAGES.findIndex((stage) => stage.id === network.stage),
+  );
+  const archiveProjects = state.completedProjectIds
+    .map((projectId) => getResearchProjectDefinition(projectId))
+    .filter((project): project is NonNullable<typeof project> => Boolean(project));
+  const archiveProjectsInMode =
+    archiveMode === "contradictions"
+      ? []
+      : archiveProjects.filter((project) => getResearchProjectEra(project) === archiveMode);
+  const selectedArchiveProject =
+    archiveProjectsInMode.find((project) => project.id === archiveEntryId) ??
+    archiveProjectsInMode[0] ??
+    null;
+  const selectedEcho =
+    echoes.find((echo) => echo.id === archiveEntryId) ?? echoes[0] ?? null;
 
   return (
     <section
-      className={`research-lattice-shell is-view-${view} ${coreOnline ? "is-core-online" : "is-core-idle"} ${
-        network.stalledReason ? "is-core-stalled" : ""
+      className={`research-lattice-shell research-workbench-v2 is-view-${view} research-era-${era} ${
+        coreOnline ? "is-core-online" : "is-core-idle"
+      } ${network.stalledReason ? "is-core-stalled" : ""} ${
+        activeDefinition?.branch === "null-studies" ? "is-null-project" : ""
       }`}
       style={machineStyle}
       aria-label="Research Lattice"
@@ -217,16 +312,22 @@ export function ResearchLattice({
           <h1>{view === "core" ? "Analysis Core" : view === "technology" ? "Technology Map" : view === "lattice" ? "Research Lattice" : "Research Archive"}</h1>
           <p>
             {view === "core"
-              ? "Watch the active program move from theory through prototype, field validation, and final synthesis."
+              ? "One discovery at a time. Watch evidence become theory, hardware, field proof, and finally a capability."
               : view === "technology"
-                ? "Choose one deliberate capability at a time. Later eras reveal only after earlier discoveries create a path to them."
+                ? "Choose the Ark's next question by era and domain. Inspect one program before committing the machine."
                 : view === "lattice"
-                  ? "Route evidence into the living machine. AXIOM can keep a safe layout running; mastery makes it faster."
-                  : "Review completed capabilities, repeatable mastery, and contradictions the lattice insists arrived from later."}
+                  ? "See where every piece of evidence travels, why throughput changes, and what is holding the machine back."
+                  : "Open one preserved discovery at a time. Contradictions are filed separately from proven capabilities."}
           </p>
         </div>
         <div className="research-lattice-header-actions">
           <HelpTrigger label="Open the Research page guide" withLabel onClick={() => onOpenHelp("research")} />
+          <span
+            className="research-lattice-clock"
+            title="The actual evidence requirement after planetary conditions, restored-world legacies, and physical Analysis rooms are applied."
+          >
+            EVIDENCE COST ×{costMultiplier.toFixed(2)}
+          </span>
           <span className="research-lattice-clock" title="Local lattice time">
             T+{Math.max(0, Math.floor((now - projectStartedAt) / 1000))}s
           </span>
@@ -281,164 +382,480 @@ export function ResearchLattice({
         <strong>{eraProgress.complete.toString().padStart(2, "0")} / {eraProgress.total}</strong>
       </div>
 
-      <div className="research-lattice-telemetry" aria-label="Lattice limits">
-        <div>
-          <span>Core power</span>
-          <strong className={network.powerUsed > powerAvailable ? "is-warning" : ""}>
-            {network.powerUsed.toFixed(0)} / {Math.max(0, powerAvailable).toFixed(0)} MW
-          </strong>
-        </div>
-        <div>
-          <span>Analysis stations</span>
-          <strong>
-            {network.crewOperating} / {network.crewRequired} optimal
-          </strong>
-        </div>
-        <div>
-          <span>{network.stageLabel}</span>
-          <strong>Uses {network.expertiseId.replaceAll("-", " ")} expertise</strong>
-        </div>
-        <div>
-          <span>Throughput</span>
-          <strong>{(network.progressPerSecond * 60).toFixed(1)} work/min</strong>
-        </div>
-        <div>
-          <span>Analysis core</span>
-          <strong className={network.stalledReason ? "is-warning" : "is-online"}>
-            {network.stalledReason ?? (activeDefinition ? "RESONATING" : "DORMANT")}
-          </strong>
-        </div>
-      </div>
-
-      <section className="research-operations-panel" data-guide-target="research-crew" aria-label="Operational expertise">
-        <div>
-          <span>ACTIVE STAGE</span>
-          <strong>{activeDefinition ? network.stageLabel : "Awaiting a program"}</strong>
-          <small>{activeDefinition ? `${network.expertiseId.replaceAll("-", " ")} expertise ×${network.expertiseMultiplier.toFixed(2)}${network.automationMultiplier > 1 ? ` · routing drones ×${network.automationMultiplier.toFixed(2)}` : ""}` : "Choose work from the Technology Map."}</small>
-        </div>
-        <div>
-          <span>RESEARCH LEAD</span>
-          <strong>{leadResearcher.name ?? "AXIOM alone"}</strong>
-          <small>Level {leadResearcher.level} · Integration 3 · Synthesis 5 · Convergence 9 Exceptional</small>
-        </div>
-        <div>
-          <span>ON-DUTY CONTRIBUTION</span>
-          <strong>{Math.round(network.expertiseTotal)} {network.expertiseId.replaceAll("-", " ")}</strong>
-          <small>Only healthy, assigned, aboard personnel contribute. Team Alpha&apos;s lean trains the workforce; it is not a free multiplier.</small>
-        </div>
-        <div>
-          <span>FIELD VALIDATION</span>
-          <strong>{fieldValidation.points > 0 ? `x${fieldValidation.multiplier.toFixed(2)} live evidence` : "No live evidence yet"}</strong>
-          <small>
-            {network.stage === "validation"
-              ? fieldValidation.sources.map((source) => source.label).join(" / ") || "Research continues at base speed; field work is helpful, never mandatory."
-              : `Applies only during Field Validation. ${fieldValidation.sources[0]?.detail ?? "Expeditions, planetary work, defense, medicine, and colonies can contribute."}`}
-          </small>
-        </div>
-      </section>
-
-      {network.stalledReason === "Awaiting research inputs" && activeDefinition && (
-        <p className="research-lattice-input-guidance" role="status">
-          {RESEARCH_INPUT_DEFINITIONS.filter(
-            (input) =>
-              (activeDefinition.costs[input.id] ?? 0) > 0 &&
-              state.inventory[input.id] <= 0 &&
-              (resources[input.id] ?? 0) <= 0,
-          )
-            .map((input) => `${input.name} exhausted — source: ${INPUT_SOURCE_COPY[input.id]}.`)
-            .join(" ") || "Transfer the required evidence from the Ark supply reservoirs."}
-        </p>
-      )}
-
-      <div className="research-lattice-workspace">
-        <aside className="research-lattice-input-bank" data-guide-target="research-evidence">
-          <div className="research-lattice-section-heading">
-            <div>
-              <span>01</span>
-              <h2>Evidence reservoirs</h2>
-            </div>
-            <small>Transfer only what the machine needs</small>
+      {view === "core" ? (
+        <section className="research-core-workspace" aria-label="Active research synthesis">
+          <div className="research-stage-rail" aria-label="Research stages">
+            {RESEARCH_STAGES.map((stage, index) => (
+              <div
+                key={stage.id}
+                className={`${index < activeStageIndex ? "is-complete" : ""} ${
+                  index === activeStageIndex && activeDefinition ? "is-active" : ""
+                }`}
+              >
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                <strong>{stage.name}</strong>
+                <small>
+                  {index < activeStageIndex
+                    ? "Resolved"
+                    : index === activeStageIndex && activeDefinition
+                      ? `${Math.round(activeProgress * 100)}% total`
+                      : "Awaiting evidence"}
+                </small>
+              </div>
+            ))}
           </div>
-          <p className="research-lattice-input-guidance">
-            Glowing reservoirs feed the selected program. Dim stores are safe to leave untouched.
-          </p>
-          <p className="research-lattice-input-guidance" role="status">
-            {autoTransfer.common
-              ? autoTransfer.nullTraces
-                ? "AXIOM auto-transfer active for every required input, including Null Traces."
-                : "Common evidence transfer is automated. Null Traces require an on-duty level-5 Exceptional (or better) Researcher."
-              : "Common transfer unlocks with an on-duty level-3 Researcher and at least one occupied Analysis station."}
-          </p>
-          <div className="research-lattice-input-list">
-            {RESEARCH_INPUT_DEFINITIONS.map((input) => {
-              const required = Boolean(
-                activeDefinition && (activeDefinition.costs[input.id] ?? 0) > 0,
-              );
-              const external = Math.max(0, resources[input.id] ?? 0);
-              return (
-                <article
-                  className={`research-lattice-input ${required ? "is-required" : ""}`}
+
+          <div className="research-engine-bay" data-guide-target="research-network">
+            <div className="research-engine-void" aria-hidden="true">
+              <div className="research-engine-grid" />
+              <div className="research-engine-streams">
+                {RESEARCH_INPUT_DEFINITIONS.map((input, index) => {
+                  const required = Boolean((activeCosts[input.id] ?? 0) > 0);
+                  const missing = network.missingInputs.includes(input.id);
+                  return (
+                    <i
+                      key={input.id}
+                      className={`${required ? "is-required" : ""} ${missing ? "is-missing" : ""}`}
+                      style={{
+                        ...getInputStyle(input.id),
+                        "--stream-index": index,
+                      } as CSSProperties}
+                    >
+                      <b />
+                    </i>
+                  );
+                })}
+              </div>
+              <div className="research-engine-orbit is-outer"><i /><i /><i /></div>
+              <div className="research-engine-orbit is-middle"><i /><i /><i /><i /></div>
+              <div className="research-engine-orbit is-inner"><i /><i /></div>
+              <button
+                type="button"
+                className="research-analysis-prism"
+                disabled={!activeDefinition}
+                onClick={() => setView(activeDefinition ? "lattice" : "technology")}
+                aria-label={activeDefinition ? "Inspect the active evidence lattice" : "Choose a research program"}
+              >
+                <span className="research-prism-shell"><i /><i /><i /><i /></span>
+                <span className="research-prism-glyph">{activeDefinition ? "A" : "?"}</span>
+              </button>
+              <div className="research-engine-readout is-throughput">
+                <span>THROUGHPUT</span>
+                <strong>{(network.progressPerSecond * 60).toFixed(1)}</strong>
+                <small>work / min</small>
+              </div>
+              <div className="research-engine-readout is-power">
+                <span>CORE LOAD</span>
+                <strong>{network.powerUsed.toFixed(0)} / {Math.max(0, powerAvailable).toFixed(0)}</strong>
+                <small>megawatts</small>
+              </div>
+              <div className="research-engine-readout is-status">
+                <span>ANALYSIS CORE</span>
+                <strong>{network.stalledReason ?? (activeDefinition ? "SYNTHESIZING" : "DORMANT")}</strong>
+              </div>
+            </div>
+            <div className="research-engine-legend">
+              {RESEARCH_INPUT_DEFINITIONS.map((input) => (
+                <span
                   key={input.id}
+                  className={(activeCosts[input.id] ?? 0) > 0 ? "is-live" : ""}
                   style={getInputStyle(input.id)}
                 >
-                  <span className="research-lattice-input-vessel" aria-hidden="true">
-                    <i
-                      style={{
-                        height: `${Math.min(100, Math.max(8, state.inventory[input.id]))}%`,
-                      }}
-                    />
-                  </span>
-                  <span className="research-lattice-input-code">{input.shortName}</span>
+                  <i /> {input.shortName}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <aside className="research-active-dossier" data-guide-target="research-crew">
+            {activeDefinition ? (
+              <>
+                <header>
+                  <span>ACTIVE DISCOVERY // {BRANCHES.find((item) => item.id === activeDefinition.branch)?.code}</span>
+                  <h2>{activeDefinition.name}</h2>
+                  <p>{getResearchProjectPresentation(state, activeDefinition.id)?.displaySummary}</p>
+                </header>
+                <div className="research-dossier-progress">
+                  <span><b>{network.stageLabel}</b><strong>{(activeProgress * 100).toFixed(1)}%</strong></span>
+                  <div><i style={{ width: `${activeProgress * 100}%` }} /></div>
+                  <small>{network.progressPerSecond > 0 ? `${formatDuration(eta)} estimated` : "Progress paused"}</small>
+                </div>
+                <div className="research-dossier-status">
                   <div>
-                    <div className="research-lattice-input-title">
-                      <h3>{input.name}</h3>
-                      <HelpTrigger label={`How do I get ${input.name}?`} onClick={() => onOpenHelp(input.id)} />
-                    </div>
-                    <p>{input.description}</p>
-                    <small className="research-lattice-input-source">Source: {INPUT_SOURCE_COPY[input.id]}</small>
-                    <div className="research-lattice-input-counts">
-                      <span>
-                        Lattice <b>{formatNumber(state.inventory[input.id])}</b>
-                      </span>
-                      <span>
-                        Ark supply <b>{formatNumber(external)}</b>
-                      </span>
-                    </div>
+                    <span>RESEARCH LEAD</span>
+                    <strong>{leadResearcher.name ?? "AXIOM alone"}</strong>
+                    <small>Level {leadResearcher.level} researcher</small>
                   </div>
-                  <button
-                    type="button"
-                    disabled={external <= 0}
-                    onClick={() => transferInput(input.id, Math.min(25, external))}
-                    aria-label={`Transfer ${input.name} into the lattice`}
-                  >
-                    +{formatNumber(Math.min(25, external))}
-                  </button>
-                </article>
+                  <div>
+                    <span>ON DUTY</span>
+                    <strong>{network.crewOperating} / {network.crewRequired} stations</strong>
+                    <small>{Math.round(network.expertiseTotal)} {network.expertiseId.replaceAll("-", " ")} expertise</small>
+                  </div>
+                  <div>
+                    <span>FIELD EVIDENCE</span>
+                    <strong>{network.stage === "validation" ? `x${fieldValidation.multiplier.toFixed(2)}` : "STANDBY"}</strong>
+                    <small>{fieldValidation.sources[0]?.label ?? "No live field source yet"}</small>
+                  </div>
+                </div>
+                <div className="research-dossier-evidence">
+                  <span>EVIDENCE FEED</span>
+                  {RESEARCH_INPUT_DEFINITIONS.filter((input) => (activeCosts[input.id] ?? 0) > 0).map((input) => {
+                    const total = activeCosts[input.id] ?? 0;
+                    const remaining = total * Math.max(0, 1 - activeProgress);
+                    return (
+                      <div key={input.id} style={getInputStyle(input.id)}>
+                        <i />
+                        <b>{input.name}</b>
+                        <small>{formatNumber(state.inventory[input.id])} loaded / {formatNumber(remaining)} projected</small>
+                      </div>
+                    );
+                  })}
+                </div>
+                {network.stalledReason ? (
+                  <div className="research-dossier-alert">
+                    <span>HOLD CONDITION</span>
+                    <strong>{network.stalledReason}</strong>
+                    <p>
+                      {network.stalledReason === "Awaiting research inputs"
+                        ? "Open the Lattice to see the depleted reservoir and its exact source."
+                        : "Open the Lattice to inspect power, stations, and routing."}
+                    </p>
+                    <button type="button" onClick={() => setView("lattice")}>Inspect lattice</button>
+                  </div>
+                ) : null}
+                <button
+                  className="research-dossier-action"
+                  type="button"
+                  onClick={() => onStateChange(selectResearchProject(state, null, now))}
+                >
+                  Pause research
+                </button>
+              </>
+            ) : (
+              <div className="research-dossier-empty">
+                <span>ANALYSIS CORE // DORMANT</span>
+                <h2>No question is loaded.</h2>
+                <p>
+                  The machine does not research a generic resource. Choose one practical problem and it will
+                  reveal the evidence, expertise, and field proof that problem needs.
+                </p>
+                <button type="button" onClick={() => setView("technology")}>Open Technology Map</button>
+              </div>
+            )}
+          </aside>
+        </section>
+      ) : null}
+
+      {view === "technology" ? (
+        <section className="research-technology-workspace" data-guide-target="research-programs">
+          <nav className="research-era-console" aria-label="Research eras">
+            {RESEARCH_ERAS.map((candidate, index) => {
+              const available = availableEras.some((item) => item.id === candidate.id);
+              const progress = getResearchEraProgress(state, candidate.id);
+              return (
+                <button
+                  key={candidate.id}
+                  type="button"
+                  className={era === candidate.id ? "is-active" : ""}
+                  disabled={!available}
+                  onClick={() => {
+                    setEra(candidate.id);
+                    const nextDomain =
+                      RESEARCH_DOMAINS.find((candidateDomain) =>
+                        RESEARCH_PROJECT_DEFINITIONS.some(
+                          (project) =>
+                            getResearchProjectEra(project) === candidate.id &&
+                            candidateDomain.branches.includes(project.branch),
+                        ),
+                      ) ?? RESEARCH_DOMAINS[0];
+                    const retainedDomainHasProjects = RESEARCH_PROJECT_DEFINITIONS.some(
+                      (project) =>
+                        getResearchProjectEra(project) === candidate.id &&
+                        RESEARCH_DOMAINS.find((item) => item.id === domain)?.branches.includes(project.branch),
+                    );
+                    const resolvedDomain = retainedDomainHasProjects
+                      ? RESEARCH_DOMAINS.find((item) => item.id === domain) ?? nextDomain
+                      : nextDomain;
+                    setDomain(resolvedDomain.id);
+                    setSelectedProjectId(
+                      RESEARCH_PROJECT_DEFINITIONS.find(
+                        (project) =>
+                          getResearchProjectEra(project) === candidate.id &&
+                          resolvedDomain.branches.includes(project.branch),
+                      )?.id ?? null,
+                    );
+                  }}
+                >
+                  <span>{String(index + 1).padStart(2, "0")}</span>
+                  <strong>{candidate.name}</strong>
+                  <small>{available ? `${progress.complete}/${progress.total} resolved` : "SEALED"}</small>
+                </button>
               );
             })}
-          </div>
-        </aside>
+          </nav>
 
-        <main className="research-lattice-network-panel" data-guide-target="research-network">
-          <div className="research-lattice-section-heading">
-            <div>
-              <span>02</span>
-              <h2>Analysis machine</h2>
-            </div>
+          <div className="research-era-brief">
+            <span>{RESEARCH_ERAS.find((candidate) => candidate.id === era)?.code} THESIS</span>
+            <p>{RESEARCH_ERAS.find((candidate) => candidate.id === era)?.thesis}</p>
           </div>
 
-          <div
-            className={`research-lattice-network ${
-              activeDefinition?.branch === "null-studies" ? "is-null-project" : ""
-            }`}
-          >
-            <div className="research-lattice-machine-rails" aria-hidden="true">
-              <i />
-              <i />
-              <i />
-              <i />
+          <nav className="research-domain-console" aria-label="Research domains">
+            {RESEARCH_DOMAINS.map((candidate) => {
+              const projects = RESEARCH_PROJECT_DEFINITIONS.filter(
+                (project) =>
+                  getResearchProjectEra(project) === era &&
+                  candidate.branches.includes(project.branch),
+              );
+              const complete = projects.filter((project) =>
+                state.completedProjectIds.includes(project.id),
+              ).length;
+              return (
+                <button
+                  key={candidate.id}
+                  type="button"
+                  className={domain === candidate.id ? "is-active" : ""}
+                  disabled={projects.length === 0}
+                  onClick={() => {
+                    setDomain(candidate.id);
+                    setSelectedProjectId(projects[0]?.id ?? null);
+                  }}
+                >
+                  <span>{candidate.code}</span>
+                  <strong>{candidate.name}</strong>
+                  <small>{projects.length > 0 ? `${complete}/${projects.length} proven` : "No programs this era"}</small>
+                </button>
+              );
+            })}
+          </nav>
+
+          <div className="research-map-layout">
+            <main className="research-domain-map" aria-label={`${RESEARCH_DOMAINS.find((item) => item.id === domain)?.name} programs`}>
+              <header>
+                <span>DOMAIN // {RESEARCH_DOMAINS.find((item) => item.id === domain)?.code}</span>
+                <h2>{RESEARCH_DOMAINS.find((item) => item.id === domain)?.name}</h2>
+                <p>{RESEARCH_DOMAINS.find((item) => item.id === domain)?.description}</p>
+              </header>
+              <div className="research-map-lanes">
+                {(RESEARCH_DOMAINS.find((item) => item.id === domain)?.branches ?? []).map((branchId) => {
+                  const branchDefinition = BRANCHES.find((candidate) => candidate.id === branchId);
+                  const projects = visibleProjects.filter((project) => project.branch === branchId);
+                  if (projects.length === 0) return null;
+                  return (
+                    <section className="research-map-lane" key={branchId}>
+                      <div className="research-map-lane-label">
+                        <span>{branchDefinition?.code}</span>
+                        <strong>{branchDefinition?.name}</strong>
+                      </div>
+                      <div className="research-map-node-line">
+                        {projects.map((project, index) => {
+                          const repeatCount = getResearchRepeatCount(state, project.id);
+                          const complete = project.repeatable
+                            ? repeatCount >= project.repeatable.maxCompletions
+                            : state.completedProjectIds.includes(project.id);
+                          const active = state.activeProjectId === project.id;
+                          const locked = !project.prerequisites.every((prerequisite) =>
+                            state.completedProjectIds.includes(prerequisite),
+                          );
+                          const progress = getResearchProjectProgress(state, project.id);
+                          return (
+                            <button
+                              key={project.id}
+                              type="button"
+                              className={`${selectedProject?.id === project.id ? "is-selected" : ""} ${
+                                complete ? "is-complete" : ""
+                              } ${active ? "is-active" : ""} ${locked ? "is-locked" : ""}`}
+                              onClick={() => setSelectedProjectId(project.id)}
+                              aria-label={`Inspect ${project.name}`}
+                            >
+                              <span>{String(index + 1).padStart(2, "0")}</span>
+                              <i aria-hidden="true"><b /></i>
+                              <strong>{project.name}</strong>
+                              <small>
+                                {complete
+                                  ? "PROVEN"
+                                  : active
+                                    ? `${Math.round(progress * 100)}% ACTIVE`
+                                    : locked
+                                      ? "SEALED"
+                                      : "AVAILABLE"}
+                              </small>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  );
+                })}
+              </div>
+            </main>
+
+            <aside className="research-program-inspector">
+              {selectedProject ? (() => {
+                const repeatCount = getResearchRepeatCount(state, selectedProject.id);
+                const complete = selectedProject.repeatable
+                  ? repeatCount >= selectedProject.repeatable.maxCompletions
+                  : state.completedProjectIds.includes(selectedProject.id);
+                const active = state.activeProjectId === selectedProject.id;
+                const lockedPrerequisites = selectedProject.prerequisites.filter(
+                  (prerequisite) => !state.completedProjectIds.includes(prerequisite),
+                );
+                const canStart = canStartResearchProject(state, selectedProject.id);
+                const progress = getResearchProjectProgress(state, selectedProject.id);
+                return (
+                  <>
+                    <header>
+                      <span>
+                        PROGRAM // {BRANCHES.find((item) => item.id === selectedProject.branch)?.code}
+                      </span>
+                      <h2>{selectedProject.name}</h2>
+                      <b>{complete ? "PROVEN" : active ? "IN ANALYSIS" : lockedPrerequisites.length > 0 ? "SEALED" : "READY"}</b>
+                    </header>
+                    <p className="research-program-summary">
+                      {selectedProjectPresentation?.displaySummary ?? selectedProject.summary}
+                    </p>
+                    <div className="research-program-meter">
+                      <span><b>WORK RESOLVED</b><strong>{Math.round(progress * 100)}%</strong></span>
+                      <div><i style={{ width: `${progress * 100}%` }} /></div>
+                    </div>
+                    <section>
+                      <span>REQUIRED EVIDENCE</span>
+                      <div className="research-program-costs">
+                        <div><b>WORK</b><strong>{formatNumber(getResearchProjectWorkRequired(state, selectedProject))}</strong></div>
+                        {RESEARCH_INPUT_DEFINITIONS.filter(
+                          (input) => (selectedProjectCosts[input.id] ?? 0) > 0,
+                        ).map((input) => (
+                          <div key={input.id} style={getInputStyle(input.id)}>
+                            <i />
+                            <b>{input.shortName}</b>
+                            <strong>{formatNumber(selectedProjectCosts[input.id] ?? 0)}</strong>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                    <section>
+                      <span>CAPABILITY CREATED</span>
+                      <p>{selectedProject.unlocks.map((unlock) => unlock.replaceAll("-", " ")).join(" / ")}</p>
+                    </section>
+                    {lockedPrerequisites.length > 0 ? (
+                      <div className="research-program-lock">
+                        <span>PATH INCOMPLETE</span>
+                        <p>
+                          First prove {lockedPrerequisites
+                            .map((id) => getResearchProjectDefinition(id)?.name ?? id)
+                            .join(" and ")}.
+                        </p>
+                      </div>
+                    ) : null}
+                    {state.activeProjectId && !active ? (
+                      <div className="research-program-lock">
+                        <span>ANALYSIS CORE OCCUPIED</span>
+                        <p>
+                          {getResearchProjectDefinition(state.activeProjectId)?.name ?? "Another program"} is
+                          still loaded. Pause it from Core before changing the Ark&apos;s question.
+                        </p>
+                      </div>
+                    ) : null}
+                    <button
+                      className="research-program-action"
+                      type="button"
+                      disabled={complete || (!active && !canStart)}
+                      onClick={() =>
+                        onStateChange(
+                          selectResearchProject(state, active ? null : selectedProject.id, now),
+                        )
+                      }
+                    >
+                      {complete
+                        ? "Program mastered"
+                        : active
+                          ? "Pause active program"
+                          : progress > 0
+                            ? "Resume this program"
+                            : "Begin this program"}
+                    </button>
+                  </>
+                );
+              })() : (
+                <div className="research-program-empty">
+                  <span>NO PROGRAMS</span>
+                  <p>This domain has no recoverable work in the selected era.</p>
+                </div>
+              )}
+            </aside>
+          </div>
+        </section>
+      ) : null}
+
+      {view === "lattice" ? (
+        <section className="research-routing-workspace" aria-label="Evidence routing machine">
+          <aside className="research-reservoir-console" data-guide-target="research-evidence">
+            <header>
+              <span>EVIDENCE BAY // 01</span>
+              <h2>Reservoirs</h2>
+              <p>Ark supply is outside the machine. Loaded evidence is inside it and survives recalibration.</p>
+            </header>
+            <div className="research-auto-transfer-status">
+              <i className={autoTransfer.common ? "is-online" : ""} />
+              <div>
+                <strong>{autoTransfer.common ? "COMMON EVIDENCE AUTO-LOAD" : "MANUAL TRANSFER"}</strong>
+                <small>
+                  {autoTransfer.common
+                    ? autoTransfer.nullTraces
+                      ? "All required reservoirs refill automatically."
+                      : "Null Traces remain protected until an Exceptional level-5 Researcher is on duty."
+                    : "Assign a level-3 Researcher and occupy one Analysis station to automate common evidence."}
+                </small>
+              </div>
             </div>
-            <div className="research-lattice-route-stack">
+            <div className="research-reservoir-list">
+              {RESEARCH_INPUT_DEFINITIONS.map((input) => {
+                const required = Boolean((activeCosts[input.id] ?? 0) > 0);
+                const external = Math.max(0, resources[input.id] ?? 0);
+                const missing = network.missingInputs.includes(input.id);
+                return (
+                  <article
+                    key={input.id}
+                    className={`${required ? "is-required" : ""} ${missing ? "is-missing" : ""}`}
+                    style={getInputStyle(input.id)}
+                  >
+                    <span className="research-reservoir-tank" aria-hidden="true">
+                      <i style={{ height: `${Math.min(100, Math.max(6, state.inventory[input.id]))}%` }} />
+                    </span>
+                    <div>
+                      <span>{input.shortName} {required ? "// REQUIRED" : ""}</span>
+                      <strong>{input.name}</strong>
+                      <small>{INPUT_SOURCE_COPY[input.id]}</small>
+                      <p>
+                        <b>{formatNumber(state.inventory[input.id])}</b> loaded
+                        <span>{formatNumber(external)} in Ark supply</span>
+                      </p>
+                    </div>
+                    <div className="research-reservoir-actions">
+                      <HelpTrigger label={`How do I get ${input.name}?`} onClick={() => onOpenHelp(input.id)} />
+                      <button
+                        type="button"
+                        disabled={external <= 0}
+                        onClick={() => transferInput(input.id, Math.min(25, external))}
+                      >
+                        LOAD {formatNumber(Math.min(25, external))}
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </aside>
+
+          <main className="research-routing-rig" data-guide-target="research-network">
+            <header>
+              <span>ROUTING FLOOR // 02</span>
+              <h2>Evidence conduits</h2>
+              <p>
+                AXIOM assigns safe processors automatically. Bright packets are evidence moving toward the
+                Analysis Core; a broken line identifies the exact hold.
+              </p>
+            </header>
+            <div className="research-conduit-rack">
               {resolvedRoutes.map((resolvedRoute) => {
                 const input = resolvedRoute.sourceId
                   ? getResearchInputDefinition(resolvedRoute.sourceId)
@@ -446,333 +863,244 @@ export function ResearchLattice({
                 const processor = resolvedRoute.processorId
                   ? getResearchProcessorDefinition(resolvedRoute.processorId)
                   : undefined;
-                const isMissing = Boolean(
-                  resolvedRoute.sourceId &&
-                    network.missingInputs.includes(resolvedRoute.sourceId),
+                const missing = Boolean(
+                  resolvedRoute.sourceId && network.missingInputs.includes(resolvedRoute.sourceId),
                 );
-                const routeStyle = {
-                  ...(resolvedRoute.sourceId
-                    ? getInputStyle(resolvedRoute.sourceId)
-                    : {}),
-                  "--route-delay": `${resolvedRoute.slot * -0.31}s`,
-                  "--processor-rate": `${Math.max(
-                    0.7,
-                    3.6 - (processor?.throughputMultiplier ?? 0.75) * 1.3 - activity,
-                  )}s`,
-                } as CSSProperties;
                 return (
                   <div
-                    className={`research-lattice-route ${
-                      resolvedRoute.sourceId ? "is-connected" : "is-empty"
-                    } ${resolvedRoute.enabled ? "" : "is-disabled"} ${
-                      isMissing ? "is-missing" : ""
-                    }`}
                     key={resolvedRoute.slot}
-                    style={routeStyle}
+                    className={`${resolvedRoute.sourceId ? "is-connected" : "is-empty"} ${
+                      resolvedRoute.enabled ? "" : "is-disabled"
+                    } ${missing ? "is-missing" : ""}`}
+                    style={{
+                      ...(resolvedRoute.sourceId ? getInputStyle(resolvedRoute.sourceId) : {}),
+                      "--route-delay": `${resolvedRoute.slot * -0.31}s`,
+                    } as CSSProperties}
                   >
-                    <span className="research-lattice-route-index">
-                      {String.fromCharCode(65 + resolvedRoute.slot)}
+                    <span className="research-conduit-index">
+                      {String(resolvedRoute.slot + 1).padStart(2, "0")}
                     </span>
-                    <div className="research-lattice-source-node">
+                    <div className="research-conduit-source">
                       <span>{input?.shortName ?? "OPEN"}</span>
-                      <b>{input?.name ?? "Unrouted port"}</b>
+                      <strong>{input?.name ?? "Unrouted port"}</strong>
+                      <small>{missing ? "RESERVOIR EMPTY" : input ? "SOURCE READY" : "NOT REQUIRED"}</small>
                     </div>
-                    <span className="research-lattice-conduit" aria-hidden="true">
-                      <i />
-                    </span>
-                    <div className="research-lattice-processor-node">
-                      <span className="research-lattice-processor-rotor" aria-hidden="true">
-                        <i />
-                        <i />
-                        <i />
-                      </span>
+                    <span className="research-conduit-line" aria-hidden="true"><i /><i /></span>
+                    <div className="research-conduit-processor">
+                      <span className="research-conduit-rotor" aria-hidden="true"><i /><i /><i /></span>
                       <span>{processor?.code ?? "---"}</span>
-                      <b>{processor?.name ?? "No processor"}</b>
-                      {processor ? (
-                        <small>
-                          ×{processor.throughputMultiplier.toFixed(2)} · {processor.powerDraw} MW
-                        </small>
-                      ) : null}
+                      <strong>{processor?.name ?? "No processor"}</strong>
+                      <small>{processor ? `x${processor.throughputMultiplier.toFixed(2)} / ${processor.powerDraw} MW` : "STANDBY"}</small>
                     </div>
-                    <span className="research-lattice-conduit is-output" aria-hidden="true">
-                      <i />
-                    </span>
+                    <span className="research-conduit-line is-output" aria-hidden="true"><i /><i /></span>
                   </div>
                 );
               })}
+              <div className={`research-routing-core ${coreOnline ? "is-online" : ""}`}>
+                <span className="research-routing-core-rings" aria-hidden="true"><i /><i /><i /></span>
+                <span>ANALYSIS CORE</span>
+                <strong>{activeDefinition?.name ?? "NO PROGRAM"}</strong>
+                <small>{network.stalledReason ?? `${(network.progressPerSecond * 60).toFixed(1)} work/min`}</small>
+              </div>
             </div>
+          </main>
 
-            <article className="research-lattice-analysis-core">
-              <div className="research-lattice-core-field" aria-hidden="true">
-                <i />
-                <i />
-                <i />
-                <i />
-                <i />
-                <i />
-              </div>
-              <div className="research-lattice-core-orbit" aria-hidden="true">
-                <i />
-                <i />
-                <i />
-              </div>
-              <div className="research-lattice-core-reactor" aria-hidden="true">
-                <i />
-                <i />
-                <i />
-                <b />
-              </div>
-              <div className="research-lattice-core-readout">
-                <span>{coreOnline ? "LIVE SYNTHESIS" : "CORE DORMANT"}</span>
-                <h3>Analysis Core</h3>
-                <strong>{activeDefinition?.name ?? "Choose a program below"}</strong>
-                <div className="research-lattice-core-progress" aria-hidden="true">
-                  <i style={{ width: `${activeProgress * 100}%` }} />
-                </div>
-                <p>
-                  {activeDefinition
-                    ? `${(activeProgress * 100).toFixed(1)}% resolved · ETA ${formatDuration(eta)}`
-                    : "Evidence will stream here when research begins."}
-                </p>
-              </div>
-            </article>
-          </div>
-
-          <div className="research-lattice-crew-control">
-            <div>
-              <span>LABOR ALLOCATION</span>
-              <strong>{state.assignedCrew} Analysis stations active</strong>
-              <small>{Math.max(0, availableCrew - state.assignedCrew)} crew available elsewhere</small>
+          <aside className="research-operations-console" data-guide-target="research-crew">
+            <header>
+              <span>OPERATIONS // 03</span>
+              <h2>Why it moves</h2>
+            </header>
+            <div className={`research-operation-state ${network.stalledReason ? "is-warning" : "is-online"}`}>
+              <span>{network.stalledReason ? "HOLD CONDITION" : "SYNTHESIS NOMINAL"}</span>
+              <strong>{network.stalledReason ?? network.stageLabel}</strong>
+              <p>
+                {network.stalledReason === "Awaiting research inputs"
+                  ? "One or more required reservoirs are empty. The red reservoir on the left names what to recover."
+                  : network.stalledReason
+                    ? "Power, staffing, leadership, or routing is below the active stage's requirement."
+                    : `${network.expertiseId.replaceAll("-", " ")} expertise is advancing this stage.`}
+              </p>
             </div>
-            <div>
+            <dl className="research-operation-readouts">
+              <div><dt>Core power</dt><dd>{network.powerUsed.toFixed(0)} / {Math.max(0, powerAvailable).toFixed(0)} MW</dd></div>
+              <div><dt>Stations</dt><dd>{network.crewOperating} / {network.crewRequired} optimal</dd></div>
+              <div><dt>Expertise</dt><dd>x{network.expertiseMultiplier.toFixed(2)}</dd></div>
+              <div><dt>Automation</dt><dd>x{network.automationMultiplier.toFixed(2)}</dd></div>
+              <div><dt>Field validation</dt><dd>x{network.fieldValidationMultiplier.toFixed(2)}</dd></div>
+              <div><dt>Total throughput</dt><dd>{(network.progressPerSecond * 60).toFixed(1)} / min</dd></div>
+            </dl>
+            <div className="research-station-control">
+              <span>ANALYSIS STATIONS</span>
+              <p>Only assigned, healthy, aboard personnel contribute their relevant expertise.</p>
+              <div>
+                <button type="button" disabled={state.assignedCrew <= 0} onClick={() => changeCrew(-1)}>-</button>
+                <output>{state.assignedCrew}</output>
+                <button type="button" disabled={state.assignedCrew >= availableCrew} onClick={() => changeCrew(1)}>+</button>
+              </div>
+              <small>{Math.max(0, availableCrew - state.assignedCrew)} crew remain available elsewhere</small>
+            </div>
+            <div className="research-lead-readout">
+              <span>RESEARCH LEAD</span>
+              <strong>{leadResearcher.name ?? "AXIOM alone"}</strong>
+              <small>
+                Level {leadResearcher.level}. Later eras require stronger leadership; exceptional judgment
+                becomes necessary at Convergence.
+              </small>
+            </div>
+          </aside>
+        </section>
+      ) : null}
+
+      {view === "archive" ? (
+        <section className="research-archive-workspace" aria-label="Research archive">
+          <aside className="research-archive-index">
+            <header>
+              <span>ARCHIVE INDEX</span>
+              <h2>{completedResearch} preserved discoveries</h2>
+              <p>Select an era, then open one record. The archive no longer presents every document at once.</p>
+            </header>
+            <nav aria-label="Archive shelves">
+              {RESEARCH_ERAS.map((candidate) => {
+                const count = archiveProjects.filter(
+                  (project) => getResearchProjectEra(project) === candidate.id,
+                ).length;
+                return (
+                  <button
+                    key={candidate.id}
+                    type="button"
+                    className={archiveMode === candidate.id ? "is-active" : ""}
+                    disabled={count === 0}
+                    onClick={() => {
+                      setArchiveMode(candidate.id);
+                      setArchiveEntryId(null);
+                    }}
+                  >
+                    <span>{candidate.code}</span>
+                    <strong>{candidate.name}</strong>
+                    <small>{count.toString().padStart(2, "0")} records</small>
+                  </button>
+                );
+              })}
               <button
                 type="button"
-                disabled={state.assignedCrew <= 0}
-                onClick={() => changeCrew(-1)}
-                aria-label="Remove one researcher"
-              >
-                −
-              </button>
-              <output>{state.assignedCrew}</output>
-              <button
-                type="button"
-                disabled={state.assignedCrew >= availableCrew}
-                onClick={() => changeCrew(1)}
-                aria-label="Assign one researcher"
-              >
-                +
-              </button>
-            </div>
-          </div>
-        </main>
-      </div>
-
-      <section className="research-lattice-projects" data-guide-target="research-programs">
-        <div className="research-lattice-section-heading">
-          <div>
-            <span>03</span>
-            <h2>Research programs</h2>
-          </div>
-          <small>Practical capability first. Multipliers remain capped.</small>
-        </div>
-        <nav className="research-era-tabs" aria-label="Research eras">
-          {RESEARCH_ERAS.map((candidate) => {
-            const available = availableEras.some((item) => item.id === candidate.id);
-            const progress = getResearchEraProgress(state, candidate.id);
-            return (
-              <button
-                key={candidate.id}
-                type="button"
-                className={era === candidate.id ? "is-active" : ""}
-                disabled={!available}
+                className={archiveMode === "contradictions" ? "is-active is-contradiction" : "is-contradiction"}
+                disabled={echoes.length === 0}
                 onClick={() => {
-                  setEra(candidate.id);
-                  const firstBranch = BRANCHES.find((branchCandidate) =>
-                    RESEARCH_PROJECT_DEFINITIONS.some(
-                      (project) =>
-                        project.branch === branchCandidate.id &&
-                        getResearchProjectEra(project) === candidate.id,
-                    ),
-                  );
-                  if (firstBranch) setBranch(firstBranch.id);
+                  setArchiveMode("contradictions");
+                  setArchiveEntryId(null);
                 }}
               >
-                <span>{candidate.code}</span>
-                <strong>{candidate.name}</strong>
-                <small>{available ? `${progress.complete}/${progress.total} resolved` : "SEALED"}</small>
+                <span>ERR</span>
+                <strong>Contradictions</strong>
+                <small>{echoes.length.toString().padStart(2, "0")} unsolicited</small>
               </button>
-            );
-          })}
-        </nav>
-        <p className="research-era-thesis">
-          {RESEARCH_ERAS.find((candidate) => candidate.id === era)?.thesis}
-        </p>
-        <nav className="research-lattice-branch-tabs" aria-label="Research branches">
-          {BRANCHES.filter((candidate) =>
-            RESEARCH_PROJECT_DEFINITIONS.some(
-              (project) =>
-                project.branch === candidate.id &&
-                getResearchProjectEra(project) === era,
-            ),
-          ).map((candidate) => {
-            const branchProjects = RESEARCH_PROJECT_DEFINITIONS.filter(
-              (project) =>
-                project.branch === candidate.id &&
-                getResearchProjectEra(project) === era,
-            );
-            const complete = RESEARCH_PROJECT_DEFINITIONS.filter(
-              (project) =>
-                project.branch === candidate.id &&
-                getResearchProjectEra(project) === era,
-            ).filter((project) => state.completedProjectIds.includes(project.id)).length;
-            return (
-              <button
-                key={candidate.id}
-                type="button"
-                className={branch === candidate.id ? "is-active" : ""}
-                onClick={() => setBranch(candidate.id)}
-              >
-                <span
-                  className="research-lattice-branch-dial"
-                  style={{ "--branch-progress": `${complete / Math.max(1, branchProjects.length)}` } as CSSProperties}
-                >
-                  {candidate.code}
-                </span>
-                <b>{candidate.name}</b>
-                <small>{complete} / {branchProjects.length} resolved</small>
-              </button>
-            );
-          })}
-        </nav>
-        <p className="research-lattice-branch-description">
-          {BRANCHES.find((candidate) => candidate.id === branch)?.description}
-        </p>
-        <div className={`research-lattice-project-grid is-${branch}`}>
-          {RESEARCH_PROJECT_DEFINITIONS.filter(
-            (project) =>
-              project.branch === branch && getResearchProjectEra(project) === era,
-          ).map((project, index) => {
-            const repeatCount = getResearchRepeatCount(state, project.id);
-            const complete = project.repeatable
-              ? repeatCount >= project.repeatable.maxCompletions
-              : state.completedProjectIds.includes(project.id);
-            const resolvedOnce = state.completedProjectIds.includes(project.id);
-            const active = state.activeProjectId === project.id;
-            const locked = !project.prerequisites.every((prerequisite) =>
-              state.completedProjectIds.includes(prerequisite),
-            );
-            const progress = getResearchProjectProgress(state, project.id);
-            const presentation = getResearchProjectPresentation(state, project.id);
-            const projectCosts = getResearchProjectCosts(state, project);
-            const canStart = canStartResearchProject(state, project.id);
-            return (
-              <article
-                key={project.id}
-                className={`research-lattice-project ${complete ? "is-complete" : ""} ${
-                  active ? "is-active" : ""
-                } ${locked ? "is-locked" : ""}`}
-              >
-                <span className="research-lattice-project-index">
-                  {String(index + 1).padStart(2, "0")}
-                </span>
-                <span className="research-lattice-project-emblem" aria-hidden="true">
-                  <i />
-                  <i />
-                  <b />
-                </span>
-                <div className="research-lattice-project-heading">
-                  <div>
-                    <span>{project.branch.replace("-", " ")}</span>
-                    <h3>{project.name}</h3>
-                  </div>
-                  <b>{complete ? "MASTERED" : active ? "ACTIVE" : locked ? "SEALED" : project.repeatable && resolvedOnce ? `CYCLE ${repeatCount + 1}` : "READY"}</b>
-                </div>
-                <p>{presentation?.displaySummary ?? project.summary}</p>
-                <div className="research-lattice-project-progress">
-                  <i style={{ width: `${progress * 100}%` }} />
-                </div>
-                <div className="research-lattice-project-costs">
-                  <span><b>WORK</b> {formatNumber(getResearchProjectWorkRequired(state, project))}</span>
-                  {RESEARCH_INPUT_DEFINITIONS.filter(
-                    (input) => (projectCosts[input.id] ?? 0) > 0,
-                  ).map((input) => (
-                    <span key={input.id} style={getInputStyle(input.id)}>
-                      <b>{input.shortName}</b> {formatNumber(projectCosts[input.id] ?? 0)}
-                    </span>
+            </nav>
+            <div className="research-archive-record-list">
+              {archiveMode === "contradictions"
+                ? echoes.map((echo, index) => (
+                    <button
+                      key={echo.id}
+                      type="button"
+                      className={(selectedEcho?.id ?? null) === echo.id ? "is-active is-contradiction" : "is-contradiction"}
+                      onClick={() => setArchiveEntryId(echo.id)}
+                    >
+                      <span>{`${String(index + 1).padStart(2, "0")} // CAUSAL ERROR`}</span>
+                      <strong>{getResearchProjectDefinition(echo.projectId)?.name ?? echo.projectId}</strong>
+                    </button>
+                  ))
+                : archiveProjectsInMode.map((project, index) => (
+                    <button
+                      key={project.id}
+                      type="button"
+                      className={selectedArchiveProject?.id === project.id ? "is-active" : ""}
+                      onClick={() => setArchiveEntryId(project.id)}
+                    >
+                      <span>{`${String(index + 1).padStart(2, "0")} // ${
+                        BRANCHES.find((item) => item.id === project.branch)?.code
+                      }`}</span>
+                      <strong>{project.name}</strong>
+                    </button>
                   ))}
-                </div>
-                <div className="research-lattice-project-unlocks">
-                  <span>{project.repeatable ? `Mastery ${repeatCount}/${project.repeatable.maxCompletions}` : "Unlocks"}</span>
-                  <p>{project.unlocks.map((unlock) => unlock.replaceAll("-", " ")).join(" · ")}</p>
-                </div>
-                {locked ? (
-                  <small className="research-lattice-prerequisite">
-                    Requires {project.prerequisites
-                      .filter((id) => !state.completedProjectIds.includes(id))
-                      .map((id) => getResearchProjectDefinition(id)?.name ?? id)
-                      .join(" + ")}
-                  </small>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={complete || !canStart}
-                    onClick={() =>
-                      onStateChange(
-                        selectResearchProject(
-                          state,
-                          active ? null : project.id,
-                          now,
-                        ),
-                      )
-                    }
-                  >
-                    {complete ? "Research mastered" : active ? "Pause program" : progress > 0 ? "Resume program" : project.repeatable && repeatCount > 0 ? `Begin cycle ${repeatCount + 1}` : "Begin research"}
-                  </button>
-                )}
-              </article>
-            );
-          })}
-        </div>
-      </section>
+              {archiveMode !== "contradictions" && archiveProjectsInMode.length === 0 ? (
+                <p>No discoveries from this era have been preserved yet.</p>
+              ) : null}
+            </div>
+          </aside>
 
-      <section className="research-lattice-archive" aria-label="Completed research archive">
-        <div className="research-lattice-section-heading">
-          <div><span>04</span><h2>Proven capabilities</h2></div>
-          <small>{completedResearch} discoveries preserved across recalibrations</small>
-        </div>
-        <div className="research-archive-grid">
-          {state.completedProjectIds.map((projectId) => {
-            const project = getResearchProjectDefinition(projectId);
-            if (!project) return null;
-            const repeatCount = getResearchRepeatCount(state, project.id);
-            return (
-              <article key={project.id}>
-                <span>{getResearchProjectEra(project).toUpperCase()} · {BRANCHES.find((item) => item.id === project.branch)?.code}</span>
-                <strong>{project.name}</strong>
-                <p>{project.contradiction ?? project.completedSummary}</p>
-                {project.repeatable && <small>Mastery cycles {repeatCount}/{project.repeatable.maxCompletions}</small>}
+          <main className={`research-archive-reader ${archiveMode === "contradictions" ? "is-contradiction" : ""}`}>
+            <div className="research-archive-tablet-frame" aria-hidden="true"><i /><i /><i /><i /></div>
+            {archiveMode === "contradictions" && selectedEcho ? (
+              <article>
+                <header>
+                  <span>UNSOLICITED OUTPUT // {selectedEcho.id}</span>
+                  <h2>{getResearchProjectDefinition(selectedEcho.projectId)?.name ?? "Unknown program"}</h2>
+                  <b>AUTHORIZATION SIGNATURE DOES NOT MATCH</b>
+                </header>
+                <blockquote>{selectedEcho.text}</blockquote>
+                <section>
+                  <span>AXIOM NOTE</span>
+                  <p>
+                    This result was not part of the authorized program. It is preserved because deleting it
+                    would conceal evidence; it is not treated as proven truth.
+                  </p>
+                </section>
+                <section>
+                  <span>ORIGINATING PROGRAM</span>
+                  <p>{getResearchProjectDefinition(selectedEcho.projectId)?.completedSummary}</p>
+                </section>
               </article>
-            );
-          })}
-        </div>
-      </section>
-
-      {echoes.length > 0 ? (
-        <aside className="research-lattice-echoes" aria-label="Recovered Null contradictions">
-          <header>
-            <span>UNSOLICITED OUTPUT // {echoes.length.toString().padStart(2, "0")}</span>
-            <h2>The lattice remembers results it has not produced.</h2>
-          </header>
-          <div>
-            {echoes.map((echo) => (
-              <blockquote key={echo.id}>
-                <span>{echo.projectId.replaceAll("-", " ")}</span>
-                <p>{echo.text}</p>
-              </blockquote>
-            ))}
-          </div>
-        </aside>
+            ) : selectedArchiveProject ? (
+              <article>
+                <header>
+                  <span>
+                    {getResearchProjectEra(selectedArchiveProject).toUpperCase()} ARCHIVE //{" "}
+                    {BRANCHES.find((item) => item.id === selectedArchiveProject.branch)?.code}
+                  </span>
+                  <h2>{selectedArchiveProject.name}</h2>
+                  <b>CAPABILITY PROVEN</b>
+                </header>
+                <p className="research-archive-abstract">
+                  {selectedArchiveProject.contradiction ??
+                    selectedArchiveProject.completedSummary}
+                </p>
+                <section>
+                  <span>WHAT CHANGED</span>
+                  <ul>
+                    {selectedArchiveProject.unlocks.map((unlock) => (
+                      <li key={unlock}>{unlock.replaceAll("-", " ")}</li>
+                    ))}
+                  </ul>
+                </section>
+                <section>
+                  <span>WHY THE ARK KEEPS IT</span>
+                  <p>{selectedArchiveProject.summary}</p>
+                </section>
+                {selectedArchiveProject.repeatable ? (
+                  <section>
+                    <span>MASTERY CYCLES</span>
+                    <p>
+                      {getResearchRepeatCount(state, selectedArchiveProject.id)} of{" "}
+                      {selectedArchiveProject.repeatable.maxCompletions} resolved. Repeating this program
+                      strengthens its bounded effect without opening a new branch.
+                    </p>
+                  </section>
+                ) : null}
+              </article>
+            ) : (
+              <div className="research-archive-empty">
+                <span>NO RECORD SELECTED</span>
+                <h2>The tablet is waiting.</h2>
+                <p>Complete a program to preserve its capability here.</p>
+              </div>
+            )}
+            <footer>
+              <span>AXIOM FOUNDRY // ANALYSIS ARCHIVE</span>
+              <strong>{archiveMode === "contradictions" ? "EVIDENCE, NOT VERDICT" : "PERSISTENT ACROSS RECALIBRATION"}</strong>
+            </footer>
+          </main>
+        </section>
       ) : null}
+
     </section>
   );
 }

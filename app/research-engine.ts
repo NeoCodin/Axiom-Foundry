@@ -186,6 +186,11 @@ export type ResearchEnvironment = {
   crewAvailable?: number;
   externalSpeedMultiplier?: number;
   /**
+   * Visible campaign, Ark-room, and colony effects that alter the amount of
+   * evidence consumed per unit of completed research. Work time is unchanged.
+   */
+  costMultiplier?: number;
+  /**
    * Evidence produced by real Ark, expedition, defense, and colony work.
    * Applied only during Field Validation so other systems support research
    * without becoming a hidden prerequisite.
@@ -1317,11 +1322,17 @@ export const getResearchProjectWorkRequired = (
 export const getResearchProjectCosts = (
   state: Pick<ResearchLatticeState, "repeatCounts">,
   project: ResearchProjectDefinition,
+  costMultiplier = 1,
 ): Partial<ResearchInputBundle> => {
-  const multiplier = Math.pow(
-    project.repeatable?.costGrowth ?? 1,
-    getResearchRepeatCount(state, project.id),
-  );
+  const externalMultiplier = Number.isFinite(costMultiplier)
+    ? Math.min(2, Math.max(0.5, costMultiplier))
+    : 1;
+  const multiplier =
+    externalMultiplier *
+    Math.pow(
+      project.repeatable?.costGrowth ?? 1,
+      getResearchRepeatCount(state, project.id),
+    );
   return Object.fromEntries(
     Object.entries(project.costs).map(([id, cost]) => [id, (cost ?? 0) * multiplier]),
   ) as Partial<ResearchInputBundle>;
@@ -1768,7 +1779,9 @@ export const getResearchNetworkStatus = (
   const project = state.activeProjectId
     ? getResearchProjectDefinition(state.activeProjectId)
     : undefined;
-  const costs = project ? getResearchProjectCosts(state, project) : {};
+  const costs = project
+    ? getResearchProjectCosts(state, project, environment.costMultiplier)
+    : {};
   const workRequired = project
     ? getResearchProjectWorkRequired(state, project)
     : 1;
@@ -1948,7 +1961,11 @@ export const advanceResearch = (
     return { state, consumed, completedProjectId: null, progressedWork: 0 };
   }
   const workRequired = getResearchProjectWorkRequired(state, project);
-  const costs = getResearchProjectCosts(state, project);
+  const costs = getResearchProjectCosts(
+    state,
+    project,
+    environment.costMultiplier,
+  );
   const currentWork = Math.min(
     workRequired,
     Math.max(0, state.progress[project.id] ?? 0),
