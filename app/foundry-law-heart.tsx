@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { LawPressCanvas, type LawHeartTier, type LawPressState } from "./law-press-canvas";
+import { LawPressCanvas, type LawHeartTier, type LawPressState } from "./law-heart-particle-field";
 
 type FoundryLawHeartProps = {
   flux: number;
@@ -62,7 +62,7 @@ export function FoundryLawHeart({
           type="button"
           onClick={handleTune}
           aria-label={`Strike the Law-Heart for ${manualGainLabel} Flux`}
-          data-pixel-tooltip={`Strike for ${manualGainLabel} Flux. Cyan particles show stored Flux; orbit speed follows production; colored structures show the mechanisms you built; gold facets survive Recalibration.`}
+          data-pixel-tooltip={`Strike for ${manualGainLabel} Flux. Vacuum Taps add cyan motes, stored Flux thickens the field, production drives its turbulence, and later mechanisms introduce new particle colors.`}
         >
           <LawPressCanvas
             state={state}

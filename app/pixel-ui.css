@@ -1080,8 +1080,8 @@ img.pixelated,
   font-size: 28px;
 }
 .machine-row h3 { font-size: 28px; }
-.buy-button { border-color: #a8782d !important; background: #a87429 !important; color: #130d04 !important; box-shadow: 4px 4px 0 #2b1905 !important; }
-.buy-button:hover:not(:disabled) { background: #d7a54e !important; }
+.buy-button { border-color: #a8782d; background: #a87429; color: #130d04; box-shadow: 4px 4px 0 #2b1905; }
+.buy-button:hover:not(:disabled) { background: #d7a54e; }
 .purchase-modes { border: 2px solid #334c56; border-radius: 0; }
 .purchase-modes button { min-width: 50px; box-shadow: none !important; }
 .purchase-modes button.active { background: #423419; border-color: #d6a84d; color: #ffe5a3; }

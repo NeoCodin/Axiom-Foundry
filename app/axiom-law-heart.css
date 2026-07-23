@@ -32,14 +32,7 @@
 .command-bar.metric-count-0 .header-actions { grid-column: 3; }
 
 .law-heart-deck::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image:
-    linear-gradient(rgba(82, 228, 236, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(82, 228, 236, 0.035) 1px, transparent 1px);
-  background-size: 8px 8px;
+  content: none;
 }
 
 .law-heart-heading {
@@ -80,29 +73,22 @@
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: minmax(520px, 1.45fr) minmax(300px, 0.55fr);
-  min-height: 590px;
-  background: #02070a;
+  grid-template-columns: minmax(480px, 1.35fr) minmax(320px, 0.65fr);
+  min-height: 560px;
+  gap: 20px;
+  padding: 20px;
+  background: #010304;
 }
-
-.law-heart-vessel { position: absolute; inset: 0 34% 0 0; overflow: hidden; pointer-events: none; }
-.law-heart-grid { position: absolute; inset: 32px; border: 2px solid #142b32; background-image: linear-gradient(#10262d 1px, transparent 1px), linear-gradient(90deg, #10262d 1px, transparent 1px); background-size: 32px 32px; opacity: 0.75; }
-.law-hull { position: absolute; top: 50%; width: 42%; height: 330px; margin-top: -165px; border: 4px solid #29454f; background: #0c191e; }
-.law-hull-left { left: -11%; border-right: 8px solid #416571; }
-.law-hull-right { right: -11%; border-left: 8px solid #416571; }
-.law-conduit { position: absolute; left: 12%; right: 12%; height: 18px; border: 2px solid #31535e; background: repeating-linear-gradient(90deg, #10262e 0 20px, #4ecdd5 20px 24px, #10262e 24px 40px); }
-.law-conduit-top { top: 13%; }
-.law-conduit-bottom { bottom: 13%; }
 
 .law-heart-core {
   position: relative;
   place-self: center;
-  width: min(72vw, 512px);
+  width: min(100%, 560px);
   aspect-ratio: 1;
   padding: 0;
-  border: 4px solid #294954;
-  background: #020608;
-  box-shadow: 8px 8px 0 #000, inset 0 0 0 4px #071318;
+  border: 3px solid #213b43;
+  background: #010304;
+  box-shadow: 6px 6px 0 #000;
   color: inherit;
   cursor: var(--cursor-pixel-active);
   isolation: isolate;
@@ -160,7 +146,7 @@
 .law-heart-deck.is-synchronized .law-press-state { border-color: #39717c; color: #61dce2; }
 .law-heart-deck.is-law-ready .law-press-state { border-color: #a67e3e; color: #e8b75d; }
 
-.law-heart-directive { align-self: stretch; z-index: 5; margin: 32px 32px 32px 0; padding: 28px; border: 4px double #314c56; background: #081318; box-shadow: 6px 6px 0 #000; }
+.law-heart-directive { align-self: stretch; z-index: 5; margin: 0; padding: 28px; border: 4px double #314c56; background: #081318; box-shadow: 6px 6px 0 #000; }
 .law-heart-directive h3 { margin: 18px 0 10px; color: #e4f4ef; font-size: 25px; }
 .law-heart-directive p { min-height: 92px; font-size: 16px; line-height: 1.55; }
 .law-heart-directive > strong { display: block; margin-top: 12px; color: #67dfe4; }
@@ -270,10 +256,7 @@
   min-height: 0;
   padding: 0;
   grid-template-columns: minmax(0, 1fr);
-  background-image:
-    linear-gradient(rgba(82, 228, 236, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(82, 228, 236, 0.05) 1px, transparent 1px);
-  background-size: 16px 16px;
+  background: #010304;
 }
 .foundry-law-heart-machine {
   position: relative;
@@ -388,6 +371,23 @@
 }
 .foundry-chain-sidebar .machine-heading h2 { font-size: clamp(19px, 1.5vw, 27px); }
 .foundry-chain-sidebar .machine-list { padding: 8px; }
+.foundry-chain-sidebar .machine-list.is-density-filled {
+  display: flex;
+  height: calc(100% - 76px);
+  min-height: 0;
+  flex-direction: column;
+}
+.foundry-chain-sidebar .machine-list.is-density-filled > .machine-block,
+.foundry-chain-sidebar .machine-list.is-density-filled > .machine-row {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 0;
+  flex-direction: column;
+}
+.foundry-chain-sidebar .machine-list.is-density-filled .machine-row:not(.locked) {
+  min-height: 76px;
+  flex: 1 1 0;
+}
 .foundry-chain-sidebar .machine-list > :nth-child(1) { --tier-accent: #55e6e8; }
 .foundry-chain-sidebar .machine-list > :nth-child(2) { --tier-accent: #559dff; }
 .foundry-chain-sidebar .machine-list > :nth-child(3) { --tier-accent: #b87cff; }
@@ -472,8 +472,8 @@
 @media (max-width: 1050px) {
   .command-bar.metric-count-0 { grid-template-columns: minmax(300px, 1fr) minmax(180px, 0.5fr) minmax(280px, 0.8fr); }
   .law-heart-stage { grid-template-columns: 1fr; }
-  .law-heart-vessel { inset: 0; }
-  .law-heart-directive { margin: 0 24px 24px; }
+  .law-heart-stage { gap: 14px; padding: 14px; }
+  .law-heart-directive { margin: 0; }
   .law-heart-controls { grid-template-columns: 1fr; }
   .law-heart-controls > section + section { border-left: 0; border-top: 4px solid #263e48; }
   .foundry-workspace.has-reactor-workspace { grid-template-columns: minmax(0, 1.3fr) minmax(330px, 1fr); }
@@ -496,6 +496,10 @@
     grid-row: 4;
   }
   .foundry-chain-sidebar .machine-description { display: block; }
+  .foundry-chain-sidebar .machine-list.is-density-filled {
+    display: block;
+    height: auto;
+  }
 }
 
 @media (max-width: 767px) {
@@ -504,8 +508,8 @@
   .law-heart-heading { align-items: stretch; flex-direction: column; padding: 16px; }
   .law-heart-status { min-width: 0; text-align: left; }
   .law-heart-stage { min-height: 0; }
-  .law-heart-core { width: min(92vw, 430px); margin: 28px auto; }
-  .law-heart-directive { margin: 0 12px 16px; padding: 18px; }
+  .law-heart-core { width: min(92vw, 430px); margin: 0 auto; }
+  .law-heart-directive { margin: 0; padding: 18px; }
   .law-heart-controls > section { padding: 18px; }
   .law-heart-controls header { align-items: flex-start; }
   .law-machine-telemetry,

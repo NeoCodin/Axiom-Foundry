@@ -56,7 +56,7 @@ test("removes all temporary starter-preview wiring", async () => {
       readFile(new URL("../app/ark-deck.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/axiom-law-heart.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/foundry-law-heart.tsx", import.meta.url), "utf8"),
-      readFile(new URL("../app/law-press-canvas.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/law-heart-particle-field.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/lore-archive.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
       readFile(new URL("../github-pages/main.tsx", import.meta.url), "utf8"),
@@ -92,17 +92,20 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.doesNotMatch(arkDeck, /onTuneCore|Tune the Core/);
   assert.match(arkDeck, /Foundry output monitor/);
   assert.match(foundryLawHeart, /Strike the Law-Heart/);
-  assert.match(foundryLawHeart, /LawPressCanvas/);
+  assert.match(foundryLawHeart, /LawPressCanvas.*law-heart-particle-field/s);
   assert.match(lawHeart, /AXIOM LAW-HEART/);
-  assert.match(lawHeart, /LawPressCanvas/);
-  assert.doesNotMatch(lawHeart, /law-heart-ring|law-heart-particle-field/);
+  assert.match(lawHeart, /LawPressCanvas.*law-heart-particle-field/s);
+  assert.doesNotMatch(lawHeart, /law-heart-vessel|law-heart-grid|law-hull|law-conduit/);
   assert.match(lawPress, /requestAnimationFrame/);
   assert.match(lawPress, /prefers-reduced-motion/);
   assert.match(lawPress, /document\.visibilityState/);
   assert.match(lawPress, /const TIER_COLORS/);
   assert.match(lawPress, /type PurchaseEvent/);
-  assert.match(lawPress, /manualPulses > 0 \|\| props\.tiers\.some/);
-  assert.match(lawPress, /safe\(props\.fluxPerSecond\)/);
+  assert.match(lawPress, /getParticleDemand/);
+  assert.match(lawPress, /MAX_FIELD_PARTICLES/);
+  assert.match(lawPress, /drawParticleSoup/);
+  assert.match(lawPress, /drawCrystal/);
+  assert.doesNotMatch(lawPress, /drawPixelOrbit|drawChamber|fillPixelOctagon/);
   assert.match(lawPress, /safe\(props\.lifetimeAxioms\)/);
   assert.match(lawHeart, /Three laws for Pelagos/);
   assert.match(lawHeart, /APPROACH_SYSTEMS/);
@@ -124,10 +127,11 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(page, /has-reactor-workspace/);
   assert.match(page, /foundry-chain-sidebar/);
   assert.doesNotMatch(foundryLawHeart, /A visible history of the fabrication chain|law-heart-spectrum/);
-  assert.match(lawPress, /fillPixelOctagon/);
   assert.match(lawPress, /progressionAngularSpeed/);
   assert.match(page, /is-affordable/);
   assert.match(page, /Not enough Flux/);
+  assert.match(page, /is-density-filled/);
+  assert.doesNotMatch(pixelCss, /\.buy-button\s*\{[^}]*!important/s);
   assert.doesNotMatch(page, /className=.*tune-button/);
   assert.match(page, /Fabrication Chain/);
   assert.match(settlementConsole, /Nothing expires/);

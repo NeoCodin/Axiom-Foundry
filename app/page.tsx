@@ -3112,7 +3112,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="machine-list">
+          <div className={`machine-list ${campaignWorldIndex > 0 && visibleGeneratorCount >= 4 ? "is-density-filled" : ""}`}>
             {GENERATORS.slice(0, campaignWorldIndex === 0 ? 1 : visibleGeneratorCount).map((generator, index) => {
               const unlocked = isTierUnlocked(game, index);
               const tier = game.tiers[index];

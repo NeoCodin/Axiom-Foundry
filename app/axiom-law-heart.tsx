@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { PurchaseMode } from "./game-engine";
-import { LawPressCanvas, type LawPressState } from "./law-press-canvas";
+import { LawPressCanvas, type LawPressState } from "./law-heart-particle-field";
 
 export type LawHeartMachine = {
   name: string;
@@ -161,21 +161,13 @@ export function AxiomLawHeart({
       </header>
 
       <div className="law-heart-stage">
-        <div className="law-heart-vessel" aria-hidden="true">
-          <span className="law-hull law-hull-left" />
-          <span className="law-hull law-hull-right" />
-          <span className="law-conduit law-conduit-top" />
-          <span className="law-conduit law-conduit-bottom" />
-          <span className="law-heart-grid" />
-        </div>
-
         <button
           className="law-heart-core"
           data-guide-target="law-heart-core"
           type="button"
           onClick={tune}
           aria-label={`Strike the Axiom Law Press for ${manualGainLabel} Flux`}
-          data-pixel-tooltip={`Drive the Law Press clamps inward once. Each strike produces ${manualGainLabel} Flux and teaches AXIOM a motion that Vacuum Taps can repeat.`}
+          data-pixel-tooltip={`Compress the Law-Heart once for ${manualGainLabel} Flux. Vacuum Taps add cyan motes, stored Flux thickens the field, and production accelerates its motion.`}
         >
           <LawPressCanvas
             state={pressState}
@@ -197,7 +189,7 @@ export function AxiomLawHeart({
           </span>
           {pulseSerial > 0 && <span className="law-heart-click-gain" key={`gain-${pulseSerial}`} aria-hidden="true">+{manualGainLabel}</span>}
           <span className="law-press-state" aria-hidden="true">
-            {machine.bought > 0 ? `${Math.min(16, Math.ceil(machine.bought / 3))} tap banks linked` : manualPulses > 0 ? "manual strike registered" : "press motion: idle"}
+            {machine.bought > 0 ? `${machine.bought} taps feeding the field` : manualPulses > 0 ? "manual impulse retained" : "particle field dormant"}
           </span>
         </button>
 
