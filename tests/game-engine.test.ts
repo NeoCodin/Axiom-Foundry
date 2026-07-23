@@ -20,6 +20,7 @@ import {
   RUN_UPGRADES,
   SAVE_KEY,
   SAVE_VERSION,
+  allocateLegacyUpgrade,
   buyTier,
   buyRunUpgrade,
   contributeToMission,
@@ -54,6 +55,8 @@ import {
   getRecalibrationThreshold,
   getRecalibrationGain,
   getMissionProgress,
+  getLegacyMatrixStatus,
+  getOfflineCapHours,
   getProfileElevationQuote,
   elevateCrewProfile,
   getTierCost,
@@ -62,6 +65,8 @@ import {
   isTierUnlocked,
   pulseCore,
   recalibrate,
+  releaseLegacyUpgrade,
+  commitLegacyMatrix,
   sanitizeGameState,
   setContinuityIntroduced,
   setColdWakeForecastReviewed,
@@ -306,23 +311,112 @@ test("chunked and continuous production agree within simulation tolerance", () =
 test("recalibration grants the previewed Axiom and retains legacy progress", () => {
   const state = createInitialState(0);
   state.missions.stageIndex = 3;
+  state.axioms = 8;
+  state.lifetimeAxioms = 8;
   state.missions.baseline.cycle = state.cycle;
   state.missions.baseline.lifetimeAxioms = state.lifetimeAxioms;
-  state.runFlux = RECALIBRATION_THRESHOLD;
-  state.maxFlux = RECALIBRATION_THRESHOLD;
+  state.runFlux = RECALIBRATION_THRESHOLD * 6;
+  state.maxFlux = RECALIBRATION_THRESHOLD * 6;
   state.legacyUpgrades[0] = 2;
   state.living.foundryName = "The Quiet Argument";
   state.living.rooms[0].level = 3;
   state.living.discoveredLore = ["awakening.cold-wake"];
   const next = recalibrate(state, 1_000);
-  assert.equal(next.axioms, 1);
-  assert.equal(next.lifetimeAxioms, 1);
+  assert.equal(next.axioms, 9);
+  assert.equal(next.lifetimeAxioms, 9);
   assert.equal(next.cycle, 2);
   assert.equal(next.legacyUpgrades[0], 2);
   assert.equal(next.runFlux, 0);
   assert.equal(next.living.foundryName, "The Quiet Argument");
   assert.equal(next.living.rooms[0].level, 3);
   assert.deepEqual(next.living.discoveredLore, ["awakening.cold-wake"]);
+  assert.equal(next.legacyMatrixRevisionOpen, true);
+});
+
+test("Legacy Matrix capacity is milestone-bound and never spends Axioms", () => {
+  let state = createInitialState(0);
+  state.axioms = 9;
+  state.lifetimeAxioms = 3;
+  assert.deepEqual(getLegacyMatrixStatus(state), {
+    capacity: 0,
+    used: 0,
+    available: 0,
+    nextMilestone: 4,
+  });
+  assert.equal(allocateLegacyUpgrade(state, 0), state);
+
+  state.lifetimeAxioms = 4;
+  state = allocateLegacyUpgrade(state, 0);
+  assert.equal(state.legacyUpgrades[0], 1);
+  assert.equal(state.axioms, 9);
+  assert.equal(getLegacyMatrixStatus(state).available, 0);
+  assert.equal(allocateLegacyUpgrade(state, 1), state);
+
+  state.lifetimeAxioms = 6;
+  state = allocateLegacyUpgrade(state, 1);
+  assert.deepEqual(state.legacyUpgrades, [1, 1, 0]);
+  assert.equal(state.axioms, 9);
+});
+
+test("Legacy Matrix Marks can move only during a Recalibration revision window", () => {
+  let state = createInitialState(0);
+  state.lifetimeAxioms = 8;
+  state = allocateLegacyUpgrade(state, 0);
+  state = allocateLegacyUpgrade(state, 0);
+  assert.equal(releaseLegacyUpgrade(state, 0), state);
+
+  state.legacyMatrixRevisionOpen = true;
+  state = releaseLegacyUpgrade(state, 0);
+  assert.equal(state.legacyUpgrades[0], 1);
+  state = allocateLegacyUpgrade(state, 2);
+  assert.deepEqual(state.legacyUpgrades, [1, 0, 1]);
+
+  state = commitLegacyMatrix(state);
+  assert.equal(state.legacyMatrixRevisionOpen, false);
+  assert.equal(releaseLegacyUpgrade(state, 2), state);
+});
+
+test("version 18 Legacy purchases are refunded once and converted to bounded Marks", () => {
+  const oldSave = createInitialState(0) as unknown as Record<string, unknown>;
+  oldSave.version = 18;
+  oldSave.axioms = 2;
+  oldSave.lifetimeAxioms = 8;
+  oldSave.legacyUpgrades = [2, 1, 1];
+
+  const migrated = sanitizeGameState(oldSave, 100);
+  assert.equal(migrated.axioms, 10, "3 + 2 + 3 retired Axioms are refunded");
+  assert.deepEqual(migrated.legacyUpgrades, [1, 1, 1]);
+  assert.equal(migrated.legacyMatrixRevisionOpen, true);
+
+  const reloaded = sanitizeGameState(migrated, 200);
+  assert.equal(reloaded.axioms, 10, "the migration refund is never applied twice");
+  assert.deepEqual(reloaded.legacyUpgrades, [1, 1, 1]);
+});
+
+test("Legacy branches have three exact Marks with bounded economic effects", () => {
+  const baseline = createInitialState(0);
+  baseline.lifetimeAxioms = 36;
+  baseline.tiers[0] = { amount: 10, bought: 10 };
+  const baselineProduction = getProductionSnapshot(baseline).fluxPerSecond;
+  const baselineCost = getTierCost(baseline, 0, 1);
+
+  const upgraded = cloneGameState(baseline);
+  upgraded.legacyUpgrades = [3, 3, 3];
+  assert.ok(
+    Math.abs(
+      getProductionSnapshot(upgraded).fluxPerSecond /
+        baselineProduction -
+        1.5,
+    ) < 1e-10,
+  );
+  assert.ok(Math.abs(getTierCost(upgraded, 0, 1) / baselineCost - 0.8) < 1e-10);
+  assert.equal(getOfflineCapHours(upgraded), 14);
+  assert.deepEqual(getLegacyMatrixStatus(upgraded), {
+    capacity: 9,
+    used: 9,
+    available: 0,
+    nextMilestone: null,
+  });
 });
 
 test("Recalibration starts as a Cold Wake lesson and scales with each world", () => {

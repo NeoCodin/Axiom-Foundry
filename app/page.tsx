@@ -30,7 +30,7 @@ import {
   RETIRED_SAVE_KEYS,
   RUN_UPGRADES,
   SAVE_KEY,
-  buyLegacyUpgrade,
+  allocateLegacyUpgrade,
   buyRunUpgrade,
   buyTier,
   completeWorldInfrastructure,
@@ -84,7 +84,8 @@ import {
   getEquipmentFabricationQuote,
   getInfrastructureFluxCost,
   startArkBerthConstruction,
-  getLegacyUpgradeCost,
+  getLegacyMatrixStatus,
+  getLegacyUpgradeEffectLabel,
   getManualGain,
   getMissionProgress,
   getOfflineCapHours,
@@ -93,6 +94,8 @@ import {
   getRecalibrationGain,
   getRecalibrationThreshold,
   getAxiomProofStatus,
+  releaseLegacyUpgrade,
+  commitLegacyMatrix,
   getResearchCrewAvailable,
   getResearchFieldValidation,
   getOperationalResearchExpertise,
@@ -289,7 +292,13 @@ import {
   simulateQaOfflineDay,
 } from "./qa-sandbox-engine";
 
-type MobileTab = "machines" | "systems";
+type FoundryConsoleTab =
+  | "chain"
+  | "drones"
+  | "protocols"
+  | "recalibration"
+  | "autonomy"
+  | "legacy";
 
 type DestinationIntroduction = {
   id: InterfaceIntroductionId;
@@ -405,7 +414,8 @@ export default function Home() {
   const [game, setGame] = useState<GameState>(() => createInitialState(0));
   const [ready, setReady] = useState(false);
   const [primaryView, setPrimaryView] = useState<PrimaryView>("deck");
-  const [mobileTab, setMobileTab] = useState<MobileTab>("machines");
+  const [foundryConsoleTab, setFoundryConsoleTab] =
+    useState<FoundryConsoleTab>("chain");
   const [researchEntry, setResearchEntry] = useState<{
     view: ResearchView;
     nonce: number;
@@ -532,7 +542,7 @@ export default function Home() {
   useEffect(() => {
     if (tourStep === null) return;
     setPrimaryView("deck");
-    setMobileTab("machines");
+    setFoundryConsoleTab("chain");
   }, [tourStep]);
 
   useEffect(() => {
@@ -754,6 +764,19 @@ export default function Home() {
 
   useEffect(() => {
     if (!pendingContextGuideId) return;
+    if (
+      pendingContextGuideId === "cold-wake-foundry" ||
+      pendingContextGuideId === "pelagos-foundry-expansion" ||
+      pendingContextGuideId === "pelagos-gravity-ferry"
+    ) {
+      setFoundryConsoleTab("chain");
+    } else if (pendingContextGuideId === "pelagos-protocols") {
+      setFoundryConsoleTab("protocols");
+    } else if (pendingContextGuideId === "pelagos-recalibration") {
+      setFoundryConsoleTab("recalibration");
+    } else if (pendingContextGuideId === "pelagos-automation") {
+      setFoundryConsoleTab("autonomy");
+    }
     if (pendingContextGuideId === "viridia-research") {
       setResearchEntry((current) => ({
         view: "core",
@@ -1380,11 +1403,24 @@ export default function Home() {
   };
 
   const handleLegacyUpgrade = (index: number) => {
-    if (getLegacyUpgradeCost(gameRef.current, index) > gameRef.current.axioms) {
-      return;
-    }
-    setGame((current) => buyLegacyUpgrade(current, index));
-    setAnnouncement(`${LEGACY_UPGRADES[index].name} advanced one level.`);
+    const before = gameRef.current;
+    const next = allocateLegacyUpgrade(before, index);
+    if (next === before) return;
+    setGame(next);
+    setAnnouncement(`${LEGACY_UPGRADES[index].name} received one permanent Mark.`);
+  };
+
+  const handleReleaseLegacyUpgrade = (index: number) => {
+    const before = gameRef.current;
+    const next = releaseLegacyUpgrade(before, index);
+    if (next === before) return;
+    setGame(next);
+    setAnnouncement(`${LEGACY_UPGRADES[index].name} released one Mark for reassignment.`);
+  };
+
+  const handleCommitLegacyMatrix = () => {
+    setGame((current) => commitLegacyMatrix(current));
+    setAnnouncement("Legacy Matrix allocation committed for this cycle.");
   };
 
   const handleMissionContribution = () => {
@@ -1411,7 +1447,7 @@ export default function Home() {
     gameRef.current = next;
     setGame(next);
     setConfirmPrestige(false);
-    setMobileTab("machines");
+    setFoundryConsoleTab("legacy");
     setAnnouncement(
       `Recalibration complete. Cycle ${next.cycle} begins with ${gain} new Axiom${gain === 1 ? "" : "s"}.`,
     );
@@ -1428,7 +1464,7 @@ export default function Home() {
     gameRef.current = next;
     setGame(next);
     setPrimaryView("deck");
-    setMobileTab("machines");
+    setFoundryConsoleTab("chain");
     setConfirmReset(false);
     setAnnouncement(qaMode ? "The QA Sandbox has been reset to Cold Wake." : "The Foundry has been reset to Cycle 1.");
     setSaveStatus("Fresh local save started");
@@ -1449,7 +1485,7 @@ export default function Home() {
       return;
     }
     setPrimaryView(view);
-    if (view === "engineering") setMobileTab("machines");
+    if (view === "engineering") setFoundryConsoleTab("chain");
   };
 
   const handleAuthorizeFoundryWake = () => {
@@ -1465,7 +1501,7 @@ export default function Home() {
     if (current.missions.stageIndex === COLD_WAKE_FOUNDRY_STAGE) {
       if (!current.settings.coldWakeForecastReviewed) handleAuthorizeFoundryWake();
       else {
-        setMobileTab("machines");
+        setFoundryConsoleTab("chain");
         setPrimaryView("engineering");
       }
       return;
@@ -1504,7 +1540,7 @@ export default function Home() {
   const handleQaJumpWorld = (worldIndex: number) => {
     const next = createQaCheckpoint(worldIndex, Date.now());
     setPrimaryView("deck");
-    setMobileTab("machines");
+    setFoundryConsoleTab("chain");
     applyQaState(next, `Fresh ${MISSIONS[worldIndex]?.world ?? "Cold Wake"} opening loaded with its normal arrival resources.`);
     setQaCollapsed(true);
     setContextGuide(null);
@@ -1520,7 +1556,15 @@ export default function Home() {
   const handleCommandPriorityNavigate = (priority: CommandPriority) => {
     setPrimaryView(priority.target);
     if (priority.target === "engineering") {
-      setMobileTab(priority.panel === "systems" ? "systems" : "machines");
+      setFoundryConsoleTab(
+        priority.panel === "systems"
+          ? recalibrationUnlocked
+            ? "recalibration"
+            : protocolsUnlocked
+              ? "protocols"
+              : "chain"
+          : "chain",
+      );
     }
     if (priority.target === "research") {
       const view: ResearchView =
@@ -1818,7 +1862,7 @@ export default function Home() {
     if (current.missions.currentIndex !== 1) return;
     if (current.missions.stageIndex === PELAGOS_RECEIVER_STAGE) {
       setPrimaryView("engineering");
-      setMobileTab("machines");
+      setFoundryConsoleTab("chain");
       return;
     }
     if (current.missions.stageIndex === PELAGOS_HABITABILITY_STAGE) {
@@ -2215,7 +2259,7 @@ export default function Home() {
     setGame(next);
     setPrimaryView(destinationIntroduction.view);
     setContextGuide(null);
-    if (destinationIntroduction.view === "engineering") setMobileTab("machines");
+    if (destinationIntroduction.view === "engineering") setFoundryConsoleTab("chain");
     setAnnouncement(
       `${destinationIntroduction.title}. The interface will reveal another destination only when it becomes relevant.`,
     );
@@ -2250,15 +2294,57 @@ export default function Home() {
   const protocolsUnlocked = disclosure.protocols;
   const recalibrationUnlocked = disclosure.recalibration;
   const autonomyUnlocked = isAutonomyUnlocked(game);
-  const advancedFoundryVisible =
-    protocolsUnlocked ||
-    recalibrationUnlocked ||
-    automationFrameQuote.researchMet ||
-    game.automation.framesBuilt > 0;
-  const engineeringMobileTabs: Array<[MobileTab, string]> = [["machines", "Fabricate"]];
-  if (advancedFoundryVisible) {
-    engineeringMobileTabs.push(["systems", "Systems"]);
+  const dronesUnlocked =
+    automationFrameQuote.researchMet || game.automation.framesBuilt > 0;
+  const legacyUnlocked = recalibrationUnlocked && game.lifetimeAxioms > 3;
+  const legacyMatrixStatus = getLegacyMatrixStatus(game);
+  const foundryConsoleTabs: Array<{
+    id: FoundryConsoleTab;
+    label: string;
+    shortLabel: string;
+  }> = [{ id: "chain", label: "Fabrication Chain", shortLabel: "Chain" }];
+  if (dronesUnlocked) {
+    foundryConsoleTabs.push({
+      id: "drones",
+      label: "Utility Drones",
+      shortLabel: "Drones",
+    });
   }
+  if (protocolsUnlocked) {
+    foundryConsoleTabs.push({
+      id: "protocols",
+      label: "Core Protocols",
+      shortLabel: "Protocols",
+    });
+  }
+  if (recalibrationUnlocked) {
+    foundryConsoleTabs.push({
+      id: "recalibration",
+      label: "Recalibration",
+      shortLabel: "Recalibrate",
+    });
+  }
+  if (autonomyUnlocked) {
+    foundryConsoleTabs.push({
+      id: "autonomy",
+      label: "AXIOM Autonomy",
+      shortLabel: "Autonomy",
+    });
+  }
+  if (legacyUnlocked) {
+    foundryConsoleTabs.push({
+      id: "legacy",
+      label: "Legacy Matrix",
+      shortLabel: "Legacy",
+    });
+  }
+  const foundryConsoleTabIds = foundryConsoleTabs
+    .map((tab) => tab.id)
+    .join("|");
+  useEffect(() => {
+    if (foundryConsoleTabIds.split("|").includes(foundryConsoleTab)) return;
+    setFoundryConsoleTab("chain");
+  }, [foundryConsoleTab, foundryConsoleTabIds]);
   const unlockedArkViews: ArkViewId[] = [];
   if (engineeringUnlocked) unlockedArkViews.push("engineering");
   if (researchUnlocked) unlockedArkViews.push("research");
@@ -2462,7 +2548,7 @@ export default function Home() {
             const next = createInitialState(Date.now());
             applyQaState(next, "Fresh public-player opening loaded in the isolated QA profile.");
             setPrimaryView("deck");
-            setMobileTab("machines");
+            setFoundryConsoleTab("chain");
             setQaCollapsed(true);
             setContextGuide(null);
             setTourStep(0);
@@ -2471,7 +2557,7 @@ export default function Home() {
             const next = createQaPlanetIntroductionCheckpoint(Date.now());
             applyQaState(next, "Cold Wake laws loaded. The full public Continuity → Foundry → Ark handoff is ready to replay.");
             setPrimaryView("deck");
-            setMobileTab("machines");
+            setFoundryConsoleTab("chain");
             setQaCollapsed(true);
             setContextGuide(null);
             setTourStep(null);
@@ -2480,7 +2566,7 @@ export default function Home() {
             const next = createQaPelagosOnboardingCheckpoint(Date.now());
             applyQaState(next, "Pelagos arrival loaded. The public arrival guide, beacon sequence, and Personnel handoff are ready to test.");
             setPrimaryView("deck");
-            setMobileTab("machines");
+            setFoundryConsoleTab("chain");
             setQaCollapsed(true);
             setTourStep(null);
             setContextGuide(null);
@@ -2489,7 +2575,7 @@ export default function Home() {
             const next = createQaResearchIntroductionCheckpoint(Date.now());
             applyQaState(next, "Viridia loaded before Research. Open the guided destination to test the complete Analysis Core introduction.");
             setPrimaryView("deck");
-            setMobileTab("machines");
+            setFoundryConsoleTab("chain");
             setQaCollapsed(true);
             setTourStep(null);
             setContextGuide(null);
@@ -3087,7 +3173,34 @@ export default function Home() {
 
       <div className="game-grid foundry-grid">
         {fabricationUnlocked && (
-        <section className={`panel machine-panel foundry-chain-sidebar mobile-section ${mobileTab === "machines" ? "is-mobile-active" : ""}`} data-guide-target="foundry-chain">
+        <section className="panel machine-panel foundry-chain-sidebar foundry-system-console">
+          <nav className="foundry-console-tabs" aria-label="Foundry systems">
+            {foundryConsoleTabs.map((tab) => {
+              const needsAttention =
+                (tab.id === "protocols" &&
+                  !game.settings.completedGuideIds.includes("pelagos-protocols")) ||
+                (tab.id === "recalibration" && recalibrationGain > 0) ||
+                (tab.id === "autonomy" &&
+                  !game.settings.completedGuideIds.includes("pelagos-automation")) ||
+                (tab.id === "legacy" && legacyMatrixStatus.available > 0);
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  className={`${foundryConsoleTab === tab.id ? "active" : ""} ${needsAttention ? "has-attention" : ""}`}
+                  aria-pressed={foundryConsoleTab === tab.id}
+                  aria-label={tab.label}
+                  onClick={() => setFoundryConsoleTab(tab.id)}
+                >
+                  <span>{tab.shortLabel}</span>
+                  <small>{tab.label}</small>
+                </button>
+              );
+            })}
+          </nav>
+          <div className="foundry-console-scroll">
+          {foundryConsoleTab === "chain" && (
+          <div className="foundry-console-panel foundry-chain-panel" data-guide-target="foundry-chain">
           <div className="panel-heading machine-heading">
             <div>
               <p className="section-kicker">Nested mechanisms</p>
@@ -3183,12 +3296,11 @@ export default function Home() {
               );
             })}
           </div>
-        </section>
-        )}
+          </div>
+          )}
 
-        {advancedFoundryVisible && (
-        <aside className={`systems-column mobile-section ${mobileTab === "systems" ? "is-mobile-active" : ""}`}>
-          {(automationFrameQuote.researchMet || game.automation.framesBuilt > 0) && (
+          {dronesUnlocked && foundryConsoleTab === "drones" && (
+            <div className="foundry-console-panel" data-guide-target="foundry-drones">
             <AutomationConsole
               state={game.automation}
               effects={automationEffects}
@@ -3201,9 +3313,10 @@ export default function Home() {
               onPolicy={handleAutomationPolicy}
               onOpenHelp={setManualTopic}
             />
+            </div>
           )}
 
-          {protocolsUnlocked && (
+          {protocolsUnlocked && foundryConsoleTab === "protocols" && (
           <section className="panel upgrades-panel" data-guide-target="foundry-protocols">
             <div className="panel-heading">
               <div>
@@ -3277,7 +3390,7 @@ export default function Home() {
           </section>
           )}
 
-          {recalibrationUnlocked && (
+          {recalibrationUnlocked && foundryConsoleTab === "recalibration" && (
           <section className="panel recalibration-panel foundry-recalibration" data-guide-target="foundry-recalibration">
             <div className="panel-heading">
               <div>
@@ -3322,7 +3435,7 @@ export default function Home() {
           </section>
           )}
 
-          {autonomyUnlocked && (
+          {autonomyUnlocked && foundryConsoleTab === "autonomy" && (
           <section className="panel automation-panel" data-guide-target="foundry-automation">
             <div className="panel-heading">
               <div>
@@ -3359,36 +3472,98 @@ export default function Home() {
           </section>
           )}
 
-          {recalibrationUnlocked && game.lifetimeAxioms > 3 && (
+          {legacyUnlocked && foundryConsoleTab === "legacy" && (
           <section className="panel legacy-panel">
             <div className="panel-heading">
               <div>
                 <p className="section-kicker violet">Across all cycles</p>
                 <h2>Legacy Matrix</h2>
               </div>
-              <span className="count-label violet-text">{formatNumber(game.axioms)} A</span>
+              <span className="count-label violet-text">
+                {legacyMatrixStatus.used}/{legacyMatrixStatus.capacity} CAPACITY
+              </span>
             </div>
-            {game.lifetimeAxioms < 1 ? (
-              <div className="locked-copy compact">
-                <p>The matrix will resolve after your first Recalibration.</p>
+            <p className="panel-copy legacy-intro">
+              Lifetime Axiom milestones reveal permanent Matrix Capacity. Assign that capacity across three bounded branches; spendable Axioms are never consumed here.
+            </p>
+            <div className="legacy-capacity-readout">
+              <div>
+                <span>Available capacity</span>
+                <strong>{legacyMatrixStatus.available}</strong>
               </div>
-            ) : (
-              <div className="legacy-list">
-                {LEGACY_UPGRADES.map((upgrade, index) => {
-                  const cost = getLegacyUpgradeCost(game, index);
-                  return (
-                    <article key={upgrade.name}>
-                      <div><span>LEVEL {game.legacyUpgrades[index]}</span><strong>{upgrade.name}</strong><p>{upgrade.description}</p></div>
-                      <button type="button" disabled={game.axioms < cost} onClick={() => handleLegacyUpgrade(index)}>{cost} A</button>
-                    </article>
-                  );
-                })}
+              <div>
+                <span>Next capacity</span>
+                <strong>
+                  {legacyMatrixStatus.nextMilestone === null
+                    ? "MATRIX COMPLETE"
+                    : `${legacyMatrixStatus.nextMilestone} LIFETIME AXIOMS`}
+                </strong>
               </div>
+              <div>
+                <span>Reallocation</span>
+                <strong>
+                  {game.legacyMatrixRevisionOpen
+                    ? "OPEN THIS CYCLE"
+                    : "OPENS AFTER RECALIBRATION"}
+                </strong>
+              </div>
+            </div>
+            <div className="legacy-list">
+              {LEGACY_UPGRADES.map((upgrade, index) => {
+                const level = game.legacyUpgrades[index];
+                return (
+                  <article className={level >= 3 ? "installed" : ""} key={upgrade.name}>
+                    <div>
+                      <span>MARK {PROTOCOL_MARK_LABELS[level]} / III</span>
+                      <strong>{upgrade.name}</strong>
+                      <p>{upgrade.description}</p>
+                      <small>
+                        {getLegacyUpgradeEffectLabel(index, level)}
+                        {level < 3 && (
+                          <> → {getLegacyUpgradeEffectLabel(index, level + 1)}</>
+                        )}
+                      </small>
+                    </div>
+                    <div className="legacy-mark-controls">
+                      <button
+                        type="button"
+                        disabled={!game.legacyMatrixRevisionOpen || level <= 0}
+                        onClick={() => handleReleaseLegacyUpgrade(index)}
+                        aria-label={`Release one ${upgrade.name} Mark`}
+                      >
+                        −
+                      </button>
+                      <b>{level}</b>
+                      <button
+                        type="button"
+                        disabled={legacyMatrixStatus.available < 1 || level >= 3}
+                        onClick={() => handleLegacyUpgrade(index)}
+                        aria-label={`Assign one ${upgrade.name} Mark`}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+            {game.legacyMatrixRevisionOpen && (
+              <button
+                className="prestige-button legacy-commit-button"
+                type="button"
+                onClick={handleCommitLegacyMatrix}
+              >
+                Commit Matrix for this cycle
+              </button>
             )}
           </section>
           )}
 
-          <details className="panel statistics-panel">
+          </div>
+        </section>
+        )}
+
+          <details className="panel statistics-panel foundry-statistics">
             <summary>Foundry statistics</summary>
             <dl>
               <div><dt>This cycle</dt><dd>{formatDuration(game.runTime)}</dd></div>
@@ -3412,8 +3587,6 @@ export default function Home() {
               </div>
             )}
           </details>
-        </aside>
-        )}
       </div>
       </section>
       )}
@@ -3468,17 +3641,6 @@ export default function Home() {
         />
       )}
 
-      {primaryView === "engineering" && (
-      <nav className="mobile-nav" aria-label="Game sections">
-        {engineeringMobileTabs.map(([value, label]) => (
-          <button key={value} type="button" className={mobileTab === value ? "active" : ""} aria-pressed={mobileTab === value} onClick={() => setMobileTab(value)}>
-            <span aria-hidden="true">{value === "machines" ? "II" : "≡"}</span>
-            {label}
-            {value === "systems" && recalibrationGain > 0 && <i aria-label="Recalibration available" />}
-          </button>
-        ))}
-      </nav>
-      )}
     </main>
   );
 }

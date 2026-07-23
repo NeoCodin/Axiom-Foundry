@@ -66,7 +66,7 @@ const TOOLTIP_RULES: TooltipRule[] = [
   { selector: ".upgrade-card", copy: "Core Protocol. Each of its three Marks makes a substantial temporary change. Marks reset during Recalibration; its automation blueprint survives." },
   { selector: ".foundry-recalibration", copy: "Recalibration converts a mature run into permanent Axioms. Machines and temporary Protocol Marks reset; laws and legacy progress survive. Each additional proof on this world costs five times more." },
   { selector: ".automation-panel", copy: "Cycle automation. After its unlocks, AXIOM can purchase selected mechanisms and run optimizations while you are away." },
-  { selector: ".legacy-panel", copy: "Legacy Matrix. Spend Axioms on permanent laws that strengthen every future cycle." },
+  { selector: ".legacy-panel", copy: "Legacy Matrix. Lifetime Axiom milestones reveal bounded capacity; assign permanent Marks here without spending your Axioms." },
 
   // Personnel
   { selector: ".continuity-summary-band > div", copy: "Personnel summary. Capacity is a hard limit; reserve and assignment totals explain where everyone aboard currently serves." },

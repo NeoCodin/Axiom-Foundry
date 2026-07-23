@@ -82,7 +82,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
     category: "Page guide // fabrication floor",
     title: "Build the machine that builds the next machine",
     summary:
-      "The Foundry owns the interactive Law-Heart, fabrication, Core Protocols, automation, and Recalibration. Continuity owns every planetary directive and departure requirement.",
+      "The Foundry keeps the interactive Law-Heart on the left and every unlocked fabrication system in one tabbed console on the right. Continuity owns every planetary directive and departure requirement.",
     steps: [
       { title: "Strike the Law-Heart", detail: "The Foundry is the only page where the Law-Heart produces manual Flux. The Ark's Axiom Chamber is a read-only status monitor." },
       { title: "Buy the first mechanism", detail: "Every machine produces Flux directly—each tier simply produces far more per unit. Your Flux/sec only changes when you build or improve something; nothing grows on its own." },
@@ -92,11 +92,13 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
       { title: "Compile a Core Protocol", detail: "Protocols are temporary cycle configurations with three meaningful Marks. Pulse Geometry favors active strikes, Flow Compression improves the whole idle stream, Harmonic Gearing specializes upper tiers, and Resonant Mesh rewards balanced links." },
       { title: "Save an automation blueprint", detail: "Each Protocol card stores an optional target Mark. After Recalibration, Protocol routing buys only those remembered Marks; it never chooses an arbitrary build for you." },
       { title: "Recalibrate when worthwhile", detail: "Recalibration resets the current assembly but awards permanent Axioms and preserves people, research, and restored worlds. Every additional Axiom forged on the same world requires five times the previous proof threshold." },
+      { title: "Allocate the Legacy Matrix", detail: "Lifetime Axiom milestones reveal nine total Matrix Capacity slots. Assign them across three permanent three-Mark branches without spending Axioms. Recalibration opens a free reallocation window." },
     ],
     sources: [
       { label: "Machine multiplier", detail: "Comes from purchases, milestones, Resonance, research, world effects, and permanent upgrades." },
       { label: "Balanced links", detail: "Created when neighboring tiers hold enough matched groups of 15." },
       { label: "Lifetime Axioms", detail: "Your permanent total across every Recalibration cycle. The current world's proof ladder is separate and makes repeated Axioms progressively harder." },
+      { label: "Matrix Capacity", detail: "Permanent slots earned at specific Lifetime Axiom milestones. Capacity is allocated, not purchased, and cannot grow beyond nine." },
       { label: "Operational Load", detail: "The unified share of output diverted to Medical care, utility drones, restored-world defense networks, and temporary hostile compromises." },
     ],
     tip: "You do not need to buy everything immediately. The active directive is the safest guide to the next efficient target.",

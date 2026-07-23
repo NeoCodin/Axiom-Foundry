@@ -220,7 +220,7 @@ import {
   type CausalArchiveView,
 } from "./causal-archive-engine.ts";
 
-export const SAVE_VERSION = 18;
+export const SAVE_VERSION = 19;
 export const SAVE_KEY = "axiom-foundry-save-v5";
 export const RETIRED_SAVE_KEYS = [
   "axiom-foundry-save-v1",
@@ -305,6 +305,8 @@ export type GameState = {
   tiers: TierState[];
   runUpgrades: number[];
   legacyUpgrades: number[];
+  /** Recalibration opens one free window for moving Legacy Matrix Marks. */
+  legacyMatrixRevisionOpen: boolean;
   missions: MissionState;
   living: LivingFoundryState;
   survivors: SurvivorSystemState;
@@ -444,17 +446,27 @@ export const PROTOCOL_MARK_LABELS = ["OFF", "I", "II", "III"] as const;
 export const LEGACY_UPGRADES = [
   {
     name: "Axiom Amplifier",
-    description: "Strengthen final Flux output with diminishing returns.",
+    description: "Strengthen all Foundry production and manual Law-Heart strikes.",
   },
   {
     name: "Precision Tooling",
-    description: "Reduce machine prices with a stable, diminishing curve.",
+    description: "Reduce machine prices and extend the Ark's offline reserve.",
   },
   {
     name: "Seed Mechanism",
-    description: "Future cycles and planetary landings begin with 2 Vacuum Taps per level.",
+    description: "Begin future cycles and planetary landings with proven Vacuum Taps.",
   },
 ] as const;
+
+export const LEGACY_MATRIX_CAPACITY_MILESTONES = [
+  4, 6, 8, 11, 14, 18, 23, 29, 36,
+] as const;
+export const LEGACY_MAX_MARK = 3;
+const LEGACY_AMPLIFIER_PRODUCTION = [1, 1.15, 1.32, 1.5] as const;
+const LEGACY_AMPLIFIER_MANUAL = [1, 1.1, 1.2, 1.3] as const;
+const LEGACY_PRECISION_DISCOUNT = [0, 0.08, 0.14, 0.2] as const;
+const LEGACY_OFFLINE_CAP_HOURS = [8, 10, 12, 14] as const;
+const LEGACY_SEED_TAPS = [0, 2, 5, 9] as const;
 
 // The first portable law is deliberately reachable during Cold Wake. Later
 // worlds demand progressively stronger proofs so Recalibration remains a goal
@@ -883,6 +895,43 @@ const safeMultiply = (left: number, right: number) =>
 const safePower = (base: number, exponent: number) =>
   bounded(Math.pow(base, exponent), 0, MAX_VALUE);
 
+export function getLegacyMatrixCapacity(state: Pick<GameState, "lifetimeAxioms">) {
+  return LEGACY_MATRIX_CAPACITY_MILESTONES.filter(
+    (milestone) => state.lifetimeAxioms >= milestone,
+  ).length;
+}
+
+const sanitizeLegacyAllocations = (
+  levels: readonly number[],
+  capacity: number,
+) => {
+  const result = LEGACY_UPGRADES.map(() => 0);
+  let used = 0;
+  // Preserve prior choices without allowing one formerly uncapped branch to
+  // consume every bounded slot. Existing Marks are recovered in round-robin
+  // order across the three branches.
+  for (let mark = 1; mark <= LEGACY_MAX_MARK && used < capacity; mark += 1) {
+    for (let index = 0; index < result.length && used < capacity; index += 1) {
+      if ((levels[index] ?? 0) < mark) continue;
+      result[index] += 1;
+      used += 1;
+    }
+  }
+  return result;
+};
+
+const getRetiredLegacyAxiomSpend = (levels: readonly number[]) => {
+  const amplifierLevel = Math.max(0, Math.floor(levels[0] ?? 0));
+  const precisionLevel = Math.max(0, Math.floor(levels[1] ?? 0));
+  const seedLevel = Math.max(0, Math.floor(levels[2] ?? 0));
+  return Math.min(
+    1e15,
+    Math.max(0, safePower(2, amplifierLevel) - 1) +
+      Math.max(0, safePower(3, precisionLevel) - 1) +
+      Math.max(0, safePower(4, seedLevel) - 1),
+  );
+};
+
 const emptyMissionBaseline = (cycle = 1): MissionBaseline => ({
   manualPulses: 0,
   tierBought: GENERATORS.map(() => 0),
@@ -948,6 +997,7 @@ export function createInitialState(now = Date.now()): GameState {
     tiers: GENERATORS.map(() => ({ amount: 0, bought: 0 })),
     runUpgrades: RUN_UPGRADES.map(() => 0),
     legacyUpgrades: LEGACY_UPGRADES.map(() => 0),
+    legacyMatrixRevisionOpen: false,
     missions: {
       schema: 5,
       currentIndex: 0,
@@ -1061,7 +1111,7 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
       Math.floor(readNumber(rawRunUpgrades[index], 0, upgrade.maxLevel)),
     ),
   );
-  const legacyUpgrades = LEGACY_UPGRADES.map((_, index) =>
+  const rawLegacyLevels = LEGACY_UPGRADES.map((_, index) =>
     Math.floor(readNumber(rawLegacy[index], 0, 1_000)),
   );
   const migratedColdWakeContribution =
@@ -1098,11 +1148,21 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
   const allTimeFlux = Math.max(runFlux, readNumber(value.allTimeFlux));
   const savedAt = readNumber(value.lastSaved, now, now);
   const cycle = Math.max(1, Math.floor(readNumber(value.cycle, 1, 1e9)));
-  const axioms =
-    Math.floor(readNumber(value.axioms, 0, 1e15)) + recoveredFinalAxiom;
   const lifetimeAxioms =
     Math.floor(readNumber(value.lifetimeAxioms, 0, 1e15)) +
     recoveredFinalAxiom;
+  const retiredLegacyRefund =
+    sourceVersion < 19 ? getRetiredLegacyAxiomSpend(rawLegacyLevels) : 0;
+  const axioms = Math.min(
+    1e15,
+    Math.floor(readNumber(value.axioms, 0, 1e15)) +
+      recoveredFinalAxiom +
+      retiredLegacyRefund,
+  );
+  const legacyUpgrades = sanitizeLegacyAllocations(
+    rawLegacyLevels,
+    getLegacyMatrixCapacity({ lifetimeAxioms }),
+  );
   const manualPulses = Math.floor(readNumber(value.manualPulses, 0, 1e15));
   const researchPurchases = Math.floor(
     readNumber(
@@ -1285,6 +1345,10 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
     tiers,
     runUpgrades,
     legacyUpgrades,
+    legacyMatrixRevisionOpen:
+      sourceVersion < 19
+        ? getLegacyMatrixCapacity({ lifetimeAxioms }) > 0
+        : value.legacyMatrixRevisionOpen === true,
     missions: {
       schema: 6,
       currentIndex: currentMissionIndex,
@@ -4306,7 +4370,7 @@ export function departCurrentWorld(
   // Seed taps are BOUGHT machines under economy v2 - they must produce.
   next.tiers[0].bought = Math.min(
     25,
-    next.legacyUpgrades[2] * 2 + getCampaignRelics(next).seedTaps,
+    LEGACY_SEED_TAPS[next.legacyUpgrades[2]] + getCampaignRelics(next).seedTaps,
   );
   next.tiers[0].amount = next.tiers[0].bought;
   next.missions.baseline = captureMissionBaseline(next);
@@ -4429,15 +4493,46 @@ export function getRunUpgradeEffectLabel(index: number, level: number) {
   return `+${Math.round(MESH_PROTOCOL_BONUS[safeLevel] * 100)} points per Resonance level`;
 }
 
-export function getLegacyUpgradeCost(state: GameState, index: number) {
-  const level = state.legacyUpgrades[index];
-  if (index === 0) return Math.ceil(safePower(2, level));
-  if (index === 1) return Math.ceil(2 * safePower(3, level));
-  return Math.ceil(3 * safePower(4, level));
+export function getLegacyMatrixStatus(state: GameState) {
+  const capacity = getLegacyMatrixCapacity(state);
+  const used = state.legacyUpgrades.reduce(
+    (sum, level) => sum + Math.min(LEGACY_MAX_MARK, Math.max(0, level)),
+    0,
+  );
+  const nextMilestone =
+    LEGACY_MATRIX_CAPACITY_MILESTONES.find(
+      (milestone) => milestone > state.lifetimeAxioms,
+    ) ?? null;
+  return {
+    capacity,
+    used,
+    available: Math.max(0, capacity - used),
+    nextMilestone,
+  };
+}
+
+export function getLegacyUpgradeEffectLabel(index: number, level: number) {
+  const safeLevel = Math.min(
+    LEGACY_MAX_MARK,
+    Math.max(0, Math.floor(level)),
+  );
+  if (index === 0) {
+    return safeLevel === 0
+      ? "No permanent amplification"
+      : `Production +${Math.round((LEGACY_AMPLIFIER_PRODUCTION[safeLevel] - 1) * 100)}% · strikes +${Math.round((LEGACY_AMPLIFIER_MANUAL[safeLevel] - 1) * 100)}%`;
+  }
+  if (index === 1) {
+    return safeLevel === 0
+      ? "Standard prices · 8-hour offline reserve"
+      : `Machine prices −${Math.round(LEGACY_PRECISION_DISCOUNT[safeLevel] * 100)}% · ${LEGACY_OFFLINE_CAP_HOURS[safeLevel]}-hour reserve`;
+  }
+  return safeLevel === 0
+    ? "No seeded mechanisms"
+    : `Begin with ${LEGACY_SEED_TAPS[safeLevel]} Vacuum Taps`;
 }
 
 export function getOfflineCapHours(state: GameState) {
-  return Math.min(24, 8 + state.legacyUpgrades[1] * 2);
+  return LEGACY_OFFLINE_CAP_HOURS[state.legacyUpgrades[1]];
 }
 
 export function getResonanceDetails(state: GameState) {
@@ -4641,7 +4736,7 @@ export function getProductionSnapshot(state: GameState) {
   const prestigeMultiplier =
     1 + 0.35 * Math.log2(1 + state.lifetimeAxioms);
   const legacyMultiplier =
-    1 + 0.2 * Math.sqrt(state.legacyUpgrades[0]);
+    LEGACY_AMPLIFIER_PRODUCTION[state.legacyUpgrades[0]];
   const flowMultiplier = FLOW_PROTOCOL_MULTIPLIERS[protocolLevel(state, 1)];
   const relayMultiplier = 1 + state.stellarRelays * 0.015;
   const world = getWorldEffects(state);
@@ -4744,7 +4839,7 @@ export function getManualGain(state: GameState) {
     safeMultiply(
       PULSE_PROTOCOL_MULTIPLIERS[protocolLevel(state, 0)],
       safeMultiply(
-        1 + 0.12 * Math.sqrt(state.legacyUpgrades[0]),
+        LEGACY_AMPLIFIER_MANUAL[state.legacyUpgrades[0]],
         world.manual * relics.manualMultiplier * living.manualMultiplier,
       ),
     ),
@@ -4773,7 +4868,8 @@ export function getTierCost(
 ) {
   if (quantity <= 0) return 0;
   const generator = GENERATORS[index];
-  const priceDivider = 1 + 0.15 * Math.sqrt(state.legacyUpgrades[1]);
+  const legacyPriceMultiplier =
+    1 - LEGACY_PRECISION_DISCOUNT[state.legacyUpgrades[1]];
   const world = getWorldEffects(state);
   const living = getLivingFoundryBonuses(state.living);
   const research = getResearchBonuses(state.research);
@@ -4785,10 +4881,11 @@ export function getTierCost(
         safePower(generator.growth, state.tiers[index].bought),
       ),
       world.machineCost *
+        legacyPriceMultiplier *
         living.machineCostMultiplier *
         research.machineCostMultiplier *
         colony.fabricationCostMultiplier,
-    ) / Math.max(1, priceDivider);
+    );
   const growthForQuantity = safePower(generator.growth, quantity);
   return bounded(
     nextPrice * ((growthForQuantity - 1) / (generator.growth - 1)),
@@ -4874,12 +4971,37 @@ export function buyRunUpgrade(state: GameState, index: number) {
   return next;
 }
 
-export function buyLegacyUpgrade(state: GameState, index: number) {
-  const cost = getLegacyUpgradeCost(state, index);
-  if (cost > state.axioms) return state;
+export function allocateLegacyUpgrade(state: GameState, index: number) {
+  const status = getLegacyMatrixStatus(state);
+  if (
+    !LEGACY_UPGRADES[index] ||
+    status.available < 1 ||
+    state.legacyUpgrades[index] >= LEGACY_MAX_MARK
+  ) {
+    return state;
+  }
   const next = cloneGameState(state);
-  next.axioms -= cost;
   next.legacyUpgrades[index] += 1;
+  return next;
+}
+
+export function releaseLegacyUpgrade(state: GameState, index: number) {
+  if (
+    !state.legacyMatrixRevisionOpen ||
+    !LEGACY_UPGRADES[index] ||
+    state.legacyUpgrades[index] <= 0
+  ) {
+    return state;
+  }
+  const next = cloneGameState(state);
+  next.legacyUpgrades[index] -= 1;
+  return next;
+}
+
+export function commitLegacyMatrix(state: GameState) {
+  if (!state.legacyMatrixRevisionOpen) return state;
+  const next = cloneGameState(state);
+  next.legacyMatrixRevisionOpen = false;
   return next;
 }
 
@@ -4976,6 +5098,7 @@ export function recalibrate(state: GameState, now = Date.now()) {
   fresh.cycle = state.cycle + 1;
   fresh.allTimeFlux = state.allTimeFlux;
   fresh.legacyUpgrades = [...state.legacyUpgrades];
+  fresh.legacyMatrixRevisionOpen = true;
   fresh.axiomProofsByWorld = [...state.axiomProofsByWorld];
   fresh.axiomProofsByWorld[worldIndex] =
     (fresh.axiomProofsByWorld[worldIndex] ?? 0) + gain;
@@ -5023,7 +5146,9 @@ export function recalibrate(state: GameState, now = Date.now()) {
   const relics = getCampaignRelics(state);
   fresh.tiers[0].bought = Math.min(
     25,
-    state.legacyUpgrades[2] * 2 + relics.seedTaps + Math.min(3, fresh.lifetimeAxioms),
+    LEGACY_SEED_TAPS[state.legacyUpgrades[2]] +
+      relics.seedTaps +
+      Math.min(3, fresh.lifetimeAxioms),
   );
   fresh.tiers[0].amount = fresh.tiers[0].bought;
   return fresh;
@@ -5707,7 +5832,7 @@ export function acknowledgeNextMission(state: GameState) {
   const relics = getCampaignRelics(next);
   next.tiers[0].bought = Math.min(
     25,
-    next.legacyUpgrades[2] * 2 + relics.seedTaps,
+    LEGACY_SEED_TAPS[next.legacyUpgrades[2]] + relics.seedTaps,
   );
   next.tiers[0].amount = next.tiers[0].bought;
   next.missions.awaitingAcknowledgement = false;

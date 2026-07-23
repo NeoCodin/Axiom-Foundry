@@ -139,6 +139,13 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(page, /Planetary planning remains in Continuity/);
   assert.match(page, /has-reactor-workspace/);
   assert.match(page, /foundry-chain-sidebar/);
+  assert.match(page, /foundry-console-tabs/);
+  assert.match(page, /Utility Drones/);
+  assert.match(page, /Core Protocols/);
+  assert.match(page, /AXIOM Autonomy/);
+  assert.match(page, /Legacy Matrix/);
+  assert.doesNotMatch(page, /systems-column/);
+  assert.match(page, /spendable Axioms are never consumed here/);
   assert.doesNotMatch(foundryLawHeart, /A visible history of the fabrication chain|law-heart-spectrum/);
   assert.match(lawPress, /progressionAngularSpeed/);
   assert.match(page, /is-affordable/);
