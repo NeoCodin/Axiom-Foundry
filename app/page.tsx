@@ -2550,8 +2550,11 @@ export default function Home() {
       {primaryView === "deck" ? (
         campaignWorldIndex === 0 && !coldWakeStatus.arkOverviewAvailable ? (
           <AxiomLawHeart
+            flux={game.flux}
             fluxLabel={formatNumber(game.flux)}
+            fluxPerSecond={production.fluxPerSecond}
             fluxPerSecondLabel={formatNumber(production.fluxPerSecond)}
+            manualGain={manualGain}
             manualGainLabel={formatNumber(manualGain)}
             manualPulses={game.manualPulses}
             stageIndex={game.missions.stageIndex}
@@ -2566,6 +2569,7 @@ export default function Home() {
               shortName: GENERATORS[0].shortName,
               bought: game.tiers[0].bought,
               outputLabel: formatNumber(production.tierOutputs[0]),
+              output: production.tierOutputs[0],
               costLabel: formatNumber(coldWakeTierCost),
               quantity: coldWakePurchaseQuantity,
               canBuy:
@@ -3060,11 +3064,19 @@ export default function Home() {
 
         {campaignWorldIndex > 0 ? (
           <FoundryLawHeart
+            flux={game.flux}
             fluxLabel={formatNumber(game.flux)}
+            fluxPerSecond={production.fluxPerSecond}
+            fluxPerSecondLabel={formatNumber(production.fluxPerSecond)}
+            manualGain={manualGain}
             manualGainLabel={formatNumber(manualGain)}
             manualPulses={game.manualPulses}
-            fabricationDepth={game.tiers.filter((tier) => tier.bought > 0).length}
-            fabricationIntensity={game.tiers.reduce((total, tier) => total + tier.bought, 0)}
+            lifetimeAxioms={game.lifetimeAxioms}
+            tiers={game.tiers.map((tier, index) => ({
+              name: GENERATORS[index].name,
+              count: tier.bought,
+              output: production.tierOutputs[index],
+            }))}
             worldProgress={missionProgress.ratio}
             onTune={handlePulse}
           />

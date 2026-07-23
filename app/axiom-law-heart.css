@@ -97,7 +97,7 @@
 .law-heart-core {
   position: relative;
   place-self: center;
-  width: min(76vw, 540px);
+  width: min(72vw, 512px);
   aspect-ratio: 1;
   padding: 0;
   border: 4px solid #294954;
@@ -111,6 +111,10 @@
 
 .law-heart-core:focus-visible { outline: 4px solid #f0c367; outline-offset: 8px; }
 .law-heart-core:hover { border-color: #4d8793; }
+.law-heart-core:active {
+  box-shadow: 3px 3px 0 #000, inset 0 0 0 4px #0b2c33;
+  transform: translate(2px, 2px);
+}
 .law-heart-deck.is-dormant .law-heart-core { border-color: #203a43; }
 .law-heart-deck.is-law-ready .law-heart-core { border-color: #b58a43; box-shadow: 8px 8px 0 #000, inset 0 0 0 4px #2b210f; }
 
@@ -127,28 +131,29 @@
 
 .law-heart-readout {
   position: absolute;
-  left: 50%;
-  top: 50%;
+  left: 18px;
+  bottom: 18px;
   z-index: 4;
   display: grid;
-  min-width: 116px;
-  min-height: 82px;
-  place-content: center;
+  min-width: 150px;
+  min-height: 72px;
+  padding: 10px 14px;
+  place-content: center start;
   border: 3px solid #2c5963;
   background: rgb(1 8 10 / 0.9);
   box-shadow: 4px 4px 0 #000;
   color: #dfffff;
   text-shadow: 2px 2px 0 #001417;
-  transform: translate(-50%, -50%);
+  text-align: left;
 }
 .law-heart-readout small { font-size: 10px; letter-spacing: 0.14em; }
-.law-heart-readout strong { margin-top: 7px; font-size: 28px; }
+.law-heart-readout strong { margin: 6px 0 3px; font-size: 25px; }
 .law-heart-readout em { color: #f0c367; font-size: 12px; font-style: normal; }
 .law-heart-deck.is-dormant .law-heart-readout { border-color: #243d44; color: #799095; }
 .law-heart-deck.is-law-ready .law-heart-readout { border-color: #e8b75d; color: #fff4cf; }
 
-.law-heart-click-gain { position: absolute; z-index: 7; left: 55%; top: 29%; padding: 6px 10px; background: #0c2026; border: 2px solid #f0c367; color: #f0c367; animation: law-heart-click-gain 800ms steps(6, end) forwards; }
-.law-press-state { position: absolute; z-index: 5; left: 50%; bottom: 18px; padding: 6px 9px; border: 2px solid #203b43; background: rgb(1 7 9 / 0.9); color: #688086; font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; transform: translateX(-50%); white-space: nowrap; }
+.law-heart-click-gain { position: absolute; z-index: 7; left: 52%; top: 48%; padding: 6px 10px; background: #0c2026; border: 2px solid #f0c367; color: #f0c367; animation: law-heart-click-gain 800ms steps(6, end) forwards; }
+.law-press-state { position: absolute; z-index: 5; right: 18px; bottom: 18px; padding: 6px 9px; border: 2px solid #203b43; background: rgb(1 7 9 / 0.9); color: #688086; font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; white-space: nowrap; }
 .law-heart-deck.is-warming .law-press-state,
 .law-heart-deck.is-active .law-press-state,
 .law-heart-deck.is-rapid .law-press-state,
@@ -234,7 +239,7 @@
 
 @keyframes law-heart-spin { to { transform: rotate(360deg); } }
 @keyframes law-heart-breathe { 50% { transform: scale(0.84); } }
-@keyframes law-heart-click-gain { to { top: 11%; opacity: 0; } }
+@keyframes law-heart-click-gain { to { top: 19%; opacity: 0; } }
 
 /* The Law-Heart is the Foundry's single interactive production centerpiece. */
 .foundry-law-heart {
@@ -259,7 +264,8 @@
 .foundry-law-heart-body {
   display: grid;
   padding: 24px;
-  grid-template-columns: minmax(320px, 640px);
+  grid-template-columns: minmax(320px, 512px);
+  gap: 14px;
   justify-content: center;
   background-image:
     linear-gradient(rgba(82, 228, 236, 0.05) 1px, transparent 1px),
@@ -268,7 +274,7 @@
 }
 .foundry-law-heart-machine {
   position: relative;
-  width: 100%;
+  width: min(100%, 512px);
   aspect-ratio: 1;
   place-self: center stretch;
   min-height: 0;
@@ -282,27 +288,77 @@
   image-rendering: pixelated;
 }
 .foundry-law-heart-machine:hover { border-color: #63e7ed; }
+.foundry-law-heart-machine:active {
+  box-shadow: 2px 2px 0 #000, inset 0 0 0 4px #0b3238;
+  transform: translate(2px, 2px);
+}
 .foundry-law-heart-machine:focus-visible { outline: 4px solid #f0c367; outline-offset: 5px; }
 .foundry-law-heart-machine .law-press-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 .foundry-law-heart-readout {
   position: absolute;
   z-index: 4;
-  top: 50%;
-  left: 50%;
+  bottom: 18px;
+  left: 18px;
   display: grid;
-  min-width: 128px;
-  min-height: 92px;
-  place-content: center;
+  min-width: 154px;
+  min-height: 76px;
+  padding: 10px 14px;
+  place-content: center start;
   border: 3px solid #4fdde3;
   background: rgb(1 8 10 / 0.92);
   box-shadow: 4px 4px 0 #000;
   color: #e8ffff;
-  transform: translate(-50%, -50%);
+  text-align: left;
 }
 .foundry-law-heart-readout small { color: #7a9da1; font-size: 9px; letter-spacing: 0.12em; }
-.foundry-law-heart-readout strong { margin: 6px 0; font-size: 27px; }
+.foundry-law-heart-readout strong { margin: 6px 0 3px; font-size: 25px; }
 .foundry-law-heart-readout em { color: #f0c367; font-size: 11px; font-style: normal; }
-.foundry-law-heart-gain { position: absolute; z-index: 7; top: 30%; left: 56%; padding: 6px 10px; border: 2px solid #f0c367; background: #0c2026; color: #f0c367; animation: law-heart-click-gain 800ms steps(6, end) forwards; }
+.foundry-law-heart-gain { position: absolute; z-index: 7; top: 48%; left: 52%; padding: 6px 10px; border: 2px solid #f0c367; background: #0c2026; color: #f0c367; animation: law-heart-click-gain 800ms steps(6, end) forwards; }
+.foundry-law-heart-rate,
+.foundry-law-heart-axiom-count {
+  position: absolute;
+  z-index: 4;
+  top: 18px;
+  padding: 8px 10px;
+  border: 2px solid #294c55;
+  background: rgb(1 8 10 / 0.88);
+  box-shadow: 3px 3px 0 #000;
+  text-align: left;
+}
+.foundry-law-heart-rate { left: 18px; }
+.foundry-law-heart-axiom-count { right: 18px; }
+.foundry-law-heart-rate small,
+.foundry-law-heart-axiom-count small { display: block; color: #779297; font-size: 8px; letter-spacing: 0.11em; }
+.foundry-law-heart-rate strong { display: block; margin-top: 5px; color: #65e7ec; font-size: 13px; }
+.foundry-law-heart-axiom-count strong { color: #f0c367; font-size: 15px; }
+.foundry-law-heart-axiom-count small { display: inline; color: #ba9d67; }
+
+.law-heart-spectrum {
+  display: flex;
+  min-height: 38px;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+.law-heart-spectrum span {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 9px;
+  border: 2px solid #1e373f;
+  background: #050d10;
+  color: #8da5a8;
+  font-size: 9px;
+  letter-spacing: 0.05em;
+}
+.law-heart-spectrum span i { width: 8px; height: 8px; background: #55e6e8; box-shadow: 2px 2px 0 #071316; }
+.law-heart-spectrum span strong { color: #d9ece9; }
+.law-heart-spectrum .is-tier-1 i { background: #559dff; }
+.law-heart-spectrum .is-tier-2 i { background: #b87cff; }
+.law-heart-spectrum .is-tier-3 i { background: #f2bc55; }
+.law-heart-spectrum .is-tier-4 i { background: #fff0b5; }
+.law-heart-spectrum .is-tier-5 i { background: #ff695c; }
 .foundry-law-heart.is-rapid .foundry-law-heart-machine,
 .foundry-law-heart.is-synchronized .foundry-law-heart-machine { border-color: #58cfd5; }
 .foundry-law-heart.is-synchronized .foundry-law-heart-machine { box-shadow: 6px 6px 0 #000, inset 0 0 0 4px #0c3238; }

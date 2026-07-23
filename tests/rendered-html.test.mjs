@@ -99,7 +99,11 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(lawPress, /requestAnimationFrame/);
   assert.match(lawPress, /prefers-reduced-motion/);
   assert.match(lawPress, /document\.visibilityState/);
-  assert.match(lawPress, /press motion: idle|state !== "law-ready"/);
+  assert.match(lawPress, /const TIER_COLORS/);
+  assert.match(lawPress, /type PurchaseEvent/);
+  assert.match(lawPress, /manualPulses > 0 \|\| props\.tiers\.some/);
+  assert.match(lawPress, /safe\(props\.fluxPerSecond\)/);
+  assert.match(lawPress, /safe\(props\.lifetimeAxioms\)/);
   assert.match(lawHeart, /Three laws for Pelagos/);
   assert.match(lawHeart, /APPROACH_SYSTEMS/);
   assert.match(lawHeart, /COMMIT.*FLUX/);

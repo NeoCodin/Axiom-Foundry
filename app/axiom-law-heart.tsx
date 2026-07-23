@@ -9,6 +9,7 @@ export type LawHeartMachine = {
   shortName: string;
   bought: number;
   outputLabel: string;
+  output: number;
   costLabel: string;
   quantity: number;
   canBuy: boolean;
@@ -16,8 +17,11 @@ export type LawHeartMachine = {
 };
 
 type AxiomLawHeartProps = {
+  flux: number;
   fluxLabel: string;
+  fluxPerSecond: number;
   fluxPerSecondLabel: string;
+  manualGain: number;
   manualGainLabel: string;
   manualPulses: number;
   stageIndex: number;
@@ -61,8 +65,11 @@ function clamp(value: number) {
 }
 
 export function AxiomLawHeart({
+  flux,
   fluxLabel,
+  fluxPerSecond,
   fluxPerSecondLabel,
+  manualGain,
   manualGainLabel,
   manualPulses,
   stageIndex,
@@ -172,7 +179,11 @@ export function AxiomLawHeart({
         >
           <LawPressCanvas
             state={pressState}
-            machineCount={machine.bought}
+            flux={flux}
+            fluxPerSecond={fluxPerSecond}
+            manualGain={manualGain}
+            lifetimeAxioms={lifetimeAxioms}
+            tiers={[{ count: machine.bought, output: machine.output }]}
             manualPulses={manualPulses}
             pulseSerial={pulseSerial}
             recalibrationProgress={recalibrationProgress}
@@ -180,9 +191,9 @@ export function AxiomLawHeart({
             preparingRecalibration={confirmRecalibration}
           />
           <span className="law-heart-readout">
-            <small>STRIKE LAW</small>
+            <small>LOCAL FLUX</small>
             <strong>{fluxLabel}</strong>
-            <em>+{manualGainLabel}</em>
+            <em>STRIKE LAW +{manualGainLabel}</em>
           </span>
           {pulseSerial > 0 && <span className="law-heart-click-gain" key={`gain-${pulseSerial}`} aria-hidden="true">+{manualGainLabel}</span>}
           <span className="law-press-state" aria-hidden="true">
