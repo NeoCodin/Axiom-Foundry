@@ -43,9 +43,22 @@ type ExpenditureEvent = {
 
 type RecalibrationEvent = {
   startedAt: number;
+  fromAxioms: number;
+  toAxioms: number;
 };
 
 type Point = readonly [number, number];
+
+export type LawHeartSpectrum = {
+  threshold: number;
+  name: string;
+  core: string;
+  surface: string;
+  surfaceBright: string;
+  limb: string;
+  corona: readonly string[];
+  shard: string;
+};
 
 const SIZE = 512;
 const CENTER = SIZE / 2;
@@ -71,6 +84,77 @@ const COLORS = {
   metalLight: "#31535d",
   inactive: "#20383e",
 } as const;
+
+export const LAW_HEART_SPECTRA: readonly LawHeartSpectrum[] = [
+  {
+    threshold: 0,
+    name: "Dormant Seed",
+    core: "#16343a",
+    surface: "#0a2228",
+    surfaceBright: "#27525a",
+    limb: "#31545b",
+    corona: ["#142d33", "#1d4047"],
+    shard: "#5c777c",
+  },
+  {
+    threshold: 1,
+    name: "Awakening Star",
+    core: "#d9ffff",
+    surface: "#34cbd1",
+    surfaceBright: "#8cffff",
+    limb: "#27a9b0",
+    corona: ["#42e6e9", "#168d9a"],
+    shard: "#b9ffff",
+  },
+  {
+    threshold: 3,
+    name: "Proven Law-Star",
+    core: "#f1ffff",
+    surface: "#62aaff",
+    surfaceBright: "#a9ddff",
+    limb: "#3c78d0",
+    corona: ["#5cdfff", "#477fff"],
+    shard: "#d8f2ff",
+  },
+  {
+    threshold: 6,
+    name: "Resonant Star",
+    core: "#fff2ff",
+    surface: "#a15be2",
+    surfaceBright: "#e2a6ff",
+    limb: "#6634aa",
+    corona: ["#bd6cff", "#4269ee", "#62d9ff"],
+    shard: "#f2d8ff",
+  },
+  {
+    threshold: 12,
+    name: "Axiomatic Star",
+    core: "#fffef0",
+    surface: "#f2b84f",
+    surfaceBright: "#ffe59a",
+    limb: "#b86b25",
+    corona: ["#ffd76b", "#ff9a3d", "#fff3bb"],
+    shard: "#fff0a8",
+  },
+  {
+    threshold: 24,
+    name: "Convergent Star",
+    core: "#ffffff",
+    surface: "#edfaff",
+    surfaceBright: "#ffffff",
+    limb: "#8adbe2",
+    corona: ["#73f5ee", "#a77cff", "#ffd65e", "#ff7c78"],
+    shard: "#ffffff",
+  },
+] as const;
+
+export function getLawHeartSpectrum(lifetimeAxioms: number): LawHeartSpectrum {
+  const axioms = Math.floor(safe(lifetimeAxioms));
+  for (let index = LAW_HEART_SPECTRA.length - 1; index >= 0; index -= 1) {
+    if (axioms >= LAW_HEART_SPECTRA[index].threshold) return LAW_HEART_SPECTRA[index];
+  }
+  return LAW_HEART_SPECTRA[0];
+}
 
 function clamp(value: number, minimum = 0, maximum = 1) {
   return Math.max(minimum, Math.min(maximum, Number.isFinite(value) ? value : minimum));
@@ -303,24 +387,174 @@ function drawParticleSoup(
   }
 }
 
-function crystalHalfWidth(radius: number, yOffset: number) {
-  const normalized = Math.abs(yOffset) / Math.max(1, radius);
-  return Math.max(2, radius * 0.74 * (1 - Math.pow(normalized, 1.22)));
-}
-
-function drawCrystal(
+function drawPixelDisk(
   context: CanvasRenderingContext2D,
   radius: number,
-  fill: string,
-  edge: string,
-  step = 2,
+  color: string,
+  pixelSize = 2,
 ) {
-  for (let y = -radius; y <= radius; y += step) {
-    const halfWidth = crystalHalfWidth(radius, y);
-    rect(context, CENTER - halfWidth, CENTER + y, halfWidth * 2, step, fill);
-    rect(context, CENTER - halfWidth, CENTER + y, step, step, edge);
-    rect(context, CENTER + halfWidth - step, CENTER + y, step, step, edge);
+  const snappedRadius = Math.max(pixelSize, Math.round(radius / pixelSize) * pixelSize);
+  for (let y = -snappedRadius; y <= snappedRadius; y += pixelSize) {
+    const halfWidth = Math.floor(
+      Math.sqrt(Math.max(0, snappedRadius * snappedRadius - y * y)) / pixelSize,
+    ) * pixelSize;
+    rect(context, CENTER - halfWidth, CENTER + y, halfWidth * 2 + pixelSize, pixelSize, color);
   }
+}
+
+function getVisibleAxiomShardCount(lifetimeAxioms: number) {
+  const axioms = Math.floor(safe(lifetimeAxioms));
+  if (axioms <= 12) return axioms;
+  return Math.min(20, 12 + Math.floor(Math.log2(axioms / 12 + 1) * 2.4));
+}
+
+function drawAxiomShards(
+  context: CanvasRenderingContext2D,
+  props: LawPressCanvasProps,
+  now: number,
+  spectrum: LawHeartSpectrum,
+  starRadius: number,
+  reducedMotion: boolean,
+) {
+  const visibleCount = getVisibleAxiomShardCount(props.lifetimeAxioms);
+  if (visibleCount <= 0) return;
+
+  const axiomOrder = Math.log2(safe(props.lifetimeAxioms) + 1);
+  const productionOrder = Math.log10(safe(props.fluxPerSecond) + 1);
+  const orbitSpeed = reducedMotion ? 0 : 0.00014 + Math.min(0.00072, productionOrder * 0.000055);
+  const consolidated = safe(props.lifetimeAxioms) > visibleCount;
+
+  for (let index = 0; index < visibleCount; index += 1) {
+    const seedA = hash(index * 17.31 + 4.7);
+    const seedB = hash(index * 29.77 + 9.1);
+    const track = index % 3;
+    const direction = index % 5 === 0 ? -1 : 1;
+    const radius = starRadius + 24 + track * 13 + seedA * (10 + axiomOrder * 1.4);
+    const angle = seedB * TWO_PI + now * orbitSpeed * direction * (0.72 + seedA * 0.7);
+    const flattening = 0.52 + seedB * 0.3;
+    const drift = Math.sin(now * orbitSpeed * 0.37 + seedA * 22) * (2 + seedB * 4);
+    const x = CENTER + Math.cos(angle) * radius;
+    const y = CENTER + Math.sin(angle) * radius * flattening + drift;
+    const size = consolidated && index < Math.min(6, Math.floor(axiomOrder)) ? 6 : index % 4 === 0 ? 5 : 3;
+    const color = index % 7 === 0
+      ? spectrum.core
+      : spectrum.corona[index % spectrum.corona.length] ?? spectrum.shard;
+
+    context.save();
+    context.globalAlpha = 0.46;
+    if (!reducedMotion && productionOrder > 1.5 && (index + track) % 2 === 0) {
+      const trailAngle = angle - direction * (0.04 + Math.min(0.12, productionOrder * 0.012));
+      const trailX = CENTER + Math.cos(trailAngle) * radius;
+      const trailY = CENTER + Math.sin(trailAngle) * radius * flattening + drift;
+      pixelLine(context, [trailX, trailY], [x, y], color, 2);
+    }
+    context.globalAlpha = 0.95;
+    rect(context, x - 1, y - size, 2, size * 2 + 1, color);
+    rect(context, x - size, y - 1, size * 2 + 1, 2, color);
+    rect(context, x - 1, y - 1, 3, 3, spectrum.core);
+    context.restore();
+  }
+}
+
+function drawSolarCorona(
+  context: CanvasRenderingContext2D,
+  props: LawPressCanvasProps,
+  now: number,
+  spectrum: LawHeartSpectrum,
+  radius: number,
+  intensity: number,
+  reducedMotion: boolean,
+) {
+  const productionOrder = Math.log10(safe(props.fluxPerSecond) + 1);
+  const axiomOrder = Math.log2(safe(props.lifetimeAxioms) + 1);
+  const rayCount = 16 + Math.min(20, Math.floor(productionOrder * 2 + axiomOrder));
+  const time = reducedMotion ? 0 : now;
+
+  context.save();
+  context.globalAlpha = 0.08 + intensity * 0.08;
+  drawPixelDisk(context, radius + 15 + axiomOrder * 0.7, spectrum.corona[0] ?? spectrum.limb, 3);
+  context.globalAlpha = 0.14 + intensity * 0.1;
+  drawPixelDisk(context, radius + 8, spectrum.corona[1] ?? spectrum.corona[0] ?? spectrum.limb, 2);
+  context.restore();
+
+  for (let index = 0; index < rayCount; index += 1) {
+    const seed = hash(index * 18.47 + 2.1);
+    const angle = index / rayCount * TWO_PI
+      + Math.sin(time * (0.00036 + seed * 0.00018) + seed * 17) * 0.08;
+    const flicker = 0.45 + 0.55 * Math.sin(time * (0.002 + seed * 0.0022) + seed * 31);
+    const length = 5 + seed * 9 + intensity * (4 + seed * 8) + Math.max(0, flicker) * 5;
+    const innerRadius = radius - 1;
+    const outerRadius = radius + length;
+    const start: Point = [
+      CENTER + Math.cos(angle) * innerRadius,
+      CENTER + Math.sin(angle) * innerRadius,
+    ];
+    const finish: Point = [
+      CENTER + Math.cos(angle) * outerRadius,
+      CENTER + Math.sin(angle) * outerRadius,
+    ];
+    context.save();
+    context.globalAlpha = 0.34 + Math.max(0, flicker) * 0.5;
+    pixelLine(
+      context,
+      start,
+      finish,
+      spectrum.corona[index % spectrum.corona.length] ?? spectrum.limb,
+      index % 5 === 0 ? 3 : 2,
+    );
+    context.restore();
+  }
+}
+
+function drawSolarSurface(
+  context: CanvasRenderingContext2D,
+  now: number,
+  spectrum: LawHeartSpectrum,
+  radius: number,
+  intensity: number,
+  reducedMotion: boolean,
+) {
+  drawPixelDisk(context, radius + 3, spectrum.limb, 2);
+  drawPixelDisk(context, radius, spectrum.surface, 2);
+  drawPixelDisk(context, Math.max(5, radius * 0.58), spectrum.core, 2);
+
+  const time = reducedMotion ? 0 : now;
+  const granuleCount = 24 + Math.floor(intensity * 18);
+  for (let index = 0; index < granuleCount; index += 1) {
+    const seedA = hash(index * 13.7 + 5.1);
+    const seedB = hash(index * 7.9 + 21.3);
+    const seedC = hash(index * 31.1 + 2.7);
+    const angle = seedA * TWO_PI + time * (seedC > 0.48 ? 0.00012 : -0.0001);
+    const radialLimit = Math.max(4, radius - 5);
+    const radialWave = Math.sin(time * (0.0007 + seedC * 0.0011) + seedA * 19) * 3;
+    const distance = Math.sqrt(seedB) * radialLimit + radialWave;
+    const x = CENTER + Math.cos(angle) * distance;
+    const y = CENTER + Math.sin(angle) * distance;
+    if (Math.hypot(x - CENTER, y - CENTER) > radius - 3) continue;
+    const size = seedC > 0.86 ? 4 : 2;
+    const color = seedC > 0.74
+      ? spectrum.surfaceBright
+      : seedC < 0.22
+        ? spectrum.limb
+        : spectrum.surface;
+    context.save();
+    context.globalAlpha = 0.46 + seedA * 0.44;
+    rect(context, x, y, size, size, color);
+    context.restore();
+  }
+
+  const bandOffset = Math.sin(time * 0.0008) * radius * 0.3;
+  context.save();
+  context.globalAlpha = 0.28 + intensity * 0.12;
+  const bandHalfWidth = Math.sqrt(Math.max(0, radius * radius - bandOffset * bandOffset)) * 0.72;
+  pixelLine(
+    context,
+    [CENTER - bandHalfWidth, CENTER + bandOffset],
+    [CENTER + bandHalfWidth, CENTER + bandOffset],
+    spectrum.surfaceBright,
+    2,
+  );
+  context.restore();
 }
 
 function drawCore(
@@ -329,81 +563,48 @@ function drawCore(
   now: number,
   clickPhase: number,
   recalibrationEvent: RecalibrationEvent | null,
+  reducedMotion: boolean,
 ) {
-  const axiomDensity = Math.log2(safe(props.lifetimeAxioms) + 1);
-  const compression = clickPhase < 0.24
-    ? -6 * Math.sin(clickPhase / 0.24 * Math.PI)
-    : clickPhase < 1
-      ? 2 * Math.sin((clickPhase - 0.24) / 0.76 * Math.PI)
-      : 0;
+  const productionOrder = Math.log10(safe(props.fluxPerSecond) + 1);
+  const machineCount = props.tiers.reduce((total, tier) => total + safe(tier.count), 0);
+  const machineOrder = Math.log2(machineCount + 1);
+  const active = props.manualPulses > 0 || machineCount > 0;
+  const basePulseSpeed = 0.00125 + Math.min(0.0011, productionOrder * 0.00008);
+  const pulse = reducedMotion ? 0 : Math.sin(now * basePulseSpeed);
+  const clickFlare = clickPhase < 1 ? Math.sin(clickPhase * Math.PI) : 0;
   const recalibrationPhase = recalibrationEvent ? clamp((now - recalibrationEvent.startedAt) / 1350) : 0;
-  const recalibrationCompression = recalibrationEvent ? -7 * Math.sin(recalibrationPhase * Math.PI) : 0;
-  const radius = clamp(36 - Math.min(14, axiomDensity * 1.75) + compression + recalibrationCompression, 18, 38);
-  const lawReady = props.state === "law-ready" || props.preparingRecalibration;
-  const active = props.manualPulses > 0 || props.tiers.some((tier) => safe(tier.count) > 0);
-  const edge = lawReady ? COLORS.amber : active ? COLORS.cyan : COLORS.inactive;
-  const shell = lawReady ? "#513c18" : active ? "#0c3b43" : "#101d21";
-  const inner = lawReady ? "#8c6727" : active ? "#15535b" : "#17292e";
+  const spectrumAxioms = recalibrationEvent && recalibrationPhase < 0.55
+    ? recalibrationEvent.fromAxioms
+    : props.lifetimeAxioms;
+  const spectrum = getLawHeartSpectrum(spectrumAxioms);
 
-  context.save();
-  context.globalAlpha = active ? 0.16 : 0.08;
-  drawCrystal(context, radius + 13, edge, edge, 3);
-  context.globalAlpha = 1;
-  drawCrystal(context, radius + 7, COLORS.black, edge, 2);
-  drawCrystal(context, radius + 2, shell, edge, 2);
-  drawCrystal(context, Math.max(10, radius - 7), inner, lawReady ? "#ffe5a3" : COLORS.metalLight, 2);
-  context.restore();
-
-  const facetColor = lawReady ? "#ffe5a3" : active ? "#7deff1" : COLORS.inactive;
-  pixelLine(
-    context,
-    [CENTER, CENTER - radius + 4],
-    [CENTER - radius * 0.42, CENTER],
-    facetColor,
-    2,
-  );
-  pixelLine(
-    context,
-    [CENTER - radius * 0.42, CENTER],
-    [CENTER, CENTER + radius - 4],
-    COLORS.cyanDark,
-    2,
-  );
-  pixelLine(
-    context,
-    [CENTER, CENTER - radius + 4],
-    [CENTER + radius * 0.42, CENTER],
-    COLORS.metalLight,
-    2,
-  );
-  pixelLine(
-    context,
-    [CENTER + radius * 0.42, CENTER],
-    [CENTER, CENTER + radius - 4],
-    facetColor,
-    2,
-  );
-
-  const seamCount = Math.min(7, Math.max(props.provenLaws, Math.floor(axiomDensity)));
-  for (let index = 0; index < seamCount; index += 1) {
-    const offset = (index - (seamCount - 1) / 2) * 5;
-    const width = Math.max(5, crystalHalfWidth(Math.max(10, radius - 8), offset) * 0.72);
-    rect(
-      context,
-      CENTER - width,
-      CENTER + offset,
-      width * 2,
-      index % 2 === 0 ? 2 : 1,
-      index < props.provenLaws ? COLORS.amber : "#b38842",
-    );
+  let transitionScale = 1;
+  if (recalibrationEvent && recalibrationPhase < 1) {
+    transitionScale = recalibrationPhase < 0.46
+      ? 1 - recalibrationPhase / 0.46 * 0.88
+      : 0.12 + Math.pow((recalibrationPhase - 0.46) / 0.54, 0.42) * 0.88;
   }
+  const idleBreath = active ? pulse * 2.1 : pulse * 1.15;
+  const radius = clamp((31 + idleBreath + clickFlare * 4.5) * transitionScale, 4, 38);
+  const intensity = clamp(
+    0.16 + productionOrder * 0.08 + machineOrder * 0.025 + clickFlare * 0.65,
+    0.12,
+    1.4,
+  );
 
-  if (active) {
-    const pulse = 0.52 + Math.sin(now * 0.004 + axiomDensity) * 0.18;
+  drawAxiomShards(context, props, now, spectrum, Math.max(31, radius), reducedMotion);
+  drawSolarCorona(context, props, now, spectrum, radius, intensity, reducedMotion);
+  drawSolarSurface(context, now, spectrum, radius, intensity, reducedMotion);
+
+  if (recalibrationEvent && recalibrationPhase >= 0.43 && recalibrationPhase <= 0.7) {
+    const novaPhase = 1 - Math.abs((recalibrationPhase - 0.565) / 0.135);
+    const novaReach = 14 + novaPhase * 106;
+    const newSpectrum = getLawHeartSpectrum(recalibrationEvent.toAxioms);
     context.save();
-    context.globalAlpha = pulse;
-    rect(context, CENTER - 2, CENTER - radius - 8, 4, 5, edge);
-    rect(context, CENTER - 2, CENTER + radius + 3, 4, 5, edge);
+    context.globalAlpha = clamp(novaPhase) * 0.95;
+    pixelLine(context, [CENTER - novaReach, CENTER], [CENTER + novaReach, CENTER], newSpectrum.core, 3);
+    pixelLine(context, [CENTER, CENTER - novaReach], [CENTER, CENTER + novaReach], newSpectrum.core, 3);
+    drawPixelDisk(context, 5 + novaPhase * 11, newSpectrum.core, 2);
     context.restore();
   }
 }
@@ -527,7 +728,7 @@ function renderLawHeart(
   drawPurchaseBloom(context, purchaseEvent, now);
   drawExpenditure(context, expenditureEvent, now);
   drawRecalibrationCollapse(context, recalibrationEvent, now);
-  drawCore(context, props, now, clickPhase, recalibrationEvent);
+  drawCore(context, props, now, clickPhase, recalibrationEvent, reducedMotion);
   drawClickImpact(context, clickPhase, safe(props.manualGain));
 }
 
@@ -566,7 +767,11 @@ export function LawPressCanvas(props: LawPressCanvasProps) {
       };
     }
     if (safe(props.lifetimeAxioms) > previous.axioms) {
-      recalibrationEvent.current = { startedAt: now };
+      recalibrationEvent.current = {
+        startedAt: now,
+        fromAxioms: previous.axioms,
+        toAxioms: safe(props.lifetimeAxioms),
+      };
     } else if (safe(props.flux) < previous.flux * 0.94 && purchasedTier < 0) {
       expenditureEvent.current = {
         strength: clamp(1 - safe(props.flux) / Math.max(1, previous.flux)),

@@ -104,7 +104,14 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(lawPress, /getParticleDemand/);
   assert.match(lawPress, /MAX_FIELD_PARTICLES/);
   assert.match(lawPress, /drawParticleSoup/);
-  assert.match(lawPress, /drawCrystal/);
+  assert.match(lawPress, /LAW_HEART_SPECTRA/);
+  assert.match(lawPress, /getLawHeartSpectrum/);
+  assert.match(lawPress, /threshold: 24/);
+  assert.match(lawPress, /drawSolarSurface/);
+  assert.match(lawPress, /drawSolarCorona/);
+  assert.match(lawPress, /drawAxiomShards/);
+  assert.match(lawPress, /fromAxioms/);
+  assert.doesNotMatch(lawPress, /drawCrystal|crystalHalfWidth/);
   assert.doesNotMatch(lawPress, /drawPixelOrbit|drawChamber|fillPixelOctagon/);
   assert.match(lawPress, /safe\(props\.lifetimeAxioms\)/);
   assert.match(lawHeart, /Three laws for Pelagos/);

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { PurchaseMode } from "./game-engine";
-import { LawPressCanvas, type LawPressState } from "./law-heart-particle-field";
+import { getLawHeartSpectrum, LawPressCanvas, type LawPressState } from "./law-heart-particle-field";
 
 export type LawHeartMachine = {
   name: string;
@@ -92,6 +92,7 @@ export function AxiomLawHeart({
 }: AxiomLawHeartProps) {
   const [pulseSerial, setPulseSerial] = useState(0);
   const [confirmRecalibration, setConfirmRecalibration] = useState(false);
+  const spectrum = getLawHeartSpectrum(lifetimeAxioms);
   const automationVisible = manualPulses >= 6 || machine.bought > 0;
   const recalibrationVisible = stageIndex >= 3 || lifetimeAxioms > 0;
   const fabricationAuthorized = stageIndex >= 1;
@@ -167,7 +168,7 @@ export function AxiomLawHeart({
           type="button"
           onClick={tune}
           aria-label={`Strike the Axiom Law Press for ${manualGainLabel} Flux`}
-          data-pixel-tooltip={`Compress the Law-Heart once for ${manualGainLabel} Flux. Vacuum Taps add cyan motes, stored Flux thickens the field, and production accelerates its motion.`}
+          data-pixel-tooltip={`${spectrum.name}. Strike the Law-Heart once for ${manualGainLabel} Flux. Vacuum Taps add cyan motes, stored Flux thickens the field, and permanent Axioms alter the star's spectrum.`}
         >
           <LawPressCanvas
             state={pressState}

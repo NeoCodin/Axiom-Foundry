@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { LawPressCanvas, type LawHeartTier, type LawPressState } from "./law-heart-particle-field";
+import { getLawHeartSpectrum, LawPressCanvas, type LawHeartTier, type LawPressState } from "./law-heart-particle-field";
 
 type FoundryLawHeartProps = {
   flux: number;
@@ -38,6 +38,7 @@ export function FoundryLawHeart({
   onTune,
 }: FoundryLawHeartProps) {
   const [pulseSerial, setPulseSerial] = useState(0);
+  const spectrum = getLawHeartSpectrum(lifetimeAxioms);
   const fabricationIntensity = tiers.reduce((total, tier) => total + tier.count, 0);
   const state: LawPressState = fabricationIntensity >= 150
     ? "synchronized"
@@ -62,7 +63,7 @@ export function FoundryLawHeart({
           type="button"
           onClick={handleTune}
           aria-label={`Strike the Law-Heart for ${manualGainLabel} Flux`}
-          data-pixel-tooltip={`Strike for ${manualGainLabel} Flux. Vacuum Taps add cyan motes, stored Flux thickens the field, production drives its turbulence, and later mechanisms introduce new particle colors.`}
+          data-pixel-tooltip={`${spectrum.name}. Strike for ${manualGainLabel} Flux. Vacuum Taps add cyan motes, stored Flux thickens the field, production drives its turbulence, and permanent Axioms alter the star's spectrum.`}
         >
           <LawPressCanvas
             state={state}
