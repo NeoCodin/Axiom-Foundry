@@ -14,6 +14,7 @@ import {
   PELAGOS_FIRST_RESCUE_STAGE,
   PELAGOS_FERRY_STAGE,
   PELAGOS_TOW_STAGE,
+  AXIOM_PROOF_GROWTH,
   RECALIBRATION_THRESHOLD,
   RETIRED_SAVE_KEYS,
   RUN_UPGRADES,
@@ -46,6 +47,7 @@ import {
   getMedBayStatus,
   getMaxAffordableCount,
   getProductionSnapshot,
+  getRunUpgradeCost,
   getResearchCrewAvailable,
   getResearchPowerAvailable,
   getResearchFieldValidation,
@@ -56,6 +58,7 @@ import {
   elevateCrewProfile,
   getTierCost,
   isAutonomyUnlocked,
+  isRunUpgradeUnlocked,
   isTierUnlocked,
   pulseCore,
   recalibrate,
@@ -63,6 +66,8 @@ import {
   setContinuityIntroduced,
   setColdWakeForecastReviewed,
   setAutoEnabled,
+  setAutoUpgrades,
+  setProtocolBlueprintLevel,
   setInterfaceIntroduction,
   setTutorialComplete,
   simulateGame,
@@ -333,6 +338,116 @@ test("Recalibration starts as a Cold Wake lesson and scales with each world", ()
   state.missions.currentIndex = 3;
   state.settlement.currentWorldId = "cinder";
   assert.equal(getRecalibrationThreshold(state), RECALIBRATION_THRESHOLD * 25 ** 3);
+});
+
+test("later-world Axiom proofs climb a persistent fivefold ladder", () => {
+  const state = createInitialState(0);
+  state.missions.currentIndex = 1;
+  state.missions.stageIndex = PELAGOS_TOW_STAGE;
+  state.missions.statuses = ["saved", "active", "locked", "locked", "locked", "locked"];
+  state.settlement.currentWorldId = "pelagos";
+  state.lifetimeAxioms = 3;
+  state.axioms = 3;
+  const firstThreshold = getRecalibrationThreshold(state);
+  state.runFlux = firstThreshold * AXIOM_PROOF_GROWTH;
+  state.maxFlux = state.runFlux;
+  assert.equal(getRecalibrationGain(state), 2);
+
+  const recalibrated = recalibrate(state, 1_000);
+  assert.equal(recalibrated.axiomProofsByWorld[1], 2);
+  assert.equal(
+    getRecalibrationThreshold(recalibrated),
+    firstThreshold * AXIOM_PROOF_GROWTH ** 2,
+  );
+
+  recalibrated.runFlux = firstThreshold * AXIOM_PROOF_GROWTH;
+  assert.equal(
+    getRecalibrationGain(recalibrated),
+    0,
+    "the first proof price cannot be farmed again after Recalibration",
+  );
+});
+
+test("version 17 saves receive a bounded proof-ladder migration and an empty automation blueprint", () => {
+  const oldSave = createInitialState(0) as unknown as Record<string, unknown>;
+  oldSave.version = 17;
+  oldSave.lifetimeAxioms = 10;
+  oldSave.axioms = 4;
+  oldSave.missions = {
+    ...(oldSave.missions as Record<string, unknown>),
+    currentIndex: 3,
+    schema: 6,
+  };
+  delete oldSave.axiomProofsByWorld;
+  delete (oldSave.settings as Record<string, unknown>).protocolBlueprint;
+
+  const migrated = sanitizeGameState(oldSave, 100);
+  assert.equal(migrated.axiomProofsByWorld[3], 2);
+  assert.deepEqual(migrated.settings.protocolBlueprint, [0, 0, 0, 0]);
+});
+
+test("planetary-scale Flux no longer creates a late-game Axiom shower", () => {
+  const objectiveChecks = [
+    { worldIndex: 2, worldId: "viridia", runFlux: 250_000_000, expected: 1 },
+    { worldIndex: 3, worldId: "cinder", runFlux: 50_000_000_000, expected: 3 },
+    { worldIndex: 4, worldId: "nox", runFlux: 10_000_000_000_000, expected: 4 },
+    { worldIndex: 5, worldId: "vesper", runFlux: 500_000_000_000_000, expected: 4 },
+  ] as const;
+
+  for (const check of objectiveChecks) {
+    const state = createInitialState(0);
+    state.missions.currentIndex = check.worldIndex;
+    state.missions.stageIndex = MISSIONS[check.worldIndex].stages.length - 1;
+    state.missions.statuses = MISSIONS.map((_, index) =>
+      index < check.worldIndex ? "saved" : index === check.worldIndex ? "active" : "locked",
+    );
+    state.settlement.currentWorldId = check.worldId;
+    state.runFlux = check.runFlux;
+    state.maxFlux = check.runFlux;
+    assert.equal(
+      getRecalibrationGain(state),
+      check.expected,
+      `${check.worldId} objective should cross only its intended proof steps`,
+    );
+  }
+});
+
+test("Core Protocol Marks unlock by story, scale with the world, and preserve a chosen blueprint", () => {
+  let state = createInitialState(0);
+  state.missions.currentIndex = 1;
+  state.missions.stageIndex = PELAGOS_PROTOCOL_STAGE - 1;
+  state.missions.statuses = ["saved", "active", "locked", "locked", "locked", "locked"];
+  state.settlement.currentWorldId = "pelagos";
+  state.lifetimeAxioms = 3;
+  state.axioms = 3;
+  assert.equal(isRunUpgradeUnlocked(state, 0), false);
+
+  state.missions.stageIndex = PELAGOS_PROTOCOL_STAGE;
+  assert.equal(isRunUpgradeUnlocked(state, 0), true);
+  assert.equal(isRunUpgradeUnlocked(state, 1), true);
+  assert.equal(isRunUpgradeUnlocked(state, 2), false);
+  const baseThreshold = getRecalibrationThreshold(state);
+  assert.equal(getRunUpgradeCost(state, 0), baseThreshold * 0.025);
+
+  state.flux = baseThreshold;
+  state.maxFlux = baseThreshold;
+  state = buyRunUpgrade(state, 0);
+  assert.equal(state.runUpgrades[0], 1);
+  assert.equal(state.settings.protocolBlueprint[0], 1);
+  state = setProtocolBlueprintLevel(state, 0, 2);
+  assert.equal(state.settings.protocolBlueprint[0], 2);
+
+  state.missions.stageIndex = PELAGOS_TOW_STAGE;
+  state.runFlux = getRecalibrationThreshold(state);
+  state = recalibrate(state, 1_000);
+  assert.equal(state.runUpgrades[0], 0);
+  assert.equal(state.settings.protocolBlueprint[0], 2);
+  state.flux = getRecalibrationThreshold(state);
+  state.maxFlux = state.flux;
+  state = setAutoUpgrades(state, true);
+  state = simulateGame(state, 2.1, 3, false);
+  assert.equal(state.runUpgrades[0], 2);
+  assert.deepEqual(state.runUpgrades.slice(1), [0, 0, 0]);
 });
 
 test("Autonomy stays off and inert until the player reaches and enables its visible control", () => {
@@ -676,7 +791,7 @@ test("Cold Wake cannot fabricate before strike twelve or prove multiple laws in 
 
 test("Core Protocol directives count lifetime purchases and remain possible after a maxed cycle", () => {
   const directiveCopy = MISSIONS.flatMap((mission) => mission.stages).map((stage) => stage.instruction).join(" ");
-  assert.match(directiveCopy, /Core Protocol levels in the Foundry/);
+  assert.match(directiveCopy, /Core Protocol Marks in the Foundry/);
   assert.doesNotMatch(directiveCopy, /Run Research/i);
   let state = setTutorialComplete(createInitialState(0), true);
   state.missions.currentIndex = 1;

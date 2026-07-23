@@ -4,7 +4,9 @@ import {
   getCurrentViabilityForecast,
   getMissionProgress,
   getOperationalResearchExpertise,
+  getAxiomProofStatus,
   getRecalibrationGain,
+  formatNumber,
   getResearchCrewAvailable,
   getResearchFieldValidation,
   getResearchLeadStatus,
@@ -488,11 +490,12 @@ export function getCommandPriorities(state: GameState): CommandPriority[] {
 
   const recalibrationGain = getRecalibrationGain(state);
   if (recalibrationGain > 0) {
+    const proofStatus = getAxiomProofStatus(state);
     add({
       id: "recalibration",
       eyebrow: "Permanent opportunity",
       title: `${recalibrationGain} Axiom${recalibrationGain === 1 ? "" : "s"} ready to prove`,
-      detail: "Recalibration is optional. Spend temporary Flux on current Ark and planetary work before resetting the machine assembly.",
+      detail: `Recalibration is optional. After proving this yield, the next Axiom on this world requires ${formatNumber(proofStatus.followingThreshold)} run Flux.`,
       actionLabel: "Review Recalibration",
       target: "engineering",
       panel: "systems",

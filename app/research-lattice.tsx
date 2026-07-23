@@ -81,7 +81,7 @@ const INPUT_SOURCE_COPY: Record<ResearchInputId, string> = {
   "cultural-records": "Rescues, Teachers, Researchers, community testimony, and settlements",
   schematics: "ONLY from rescued survivors' cargo and expedition returns — nothing aboard generates them",
   "null-traces": "Later worlds, passive Null signals, and resolved crises",
-  "axiom-proofs": "Recalibration + passive generation from lifetime Axioms",
+  "axiom-proofs": "Recalibration + diminishing passive generation from lifetime Axioms",
 };
 
 const formatNumber = (value: number) =>

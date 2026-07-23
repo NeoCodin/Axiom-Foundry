@@ -220,7 +220,7 @@ import {
   type CausalArchiveView,
 } from "./causal-archive-engine.ts";
 
-export const SAVE_VERSION = 17;
+export const SAVE_VERSION = 18;
 export const SAVE_KEY = "axiom-foundry-save-v5";
 export const RETIRED_SAVE_KEYS = [
   "axiom-foundry-save-v1",
@@ -242,6 +242,7 @@ export type GameSettings = {
   autoEnabled: boolean;
   autoUpgrades: boolean;
   autoTiers: boolean[];
+  protocolBlueprint: number[];
   tutorialComplete: boolean;
   continuityIntroduced: boolean;
   coldWakeForecastReviewed: boolean;
@@ -297,6 +298,8 @@ export type GameState = {
   allTimeFlux: number;
   axioms: number;
   lifetimeAxioms: number;
+  /** Axioms forged through Recalibration on each campaign world. */
+  axiomProofsByWorld: number[];
   stellarRelays: number;
   cycle: number;
   tiers: TierState[];
@@ -318,7 +321,7 @@ export type GameState = {
   bioadaptation: BioadaptationState;
   settings: GameSettings;
   manualPulses: number;
-  /** Lifetime count of purchased Core Protocol levels, including prior cycles. */
+  /** Lifetime count of compiled Core Protocol Marks, including prior cycles. */
   researchPurchases: number;
   playTime: number;
   runTime: number;
@@ -400,37 +403,43 @@ export const GENERATORS = [
 export const RUN_UPGRADES = [
   {
     name: "Pulse Geometry",
-    description: "Multiply Flux gained when you tune the Core by 1.65.",
-    baseCost: 250,
-    growth: 8,
-    maxLevel: 5,
-    revealAt: 100,
+    description: "Reshape each manual Law-Heart strike into a larger controlled release.",
+    baseCostRatio: 0.025,
+    growth: 4,
+    maxLevel: 3,
+    unlockWorldIndex: 1,
   },
   {
     name: "Flow Compression",
-    description: "Add 25% to final Flux output without accelerating the whole chain.",
-    baseCost: 3_000,
-    growth: 12,
-    maxLevel: 8,
-    revealAt: 10_000,
+    description: "Compress the full fabrication stream into stronger continuous output.",
+    baseCostRatio: 0.05,
+    growth: 4,
+    maxLevel: 3,
+    unlockWorldIndex: 1,
   },
   {
     name: "Harmonic Gearing",
-    description: "Add 30% total output across the upper fabrication chain.",
-    baseCost: 100_000,
-    growth: 20,
-    maxLevel: 6,
-    revealAt: 1_000_000,
+    description: "Route the upper fabrication tiers through one synchronized gear law.",
+    baseCostRatio: 0.075,
+    growth: 4,
+    maxLevel: 3,
+    unlockWorldIndex: 2,
   },
   {
     name: "Resonant Mesh",
-    description: "Strengthen each balanced Resonance link without compounding every tier.",
-    baseCost: 10_000_000,
-    growth: 25,
-    maxLevel: 4,
-    revealAt: 100_000_000,
+    description: "Turn every balanced Resonance link into a stronger shared field.",
+    baseCostRatio: 0.1,
+    growth: 4,
+    maxLevel: 3,
+    unlockWorldIndex: 3,
   },
 ] as const;
+
+const PULSE_PROTOCOL_MULTIPLIERS = [1, 2.5, 5, 9] as const;
+const FLOW_PROTOCOL_MULTIPLIERS = [1, 1.35, 1.8, 2.5] as const;
+const HARMONIC_PROTOCOL_MULTIPLIERS = [1, 1.6, 2.5, 4] as const;
+const MESH_PROTOCOL_BONUS = [0, 0.03, 0.07, 0.12] as const;
+export const PROTOCOL_MARK_LABELS = ["OFF", "I", "II", "III"] as const;
 
 export const LEGACY_UPGRADES = [
   {
@@ -452,6 +461,8 @@ export const LEGACY_UPGRADES = [
 // instead of becoming a button the player can press on arrival.
 export const RECALIBRATION_THRESHOLD = 100_000;
 const RECALIBRATION_WORLD_SCALE = 25;
+export const AXIOM_PROOF_GROWTH = 5;
+export const WORLD_OPENING_AXIOM_TOTALS = [0, 3, 5, 8, 12, 17] as const;
 const COLD_WAKE_LAW_THRESHOLD_SCALE = [1, 2.5, 6] as const;
 export const COLD_WAKE_APPROACH_RESERVE = 250_000;
 export const COLD_WAKE_FOUNDRY_STAGE = 6;
@@ -638,7 +649,7 @@ export const MISSIONS = [
         kind: "researchDelta",
         target: 2,
         label: "Model the returning tide",
-        instruction: "Purchase 2 new Core Protocol levels in the Foundry.",
+        instruction: "Compile 2 new Core Protocol Marks in the Foundry.",
         lore: "The ferry cannot push an ocean. It must persuade gravity to remember the shore.",
       },
       {
@@ -735,7 +746,7 @@ export const MISSIONS = [
         kind: "researchDelta",
         target: 3,
         label: "Model a worker-safe restart",
-        instruction: "Purchase 3 new Core Protocol levels in the Foundry.",
+        instruction: "Compile 3 new Core Protocol Marks in the Foundry.",
         lore: "The Foundry simulates the restart until the people beside each furnace can shut it down safely.",
       },
       {
@@ -931,6 +942,7 @@ export function createInitialState(now = Date.now()): GameState {
     allTimeFlux: 0,
     axioms: 0,
     lifetimeAxioms: 0,
+    axiomProofsByWorld: MISSIONS.map(() => 0),
     stellarRelays: 0,
     cycle: 1,
     tiers: GENERATORS.map(() => ({ amount: 0, bought: 0 })),
@@ -967,6 +979,7 @@ export function createInitialState(now = Date.now()): GameState {
       autoEnabled: false,
       autoUpgrades: false,
       autoTiers: GENERATORS.map(() => true),
+      protocolBlueprint: RUN_UPGRADES.map(() => 0),
       tutorialComplete: false,
       continuityIntroduced: false,
       coldWakeForecastReviewed: false,
@@ -1001,6 +1014,12 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
   const rawSettings = isRecord(value.settings) ? value.settings : {};
   const rawAutoTiers = Array.isArray(rawSettings.autoTiers)
     ? rawSettings.autoTiers
+    : [];
+  const rawProtocolBlueprint = Array.isArray(rawSettings.protocolBlueprint)
+    ? rawSettings.protocolBlueprint
+    : [];
+  const rawAxiomProofsByWorld = Array.isArray(value.axiomProofsByWorld)
+    ? value.axiomProofsByWorld
     : [];
   const rawMissions = isRecord(value.missions) ? value.missions : {};
   const rawMissionStatuses = Array.isArray(rawMissions.statuses)
@@ -1095,6 +1114,21 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
   const currentMissionIndex = hasExpandedCampaign
     ? expandedCampaignIndex
     : 0;
+  const axiomProofsByWorld = MISSIONS.map((_, index) => {
+    if (sourceVersion >= 18) {
+      return Math.floor(readNumber(rawAxiomProofsByWorld[index], 0, 1_000));
+    }
+    if (index < currentMissionIndex) {
+      const opening = WORLD_OPENING_AXIOM_TOTALS[index] ?? 0;
+      const nextOpening = WORLD_OPENING_AXIOM_TOTALS[index + 1] ?? lifetimeAxioms;
+      return Math.max(0, nextOpening - opening);
+    }
+    if (index === currentMissionIndex) {
+      const opening = WORLD_OPENING_AXIOM_TOTALS[index] ?? 0;
+      return Math.min(12, Math.max(0, lifetimeAxioms - opening));
+    }
+    return 0;
+  });
   const migratesColdWakeSequence = missionSchema < 4 && currentMissionIndex === 0;
   const awaitingAcknowledgement =
     hasExpandedCampaign &&
@@ -1245,6 +1279,7 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
     allTimeFlux,
     axioms,
     lifetimeAxioms,
+    axiomProofsByWorld,
     stellarRelays: savedWorlds,
     cycle,
     tiers,
@@ -1297,6 +1332,12 @@ export function sanitizeGameState(value: unknown, now = Date.now()): GameState {
       autoTiers: GENERATORS.map(
         (_, index) => rawAutoTiers[index] !== false,
       ),
+      protocolBlueprint: RUN_UPGRADES.map((upgrade, index) =>
+        Math.min(
+          upgrade.maxLevel,
+          Math.floor(readNumber(rawProtocolBlueprint[index], 0, upgrade.maxLevel)),
+        ),
+      ),
       tutorialComplete: rawSettings.tutorialComplete === true,
       // Older checkpoints predate the staged handoff. Re-arm Cold Wake once,
       // but do not interrupt players who have already travelled beyond it.
@@ -1341,6 +1382,7 @@ export function cloneGameState(state: GameState): GameState {
     tiers: state.tiers.map((tier) => ({ ...tier })),
     runUpgrades: [...state.runUpgrades],
     legacyUpgrades: [...state.legacyUpgrades],
+    axiomProofsByWorld: [...state.axiomProofsByWorld],
     missions: {
       ...state.missions,
       statuses: [...state.missions.statuses],
@@ -1374,6 +1416,7 @@ export function cloneGameState(state: GameState): GameState {
     settings: {
       ...state.settings,
       autoTiers: [...state.settings.autoTiers],
+      protocolBlueprint: [...state.settings.protocolBlueprint],
       completedGuideIds: [...state.settings.completedGuideIds],
     },
   };
@@ -4346,20 +4389,44 @@ export function isTierUnlocked(state: GameState, index: number) {
 
 export function getRunUpgradeCost(state: GameState, index: number) {
   const upgrade = RUN_UPGRADES[index];
-  const world = getWorldEffects(state);
-  const relics = getCampaignRelics(state);
-  const living = getLivingFoundryBonuses(state.living);
-  const research = getResearchBonuses(state.research);
   return safeMultiply(
     safeMultiply(
-      upgrade.baseCost,
-      safePower(upgrade.growth, state.runUpgrades[index]),
+      getRecalibrationBaseThreshold(state),
+      upgrade.baseCostRatio,
     ),
-    world.researchCost *
-      relics.researchCostMultiplier *
-      living.researchCostMultiplier *
-      research.machineCostMultiplier,
+    safePower(upgrade.growth, state.runUpgrades[index]),
   );
+}
+
+export function isRunUpgradeUnlocked(state: GameState, index: number) {
+  const upgrade = RUN_UPGRADES[index];
+  if (!upgrade) return false;
+  if (state.runUpgrades[index] > 0) return true;
+  const worldIndex = getCampaignWorldIndex(state);
+  if (worldIndex < upgrade.unlockWorldIndex) return false;
+  if (worldIndex > upgrade.unlockWorldIndex) return true;
+  return upgrade.unlockWorldIndex !== 1 ||
+    state.missions.stageIndex >= PELAGOS_PROTOCOL_STAGE;
+}
+
+export function getRunUpgradeUnlockLabel(index: number) {
+  const upgrade = RUN_UPGRADES[index];
+  if (!upgrade) return "Protocol unavailable";
+  if (upgrade.unlockWorldIndex === 1) return "Introduced by the Pelagos gravity-ferry operation";
+  if (upgrade.unlockWorldIndex === 2) return "Unlocks on Viridia";
+  return "Unlocks on Cinder";
+}
+
+const protocolLevel = (state: GameState, index: number) =>
+  Math.min(RUN_UPGRADES[index].maxLevel, Math.max(0, state.runUpgrades[index]));
+
+export function getRunUpgradeEffectLabel(index: number, level: number) {
+  const safeLevel = Math.min(3, Math.max(0, Math.floor(level)));
+  if (safeLevel === 0) return "Not compiled";
+  if (index === 0) return `Manual strikes ×${PULSE_PROTOCOL_MULTIPLIERS[safeLevel]}`;
+  if (index === 1) return `All production ×${FLOW_PROTOCOL_MULTIPLIERS[safeLevel]}`;
+  if (index === 2) return `Upper tiers ×${HARMONIC_PROTOCOL_MULTIPLIERS[safeLevel]}`;
+  return `+${Math.round(MESH_PROTOCOL_BONUS[safeLevel] * 100)} points per Resonance level`;
 }
 
 export function getLegacyUpgradeCost(state: GameState, index: number) {
@@ -4390,7 +4457,7 @@ export function getResonanceDetails(state: GameState) {
   const relics = getCampaignRelics(state);
   const living = getLivingFoundryBonuses(state.living);
   const perLevel =
-    (0.04 + state.runUpgrades[3] * 0.01 + relics.resonanceBonus) *
+    (0.04 + MESH_PROTOCOL_BONUS[protocolLevel(state, 3)] + relics.resonanceBonus) *
     world.resonance;
   const base = 1 + perLevel;
   return {
@@ -4575,7 +4642,7 @@ export function getProductionSnapshot(state: GameState) {
     1 + 0.35 * Math.log2(1 + state.lifetimeAxioms);
   const legacyMultiplier =
     1 + 0.2 * Math.sqrt(state.legacyUpgrades[0]);
-  const flowMultiplier = 1 + 0.25 * state.runUpgrades[1];
+  const flowMultiplier = FLOW_PROTOCOL_MULTIPLIERS[protocolLevel(state, 1)];
   const relayMultiplier = 1 + state.stellarRelays * 0.015;
   const world = getWorldEffects(state);
   const hazardShield = world.hazardShield;
@@ -4599,7 +4666,8 @@ export function getProductionSnapshot(state: GameState) {
       operationalLoad.available,
   );
   const resonance = getResonanceDetails(state);
-  const higherTierMultiplier = 1 + 0.3 * state.runUpgrades[2];
+  const higherTierMultiplier =
+    HARMONIC_PROTOCOL_MULTIPLIERS[protocolLevel(state, 2)];
   const unlockedTierCount = Math.max(1, getCampaignWorldIndex(state) + 1);
   const edgeGearing = safePower(
     higherTierMultiplier,
@@ -4647,6 +4715,20 @@ export function getProductionSnapshot(state: GameState) {
   };
 }
 
+export function getRunUpgradePaybackSeconds(state: GameState, index: number) {
+  if (index === 0 || !isRunUpgradeUnlocked(state, index)) return null;
+  const upgrade = RUN_UPGRADES[index];
+  const level = state.runUpgrades[index];
+  if (level >= upgrade.maxLevel) return null;
+  const before = getProductionSnapshot(state).fluxPerSecond;
+  const preview = cloneGameState(state);
+  preview.runUpgrades[index] = level + 1;
+  const after = getProductionSnapshot(preview).fluxPerSecond;
+  const increase = after - before;
+  if (increase <= 0) return null;
+  return getRunUpgradeCost(state, index) / increase;
+}
+
 export function getActiveTransit(state: GameState) {
   return getTransitProgress(state.transit);
 }
@@ -4660,7 +4742,7 @@ export function getManualGain(state: GameState) {
   return safeMultiply(
     responsiveBase,
     safeMultiply(
-      safePower(1.65, state.runUpgrades[0]),
+      PULSE_PROTOCOL_MULTIPLIERS[protocolLevel(state, 0)],
       safeMultiply(
         1 + 0.12 * Math.sqrt(state.legacyUpgrades[0]),
         world.manual * relics.manualMultiplier * living.manualMultiplier,
@@ -4776,14 +4858,18 @@ export function buyTier(
 
 export function buyRunUpgrade(state: GameState, index: number) {
   const upgrade = RUN_UPGRADES[index];
+  if (!upgrade || !isRunUpgradeUnlocked(state, index)) return state;
   const level = state.runUpgrades[index];
-  if (state.maxFlux < upgrade.revealAt) return state;
   if (level >= upgrade.maxLevel) return state;
   const cost = getRunUpgradeCost(state, index);
   if (cost > state.flux) return state;
   const next = cloneGameState(state);
   next.flux = Math.max(0, next.flux - cost);
   next.runUpgrades[index] += 1;
+  next.settings.protocolBlueprint[index] = Math.max(
+    next.settings.protocolBlueprint[index] ?? 0,
+    next.runUpgrades[index],
+  );
   next.researchPurchases += 1;
   return next;
 }
@@ -4806,26 +4892,22 @@ export function getRecalibrationGain(state: GameState) {
   if (state.missions.currentIndex === 0 && !provingColdWakeLaw) return 0;
   const threshold = getRecalibrationThreshold(state);
   if (state.runFlux < threshold) return 0;
-  const gain = Math.max(
-    1,
-    Math.floor(
-      safePower(state.runFlux / threshold, 0.3),
-    ),
-  );
-  return provingColdWakeLaw ? 1 : gain;
+  if (provingColdWakeLaw) return 1;
+  const worldIndex = getCampaignWorldIndex(state);
+  const forged = state.axiomProofsByWorld[worldIndex] ?? 0;
+  let gain = 0;
+  for (let offset = 0; offset < 64; offset += 1) {
+    const proofThreshold = getAxiomProofThreshold(state, forged + offset);
+    if (state.runFlux < proofThreshold) break;
+    gain += 1;
+  }
+  return gain;
 }
 
-export function getRecalibrationThreshold(state: GameState) {
+export function getRecalibrationBaseThreshold(state: GameState) {
   const worldIndex = getCampaignWorldIndex(state);
   if (worldIndex === 0) {
-    const lawIndex = Math.min(
-      COLD_WAKE_LAW_THRESHOLD_SCALE.length - 1,
-      Math.max(0, Math.floor(state.lifetimeAxioms)),
-    );
-    return safeMultiply(
-      RECALIBRATION_THRESHOLD,
-      COLD_WAKE_LAW_THRESHOLD_SCALE[lawIndex],
-    );
+    return RECALIBRATION_THRESHOLD;
   }
   return safeMultiply(
     RECALIBRATION_THRESHOLD,
@@ -4833,9 +4915,60 @@ export function getRecalibrationThreshold(state: GameState) {
   );
 }
 
+function getAxiomProofThreshold(state: GameState, proofIndex: number) {
+  const worldIndex = getCampaignWorldIndex(state);
+  if (worldIndex === 0) {
+    const lawIndex = Math.min(
+      COLD_WAKE_LAW_THRESHOLD_SCALE.length - 1,
+      Math.max(0, Math.floor(proofIndex)),
+    );
+    return safeMultiply(
+      RECALIBRATION_THRESHOLD,
+      COLD_WAKE_LAW_THRESHOLD_SCALE[lawIndex],
+    );
+  }
+  return safeMultiply(
+    getRecalibrationBaseThreshold(state),
+    safePower(AXIOM_PROOF_GROWTH, Math.max(0, Math.floor(proofIndex))),
+  );
+}
+
+export function getRecalibrationThreshold(state: GameState) {
+  const worldIndex = getCampaignWorldIndex(state);
+  const forged = worldIndex === 0
+    ? Math.max(
+        state.axiomProofsByWorld[0] ?? 0,
+        Math.min(3, Math.floor(state.lifetimeAxioms)),
+      )
+    : state.axiomProofsByWorld[worldIndex] ?? 0;
+  return getAxiomProofThreshold(state, forged);
+}
+
+export function getAxiomProofStatus(state: GameState) {
+  const worldIndex = getCampaignWorldIndex(state);
+  const forged = worldIndex === 0
+    ? Math.max(
+        state.axiomProofsByWorld[0] ?? 0,
+        Math.min(3, Math.floor(state.lifetimeAxioms)),
+      )
+    : state.axiomProofsByWorld[worldIndex] ?? 0;
+  const gain = getRecalibrationGain(state);
+  const nextThreshold = getAxiomProofThreshold(state, forged);
+  const followingThreshold = getAxiomProofThreshold(state, forged + gain);
+  return {
+    worldIndex,
+    forged,
+    gain,
+    nextThreshold,
+    followingThreshold,
+    growth: worldIndex === 0 ? null : AXIOM_PROOF_GROWTH,
+  };
+}
+
 export function recalibrate(state: GameState, now = Date.now()) {
   const gain = getRecalibrationGain(state);
   if (gain < 1) return state;
+  const worldIndex = getCampaignWorldIndex(state);
   const fresh = createInitialState(now);
   fresh.axioms = state.axioms + gain;
   fresh.lifetimeAxioms = state.lifetimeAxioms + gain;
@@ -4843,6 +4976,9 @@ export function recalibrate(state: GameState, now = Date.now()) {
   fresh.cycle = state.cycle + 1;
   fresh.allTimeFlux = state.allTimeFlux;
   fresh.legacyUpgrades = [...state.legacyUpgrades];
+  fresh.axiomProofsByWorld = [...state.axiomProofsByWorld];
+  fresh.axiomProofsByWorld[worldIndex] =
+    (fresh.axiomProofsByWorld[worldIndex] ?? 0) + gain;
   fresh.living = cloneLivingFoundryState(state.living);
   fresh.survivors = cloneSurvivorSystemState(state.survivors);
   fresh.research = cloneResearchLatticeState(state.research);
@@ -4879,6 +5015,7 @@ export function recalibrate(state: GameState, now = Date.now()) {
   fresh.settings = {
     ...state.settings,
     autoTiers: [...state.settings.autoTiers],
+    protocolBlueprint: [...state.settings.protocolBlueprint],
   };
   fresh.manualPulses = state.manualPulses;
   fresh.researchPurchases = state.researchPurchases;
@@ -4904,13 +5041,20 @@ export function isAutonomyUnlocked(state: GameState) {
 
 function runAutomation(state: GameState) {
   let next = state;
-  for (let index = GENERATORS.length - 1; index >= 0; index -= 1) {
-    if (!next.settings.autoTiers[index]) continue;
-    next = buyTier(next, index, "1");
+  if (next.settings.autoEnabled) {
+    for (let index = GENERATORS.length - 1; index >= 0; index -= 1) {
+      if (!next.settings.autoTiers[index]) continue;
+      next = buyTier(next, index, "1");
+    }
   }
   if (next.lifetimeAxioms >= 3 && next.settings.autoUpgrades) {
     for (let index = 0; index < RUN_UPGRADES.length; index += 1) {
-      next = buyRunUpgrade(next, index);
+      if (
+        next.runUpgrades[index] <
+        (next.settings.protocolBlueprint[index] ?? 0)
+      ) {
+        next = buyRunUpgrade(next, index);
+      }
     }
   }
   return next;
@@ -4993,7 +5137,8 @@ function generateResearchStock(state: GameState, elapsedSeconds: number) {
       0.0015 *
       bonuses.nullSignalMultiplier *
       colony.nullSignalMultiplier,
-    "axiom-proofs": seconds * state.lifetimeAxioms * 0.0005,
+    "axiom-proofs":
+      seconds * Math.sqrt(Math.max(0, state.lifetimeAxioms)) * 0.0005,
   };
   for (const inputId of Object.keys(gains) as Array<keyof ResearchInputBundle>) {
     state.researchStock[inputId] = Math.min(
@@ -5453,7 +5598,10 @@ export function simulateGame(
       next = advanceMission(next, missionDelta);
     }
 
-    if (isAutonomyUnlocked(next) && next.settings.autoEnabled) {
+    if (
+      isAutonomyUnlocked(next) &&
+      (next.settings.autoEnabled || next.settings.autoUpgrades)
+    ) {
       next.autoTimer += delta;
       const passes = Math.min(8, Math.floor(next.autoTimer));
       if (passes > 0) {
@@ -5584,6 +5732,21 @@ export function setAutoUpgrades(state: GameState, enabled: boolean) {
   if (enabled && !isAutonomyUnlocked(state)) return state;
   const next = cloneGameState(state);
   next.settings.autoUpgrades = enabled;
+  return next;
+}
+
+export function setProtocolBlueprintLevel(
+  state: GameState,
+  index: number,
+  level: number,
+) {
+  const upgrade = RUN_UPGRADES[index];
+  if (!upgrade || !isRunUpgradeUnlocked(state, index)) return state;
+  const next = cloneGameState(state);
+  next.settings.protocolBlueprint[index] = Math.min(
+    upgrade.maxLevel,
+    Math.max(0, Math.floor(level)),
+  );
   return next;
 }
 

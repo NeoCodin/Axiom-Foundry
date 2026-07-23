@@ -63,8 +63,8 @@ const TOOLTIP_RULES: TooltipRule[] = [
   { selector: ".mission-stages li", copy: "Campaign phase. Completed phases stay checked; the highlighted phase is the operation currently accepting progress." },
   { selector: ".mission-hazard", copy: "Local hazard. Resolve its stated preparation through the linked game system; hazards never use real-time failure deadlines." },
   { selector: ".mission-stakes", copy: "Outcome protocol. Planetary setbacks cost time or resources, but never erase saves, kill colonies, or punish offline play unfairly." },
-  { selector: ".upgrade-card", copy: "Core Protocol. This temporary optimization lasts until Recalibration and improves the current Foundry cycle; it is separate from the Research tab." },
-  { selector: ".foundry-recalibration", copy: "Recalibration converts a mature run into permanent Axioms. Machines and temporary research reset; laws and legacy progress survive." },
+  { selector: ".upgrade-card", copy: "Core Protocol. Each of its three Marks makes a substantial temporary change. Marks reset during Recalibration; its automation blueprint survives." },
+  { selector: ".foundry-recalibration", copy: "Recalibration converts a mature run into permanent Axioms. Machines and temporary Protocol Marks reset; laws and legacy progress survive. Each additional proof on this world costs five times more." },
   { selector: ".automation-panel", copy: "Cycle automation. After its unlocks, AXIOM can purchase selected mechanisms and run optimizations while you are away." },
   { selector: ".legacy-panel", copy: "Legacy Matrix. Spend Axioms on permanent laws that strengthen every future cycle." },
 

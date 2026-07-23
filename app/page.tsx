@@ -26,6 +26,7 @@ import {
   PELAGOS_FERRY_STAGE,
   PELAGOS_PROTOCOL_STAGE,
   PELAGOS_TOW_STAGE,
+  PROTOCOL_MARK_LABELS,
   RETIRED_SAVE_KEYS,
   RUN_UPGRADES,
   SAVE_KEY,
@@ -91,6 +92,7 @@ import {
   getPurchaseQuantity,
   getRecalibrationGain,
   getRecalibrationThreshold,
+  getAxiomProofStatus,
   getResearchCrewAvailable,
   getResearchFieldValidation,
   getOperationalResearchExpertise,
@@ -118,9 +120,13 @@ import {
   elevateCrewProfile,
   getResearchPowerAvailable,
   getRunUpgradeCost,
+  getRunUpgradeEffectLabel,
+  getRunUpgradePaybackSeconds,
+  getRunUpgradeUnlockLabel,
   getSupplyFabricationQuote,
   getTierCost,
   isTierUnlocked,
+  isRunUpgradeUnlocked,
   pulseCore,
   recalibrate,
   resolveCurrentCrisis,
@@ -128,6 +134,7 @@ import {
   setAutoEnabled,
   setAutoTier,
   setAutoUpgrades,
+  setProtocolBlueprintLevel,
   setBuyMode,
   setColdWakeForecastReviewed,
   setGuideCompleted,
@@ -347,9 +354,6 @@ function getNextObjective(state: GameState) {
     (generator, index) =>
       index <= worldIndex && state.maxFlux < generator.unlockAt,
   );
-  const upgradeReveal = RUN_UPGRADES.find(
-    (upgrade) => state.maxFlux < upgrade.revealAt,
-  );
   const candidates = [
     generatorUnlock
       ? {
@@ -357,16 +361,10 @@ function getNextObjective(state: GameState) {
           label: `Discover ${generatorUnlock.name}`,
         }
       : null,
-    upgradeReveal
-      ? {
-          threshold: upgradeReveal.revealAt,
-          label: `Decode ${upgradeReveal.name}`,
-        }
-      : null,
     state.runFlux < recalibrationThreshold
       ? {
           threshold: recalibrationThreshold,
-          label: "Stabilize the first Recalibration",
+          label: "Stabilize the next Axiom proof",
         }
       : null,
   ]
@@ -388,7 +386,6 @@ function getNextObjective(state: GameState) {
   const previousThreshold = [
     0,
     ...GENERATORS.map((generator) => generator.unlockAt),
-    ...RUN_UPGRADES.map((upgrade) => upgrade.revealAt),
   ]
     .filter((threshold) => threshold <= state.maxFlux)
     .sort((left, right) => right - left)[0];
@@ -633,6 +630,10 @@ export default function Home() {
   );
   const recalibrationThreshold = useMemo(
     () => getRecalibrationThreshold(game),
+    [game],
+  );
+  const axiomProofStatus = useMemo(
+    () => getAxiomProofStatus(game),
     [game],
   );
   const objective = useMemo(() => getNextObjective(game), [game]);
@@ -3206,34 +3207,68 @@ export default function Home() {
           <section className="panel upgrades-panel" data-guide-target="foundry-protocols">
             <div className="panel-heading">
               <div>
-                <p className="section-kicker brass">Temporary engineering optimizations</p>
+                <p className="section-kicker brass">Temporary cycle configurations</p>
                 <h2>Core Protocols</h2>
               </div>
-              <span className="count-label">{game.runUpgrades.reduce((sum, level) => sum + level, 0)} levels</span>
+              <span className="count-label">{game.runUpgrades.reduce((sum, level) => sum + level, 0)} Marks</span>
             </div>
+            <p className="panel-copy protocol-intro">
+              Each Protocol has three substantial Marks, priced against this world&apos;s proof scale. Compiled Marks reset during Recalibration; the saved blueprint tells AXIOM which ones it may rebuild after you enable Protocol routing.
+            </p>
             <div className="upgrade-list">
               {RUN_UPGRADES.map((upgrade, index) => {
                 const level = game.runUpgrades[index];
                 const maxed = level >= upgrade.maxLevel;
-                const revealed = game.maxFlux >= upgrade.revealAt || index === RUN_UPGRADES.findIndex((item) => game.maxFlux < item.revealAt);
-                if (!revealed) return null;
-                if (game.maxFlux < upgrade.revealAt) {
+                const unlocked = isRunUpgradeUnlocked(game, index);
+                const firstLockedIndex = RUN_UPGRADES.findIndex(
+                  (_, candidateIndex) => !isRunUpgradeUnlocked(game, candidateIndex),
+                );
+                if (!unlocked && index !== firstLockedIndex) return null;
+                if (!unlocked) {
                   return (
                     <article className="upgrade-card locked" key={upgrade.name}>
-                      <div><span>Research signal</span><strong>Reach {formatNumber(upgrade.revealAt)} Flux</strong></div>
+                      <div><span>Future configuration</span><strong>{getRunUpgradeUnlockLabel(index)}</strong></div>
                     </article>
                   );
                 }
                 const cost = getRunUpgradeCost(game, index);
+                const payback = getRunUpgradePaybackSeconds(game, index);
+                const blueprint = game.settings.protocolBlueprint[index] ?? 0;
                 return (
                   <article className={`upgrade-card ${maxed ? "installed" : ""}`} key={upgrade.name}>
                     <div className="upgrade-copy">
-                      <span>LEVEL {level}/{upgrade.maxLevel}</span>
+                      <span>MARK {PROTOCOL_MARK_LABELS[level]} / III</span>
                       <strong>{upgrade.name}</strong>
                       <p>{upgrade.description}</p>
+                      <small className="protocol-effect">
+                        {getRunUpgradeEffectLabel(index, level)}
+                        {!maxed && <> → {getRunUpgradeEffectLabel(index, level + 1)}</>}
+                      </small>
+                      <small className="protocol-payback">
+                        {index === 0
+                          ? "Active-play configuration"
+                          : payback === null
+                            ? "Requires an operating affected system"
+                            : `Estimated payback ${formatDuration(payback)}`}
+                      </small>
+                      <button
+                        className="protocol-blueprint-button"
+                        type="button"
+                        onClick={() =>
+                          setGame((current) =>
+                            setProtocolBlueprintLevel(
+                              current,
+                              index,
+                              blueprint >= upgrade.maxLevel ? 0 : blueprint + 1,
+                            ),
+                          )
+                        }
+                      >
+                        AUTO BLUEPRINT: {PROTOCOL_MARK_LABELS[blueprint]}
+                      </button>
                     </div>
-                    <button type="button" disabled={maxed || game.flux < cost} onClick={() => handleRunUpgrade(index)}>
-                      {maxed ? "MAXED" : `${formatNumber(cost)} Flux`}
+                    <button className="protocol-compile-button" type="button" disabled={maxed || game.flux < cost} onClick={() => handleRunUpgrade(index)}>
+                      {maxed ? "MARK III STABLE" : <>COMPILE MARK {PROTOCOL_MARK_LABELS[level + 1]}<small>{formatNumber(cost)} Flux</small></>}
                     </button>
                   </article>
                 );
@@ -3257,7 +3292,16 @@ export default function Home() {
             <div className="prestige-preview">
               <span>Projected yield</span>
               <strong>{recalibrationGain} Axiom{recalibrationGain === 1 ? "" : "s"}</strong>
-              <small>{formatNumber(game.runFlux)} / {formatNumber(recalibrationThreshold)} run Flux</small>
+              <small>{formatNumber(game.runFlux)} / {formatNumber(recalibrationThreshold)} run Flux for the next proof</small>
+              {campaignWorldIndex > 0 && (
+                <div className="axiom-proof-ladder">
+                  <span>{axiomProofStatus.forged} forged on {activeMission?.world ?? "this world"}</span>
+                  <span>Each additional proof requires ×{axiomProofStatus.growth} the previous threshold</span>
+                  {recalibrationGain > 0 && (
+                    <span>After this Recalibration: next proof at {formatNumber(axiomProofStatus.followingThreshold)} run Flux</span>
+                  )}
+                </div>
+              )}
             </div>
             <p className="axiom-definition">Axioms are permanent laws that keep ships, time, and matter consistent inside the Null Tide.</p>
             {!confirmPrestige ? (
@@ -3307,7 +3351,7 @@ export default function Home() {
                   ))}
                 </div>
                 <label className={`toggle-row ${game.lifetimeAxioms < 3 ? "disabled" : ""}`}>
-                  <span><strong>Protocol routing</strong><small>{game.lifetimeAxioms < 3 ? "Unlocks at 3 lifetime Axioms." : "Automatically buys affordable Core Protocol levels."}</small></span>
+                  <span><strong>Protocol routing</strong><small>{game.lifetimeAxioms < 3 ? "Unlocks at 3 lifetime Axioms." : "Rebuilds only the Marks stored in your Core Protocol blueprint."}</small></span>
                   <input type="checkbox" disabled={game.lifetimeAxioms < 3} checked={game.settings.autoUpgrades} onChange={(event) => setGame((current) => setAutoUpgrades(current, event.target.checked))} />
                 </label>
               </>
