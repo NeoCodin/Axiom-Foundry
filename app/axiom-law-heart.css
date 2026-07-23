@@ -244,6 +244,8 @@
 /* The Law-Heart is the Foundry's single interactive production centerpiece. */
 .foundry-law-heart {
   display: grid;
+  min-width: 0;
+  aspect-ratio: 1;
   border: 4px solid #263e48;
   background: #040b0e;
   box-shadow: 6px 6px 0 #010304;
@@ -263,10 +265,11 @@
 .foundry-law-heart > header p { max-width: 900px; margin: 0; color: #89a0a3; font-size: 13px; line-height: 1.5; }
 .foundry-law-heart-body {
   display: grid;
-  padding: 24px;
-  grid-template-columns: minmax(320px, 512px);
-  gap: 14px;
-  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  grid-template-columns: minmax(0, 1fr);
   background-image:
     linear-gradient(rgba(82, 228, 236, 0.05) 1px, transparent 1px),
     linear-gradient(90deg, rgba(82, 228, 236, 0.05) 1px, transparent 1px);
@@ -274,20 +277,21 @@
 }
 .foundry-law-heart-machine {
   position: relative;
-  width: min(100%, 512px);
+  width: 100%;
+  height: 100%;
   aspect-ratio: 1;
-  place-self: center stretch;
+  place-self: stretch;
   min-height: 0;
   padding: 0;
   overflow: hidden;
-  border: 4px solid #31535e;
+  border: 0;
   background: #020608;
-  box-shadow: 6px 6px 0 #000, inset 0 0 0 4px #071318;
+  box-shadow: inset 0 0 0 4px #071318;
   color: inherit;
   cursor: var(--cursor-pixel-active);
   image-rendering: pixelated;
 }
-.foundry-law-heart-machine:hover { border-color: #63e7ed; }
+.foundry-law-heart-machine:hover { box-shadow: inset 0 0 0 4px #315d65; }
 .foundry-law-heart-machine:active {
   box-shadow: 2px 2px 0 #000, inset 0 0 0 4px #0b3238;
   transform: translate(2px, 2px);
@@ -333,35 +337,99 @@
 .foundry-law-heart-axiom-count strong { color: #f0c367; font-size: 15px; }
 .foundry-law-heart-axiom-count small { display: inline; color: #ba9d67; }
 
-.law-heart-spectrum {
-  display: flex;
-  min-height: 38px;
-  flex-wrap: wrap;
-  gap: 6px;
-  justify-content: center;
-}
-.law-heart-spectrum span {
-  display: inline-flex;
-  min-height: 32px;
-  align-items: center;
-  gap: 7px;
-  padding: 6px 9px;
-  border: 2px solid #1e373f;
-  background: #050d10;
-  color: #8da5a8;
-  font-size: 9px;
-  letter-spacing: 0.05em;
-}
-.law-heart-spectrum span i { width: 8px; height: 8px; background: #55e6e8; box-shadow: 2px 2px 0 #071316; }
-.law-heart-spectrum span strong { color: #d9ece9; }
-.law-heart-spectrum .is-tier-1 i { background: #559dff; }
-.law-heart-spectrum .is-tier-2 i { background: #b87cff; }
-.law-heart-spectrum .is-tier-3 i { background: #f2bc55; }
-.law-heart-spectrum .is-tier-4 i { background: #fff0b5; }
-.law-heart-spectrum .is-tier-5 i { background: #ff695c; }
 .foundry-law-heart.is-rapid .foundry-law-heart-machine,
 .foundry-law-heart.is-synchronized .foundry-law-heart-machine { border-color: #58cfd5; }
-.foundry-law-heart.is-synchronized .foundry-law-heart-machine { box-shadow: 6px 6px 0 #000, inset 0 0 0 4px #0c3238; }
+.foundry-law-heart.is-synchronized .foundry-law-heart-machine { box-shadow: inset 0 0 0 4px #0c3238; }
+
+/* The Foundry's primary workspace: reactor field at left, fabrication controls at right. */
+.foundry-workspace.has-reactor-workspace {
+  grid-template-columns: minmax(0, 2fr) minmax(330px, 1fr);
+  align-items: start;
+}
+.foundry-workspace.has-reactor-workspace > .foundry-workspace-header {
+  grid-column: 1 / -1;
+  grid-row: 1;
+}
+.foundry-workspace.has-reactor-workspace > .foundry-law-heart {
+  grid-column: 1;
+  grid-row: 2;
+}
+.foundry-workspace.has-reactor-workspace > .foundry-grid {
+  display: contents !important;
+}
+.foundry-workspace.has-reactor-workspace > .foundry-grid > .foundry-chain-sidebar {
+  grid-column: 2;
+  grid-row: 2;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  align-self: stretch;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border: 4px solid #263e48;
+  background: #040b0e;
+  box-shadow: 6px 6px 0 #010304;
+  scrollbar-color: #4f747d #071116;
+  scrollbar-width: thin;
+}
+.foundry-workspace.has-reactor-workspace > .foundry-grid > .systems-column {
+  grid-column: 1 / -1;
+  grid-row: 3;
+}
+.foundry-chain-sidebar .machine-heading {
+  position: sticky;
+  z-index: 6;
+  top: 0;
+  min-height: 76px;
+  padding: 12px;
+  border-bottom: 4px double #2d4650;
+  background: #081318;
+  backdrop-filter: none;
+}
+.foundry-chain-sidebar .machine-heading h2 { font-size: clamp(19px, 1.5vw, 27px); }
+.foundry-chain-sidebar .machine-list { padding: 8px; }
+.foundry-chain-sidebar .machine-list > :nth-child(1) { --tier-accent: #55e6e8; }
+.foundry-chain-sidebar .machine-list > :nth-child(2) { --tier-accent: #559dff; }
+.foundry-chain-sidebar .machine-list > :nth-child(3) { --tier-accent: #b87cff; }
+.foundry-chain-sidebar .machine-list > :nth-child(4) { --tier-accent: #f2bc55; }
+.foundry-chain-sidebar .machine-list > :nth-child(5) { --tier-accent: #fff0b5; }
+.foundry-chain-sidebar .machine-list > :nth-child(6) { --tier-accent: #ff695c; }
+.foundry-chain-sidebar .machine-block + .machine-block { border-top: 0; }
+.foundry-chain-sidebar .machine-row {
+  position: relative;
+  grid-template-columns: 34px minmax(0, 1fr) 104px;
+  min-height: 102px;
+  margin-bottom: 8px;
+  padding: 9px 10px;
+  border-color: #263e48;
+  box-shadow: 3px 3px 0 #010202;
+}
+.foundry-chain-sidebar .machine-row::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--tier-accent, #55e6e8);
+  content: "";
+}
+.foundry-chain-sidebar .machine-row:hover { border-color: var(--tier-accent, #55e6e8); }
+.foundry-chain-sidebar .machine-id,
+.foundry-chain-sidebar .locked-signal {
+  width: 30px;
+  height: 30px;
+  border-color: var(--tier-accent, #55e6e8);
+  color: var(--tier-accent, #55e6e8);
+  font-size: 20px;
+}
+.foundry-chain-sidebar .machine-index,
+.foundry-chain-sidebar .owned-count { color: var(--tier-accent, #55e6e8); }
+.foundry-chain-sidebar .machine-title-line h3 { font-size: 14px; }
+.foundry-chain-sidebar .machine-description { margin-block: 4px 6px; font-size: 9px; }
+.foundry-chain-sidebar .machine-output { gap: 4px 9px; font-size: 8px; }
+.foundry-chain-sidebar .milestone-track > span { background: var(--tier-accent, #55e6e8); box-shadow: none; }
+.foundry-chain-sidebar .resonance-link { height: 20px; color: #769096; }
+.foundry-chain-sidebar .resonance-link.active { color: var(--tier-accent, #55e6e8); }
+.foundry-chain-sidebar .resonance-link.active span { background: var(--tier-accent, #55e6e8); box-shadow: none; }
+.foundry-chain-sidebar .buy-button { min-height: 50px; }
 
 @media (max-width: 1050px) {
   .command-bar.metric-count-0 { grid-template-columns: minmax(300px, 1fr) minmax(180px, 0.5fr) minmax(280px, 0.8fr); }
@@ -370,8 +438,26 @@
   .law-heart-directive { margin: 0 24px 24px; }
   .law-heart-controls { grid-template-columns: 1fr; }
   .law-heart-controls > section + section { border-left: 0; border-top: 4px solid #263e48; }
-  .foundry-law-heart-body { grid-template-columns: minmax(0, 1fr); }
-  .foundry-law-heart-machine { width: min(100%, 640px); justify-self: center; }
+  .foundry-workspace.has-reactor-workspace { grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr); }
+  .foundry-chain-sidebar .machine-row { grid-template-columns: 30px minmax(0, 1fr) 92px; }
+  .foundry-chain-sidebar .machine-description { display: none; }
+}
+
+@media (max-width: 900px) {
+  .foundry-workspace.has-reactor-workspace { grid-template-columns: minmax(0, 1fr); }
+  .foundry-workspace.has-reactor-workspace > .foundry-law-heart { grid-column: 1; grid-row: 2; }
+  .foundry-workspace.has-reactor-workspace > .foundry-grid > .foundry-chain-sidebar {
+    grid-column: 1;
+    grid-row: 3;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+  .foundry-workspace.has-reactor-workspace > .foundry-grid > .systems-column {
+    grid-column: 1;
+    grid-row: 4;
+  }
+  .foundry-chain-sidebar .machine-description { display: block; }
 }
 
 @media (max-width: 767px) {
@@ -388,9 +474,15 @@
   .law-purchase-row { flex-direction: column; }
   .law-buy-modes button { flex: 1; }
   .law-slot-grid { grid-template-columns: 1fr; }
-  .foundry-law-heart > header { align-items: flex-start; flex-direction: column; padding: 16px; }
-  .foundry-law-heart-body { min-height: 0; padding: 12px; }
-  .foundry-law-heart-machine { width: min(100%, 520px); min-height: 0; }
+  .foundry-law-heart-body { min-height: 0; padding: 0; }
+  .foundry-law-heart-machine { width: 100%; min-height: 0; }
+  .foundry-law-heart-readout { bottom: 10px; left: 10px; min-width: 130px; min-height: 64px; }
+  .foundry-law-heart-rate,
+  .foundry-law-heart-axiom-count { top: 10px; }
+  .foundry-law-heart-rate { left: 10px; }
+  .foundry-law-heart-axiom-count { right: 10px; }
+  .foundry-chain-sidebar .machine-row { grid-template-columns: 30px minmax(0, 1fr); }
+  .foundry-chain-sidebar .buy-button { grid-column: 1 / -1; }
 }
 
 @media (prefers-reduced-motion: reduce) {

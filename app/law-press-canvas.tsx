@@ -153,6 +153,43 @@ function pixelLine(
   }
 }
 
+function octagonPoints(radius: number): readonly Point[] {
+  const cut = Math.max(5, Math.round(radius * 0.34));
+  return [
+    [CENTER - radius + cut, CENTER - radius],
+    [CENTER + radius - cut, CENTER - radius],
+    [CENTER + radius, CENTER - radius + cut],
+    [CENTER + radius, CENTER + radius - cut],
+    [CENTER + radius - cut, CENTER + radius],
+    [CENTER - radius + cut, CENTER + radius],
+    [CENTER - radius, CENTER + radius - cut],
+    [CENTER - radius, CENTER - radius + cut],
+    [CENTER - radius + cut, CENTER - radius],
+  ];
+}
+
+function fillPixelOctagon(
+  context: CanvasRenderingContext2D,
+  radius: number,
+  color: string,
+) {
+  const cut = Math.max(5, Math.round(radius * 0.34));
+  rect(context, CENTER - radius + cut, CENTER - radius, (radius - cut) * 2, radius * 2, color);
+  rect(context, CENTER - radius, CENTER - radius + cut, radius * 2, (radius - cut) * 2, color);
+}
+
+function strokePixelOctagon(
+  context: CanvasRenderingContext2D,
+  radius: number,
+  color: string,
+  pixelSize = 4,
+) {
+  const points = octagonPoints(radius);
+  for (let index = 0; index < points.length - 1; index += 1) {
+    pixelLine(context, points[index], points[index + 1], color, pixelSize);
+  }
+}
+
 function orbitPoint(radius: number, angle: number, flattening = 0.86): Point {
   return [CENTER + Math.cos(angle) * radius, CENTER + Math.sin(angle) * radius * flattening];
 }
@@ -362,7 +399,7 @@ function drawCore(
   recalibrationEvent: RecalibrationEvent | null,
 ) {
   const axiomGrowth = Math.log2(safe(props.lifetimeAxioms) + 1);
-  const baseRadius = 19 + Math.min(30, axiomGrowth * 4.2) + Math.min(3, props.provenLaws) * 2;
+  const baseRadius = 28 + Math.min(32, axiomGrowth * 4) + Math.min(3, props.provenLaws) * 2;
   const compression = clickPhase < 0.22
     ? -7 * Math.sin(clickPhase / 0.22 * Math.PI)
     : clickPhase < 1
@@ -374,16 +411,51 @@ function drawCore(
   const lawReady = props.state === "law-ready" || props.preparingRecalibration;
   const outerColor = lawReady ? COLORS.amber : props.manualPulses > 0 ? COLORS.cyan : COLORS.inactive;
 
-  rect(context, CENTER - radius - 8, CENTER - radius - 8, radius * 2 + 16, radius * 2 + 16, COLORS.black);
-  pixelLine(context, [CENTER, CENTER - radius - 8], [CENTER + radius + 8, CENTER], outerColor, 4);
-  pixelLine(context, [CENTER + radius + 8, CENTER], [CENTER, CENTER + radius + 8], outerColor, 4);
-  pixelLine(context, [CENTER, CENTER + radius + 8], [CENTER - radius - 8, CENTER], outerColor, 4);
-  pixelLine(context, [CENTER - radius - 8, CENTER], [CENTER, CENTER - radius - 8], outerColor, 4);
+  context.save();
+  context.globalAlpha = props.manualPulses > 0 ? 0.13 : 0.06;
+  fillPixelOctagon(context, radius + 18, lawReady ? COLORS.amber : COLORS.cyan);
+  context.globalAlpha *= 0.7;
+  fillPixelOctagon(context, radius + 28, lawReady ? COLORS.amber : COLORS.cyanDark);
+  context.restore();
 
-  rect(context, CENTER - radius, CENTER - radius, radius * 2, radius * 2, COLORS.deepMetal);
-  frame(context, CENTER - radius, CENTER - radius, radius * 2, radius * 2, outerColor, 4);
-  rect(context, CENTER - radius * 0.58, CENTER - radius * 0.58, radius * 1.16, radius * 1.16, lawReady ? "#4a3514" : COLORS.cyanDark);
-  rect(context, CENTER - 6, CENTER - 6, 12, 12, props.manualPulses > 0 ? COLORS.white : COLORS.inactive);
+  const fieldRadius = radius + 24;
+  pixelLine(context, [CENTER, CENTER - fieldRadius], [CENTER + fieldRadius, CENTER], outerColor, 4);
+  pixelLine(context, [CENTER + fieldRadius, CENTER], [CENTER, CENTER + fieldRadius], outerColor, 4);
+  pixelLine(context, [CENTER, CENTER + fieldRadius], [CENTER - fieldRadius, CENTER], outerColor, 4);
+  pixelLine(context, [CENTER - fieldRadius, CENTER], [CENTER, CENTER - fieldRadius], outerColor, 4);
+
+  const braceDistance = radius + 31;
+  const braceLength = 15;
+  rect(context, CENTER - 11, CENTER - braceDistance - 4, 22, 8, COLORS.black);
+  frame(context, CENTER - 11, CENTER - braceDistance - 4, 22, 8, outerColor, 2);
+  rect(context, CENTER - 11, CENTER + braceDistance - 4, 22, 8, COLORS.black);
+  frame(context, CENTER - 11, CENTER + braceDistance - 4, 22, 8, outerColor, 2);
+  rect(context, CENTER - braceDistance - 4, CENTER - 11, 8, 22, COLORS.black);
+  frame(context, CENTER - braceDistance - 4, CENTER - 11, 8, 22, outerColor, 2);
+  rect(context, CENTER + braceDistance - 4, CENTER - 11, 8, 22, COLORS.black);
+  frame(context, CENTER + braceDistance - 4, CENTER - 11, 8, 22, outerColor, 2);
+  rect(context, CENTER - 2, CENTER - braceDistance + 4, 4, braceLength, outerColor);
+  rect(context, CENTER - 2, CENTER + braceDistance - braceLength - 4, 4, braceLength, outerColor);
+  rect(context, CENTER - braceDistance + 4, CENTER - 2, braceLength, 4, outerColor);
+  rect(context, CENTER + braceDistance - braceLength - 4, CENTER - 2, braceLength, 4, outerColor);
+
+  fillPixelOctagon(context, radius + 5, COLORS.black);
+  strokePixelOctagon(context, radius + 5, COLORS.metalLight, 4);
+  fillPixelOctagon(context, radius, COLORS.deepMetal);
+  strokePixelOctagon(context, radius, outerColor, 4);
+
+  const facetColor = lawReady ? "#795823" : COLORS.cyanDark;
+  pixelLine(context, [CENTER, CENTER - radius + 5], [CENTER, CENTER + radius - 5], facetColor, 3);
+  pixelLine(context, [CENTER - radius + 5, CENTER], [CENTER + radius - 5, CENTER], facetColor, 3);
+  pixelLine(context, [CENTER - radius * 0.68, CENTER - radius * 0.68], [CENTER + radius * 0.68, CENTER + radius * 0.68], facetColor, 3);
+  pixelLine(context, [CENTER + radius * 0.68, CENTER - radius * 0.68], [CENTER - radius * 0.68, CENTER + radius * 0.68], facetColor, 3);
+
+  const plasmaRadius = Math.max(10, radius * 0.38 + (clickPhase < 1 ? Math.sin(clickPhase * Math.PI) * 5 : 0));
+  fillPixelOctagon(context, plasmaRadius + 7, lawReady ? "#5b4218" : "#0b4149");
+  strokePixelOctagon(context, plasmaRadius + 7, lawReady ? COLORS.amber : COLORS.cyan, 3);
+  fillPixelOctagon(context, plasmaRadius, lawReady ? COLORS.amber : COLORS.cyanDark);
+  fillPixelOctagon(context, Math.max(6, plasmaRadius * 0.47), props.manualPulses > 0 ? COLORS.white : COLORS.inactive);
+  rect(context, CENTER - 3, CENTER - 3, 6, 6, props.manualPulses > 0 ? outerColor : COLORS.cyanDark);
 
   const axiomOrbiters = Math.min(12, Math.floor(axiomGrowth * 1.6));
   for (let index = 0; index < axiomOrbiters; index += 1) {

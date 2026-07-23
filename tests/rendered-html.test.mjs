@@ -121,6 +121,10 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(page, /!game\.missions\.awaitingAcknowledgement/);
   assert.match(page, /The Foundry Floor/);
   assert.match(page, /Planetary planning remains in Continuity/);
+  assert.match(page, /has-reactor-workspace/);
+  assert.match(page, /foundry-chain-sidebar/);
+  assert.doesNotMatch(foundryLawHeart, /A visible history of the fabrication chain|law-heart-spectrum/);
+  assert.match(lawPress, /fillPixelOctagon/);
   assert.doesNotMatch(page, /className=.*tune-button/);
   assert.match(page, /Fabrication Chain/);
   assert.match(settlementConsole, /Nothing expires/);

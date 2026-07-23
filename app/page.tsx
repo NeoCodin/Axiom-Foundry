@@ -3052,7 +3052,7 @@ export default function Home() {
         />
         </>
       ) : (
-      <section className="foundry-workspace" aria-labelledby="foundry-workspace-title">
+      <section className={`foundry-workspace ${campaignWorldIndex > 0 ? "has-reactor-workspace" : "is-cold-wake-workspace"}`} aria-labelledby="foundry-workspace-title">
         <header className="foundry-workspace-header" data-guide-target="foundry-heading">
           <div>
             <p className="section-kicker">{campaignWorldIndex === 0 ? "First restored deck // Cold Wake" : "Fabrication deck // systems online"}</p>
@@ -3072,8 +3072,8 @@ export default function Home() {
             manualGainLabel={formatNumber(manualGain)}
             manualPulses={game.manualPulses}
             lifetimeAxioms={game.lifetimeAxioms}
+            lifetimeAxiomsLabel={formatNumber(game.lifetimeAxioms)}
             tiers={game.tiers.map((tier, index) => ({
-              name: GENERATORS[index].name,
               count: tier.bought,
               output: production.tierOutputs[index],
             }))}
@@ -3091,7 +3091,7 @@ export default function Home() {
 
       <div className="game-grid foundry-grid">
         {fabricationUnlocked && (
-        <section className={`panel machine-panel mobile-section ${mobileTab === "machines" ? "is-mobile-active" : ""}`} data-guide-target="foundry-chain">
+        <section className={`panel machine-panel ${campaignWorldIndex > 0 ? "foundry-chain-sidebar" : ""} mobile-section ${mobileTab === "machines" ? "is-mobile-active" : ""}`} data-guide-target="foundry-chain">
           <div className="panel-heading machine-heading">
             <div>
               <p className="section-kicker">Nested mechanisms</p>

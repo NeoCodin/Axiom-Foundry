@@ -4,10 +4,6 @@ import { useState } from "react";
 
 import { LawPressCanvas, type LawHeartTier, type LawPressState } from "./law-press-canvas";
 
-type FoundryLawHeartTier = LawHeartTier & {
-  name: string;
-};
-
 type FoundryLawHeartProps = {
   flux: number;
   fluxLabel: string;
@@ -17,7 +13,8 @@ type FoundryLawHeartProps = {
   manualGainLabel: string;
   manualPulses: number;
   lifetimeAxioms: number;
-  tiers: readonly FoundryLawHeartTier[];
+  lifetimeAxiomsLabel: string;
+  tiers: readonly LawHeartTier[];
   worldProgress: number;
   onTune: () => void;
 };
@@ -35,6 +32,7 @@ export function FoundryLawHeart({
   manualGainLabel,
   manualPulses,
   lifetimeAxioms,
+  lifetimeAxiomsLabel,
   tiers,
   worldProgress,
   onTune,
@@ -57,14 +55,7 @@ export function FoundryLawHeart({
   };
 
   return (
-    <section className={`foundry-law-heart is-${state}`} data-guide-target="foundry-law-heart" aria-labelledby="foundry-law-heart-title">
-      <header>
-        <div>
-          <span>LAW-HEART // FOUNDRY CORE</span>
-          <h3 id="foundry-law-heart-title">A visible history of the fabrication chain</h3>
-          <p>Stored Flux forms the particle field. Production drives its speed, every mechanism builds a colored orbit, and permanent Axioms reshape the heart.</p>
-        </div>
-      </header>
+    <section className={`foundry-law-heart is-${state}`} data-guide-target="foundry-law-heart" aria-label="Law-Heart fabrication reactor">
       <div className="foundry-law-heart-body">
         <button
           className="foundry-law-heart-machine"
@@ -92,14 +83,9 @@ export function FoundryLawHeart({
             <em>STRIKE LAW +{manualGainLabel}</em>
           </span>
           <span className="foundry-law-heart-rate"><small>FIELD VELOCITY</small><strong>{fluxPerSecondLabel}/sec</strong></span>
-          <span className="foundry-law-heart-axiom-count"><strong>{lifetimeAxioms}</strong><small> LIFETIME AXIOMS</small></span>
+          <span className="foundry-law-heart-axiom-count"><strong>{lifetimeAxiomsLabel}</strong><small> LIFETIME AXIOMS</small></span>
           {pulseSerial > 0 && <span className="foundry-law-heart-gain" key={`foundry-law-gain-${pulseSerial}`} aria-hidden="true">+{manualGainLabel}</span>}
         </button>
-        <div className="law-heart-spectrum" aria-label="Active fabrication colors">
-          {tiers.map((tier, index) => tier.count > 0 && (
-            <span className={`is-tier-${index}`} key={tier.name}><i aria-hidden="true" />{tier.name}<strong>{tier.count}</strong></span>
-          ))}
-        </div>
       </div>
     </section>
   );
