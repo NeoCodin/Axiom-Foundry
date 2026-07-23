@@ -89,6 +89,14 @@ function safe(value: number) {
   return Number.isFinite(value) && value > 0 ? value : 0;
 }
 
+function progressionAngularSpeed(perSecond: number, machineCount: number) {
+  const productionOrder = Math.log10(safe(perSecond) + 1);
+  const machineDensity = Math.log2(safe(machineCount) + 1);
+  const progression = productionOrder + machineDensity * 0.32;
+  const turnsPerSecond = clamp(0.014 + Math.pow(progression, 1.25) * 0.007, 0.014, 0.72);
+  return turnsPerSecond * TWO_PI / 1000;
+}
+
 function hash(value: number) {
   const result = Math.sin(value * 91.3458 + 17.173) * 47453.5453;
   return result - Math.floor(result);
@@ -273,7 +281,8 @@ function drawStoredFlux(
   const order = Math.log10(flux + 1);
   const count = Math.round(clamp(5 + order * 7, 5, 96));
   const speedOrder = Math.log10(safe(props.fluxPerSecond) + 1);
-  const speed = reducedMotion ? 0 : 0.00008 + clamp(speedOrder / 10, 0, 1) * 0.00055;
+  const machineCount = props.tiers.reduce((total, tier) => total + safe(tier.count), 0);
+  const speed = reducedMotion ? 0 : progressionAngularSpeed(props.fluxPerSecond, machineCount);
 
   for (let index = 0; index < count; index += 1) {
     const lane = index % 5;
@@ -292,13 +301,14 @@ function drawStoredFlux(
 
   const continuousRings = Math.min(4, Math.floor(Math.max(0, speedOrder - 1) / 2));
   for (let index = 0; index < continuousRings; index += 1) {
+    const direction = index % 2 === 0 ? 1 : -1;
     drawPixelOrbit(
       context,
-      72 + index * 38,
+      68 + index * 47,
       TIER_COLORS[Math.min(index, TIER_COLORS.length - 1)],
       0.18 + index * 0.05,
       7,
-      Math.floor(now / (130 - index * 12)),
+      Math.floor(now * speed * direction * (26 + index * 7)),
       index >= 2 ? 3 : 2,
     );
   }
@@ -326,16 +336,20 @@ function drawFabricationOrbits(
   reducedMotion: boolean,
   purchaseEvent: PurchaseEvent | null,
 ) {
+  const totalMachineCount = props.tiers.reduce((total, tier) => total + safe(tier.count), 0);
+  const fieldSpeed = progressionAngularSpeed(props.fluxPerSecond, totalMachineCount);
+
   props.tiers.slice(0, TIER_COLORS.length).forEach((tier, tierIndex) => {
     const count = safe(tier.count);
     if (count <= 0) return;
-    const radius = 78 + tierIndex * 31;
+    const radius = 70 + tierIndex * 34;
     const color = TIER_COLORS[tierIndex];
     const outputOrder = Math.log10(safe(tier.output) + 1);
     const intensity = clamp((Math.log2(count + 1) + outputOrder * 0.35) / 11);
     const direction = tierIndex % 2 === 0 ? 1 : -1;
-    const speed = reducedMotion ? 0 : (0.00014 + clamp(outputOrder / 11) * 0.00072) * direction;
-    const offset = Math.floor(now / Math.max(45, 170 - outputOrder * 10));
+    const tierSpeed = progressionAngularSpeed(tier.output, count);
+    const speed = reducedMotion ? 0 : Math.max(tierSpeed, fieldSpeed * 0.58) * direction;
+    const offset = Math.floor(now * speed * radius * 0.34);
     drawPixelOrbit(context, radius, color, 0.13 + intensity * 0.25, count >= 25 ? 8 : 3, offset, count >= 75 ? 3 : 2);
 
     const nodeCount = Math.min(12, Math.max(1, Math.ceil(Math.log2(count + 1) * 1.8)));
@@ -399,7 +413,7 @@ function drawCore(
   recalibrationEvent: RecalibrationEvent | null,
 ) {
   const axiomGrowth = Math.log2(safe(props.lifetimeAxioms) + 1);
-  const baseRadius = 28 + Math.min(32, axiomGrowth * 4) + Math.min(3, props.provenLaws) * 2;
+  const baseRadius = 21 + Math.min(19, axiomGrowth * 2.25) + Math.min(3, props.provenLaws) * 1.5;
   const compression = clickPhase < 0.22
     ? -7 * Math.sin(clickPhase / 0.22 * Math.PI)
     : clickPhase < 1

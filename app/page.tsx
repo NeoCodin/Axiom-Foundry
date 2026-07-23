@@ -3171,14 +3171,16 @@ export default function Home() {
                       </div>
                     </div>
                     <button
-                      className="buy-button"
+                      className={`buy-button ${quantity > 0 ? "is-affordable" : "is-unaffordable"}`}
                       type="button"
                       disabled={quantity <= 0}
                       onClick={() => handleBuyTier(index)}
-                      aria-label={`Buy ${game.settings.buyMode === "max" ? quantity : displayQuantity} ${generator.name} for ${formatNumber(cost)} Flux`}
+                      aria-label={quantity > 0
+                        ? `Buy ${game.settings.buyMode === "max" ? quantity : displayQuantity} ${generator.name} for ${formatNumber(cost)} Flux`
+                        : `Cannot buy ${generator.name} yet. Need ${formatNumber(cost)} Flux.`}
                     >
-                      <span>{game.settings.buyMode === "max" && quantity > 0 ? `Build ×${quantity}` : `Build ${game.settings.buyMode === "max" ? "Max" : `×${displayQuantity}`}`}</span>
-                      <small>{quantity > 0 ? formatNumber(cost) : `Need ${formatNumber(cost)}`} Flux</small>
+                      <span>{quantity > 0 ? (game.settings.buyMode === "max" ? `Build ×${quantity}` : `Build ×${displayQuantity}`) : "Not enough Flux"}</span>
+                      <small>{quantity > 0 ? `${formatNumber(cost)} Flux` : `Need ${formatNumber(cost)} Flux`}</small>
                     </button>
                   </article>
                 </div>

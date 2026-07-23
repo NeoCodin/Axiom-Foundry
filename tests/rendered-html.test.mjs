@@ -125,6 +125,9 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(page, /foundry-chain-sidebar/);
   assert.doesNotMatch(foundryLawHeart, /A visible history of the fabrication chain|law-heart-spectrum/);
   assert.match(lawPress, /fillPixelOctagon/);
+  assert.match(lawPress, /progressionAngularSpeed/);
+  assert.match(page, /is-affordable/);
+  assert.match(page, /Not enough Flux/);
   assert.doesNotMatch(page, /className=.*tune-button/);
   assert.match(page, /Fabrication Chain/);
   assert.match(settlementConsole, /Nothing expires/);

@@ -343,7 +343,7 @@
 
 /* The Foundry's primary workspace: reactor field at left, fabrication controls at right. */
 .foundry-workspace.has-reactor-workspace {
-  grid-template-columns: minmax(0, 2fr) minmax(330px, 1fr);
+  grid-template-columns: minmax(0, 1.55fr) minmax(380px, 1fr);
   align-items: start;
 }
 .foundry-workspace.has-reactor-workspace > .foundry-workspace-header {
@@ -397,7 +397,7 @@
 .foundry-chain-sidebar .machine-block + .machine-block { border-top: 0; }
 .foundry-chain-sidebar .machine-row {
   position: relative;
-  grid-template-columns: 34px minmax(0, 1fr) 104px;
+  grid-template-columns: 34px minmax(0, 1fr) minmax(112px, 0.32fr);
   min-height: 102px;
   margin-bottom: 8px;
   padding: 9px 10px;
@@ -429,7 +429,45 @@
 .foundry-chain-sidebar .resonance-link { height: 20px; color: #769096; }
 .foundry-chain-sidebar .resonance-link.active { color: var(--tier-accent, #55e6e8); }
 .foundry-chain-sidebar .resonance-link.active span { background: var(--tier-accent, #55e6e8); box-shadow: none; }
-.foundry-chain-sidebar .buy-button { min-height: 50px; }
+.foundry-chain-sidebar .buy-button {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 58px;
+  padding: 7px 8px;
+  overflow: hidden;
+  border: 3px solid var(--tier-accent, #55e6e8);
+  border-radius: 0;
+  background: #0b1b20;
+  box-shadow: 4px 4px 0 #010304, inset 0 -5px 0 color-mix(in srgb, var(--tier-accent, #55e6e8) 18%, transparent);
+  color: var(--tier-accent, #55e6e8);
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+.foundry-chain-sidebar .buy-button span { font-size: 11px; }
+.foundry-chain-sidebar .buy-button small {
+  max-width: 100%;
+  overflow: hidden;
+  color: #c5d6d5;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.foundry-chain-sidebar .buy-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--tier-accent, #55e6e8) 15%, #081317);
+  box-shadow: 2px 2px 0 #010304, inset 0 -5px 0 color-mix(in srgb, var(--tier-accent, #55e6e8) 25%, transparent);
+  filter: none;
+  transform: translate(2px, 2px);
+}
+.foundry-chain-sidebar .buy-button:disabled {
+  border-color: #293b41;
+  background: #070d10;
+  box-shadow: none;
+  color: #4f6065;
+  cursor: var(--cursor-pixel);
+  opacity: 0.72;
+}
+.foundry-chain-sidebar .buy-button:disabled small { color: #64757a; }
 
 @media (max-width: 1050px) {
   .command-bar.metric-count-0 { grid-template-columns: minmax(300px, 1fr) minmax(180px, 0.5fr) minmax(280px, 0.8fr); }
@@ -438,8 +476,8 @@
   .law-heart-directive { margin: 0 24px 24px; }
   .law-heart-controls { grid-template-columns: 1fr; }
   .law-heart-controls > section + section { border-left: 0; border-top: 4px solid #263e48; }
-  .foundry-workspace.has-reactor-workspace { grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr); }
-  .foundry-chain-sidebar .machine-row { grid-template-columns: 30px minmax(0, 1fr) 92px; }
+  .foundry-workspace.has-reactor-workspace { grid-template-columns: minmax(0, 1.3fr) minmax(330px, 1fr); }
+  .foundry-chain-sidebar .machine-row { grid-template-columns: 30px minmax(0, 1fr) 108px; }
   .foundry-chain-sidebar .machine-description { display: none; }
 }
 
