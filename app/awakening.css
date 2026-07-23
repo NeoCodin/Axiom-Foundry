@@ -110,7 +110,7 @@ textarea {
 .living-foundry-nav button > span {
   color: currentColor;
   font-family: var(--font-number);
-  font-size: 10px;
+  font-size: 12px;
   opacity: 0.72;
 }
 
@@ -141,13 +141,13 @@ textarea {
   border-radius: 50%;
   color: var(--world-accent, var(--flux));
   font-family: var(--font-number);
-  font-size: 11px;
+  font-size: 12px;
   box-shadow: 0 0 18px rgb(var(--world-accent-rgb, 85 214 232) / 0.12);
 }
 
 .nav-awakening-status small {
   max-width: 72px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
   line-height: 1.15;
@@ -189,7 +189,7 @@ textarea {
 .section-kicker,
 .machine-index,
 .resource-label {
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.14em;
 }
 
@@ -212,7 +212,7 @@ textarea {
 
 .header-metrics span,
 .save-status {
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .header-metrics strong {
@@ -228,7 +228,7 @@ textarea {
 
 .objective-copy {
   padding: 8px 14px 7px;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .offline-banner {
@@ -290,7 +290,7 @@ textarea {
 }
 
 .foundry-vista-kicker {
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .foundry-vista-heading h3 {
@@ -304,7 +304,7 @@ textarea {
 
 .foundry-world-status {
   padding: 7px 11px;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .foundry-scene {
@@ -340,7 +340,7 @@ textarea {
 
 .foundry-approach-readout span,
 .foundry-approach-readout strong {
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.13em;
 }
 
@@ -553,12 +553,12 @@ textarea {
   width: 25px;
   height: 25px;
   flex-basis: 25px;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .route-copy strong,
 .route-copy small {
-  font-size: 10px;
+  font-size: 12px;
 }
 
 /* Engineering controls -------------------------------------------------- */
@@ -640,7 +640,7 @@ textarea {
 
 .foundry-telemetry > div > span {
   color: var(--text-dim);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -655,7 +655,7 @@ textarea {
 
 .foundry-telemetry strong small {
   color: var(--world-accent);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -721,7 +721,7 @@ textarea {
 .status-chip,
 .count-label {
   padding: 6px 9px;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .core-panel {
@@ -810,7 +810,7 @@ textarea {
 }
 
 .core-center span {
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .core-center strong {
@@ -848,11 +848,11 @@ textarea {
 }
 
 .tune-button small {
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .core-diagnostics span {
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .machine-panel {
@@ -888,7 +888,7 @@ textarea {
 }
 
 .machine-output {
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .buy-button {
@@ -903,7 +903,7 @@ textarea {
 }
 
 .resonance-link p {
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .systems-column {
@@ -944,7 +944,7 @@ textarea {
 
 .mission-stages li small,
 .mission-stages li > b {
-  font-size: 11px;
+  font-size: 12px;
 }
 
 /* Modals feel like scenes, not utility dialogs. */
@@ -1113,7 +1113,7 @@ textarea {
   .living-foundry-nav button {
     min-width: 88px;
     min-height: 46px;
-    font-size: 10px;
+    font-size: 12px;
   }
 
   .nav-awakening-status {
@@ -1207,11 +1207,11 @@ textarea {
     min-width: 72px;
     gap: 4px;
     padding-inline: 7px;
-    font-size: 9px;
+    font-size: 12px;
   }
 
   .living-foundry-nav button > span {
-    font-size: 8px;
+    font-size: 12px;
   }
 
   .foundry-vista-heading {
@@ -1224,7 +1224,7 @@ textarea {
   }
 
   .foundry-world-status {
-    font-size: 8px;
+    font-size: 12px;
   }
 
   .foundry-scene {

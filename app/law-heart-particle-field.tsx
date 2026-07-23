@@ -16,6 +16,12 @@ export type LawHeartTier = {
   output: number;
 };
 
+export type LawHeartDroneFrame = {
+  id: string;
+  color: string;
+  compromised?: boolean;
+};
+
 type LawPressCanvasProps = {
   state: LawPressState;
   flux: number;
@@ -28,6 +34,7 @@ type LawPressCanvasProps = {
   recalibrationProgress: number;
   provenLaws: number;
   preparingRecalibration: boolean;
+  droneFrames?: readonly LawHeartDroneFrame[];
 };
 
 type PurchaseEvent = {
@@ -707,6 +714,46 @@ function drawRecalibrationCollapse(
   }
 }
 
+function drawUtilityDroneFrames(
+  context: CanvasRenderingContext2D,
+  frames: readonly LawHeartDroneFrame[],
+  now: number,
+  reducedMotion: boolean,
+) {
+  if (frames.length <= 0) return;
+  const time = reducedMotion ? 0 : now;
+  frames.slice(0, 8).forEach((frame, index) => {
+    const seed = hash(index * 29.7 + 4.2);
+    const direction = index % 2 === 0 ? 1 : -1;
+    const angle = seed * TWO_PI + time * (0.000035 + index * 0.000003) * direction;
+    const radius = 166 + (index % 4) * 18 + seed * 8;
+    const flattening = 0.76 + (index % 3) * 0.045;
+    const x = CENTER + Math.cos(angle) * radius;
+    const y = CENTER + Math.sin(angle) * radius * flattening;
+    const tangentX = -Math.sin(angle) * direction;
+    const tangentY = Math.cos(angle) * direction * flattening;
+    const color = frame.compromised ? "#ff695c" : frame.color;
+    const trailLength = 8 + (index % 3) * 3;
+
+    context.save();
+    context.globalAlpha = frame.compromised ? 0.42 : 0.72;
+    pixelLine(
+      context,
+      [x - tangentX * trailLength, y - tangentY * trailLength],
+      [x - tangentX * 3, y - tangentY * 3],
+      color,
+      2,
+    );
+    context.globalAlpha = frame.compromised ? 0.58 : 0.96;
+    rect(context, x - 4, y - 4, 9, 9, COLORS.void);
+    rect(context, x - 3, y - 3, 7, 7, color);
+    rect(context, x - 1, y - 1, 3, 3, COLORS.white);
+    rect(context, x - 8, y - 2, 4, 4, color);
+    rect(context, x + 5, y - 2, 4, 4, color);
+    context.restore();
+  });
+}
+
 function renderLawHeart(
   context: CanvasRenderingContext2D,
   props: LawPressCanvasProps,
@@ -725,6 +772,7 @@ function renderLawHeart(
   context.imageSmoothingEnabled = false;
   drawVoid(context);
   drawParticleSoup(context, props, now, impulse, reducedMotion);
+  drawUtilityDroneFrames(context, props.droneFrames ?? [], now, reducedMotion);
   drawPurchaseBloom(context, purchaseEvent, now);
   drawExpenditure(context, expenditureEvent, now);
   drawRecalibrationCollapse(context, recalibrationEvent, now);

@@ -44,12 +44,12 @@
   place-items: center;
   border: 1px solid currentColor;
   border-radius: 50%;
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .context-help-trigger.with-label > strong {
   font-family: var(--font-ui, sans-serif);
-  font-size: 9px;
+  font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -119,7 +119,7 @@
   margin: 0;
   color: var(--world-accent, #55d6e8);
   font-family: var(--font-mono, monospace);
-  font-size: 8px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -137,7 +137,7 @@
   display: block;
   max-width: 800px;
   color: #8196a5;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.55;
 }
 
@@ -149,7 +149,7 @@
   border-radius: 2px;
   background: #0a151f;
   font: inherit;
-  font-size: 9px;
+  font-size: 12px;
   cursor: pointer;
 }
 
@@ -190,7 +190,7 @@
   outline: none;
   background: transparent;
   font: inherit;
-  font-size: 9px;
+  font-size: 12px;
   text-align: left;
   cursor: pointer;
 }
@@ -251,13 +251,13 @@
   border: 1px solid rgb(var(--world-accent-rgb, 85 214 232) / 0.42);
   border-radius: 50%;
   font-family: var(--font-mono, monospace);
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .game-manual-steps strong { display: block; color: #e3edf2; font-size: 12px; }
 .game-manual-steps p,
 .game-manual-sources p,
-.game-manual-tip p { margin: 4px 0 0; color: #7890a0; font-size: 10px; line-height: 1.55; }
+.game-manual-tip p { margin: 4px 0 0; color: #7890a0; font-size: 12px; line-height: 1.55; }
 
 .game-manual-sources,
 .game-manual-rarity,
@@ -268,7 +268,7 @@
 .game-manual-formulas h3 {
   margin: 0 0 9px;
   color: #c9d8df;
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -285,17 +285,17 @@
   background: #071018;
 }
 
-.game-manual-sources strong { color: #c7d5dd; font-size: 9px; }
-.game-manual-sources p { font-size: 9px; }
+.game-manual-sources strong { color: #c7d5dd; font-size: 12px; }
+.game-manual-sources p { font-size: 12px; }
 
 .game-manual-rarity > div { display: flex; flex-wrap: wrap; gap: 7px; }
 .game-manual-rarity span { display: inline-flex; align-items: center; gap: 7px; padding: 7px 9px; color: var(--crew-rarity, #a7b6c2); border: 1px solid rgb(var(--crew-rarity-rgb, 167 182 194) / 0.38); background: rgb(var(--crew-rarity-rgb, 167 182 194) / 0.07); }
 .game-manual-rarity span i { width: 8px; height: 8px; border-radius: 50%; background: var(--crew-rarity, #a7b6c2); box-shadow: 0 0 9px rgb(var(--crew-rarity-rgb, 167 182 194) / 0.44); }
-.game-manual-rarity span strong { font-family: var(--font-mono, monospace); font-size: 8px; text-transform: uppercase; }
+.game-manual-rarity span strong { font-family: var(--font-mono, monospace); font-size: 12px; text-transform: uppercase; }
 .game-manual-formulas > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
 .game-manual-formulas article { padding: 10px; border: 1px solid #213746; background: #07121b; }
-.game-manual-formulas strong { color: var(--world-accent, #55d6e8); font-size: 9px; }
-.game-manual-formulas p { margin: 5px 0 0; color: #768d9c; font-size: 8px; line-height: 1.5; }
+.game-manual-formulas strong { color: var(--world-accent, #55d6e8); font-size: 12px; }
+.game-manual-formulas p { margin: 5px 0 0; color: #768d9c; font-size: 12px; line-height: 1.5; }
 
 .game-manual-tip {
   margin-top: 22px;
@@ -304,7 +304,7 @@
   background: rgb(var(--world-accent-rgb, 85 214 232) / 0.07);
 }
 
-.game-manual-tip span { color: var(--world-accent, #55d6e8); font-family: var(--font-mono, monospace); font-size: 8px; font-weight: 800; letter-spacing: 0.12em; }
+.game-manual-tip span { color: var(--world-accent, #55d6e8); font-family: var(--font-mono, monospace); font-size: 12px; font-weight: 800; letter-spacing: 0.12em; }
 
 @media (max-width: 760px) {
   .header-actions > .context-help-trigger.with-label { width: 31px; min-width: 31px; padding: 0; }
@@ -313,7 +313,7 @@
   .manual-layer { padding: 0; }
   .game-manual { width: 100%; height: 100%; border: 0; border-radius: 0; }
   .game-manual-header { padding: 15px; }
-  .game-manual-header span { font-size: 10px; }
+  .game-manual-header span { font-size: 12px; }
   .game-manual-layout { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
   .game-manual-index { overflow-x: auto; overflow-y: hidden; flex-direction: row; padding: 9px; border-right: 0; border-bottom: 1px solid #1b2e3b; }
   .game-manual-index > span { display: none; }

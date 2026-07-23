@@ -5,6 +5,7 @@ import {
   getMissionProgress,
   getOperationalResearchExpertise,
   getAxiomProofStatus,
+  getLawHeartPhaseGateStatus,
   getRecalibrationGain,
   formatNumber,
   getResearchCrewAvailable,
@@ -488,8 +489,23 @@ export function getCommandPriorities(state: GameState): CommandPriority[] {
     });
   }
 
+  const phaseGate = getLawHeartPhaseGateStatus(state);
   const recalibrationGain = getRecalibrationGain(state);
-  if (recalibrationGain > 0) {
+  if (phaseGate?.saturated) {
+    add({
+      id: "law-heart-phase-gate",
+      eyebrow: "Law-Heart phase saturated",
+      title: `Research ${phaseGate.projectName}`,
+      detail: `${phaseGate.current}/${phaseGate.capacity} Axioms are stable in the current spectrum. The next Recalibration cannot forge Axiom ${phaseGate.threshold} until the Analysis Core stabilizes the ${phaseGate.phaseName}.`,
+      actionLabel: "Open exact research project",
+      target: "research",
+      panel: "research-technology",
+      missing: `Completed Research: ${phaseGate.projectName}`,
+      nextAction: `Select ${phaseGate.projectName} from Axiom Theory and complete all four research stages`,
+      cadence: "action",
+      tone: "active",
+    });
+  } else if (recalibrationGain > 0) {
     const proofStatus = getAxiomProofStatus(state);
     add({
       id: "recalibration",

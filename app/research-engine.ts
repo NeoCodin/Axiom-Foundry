@@ -102,7 +102,10 @@ export type ResearchProjectId =
   | "field-endurance-remodeling"
   | "equipment-stress-tests"
   | "colony-data-integration"
-  | "null-signal-triangulation";
+  | "null-signal-triangulation"
+  | "resonance-stabilization"
+  | "axiomatic-stellarization"
+  | "convergence-envelope";
 
 export type ResearchInputBundle = Record<ResearchInputId, number>;
 
@@ -440,6 +443,19 @@ export const RESEARCH_PROCESSOR_DEFINITIONS: readonly ResearchProcessorDefinitio
 ] as const;
 
 export const RESEARCH_PROJECT_DEFINITIONS: readonly ResearchProjectDefinition[] = [
+  {
+    id: "resonance-stabilization",
+    branch: "axiom-theory",
+    era: "recovery",
+    name: "Resonance Stabilization",
+    summary: "Prove that the three portable laws can share one stellar core without erasing one another.",
+    completedSummary: "The Law-Heart may stabilize its sixth Axiom and enter the Resonant spectrum.",
+    workRequired: 520,
+    costs: { "calibration-data": 110, "engineering-models": 80 },
+    prerequisites: [],
+    unlocks: ["law-heart-resonant-spectrum", "axiom-capacity-6"],
+    bonuses: { researchSpeedMultiplier: 1.02 },
+  },
   {
     id: "auxiliary-power-routing",
     branch: "ark-engineering",
@@ -840,6 +856,24 @@ export const RESEARCH_PROJECT_DEFINITIONS: readonly ResearchProjectDefinition[] 
     bonuses: { machineCostMultiplier: 0.98 },
   },
   {
+    id: "axiomatic-stellarization",
+    branch: "axiom-theory",
+    era: "integration",
+    name: "Axiomatic Stellarization",
+    summary: "Bind a dozen proven laws into one luminous core without allowing any law to dominate the others.",
+    completedSummary: "The Law-Heart may stabilize its twelfth Axiom and enter the Axiomatic spectrum.",
+    workRequired: 5_200,
+    costs: {
+      "calibration-data": 520,
+      "engineering-models": 440,
+      "null-traces": 160,
+      "axiom-proofs": 16,
+    },
+    prerequisites: ["resonance-stabilization", "discarded-spectrum"],
+    unlocks: ["law-heart-axiomatic-spectrum", "axiom-capacity-12"],
+    bonuses: { productionMultiplier: 1.02 },
+  },
+  {
     id: "recursive-manufacturing",
     branch: "robotics-automation",
     era: "synthesis",
@@ -1014,6 +1048,27 @@ export const RESEARCH_PROJECT_DEFINITIONS: readonly ResearchProjectDefinition[] 
     prerequisites: ["resonant-weapon-dynamics", "axiom-origin-proof", "autonomous-repair-swarms"],
     unlocks: ["armory-law-impossible-materials", "mark-iv-materials"],
     bonuses: { productionMultiplier: 1.02 },
+  },
+  {
+    id: "convergence-envelope",
+    branch: "axiom-theory",
+    era: "convergence",
+    name: "Convergence Envelope",
+    summary: "Construct a boundary in which mutually incompatible stellar laws can remain true at the same time.",
+    completedSummary: "The Law-Heart may stabilize its twenty-fourth Axiom and enter the Convergent spectrum.",
+    contradiction: "THE ENVELOPE IS NOT CONTAINING THE STAR. THE STAR IS CONTAINING THE ARK.",
+    workRequired: 28_000,
+    costs: {
+      "calibration-data": 1_200,
+      "engineering-models": 1_400,
+      "null-traces": 1_000,
+      "axiom-proofs": 100,
+    },
+    prerequisites: ["axiomatic-stellarization", "temporal-signal-analysis"],
+    unlocks: ["law-heart-convergent-spectrum", "axiom-capacity-24"],
+    bonuses: { productionMultiplier: 1.02, researchSpeedMultiplier: 1.03 },
+    nullEchoId: "echo-convergence-envelope",
+    nullEcho: "THE FIRST SUCCESSFUL ENVELOPE WAS RECORDED AFTER THE MULTIVERSE FAILED.",
   },
   {
     id: "axiomatic-identity-preservation",

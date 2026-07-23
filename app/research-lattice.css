@@ -123,7 +123,7 @@
   margin: 0;
   color: var(--research-cyan);
   font-family: var(--font-mono, "Cascadia Mono", Consolas, monospace);
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.21em;
 }
@@ -144,7 +144,7 @@
   background: linear-gradient(#10242a, #071319);
   box-shadow: inset 0 1px rgb(255 255 255 / 0.045), 0 3px 10px rgb(0 0 0 / 0.28);
   cursor: pointer;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 750;
   letter-spacing: 0.035em;
 }
@@ -165,7 +165,7 @@
 .research-lattice-clock {
   color: #78908d;
   font-family: var(--font-mono, "Cascadia Mono", Consolas, monospace);
-  font-size: 0.68rem;
+  font-size: 0.75rem;
 }
 
 .research-lattice-awakening {
@@ -182,13 +182,13 @@
 .research-lattice-awakening > strong {
   color: #77918e;
   font-family: var(--font-mono, "Cascadia Mono", Consolas, monospace);
-  font-size: 0.58rem;
+  font-size: 0.75rem;
   letter-spacing: 0.13em;
 }
 
 .research-lattice-awakening > strong {
   color: var(--research-cyan);
-  font-size: 0.66rem;
+  font-size: 0.75rem;
 }
 
 .research-lattice-awakening > div {
@@ -267,7 +267,7 @@
 .research-lattice-crew-control span,
 .research-lattice-crew-control small {
   color: #708985;
-  font-size: 0.6rem;
+  font-size: 0.75rem;
   letter-spacing: 0.075em;
   text-transform: uppercase;
 }
@@ -339,7 +339,7 @@
 .research-lattice-section-heading > div:first-child > span {
   color: var(--research-cyan);
   font-family: var(--font-mono, "Cascadia Mono", Consolas, monospace);
-  font-size: 0.63rem;
+  font-size: 0.75rem;
 }
 
 .research-lattice-section-heading h2 {
@@ -355,7 +355,7 @@
 .research-lattice-input-guidance {
   margin: -4px 0 14px;
   color: #7f9692;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   line-height: 1.5;
 }
 
@@ -405,7 +405,7 @@
   color: rgb(var(--research-input-rgb));
   background: rgb(var(--research-input-rgb) / 0.08);
   font-family: var(--font-mono, "Cascadia Mono", Consolas, monospace);
-  font-size: 0.43rem;
+  font-size: 0.75rem;
   letter-spacing: 0.08em;
 }
 
@@ -442,7 +442,7 @@
   color: rgb(var(--research-input-rgb));
   background: rgb(var(--research-input-rgb) / 0.06);
   font-family: var(--font-mono, "Cascadia Mono", Consolas, monospace);
-  font-size: 0.58rem;
+  font-size: 0.75rem;
   font-weight: 800;
 }
 
@@ -455,16 +455,16 @@
 
 .research-lattice-input-title { display: flex; align-items: center; gap: 7px; }
 .research-lattice-input-title h3 { flex: 1; }
-.research-lattice-input-title .context-help-trigger { width: 18px; height: 18px; color: rgb(var(--research-input-rgb)); border-color: rgb(var(--research-input-rgb) / 0.48); background: rgb(var(--research-input-rgb) / 0.08); font-size: 9px; }
+.research-lattice-input-title .context-help-trigger { width: 18px; height: 18px; color: rgb(var(--research-input-rgb)); border-color: rgb(var(--research-input-rgb) / 0.48); background: rgb(var(--research-input-rgb) / 0.08); font-size: 12px; }
 
 .research-lattice-input p {
   margin: 0 0 6px;
   color: #708783;
-  font-size: 0.61rem;
+  font-size: 0.75rem;
   line-height: 1.35;
 }
 
-.research-lattice-input-source { display: block; margin: -1px 0 7px; color: rgb(var(--research-input-rgb) / 0.72); font-size: 0.5rem; line-height: 1.35; }
+.research-lattice-input-source { display: block; margin: -1px 0 7px; color: rgb(var(--research-input-rgb) / 0.72); font-size: 0.75rem; line-height: 1.35; }
 
 .research-lattice-input-counts {
   display: flex;
@@ -486,7 +486,7 @@
   background: linear-gradient(rgb(var(--research-input-rgb) / 0.11), rgb(var(--research-input-rgb) / 0.035));
   cursor: pointer;
   font-family: var(--font-mono, "Cascadia Mono", Consolas, monospace);
-  font-size: 0.61rem;
+  font-size: 0.75rem;
   font-weight: 750;
 }
 
@@ -622,7 +622,7 @@
 .research-lattice-route-index {
   color: #58726f;
   font-family: var(--font-mono, "Cascadia Mono", Consolas, monospace);
-  font-size: 0.59rem;
+  font-size: 0.75rem;
 }
 
 .research-lattice-source-node,
@@ -675,7 +675,7 @@
 .research-lattice-processor-node > span:not(.research-lattice-processor-rotor) {
   color: rgb(var(--research-input-rgb));
   font-family: var(--font-mono, "Cascadia Mono", Consolas, monospace);
-  font-size: 0.54rem;
+  font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.1em;
 }
@@ -684,7 +684,7 @@
 .research-lattice-processor-node b {
   overflow: hidden;
   color: #c8d9d5;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   font-weight: 680;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -693,7 +693,7 @@
 .research-lattice-processor-node small {
   color: #6f8985;
   font-family: var(--font-mono, "Cascadia Mono", Consolas, monospace);
-  font-size: 0.5rem;
+  font-size: 0.75rem;
 }
 
 .research-lattice-processor-rotor {
@@ -968,7 +968,7 @@
 .research-lattice-core-readout > span {
   color: var(--research-cyan);
   font-family: var(--font-mono, "Cascadia Mono", Consolas, monospace);
-  font-size: 0.51rem;
+  font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.15em;
 }
@@ -986,7 +986,7 @@
   display: block;
   overflow: hidden;
   color: #c8d9d5;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   font-weight: 650;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -996,7 +996,7 @@
   margin: 7px 0 0;
   color: #77928d;
   font-family: var(--font-mono, "Cascadia Mono", Consolas, monospace);
-  font-size: 0.53rem;
+  font-size: 0.75rem;
   line-height: 1.45;
 }
 
@@ -1047,7 +1047,7 @@
 
 .research-lattice-crew-control strong {
   color: #c7d8d4;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
 }
 
 .research-lattice-crew-control > div:last-child {
@@ -1161,7 +1161,7 @@
     conic-gradient(var(--research-cyan) calc(var(--branch-progress) * 1turn), #173237 0);
   box-shadow: inset 0 0 10px rgb(108 231 236 / 0.06);
   font-family: var(--font-mono, "Cascadia Mono", Consolas, monospace);
-  font-size: 0.55rem;
+  font-size: 0.75rem;
   font-weight: 800;
 }
 
@@ -1177,13 +1177,13 @@
 .research-lattice-branch-tabs small {
   color: #667f7b;
   font-family: var(--font-mono, "Cascadia Mono", Consolas, monospace);
-  font-size: 0.54rem;
+  font-size: 0.75rem;
 }
 
 .research-lattice-branch-description {
   margin: 12px 0 18px;
   color: #7d9490;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
 }
 
 .research-lattice-project-grid {
@@ -1341,7 +1341,7 @@
 .research-lattice-project-unlocks > span {
   color: #708984;
   font-family: var(--font-mono, "Cascadia Mono", Consolas, monospace);
-  font-size: 0.49rem;
+  font-size: 0.75rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -1369,7 +1369,7 @@
   min-height: 55px;
   margin: 13px 0;
   color: #829a96;
-  font-size: 0.67rem;
+  font-size: 0.75rem;
   line-height: 1.52;
 }
 
@@ -1416,7 +1416,7 @@
   color: #8da29e;
   background: rgb(var(--research-input-rgb) / 0.045);
   font-family: var(--font-mono, "Cascadia Mono", Consolas, monospace);
-  font-size: 0.53rem;
+  font-size: 0.75rem;
 }
 
 .research-lattice-project-costs b {
@@ -1433,7 +1433,7 @@
 .research-lattice-project-unlocks p {
   margin: 4px 0 10px;
   color: #a6bab6;
-  font-size: 0.6rem;
+  font-size: 0.75rem;
   line-height: 1.42;
   text-transform: capitalize;
 }
@@ -1450,7 +1450,7 @@
   background: linear-gradient(#14343a, #0a2025);
   box-shadow: inset 0 1px rgb(255 255 255 / 0.05);
   cursor: pointer;
-  font-size: 0.66rem;
+  font-size: 0.75rem;
   font-weight: 740;
 }
 
@@ -1474,7 +1474,7 @@
   border: 1px dashed #345356;
   border-radius: 4px;
   color: #7c928e;
-  font-size: 0.58rem;
+  font-size: 0.75rem;
   line-height: 1.4;
 }
 
@@ -1492,7 +1492,7 @@
 .research-lattice-echoes header span {
   color: var(--research-violet);
   font-family: var(--font-mono, "Cascadia Mono", Consolas, monospace);
-  font-size: 0.58rem;
+  font-size: 0.75rem;
   letter-spacing: 0.11em;
 }
 
@@ -1523,7 +1523,7 @@
 .research-lattice-echoes blockquote span {
   color: #9e7cbe;
   font-family: var(--font-mono, "Cascadia Mono", Consolas, monospace);
-  font-size: 0.51rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
 }
 
@@ -1531,7 +1531,7 @@
   margin: 6px 0 0;
   color: #ceb5df;
   font-family: var(--font-mono, "Cascadia Mono", Consolas, monospace);
-  font-size: 0.63rem;
+  font-size: 0.75rem;
   line-height: 1.55;
 }
 
@@ -1786,7 +1786,7 @@
 }
 .research-command-tabs button:disabled { cursor: not-allowed; opacity: 0.35; }
 .research-command-tabs span { font-family: var(--font-display, sans-serif); font-size: 0.85rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
-.research-command-tabs small { color: #607774; font-size: 0.62rem; line-height: 1.35; }
+.research-command-tabs small { color: #607774; font-size: 0.75rem; line-height: 1.35; }
 
 .research-operations-panel {
   display: grid;
@@ -1796,9 +1796,9 @@
   background: var(--research-line);
 }
 .research-operations-panel > div { display: flex; min-height: 94px; flex-direction: column; gap: 5px; justify-content: center; padding: 16px clamp(16px, 2.5vw, 32px); background: linear-gradient(135deg, #07151a, #040b0f); }
-.research-operations-panel span { color: var(--research-cyan); font-family: var(--font-mono, monospace); font-size: 0.58rem; letter-spacing: 0.12em; }
+.research-operations-panel span { color: var(--research-cyan); font-family: var(--font-mono, monospace); font-size: 0.75rem; letter-spacing: 0.12em; }
 .research-operations-panel strong { color: #e5f1ef; font-family: var(--font-display, sans-serif); font-size: 1rem; text-transform: uppercase; }
-.research-operations-panel small { color: #758b88; font-size: 0.65rem; line-height: 1.45; }
+.research-operations-panel small { color: #758b88; font-size: 0.75rem; line-height: 1.45; }
 
 .research-era-tabs {
   display: grid;
@@ -1807,9 +1807,9 @@
   margin: 18px 0 10px;
 }
 .research-era-tabs button { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; padding: 12px; border: 1px solid var(--research-line); color: #8aa09d; background: #061015; cursor: pointer; text-align: left; }
-.research-era-tabs button span { grid-row: 1 / 3; align-self: center; color: var(--research-cyan); font-family: var(--font-mono, monospace); font-size: 0.58rem; }
+.research-era-tabs button span { grid-row: 1 / 3; align-self: center; color: var(--research-cyan); font-family: var(--font-mono, monospace); font-size: 0.75rem; }
 .research-era-tabs button strong { color: #cfddda; font-size: 0.78rem; text-transform: uppercase; }
-.research-era-tabs button small { color: #657b78; font-size: 0.58rem; }
+.research-era-tabs button small { color: #657b78; font-size: 0.75rem; }
 .research-era-tabs button.is-active { border-color: var(--research-cyan); background: linear-gradient(120deg, rgb(108 231 236 / 0.13), #061015 70%); box-shadow: 0 0 20px rgb(108 231 236 / 0.08); }
 .research-era-tabs button:disabled { cursor: not-allowed; filter: grayscale(1); opacity: 0.28; }
 .research-era-thesis { margin: 0 0 18px; padding-left: 12px; border-left: 2px solid var(--research-cyan); color: #8da29f; font-size: 0.75rem; line-height: 1.55; }
@@ -1817,10 +1817,10 @@
 .research-lattice-archive { padding: clamp(20px, 3vw, 42px); border-bottom: 1px solid var(--research-line); }
 .research-archive-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px; }
 .research-archive-grid article { min-height: 145px; padding: 16px; border: 1px solid var(--research-line); background: linear-gradient(145deg, #09161b, #040a0e); }
-.research-archive-grid article > span { color: var(--research-cyan); font-family: var(--font-mono, monospace); font-size: 0.55rem; letter-spacing: 0.08em; }
+.research-archive-grid article > span { color: var(--research-cyan); font-family: var(--font-mono, monospace); font-size: 0.75rem; letter-spacing: 0.08em; }
 .research-archive-grid strong { display: block; margin-top: 9px; color: #e3efec; font-size: 0.9rem; }
-.research-archive-grid p { color: #849996; font-size: 0.68rem; line-height: 1.5; }
-.research-archive-grid small { color: var(--research-amber); font-family: var(--font-mono, monospace); font-size: 0.58rem; }
+.research-archive-grid p { color: #849996; font-size: 0.75rem; line-height: 1.5; }
+.research-archive-grid small { color: var(--research-amber); font-family: var(--font-mono, monospace); font-size: 0.75rem; }
 
 .research-lattice-shell.is-view-core .research-lattice-projects,
 .research-lattice-shell.is-view-core .research-lattice-archive,

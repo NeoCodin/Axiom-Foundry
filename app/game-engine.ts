@@ -475,6 +475,31 @@ export const RECALIBRATION_THRESHOLD = 100_000;
 const RECALIBRATION_WORLD_SCALE = 25;
 export const AXIOM_PROOF_GROWTH = 5;
 export const WORLD_OPENING_AXIOM_TOTALS = [0, 3, 5, 8, 12, 17] as const;
+export const LAW_HEART_PHASE_GATES = [
+  {
+    threshold: 6,
+    projectId: "resonance-stabilization",
+    projectName: "Resonance Stabilization",
+    phaseName: "Resonant Star",
+  },
+  {
+    threshold: 12,
+    projectId: "axiomatic-stellarization",
+    projectName: "Axiomatic Stellarization",
+    phaseName: "Axiomatic Star",
+  },
+  {
+    threshold: 24,
+    projectId: "convergence-envelope",
+    projectName: "Convergence Envelope",
+    phaseName: "Convergent Star",
+  },
+] as const satisfies readonly {
+  threshold: number;
+  projectId: ResearchProjectId;
+  projectName: string;
+  phaseName: string;
+}[];
 const COLD_WAKE_LAW_THRESHOLD_SCALE = [1, 2.5, 6] as const;
 export const COLD_WAKE_APPROACH_RESERVE = 250_000;
 export const COLD_WAKE_FOUNDRY_STAGE = 6;
@@ -5005,6 +5030,22 @@ export function commitLegacyMatrix(state: GameState) {
   return next;
 }
 
+export function getLawHeartPhaseGateStatus(state: GameState) {
+  const gate = LAW_HEART_PHASE_GATES.find(
+    (candidate) =>
+      !state.research.completedProjectIds.includes(candidate.projectId),
+  );
+  if (!gate) return null;
+  const capacity = gate.threshold - 1;
+  return {
+    ...gate,
+    capacity,
+    current: Math.floor(state.lifetimeAxioms),
+    remaining: Math.max(0, capacity - Math.floor(state.lifetimeAxioms)),
+    saturated: state.lifetimeAxioms >= capacity,
+  };
+}
+
 export function getRecalibrationGain(state: GameState) {
   const provingColdWakeLaw =
     state.missions.currentIndex === 0 &&
@@ -5022,6 +5063,13 @@ export function getRecalibrationGain(state: GameState) {
     const proofThreshold = getAxiomProofThreshold(state, forged + offset);
     if (state.runFlux < proofThreshold) break;
     gain += 1;
+  }
+  const phaseGate = getLawHeartPhaseGateStatus(state);
+  if (phaseGate) {
+    gain = Math.min(
+      gain,
+      Math.max(0, phaseGate.capacity - Math.floor(state.lifetimeAxioms)),
+    );
   }
   return gain;
 }

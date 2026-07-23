@@ -52,6 +52,7 @@ import {
   getResearchCrewAvailable,
   getResearchPowerAvailable,
   getResearchFieldValidation,
+  getLawHeartPhaseGateStatus,
   getRecalibrationThreshold,
   getRecalibrationGain,
   getMissionProgress,
@@ -432,6 +433,32 @@ test("Recalibration starts as a Cold Wake lesson and scales with each world", ()
   state.missions.currentIndex = 3;
   state.settlement.currentWorldId = "cinder";
   assert.equal(getRecalibrationThreshold(state), RECALIBRATION_THRESHOLD * 25 ** 3);
+});
+
+test("Lawheart phase gates cap Axiom forging until their Research proof is complete", () => {
+  const state = createInitialState(0);
+  state.missions.currentIndex = 2;
+  state.settlement.currentWorldId = "viridia";
+  state.lifetimeAxioms = 4;
+  state.axioms = 4;
+  state.runFlux = 1e30;
+  state.maxFlux = state.runFlux;
+
+  assert.equal(getRecalibrationGain(state), 1, "a large run cannot skip the first phase boundary");
+
+  state.lifetimeAxioms = 5;
+  state.axioms = 5;
+  const blocked = getLawHeartPhaseGateStatus(state);
+  assert.equal(blocked?.saturated, true);
+  assert.equal(blocked?.projectId, "resonance-stabilization");
+  assert.equal(getRecalibrationGain(state), 0);
+
+  state.research.completedProjectIds.push("resonance-stabilization");
+  const opened = getLawHeartPhaseGateStatus(state);
+  assert.equal(opened?.projectId, "axiomatic-stellarization");
+  assert.equal(opened?.saturated, false);
+  assert.ok(getRecalibrationGain(state) > 0);
+  assert.ok(getRecalibrationGain(state) <= 6, "the next incomplete phase boundary still caps the batch");
 });
 
 test("later-world Axiom proofs climb a persistent fivefold ladder", () => {

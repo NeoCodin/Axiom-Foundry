@@ -82,7 +82,7 @@
 .archive-category-tabs button > span,
 .archive-category-tabs button > small {
   font-family: var(--font-number);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .archive-category-tabs button > span {
@@ -145,7 +145,7 @@
 .archive-entry-index > header > span {
   color: var(--flux);
   font-family: var(--font-number);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.12em;
 }
 
@@ -182,7 +182,7 @@
 .archive-entry-index > div > button > span {
   color: #48646b;
   font-family: var(--font-number);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .archive-entry-index > div > button > strong {
@@ -215,7 +215,7 @@
   padding: 12px 14px;
   border-top: 2px solid #1b333c;
   color: #b58d45;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.45;
 }
 
@@ -256,7 +256,7 @@
 
 .archive-reader-page > header small {
   color: #6d8a90;
-  font-size: 11px;
+  font-size: 12px;
   text-transform: uppercase;
 }
 
@@ -310,7 +310,7 @@
 .archive-reader-copy blockquote > span {
   color: #ff8588;
   font-family: var(--font-number);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.14em;
 }
 
@@ -332,7 +332,7 @@
 
 .archive-fact-list dt {
   color: #708b91;
-  font-size: 11px;
+  font-size: 12px;
   text-transform: uppercase;
 }
 
@@ -395,7 +395,7 @@
 .archive-reader-page > footer > span {
   color: #5d7b82;
   font-family: var(--font-number);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .archive-tablet > footer {

@@ -94,6 +94,7 @@ import {
   getRecalibrationGain,
   getRecalibrationThreshold,
   getAxiomProofStatus,
+  getLawHeartPhaseGateStatus,
   releaseLegacyUpgrade,
   commitLegacyMatrix,
   getResearchCrewAvailable,
@@ -299,6 +300,16 @@ type FoundryConsoleTab =
   | "recalibration"
   | "autonomy"
   | "legacy";
+
+const AUTOMATION_PROGRAM_COLORS: Record<AutomationProgramId, string> = {
+  "hull-maintenance": "#55e6e8",
+  "medical-assistance": "#79e39b",
+  "research-routing": "#b87cff",
+  "expedition-support": "#f2bc55",
+  "construction-machines": "#ff8c58",
+  "interceptor-control": "#86baff",
+  "personnel-logistics": "#fff0b5",
+};
 
 type DestinationIntroduction = {
   id: InterfaceIntroductionId;
@@ -640,6 +651,10 @@ export default function Home() {
   );
   const recalibrationThreshold = useMemo(
     () => getRecalibrationThreshold(game),
+    [game],
+  );
+  const lawHeartPhaseGate = useMemo(
+    () => getLawHeartPhaseGateStatus(game),
     [game],
   );
   const axiomProofStatus = useMemo(
@@ -1207,6 +1222,17 @@ export default function Home() {
       isAutomationProgramUnlocked(game, program.id),
     ]),
   ) as Record<AutomationProgramId, boolean>;
+  const lawHeartDroneFrames = AUTOMATION_PROGRAM_DEFINITIONS.flatMap((program) =>
+    Array.from(
+      { length: game.automation.allocations[program.id] },
+      (_, index) => ({
+        id: `${program.id}-${index}`,
+        color: AUTOMATION_PROGRAM_COLORS[program.id],
+        compromised:
+          game.defense.compromise?.suppressedAutomationProgram === program.id,
+      }),
+    ),
+  );
   const planetaryDefenseActive = isPlanetaryDefenseActivated(game);
   const planetaryDefenseQuotes = Object.fromEntries(
     game.settlement.colonies.map((colony) => [
@@ -3167,6 +3193,7 @@ export default function Home() {
             count: tier.bought,
             output: production.tierOutputs[index],
           }))}
+          droneFrames={lawHeartDroneFrames}
           worldProgress={missionProgress.ratio}
           onTune={handlePulse}
         />
@@ -3404,8 +3431,16 @@ export default function Home() {
             </p>
             <div className="prestige-preview">
               <span>Projected yield</span>
-              <strong>{recalibrationGain} Axiom{recalibrationGain === 1 ? "" : "s"}</strong>
-              <small>{formatNumber(game.runFlux)} / {formatNumber(recalibrationThreshold)} run Flux for the next proof</small>
+              <strong>
+                {lawHeartPhaseGate?.saturated
+                  ? "PHASE SATURATED"
+                  : `${recalibrationGain} Axiom${recalibrationGain === 1 ? "" : "s"}`}
+              </strong>
+              <small>
+                {lawHeartPhaseGate?.saturated
+                  ? `${lawHeartPhaseGate.current}/${lawHeartPhaseGate.capacity} Axioms stable in this spectrum`
+                  : `${formatNumber(game.runFlux)} / ${formatNumber(recalibrationThreshold)} run Flux for the next proof`}
+              </small>
               {campaignWorldIndex > 0 && (
                 <div className="axiom-proof-ladder">
                   <span>{axiomProofStatus.forged} forged on {activeMission?.world ?? "this world"}</span>
@@ -3413,9 +3448,42 @@ export default function Home() {
                   {recalibrationGain > 0 && (
                     <span>After this Recalibration: next proof at {formatNumber(axiomProofStatus.followingThreshold)} run Flux</span>
                   )}
+                  {lawHeartPhaseGate && !lawHeartPhaseGate.saturated && (
+                    <span>
+                      {lawHeartPhaseGate.current}/{lawHeartPhaseGate.capacity} Axioms in the current stellar spectrum · {lawHeartPhaseGate.projectName} stabilizes Axiom {lawHeartPhaseGate.threshold}
+                    </span>
+                  )}
                 </div>
               )}
             </div>
+            {lawHeartPhaseGate?.saturated && (
+              <div
+                className="law-heart-phase-gate"
+                data-pixel-tooltip={`The ${lawHeartPhaseGate.phaseName} cannot contain another portable law until Research completes ${lawHeartPhaseGate.projectName}. Your Flux, machines, and current cycle remain available while the Analysis Core works.`}
+                tabIndex={0}
+              >
+                <span>NEXT STELLAR PHASE // RESEARCH GATE</span>
+                <strong>{lawHeartPhaseGate.phaseName}</strong>
+                <p>
+                  The Law-Heart has reached this spectrum&apos;s safe capacity.
+                  Complete <b>{lawHeartPhaseGate.projectName}</b> in Research to
+                  stabilize Axiom {lawHeartPhaseGate.threshold}.
+                </p>
+                <button
+                  type="button"
+                  disabled={!researchUnlocked}
+                  onClick={() => {
+                    setResearchEntry((current) => ({
+                      view: "technology",
+                      nonce: (current?.nonce ?? 0) + 1,
+                    }));
+                    setPrimaryView("research");
+                  }}
+                >
+                  {researchUnlocked ? `OPEN ${lawHeartPhaseGate.projectName.toUpperCase()}` : "ANALYSIS CORE NOT YET AVAILABLE"}
+                </button>
+              </div>
+            )}
             <p className="axiom-definition">Axioms are permanent laws that keep ships, time, and matter consistent inside the Null Tide.</p>
             {!confirmPrestige ? (
               <button
@@ -3424,7 +3492,11 @@ export default function Home() {
                 disabled={recalibrationGain < 1}
                 onClick={() => setConfirmPrestige(true)}
               >
-                {recalibrationGain < 1 ? "Recalibration not yet stable" : "Prepare Recalibration"}
+                {lawHeartPhaseGate?.saturated
+                  ? `Research ${lawHeartPhaseGate.projectName}`
+                  : recalibrationGain < 1
+                    ? "Recalibration not yet stable"
+                    : "Prepare Recalibration"}
               </button>
             ) : (
               <div className="confirm-row" role="group" aria-label="Confirm Recalibration">

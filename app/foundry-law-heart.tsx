@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 
-import { getLawHeartSpectrum, LawPressCanvas, type LawHeartTier, type LawPressState } from "./law-heart-particle-field";
+import {
+  getLawHeartSpectrum,
+  LawPressCanvas,
+  type LawHeartDroneFrame,
+  type LawHeartTier,
+  type LawPressState,
+} from "./law-heart-particle-field";
 
 type FoundryLawHeartProps = {
   flux: number;
@@ -15,6 +21,7 @@ type FoundryLawHeartProps = {
   lifetimeAxioms: number;
   lifetimeAxiomsLabel: string;
   tiers: readonly LawHeartTier[];
+  droneFrames: readonly LawHeartDroneFrame[];
   worldProgress: number;
   onTune: () => void;
 };
@@ -34,6 +41,7 @@ export function FoundryLawHeart({
   lifetimeAxioms,
   lifetimeAxiomsLabel,
   tiers,
+  droneFrames,
   worldProgress,
   onTune,
 }: FoundryLawHeartProps) {
@@ -63,7 +71,7 @@ export function FoundryLawHeart({
           type="button"
           onClick={handleTune}
           aria-label={`Strike the Law-Heart for ${manualGainLabel} Flux`}
-          data-pixel-tooltip={`${spectrum.name}. Strike for ${manualGainLabel} Flux. Vacuum Taps add cyan motes, stored Flux thickens the field, production drives its turbulence, and permanent Axioms alter the star's spectrum.`}
+          data-pixel-tooltip={`${spectrum.name}. Strike for ${manualGainLabel} Flux. Fabrication mechanisms shape the particle field, permanent Axioms alter the stellar spectrum, and assigned utility drones appear as colored service craft in the outer void.`}
         >
           <LawPressCanvas
             state={state}
@@ -77,6 +85,7 @@ export function FoundryLawHeart({
             recalibrationProgress={clamp(worldProgress)}
             provenLaws={Math.min(3, lifetimeAxioms)}
             preparingRecalibration={false}
+            droneFrames={droneFrames}
           />
           <span className="foundry-law-heart-readout">
             <small>LOCAL FLUX</small>

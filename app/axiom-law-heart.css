@@ -132,14 +132,14 @@
   text-shadow: 2px 2px 0 #001417;
   text-align: left;
 }
-.law-heart-readout small { font-size: 10px; letter-spacing: 0.14em; }
+.law-heart-readout small { font-size: 12px; letter-spacing: 0.14em; }
 .law-heart-readout strong { margin: 6px 0 3px; font-size: 25px; }
 .law-heart-readout em { color: #f0c367; font-size: 12px; font-style: normal; }
 .law-heart-deck.is-dormant .law-heart-readout { border-color: #243d44; color: #799095; }
 .law-heart-deck.is-law-ready .law-heart-readout { border-color: #e8b75d; color: #fff4cf; }
 
 .law-heart-click-gain { position: absolute; z-index: 7; left: 52%; top: 48%; padding: 6px 10px; background: #0c2026; border: 2px solid #f0c367; color: #f0c367; animation: law-heart-click-gain 800ms steps(6, end) forwards; }
-.law-press-state { position: absolute; z-index: 5; right: 18px; bottom: 18px; padding: 6px 9px; border: 2px solid #203b43; background: rgb(1 7 9 / 0.9); color: #688086; font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; white-space: nowrap; }
+.law-press-state { position: absolute; z-index: 5; right: 18px; bottom: 18px; padding: 6px 9px; border: 2px solid #203b43; background: rgb(1 7 9 / 0.9); color: #688086; font-size: 12px; letter-spacing: 0.09em; text-transform: uppercase; white-space: nowrap; }
 .law-heart-deck.is-warming .law-press-state,
 .law-heart-deck.is-active .law-press-state,
 .law-heart-deck.is-rapid .law-press-state,
@@ -166,8 +166,8 @@
 .law-approach-systems i { width: 8px; height: 8px; background: #3b4b4e; box-shadow: 0 0 0 2px #10191b; }
 .law-approach-systems span { display: grid; gap: 2px; }
 .law-approach-systems span strong { color: #91a6a8; font-size: 12px; }
-.law-approach-systems span small { color: #60777b; font-size: 9px; }
-.law-approach-systems b { color: #8b754a; font-size: 9px; }
+.law-approach-systems span small { color: #60777b; font-size: 12px; }
+.law-approach-systems b { color: #8b754a; font-size: 12px; }
 .law-approach-systems > div.is-online { border-color: #32746c; background: #08201f; }
 .law-approach-systems > div.is-online i { background: #6be8af; box-shadow: 0 0 0 2px #123a30; }
 .law-approach-systems > div.is-online span strong,
@@ -210,9 +210,9 @@
 .law-slot-grid > div.is-active { border-color: #b88638; background: #21190b; color: #f1c36b; box-shadow: inset 0 -3px 0 #b88638; }
 .law-slot-grid > div.is-proven { border-color: #55dfe3; background: #0c282f; color: #e5ffff; box-shadow: 3px 3px 0 #001417; }
 .law-slot-grid span,
-.law-slot-grid small { display: block; font-size: 9px; }
+.law-slot-grid small { display: block; font-size: 12px; }
 .law-slot-grid strong { display: block; margin: 7px 0; font-size: 13px; }
-.law-slot-grid p { margin: 9px 0 0; color: #778b8e; font-size: 10px; line-height: 1.35; }
+.law-slot-grid p { margin: 9px 0 0; color: #778b8e; font-size: 12px; line-height: 1.35; }
 .law-slot-grid .is-active p { color: #bfa76f; }
 .law-slot-grid .is-proven p { color: #9cc4c1; }
 .law-slot-grid .is-proven small { color: #76f0ae; }
@@ -246,7 +246,7 @@
   border-bottom: 4px double #263e48;
   background: #09161b;
 }
-.foundry-law-heart > header span { color: var(--world-accent); font-size: 11px; letter-spacing: 0.15em; }
+.foundry-law-heart > header span { color: var(--world-accent); font-size: 12px; letter-spacing: 0.15em; }
 .foundry-law-heart > header h3 { margin: 8px 0 5px; color: #e4f4ef; font-size: clamp(20px, 2vw, 32px); }
 .foundry-law-heart > header p { max-width: 900px; margin: 0; color: #89a0a3; font-size: 13px; line-height: 1.5; }
 .foundry-law-heart-body {
@@ -297,9 +297,9 @@
   color: #e8ffff;
   text-align: left;
 }
-.foundry-law-heart-readout small { color: #7a9da1; font-size: 9px; letter-spacing: 0.12em; }
+.foundry-law-heart-readout small { color: #7a9da1; font-size: 12px; letter-spacing: 0.12em; }
 .foundry-law-heart-readout strong { margin: 6px 0 3px; font-size: 25px; }
-.foundry-law-heart-readout em { color: #f0c367; font-size: 11px; font-style: normal; }
+.foundry-law-heart-readout em { color: #f0c367; font-size: 12px; font-style: normal; }
 .foundry-law-heart-gain { position: absolute; z-index: 7; top: 48%; left: 52%; padding: 6px 10px; border: 2px solid #f0c367; background: #0c2026; color: #f0c367; animation: law-heart-click-gain 800ms steps(6, end) forwards; }
 .foundry-law-heart-rate,
 .foundry-law-heart-axiom-count {
@@ -315,7 +315,7 @@
 .foundry-law-heart-rate { left: 18px; }
 .foundry-law-heart-axiom-count { right: 18px; }
 .foundry-law-heart-rate small,
-.foundry-law-heart-axiom-count small { display: block; color: #779297; font-size: 8px; letter-spacing: 0.11em; }
+.foundry-law-heart-axiom-count small { display: block; color: #779297; font-size: 12px; letter-spacing: 0.11em; }
 .foundry-law-heart-rate strong { display: block; margin-top: 5px; color: #65e7ec; font-size: 13px; }
 .foundry-law-heart-axiom-count strong { color: #f0c367; font-size: 15px; }
 .foundry-law-heart-axiom-count small { display: inline; color: #ba9d67; }
@@ -389,7 +389,7 @@
 }
 .foundry-console-tabs button span {
   overflow: hidden;
-  font-size: 10px;
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -468,12 +468,12 @@
 }
 .legacy-capacity-readout span {
   color: #8d84aa;
-  font-size: 8px;
+  font-size: 12px;
   text-transform: uppercase;
 }
 .legacy-capacity-readout strong {
   color: #c3a7ff;
-  font-size: 10px;
+  font-size: 12px;
 }
 .legacy-list article {
   grid-template-columns: minmax(0, 1fr) auto;
@@ -482,7 +482,7 @@
   display: block;
   margin-top: 7px;
   color: #c3a7ff;
-  font-size: 9px;
+  font-size: 12px;
   line-height: 1.5;
 }
 .legacy-mark-controls {
@@ -582,8 +582,8 @@
 .foundry-chain-sidebar .machine-index,
 .foundry-chain-sidebar .owned-count { color: var(--tier-accent, #55e6e8); }
 .foundry-chain-sidebar .machine-title-line h3 { font-size: 14px; }
-.foundry-chain-sidebar .machine-description { margin-block: 4px 6px; font-size: 9px; }
-.foundry-chain-sidebar .machine-output { gap: 4px 9px; font-size: 8px; }
+.foundry-chain-sidebar .machine-description { margin-block: 4px 6px; font-size: 12px; }
+.foundry-chain-sidebar .machine-output { gap: 4px 9px; font-size: 12px; }
 .foundry-chain-sidebar .milestone-track > span { background: var(--tier-accent, #55e6e8); box-shadow: none; }
 .foundry-chain-sidebar .resonance-link { height: 20px; color: #769096; }
 .foundry-chain-sidebar .resonance-link.active { color: var(--tier-accent, #55e6e8); }
@@ -603,12 +603,12 @@
   line-height: 1.15;
   text-transform: uppercase;
 }
-.foundry-chain-sidebar .buy-button span { font-size: 11px; }
+.foundry-chain-sidebar .buy-button span { font-size: 12px; }
 .foundry-chain-sidebar .buy-button small {
   max-width: 100%;
   overflow: hidden;
   color: #c5d6d5;
-  font-size: 8px;
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

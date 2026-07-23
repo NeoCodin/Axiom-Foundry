@@ -177,11 +177,11 @@ function ArkDeck({
   const berthPodCount = Math.min(10, 1 + berthSections);
   const researchOnline = researchUnlocked;
   const educationOnline = populationUnlocked && crew.length > 0;
-  const beaconRelevant = worldName !== "Cold Wake";
+  const fullBeaconPanel = pelagosFirstContact || pendingSignal !== null;
+  const compactBeaconPanel = beaconOnline && !fullBeaconPanel;
   const continuityOnline =
     settlementUnlocked &&
     (!coldWakeCommissioning?.active || coldWakeCommissioning.navigationRestored);
-  const peopleSystemsVisible = populationUnlocked || earlyPelagosHabitability;
   const coreEnergy = clamp(0.14 + normalizedWorldProgress * 0.34 + roomRatio * 0.38 + Math.min(0.14, fluxValue / 2_000));
   const coreDuration = 3.9 - coreEnergy * 2.85;
   const researchDuration = clamp(7.5 / (1 + researchRate * 0.35 + normalizedResearchProgress * 2.5), 0.65, 7.5);
@@ -402,9 +402,9 @@ function ArkDeck({
         <p className="ark-screen-reader-status" aria-live="polite" />
       </section>
 
-      {(beaconRelevant || peopleSystemsVisible || researchUnlocked || settlementUnlocked) ? (
+      {(fullBeaconPanel || compactBeaconPanel || researchUnlocked || settlementUnlocked) ? (
         <div className="ark-awakened-systems">
-          {(beaconRelevant || beaconOnline) && (
+          {fullBeaconPanel && (
             <section className={`ark-system-bay ark-beacon-card ${beaconOnline ? "is-broadcasting" : ""}`} data-guide-target="ark-sos-array">
               <div className="ark-bay-visual ark-beacon-visual" aria-hidden="true">
                 <span /><i /><i /><i />
@@ -471,30 +471,18 @@ function ArkDeck({
             </section>
           )}
 
-          {populationUnlocked && (
-            <section className="ark-system-bay ark-crew-card">
-              <div className="ark-bay-visual ark-habitat-visual" aria-hidden="true">
-                {Array.from({ length: Math.max(1, Math.min(8, occupiedDots)) }, (_, index) => <i key={index} />)}
+          {compactBeaconPanel && (
+            <section className="ark-system-bay ark-beacon-card is-broadcasting is-compact" data-guide-target="ark-sos-array">
+              <div className="ark-bay-visual ark-beacon-visual" aria-hidden="true">
+                <span /><i /><i /><i />
               </div>
               <div className="ark-bay-content">
-                <header><span>HUMAN CONTINUITY</span><strong>{crew.length} aboard</strong></header>
-                {crew.length === 0 ? (
-                  <>
-                    <h3>Rooms waiting for names</h3>
-                    <p>No biological life aboard. AXIOM is keeping empty rooms warm for people it has not met.</p>
-                  </>
-                ) : (
-                  <ul>
-                    {crew.slice(0, 4).map((member) => (
-                      <li className={`crew-rarity-${member.rarity}`} key={member.id}>
-                        <span className="ark-crew-avatar">{member.name.slice(0, 1)}</span>
-                        <div><strong>{member.name}</strong><small>{member.training ? `${member.role} · training ${member.training}` : member.level > 0 ? `${member.role} · level ${member.level}` : `${member.role} · untrained`}</small></div>
-                        <em className="crew-rarity-badge" title={member.rarityDescription}>{member.rarityLabel}</em>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <button type="button" onClick={() => onOpenView("population")}>Open crew and training</button>
+                <header><span>SOS NETWORK</span><strong>Listening</strong></header>
+                <h3>The carrier is running automatically</h3>
+                <p>New survivor signals are decoded while the game is open or closed. Only an actionable signal expands this panel.</p>
+                <button type="button" onClick={() => onOpenView(populationUnlocked ? "population" : "settlement")}>
+                  {populationUnlocked ? "Open rescue operations" : "Open Continuity"}
+                </button>
               </div>
             </section>
           )}

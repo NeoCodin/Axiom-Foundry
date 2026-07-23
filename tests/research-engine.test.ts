@@ -40,6 +40,21 @@ test("a new Research Lattice is safe, empty, and ready for AXIOM routing", () =>
   );
 });
 
+test("Axiom Theory includes the three permanent Lawheart phase proofs", () => {
+  const gates = [
+    ["resonance-stabilization", "recovery"],
+    ["axiomatic-stellarization", "integration"],
+    ["convergence-envelope", "convergence"],
+  ] as const;
+
+  for (const [projectId, era] of gates) {
+    const project = RESEARCH_PROJECT_DEFINITIONS.find((candidate) => candidate.id === projectId);
+    assert.ok(project, `${projectId} should be defined`);
+    assert.equal(project.branch, "axiom-theory");
+    assert.equal(getResearchProjectEra(project.id), era);
+  }
+});
+
 test("sanitization repairs malformed inventory, routes, progress, and identifiers", () => {
   const state = sanitizeResearchLatticeState({
     schema: 900,
