@@ -2891,7 +2891,6 @@ export default function Home() {
           roomReinforcements={roomReinforcements}
           supportUpgradeCosts={supportUpgradeCosts}
           onCommission={handleMissionContribution}
-          onReinforceRoom={handleUpgradeLivingRoom}
           onUpgradeSupport={handleUpgradeSupport}
           onOpenView={handleOpenArkView}
         />
@@ -3039,7 +3038,10 @@ export default function Home() {
           stormsEnabled={getDefenseEnvironment(game) !== null}
           hostilesEnabled={isHostileThreatOperationsActivated(game)}
           installationQuotes={defenseInstallationQuotes}
+          roomReinforcements={roomReinforcements}
+          salvageLabel={formatNumber(game.living.salvage)}
           onBuyInstallation={handleBuyDefenseInstallation}
+          onReinforceRoom={handleUpgradeLivingRoom}
           onChooseContactDoctrine={handleChooseDefenseDoctrine}
           onChooseEnvironmentalDoctrine={handleChooseEnvironmentalDefenseDoctrine}
           onOpenHelp={setManualTopic}

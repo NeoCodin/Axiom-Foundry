@@ -25,6 +25,7 @@ import {
 } from "./planetary-defense-engine";
 import type { CampaignWorldId } from "./campaign-content";
 import type { DoctrineId } from "./discovery-content";
+import { CrewToken } from "./crew-view-shared";
 
 export type ContinuityActionQuote = {
   canAfford: boolean;
@@ -135,6 +136,8 @@ type DeficitCandidate = {
   rarity: string;
 };
 
+type ContinuitySection = "status" | "requirements" | "works" | "founders" | "legacy";
+
 function candidatesForDeficit(
   deficit: ViabilityForecast["deficits"][number],
   world: CampaignWorldDefinition,
@@ -212,13 +215,18 @@ function SettlementConsole({
   onBack,
 }: SettlementConsoleProps) {
   const [colonyName, setColonyName] = useState(`${world.name} Continuity Settlement`);
+  const [activeSection, setActiveSection] = useState<ContinuitySection>("status");
   const selected = new Set(forecast.selectedSettlerIds);
   const planetaryForecast = getPlanetaryIncomingForecast(planetaryDefense);
   const planetaryInstallationIds = Object.keys(PLANETARY_INSTALLATION_DEFINITIONS) as PlanetaryInstallationId[];
   const securedRequirementCount = forecast.lines.filter((line) => line.met).length;
+  const requirementsUnlocked = !pelagosSequence && (!coldWakeSequence || coldWakeSequence.stepNumber >= 3);
+  const worksUnlocked = !pelagosSequence && (!coldWakeSequence || coldWakeSequence.stepNumber >= 3);
+  const foundersUnlocked = worksUnlocked && world.settlementRequired;
+  const legacyUnlocked = colonies.length > 0 || planetaryDefenseActive;
 
   return (
-    <section className="continuity-console settlement-console" aria-labelledby="settlement-console-title">
+    <section className={`continuity-console settlement-console settlement-console-v2 is-continuity-${activeSection}`} aria-labelledby="settlement-console-title">
       <header className="continuity-console-header">
         <div>
           <p>PLANETARY CONTINUITY // CHAPTER {String(world.chapter).padStart(2, "0")}</p>
@@ -227,6 +235,14 @@ function SettlementConsole({
         </div>
         <button type="button" onClick={onBack}>Return to Ark Deck</button>
       </header>
+
+      <nav className="continuity-workspace-tabs" aria-label="Continuity stations">
+        <button type="button" className={activeSection === "status" ? "is-active" : ""} aria-pressed={activeSection === "status"} onClick={() => setActiveSection("status")}><span>01</span><strong>World Status</strong><small>{forecast.score}% VIABLE</small></button>
+        <button type="button" className={activeSection === "requirements" ? "is-active" : ""} aria-pressed={activeSection === "requirements"} disabled={!requirementsUnlocked} onClick={() => setActiveSection("requirements")}><span>02</span><strong>Requirements</strong><small>{requirementsUnlocked ? `${forecast.deficits.length} REMAIN` : "NOT YET RELEVANT"}</small></button>
+        <button type="button" className={activeSection === "works" ? "is-active" : ""} aria-pressed={activeSection === "works"} disabled={!worksUnlocked} onClick={() => setActiveSection("works")}><span>03</span><strong>Planetary Works</strong><small>{worksUnlocked ? "INFRASTRUCTURE" : "LOCKED"}</small></button>
+        <button type="button" className={activeSection === "founders" ? "is-active" : ""} aria-pressed={activeSection === "founders"} disabled={!foundersUnlocked} onClick={() => setActiveSection("founders")}><span>04</span><strong>Founding Community</strong><small>{foundersUnlocked ? `${selected.size} SELECTED` : "LATER"}</small></button>
+        <button type="button" className={activeSection === "legacy" ? "is-active" : ""} aria-pressed={activeSection === "legacy"} disabled={!legacyUnlocked} onClick={() => setActiveSection("legacy")}><span>05</span><strong>Restored Worlds</strong><small>{legacyUnlocked ? `${colonies.length} RELAYS` : "NO RELAYS"}</small></button>
+      </nav>
 
       <section className="settlement-hero" data-guide-target="planet-world">
         <div className="settlement-kicker">{world.subtitle.toUpperCase()}</div>
@@ -293,7 +309,7 @@ function SettlementConsole({
       )}
 
       {pendingTransmission && (
-        <section className="continuity-panel departure-panel">
+        <section className="continuity-panel departure-panel continuity-status-transmission">
           <header><div><span>COLONY TRANSMISSION</span><h3>{pendingTransmission.colonyName}</h3></div><small>Legacy settlements remain alive</small></header>
           <blockquote>{pendingTransmission.transmission}</blockquote>
           <button className="forecast-action" type="button" onClick={onAcknowledgeTransmission}>Archive transmission</button>
@@ -301,7 +317,7 @@ function SettlementConsole({
       )}
 
       {finalDoctrine && (
-        <section className="continuity-panel campaign-complete" aria-labelledby="continuity-final-doctrine-title">
+        <section className="continuity-panel campaign-complete continuity-status-doctrine" aria-labelledby="continuity-final-doctrine-title">
           {finalDoctrine.chosen ? (
             <>
               <span>CONTINUITY DOCTRINE // RECORDED</span>
@@ -335,7 +351,7 @@ function SettlementConsole({
 
       {!pelagosSequence && (
       <div className="settlement-flow-region">
-      <div className="settlement-layout">
+      <div className="settlement-layout continuity-requirements-workspace">
         <section className="continuity-panel" data-guide-target="planet-requirements">
           <header><div><span>CONTINUITY REQUIREMENTS</span><h3>{forecast.deficits.length === 0 ? "Every requirement is met" : `${forecast.deficits.length} deficits remain`}</h3></div><div className="continuity-header-help"><small>Nothing expires</small><HelpTrigger label="Explain Continuity requirements" onClick={() => onOpenHelp("settlement")} /></div></header>
           <div className="continuity-readiness-overview">
@@ -414,7 +430,7 @@ function SettlementConsole({
       </div>
 
       {(!coldWakeSequence || coldWakeSequence.stepNumber >= 3) && (
-      <div className="settlement-layout">
+      <div className="settlement-layout continuity-works-workspace">
         <section className="continuity-panel" data-guide-target="planet-world-works">
           <header><div><span>WORLD WORKS</span><h3>Infrastructure, supplies, and crisis response</h3></div><small>Permanent planetary work</small></header>
           <div className="world-progress-actions">
@@ -500,7 +516,7 @@ function SettlementConsole({
               {crew.map((member) => (
                 <label className={`${member.rarity ? `crew-rarity-${member.rarity}` : ""} ${selected.has(member.id) ? "is-selected" : ""}`} key={member.id}>
                   <input type="checkbox" disabled={member.available === false || member.canSettle === false || (!selected.has(member.id) && selected.size >= MAX_FOUNDING_COMMUNITY_SIZE)} checked={selected.has(member.id)} onChange={() => onToggleSettler(member.id)} />
-                  <span className="crew-avatar">{member.name.slice(0, 1)}</span>
+                  <CrewToken id={member.id} name={member.name} role={member.role} rarity={member.rarity} status={selected.has(member.id) ? "protected" : "ready"} />
                   <span><strong>{member.name}</strong><small>{titleCase(member.ageGroup ?? "adult")} · {titleCase(member.role ?? "civilian")}{(member.level ?? 0) > 0 ? ` · Level ${member.level}` : ""} · Readiness +{getCommunityReadinessContribution(member)} · {Object.entries(member.expertise ?? {}).filter(([, value]) => (value ?? 0) > 0).slice(0, 3).map(([id, value]) => `${titleCase(id)} ${value}`).join(" · ") || "Community member"}</small></span>
                   <span className="settler-row-status"><em className="crew-rarity-badge" title={member.rarityDescription}>{member.rarityLabel ?? "Standard"}</em><b>{member.protectedForArk ? "ARK PROTECTED" : member.available === false || member.canSettle === false ? "UNAVAILABLE" : selected.has(member.id) ? "FOUNDER" : selected.size >= MAX_FOUNDING_COMMUNITY_SIZE ? "LIMIT" : "ARK"}</b></span>
                 </label>
@@ -593,7 +609,7 @@ function SettlementConsole({
       )}
 
       {colonies.length > 0 && (
-        <section className="continuity-panel">
+        <section className="continuity-panel continuity-legacy-colonies">
           <header><div><span>RESTORED WORLDS</span><h3>Colonies that continue without the Ark</h3></div><small>{colonies.length} active relays</small></header>
           <div className="colony-list">{colonies.map((colony) => { const restoredWorld = getCampaignWorld(colony.worldId); const adaptationCount = colony.founders.reduce((total, founder) => total + (founder.adaptationIds ?? []).length, 0); return <article key={colony.worldId}><h4>{colony.name}</h4><p>{colony.founders.length} founders · {colony.viabilityScore}% departure viability{adaptationCount > 0 ? ` · ${adaptationCount} voluntary adaptation record${adaptationCount === 1 ? "" : "s"} preserved` : ""}</p><small>{restoredWorld?.legacyBenefits.map((benefit) => `${benefit.label}: +${Math.round(benefit.value * 100)}% ${benefit.metric.replaceAll("-", " ")}`).join(" · ") || `${titleCase(colony.worldId)} relay online`}</small></article>; })}</div>
         </section>

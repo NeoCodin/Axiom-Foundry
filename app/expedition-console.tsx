@@ -12,7 +12,7 @@ import {
   getExpeditionSite,
 } from "./expedition-engine";
 import { HelpTrigger, type ManualTopicId } from "./game-manual";
-import { HealthBar, formatMissionTime, titleCase } from "./crew-view-shared";
+import { CrewToken, HealthBar, formatMissionTime, titleCase } from "./crew-view-shared";
 import {
   getSurvivorRarity,
   getSurvivorSkillLevel,
@@ -119,6 +119,7 @@ function ExpeditionConsole({
   const [confirmingSetback, setConfirmingSetback] = useState(false);
   const [rescueCrewIds, setRescueCrewIds] = useState<string[]>([]);
   const [confirmingAbandon, setConfirmingAbandon] = useState(false);
+  const [selectedLogIndex, setSelectedLogIndex] = useState(0);
   const selectedSiteId =
     sites.find((site) => site.id === expeditionSiteId)?.id ?? sites[0]?.id ?? null;
   const criticalSites = sites.filter((site) => site.requiredForContinuity);
@@ -137,18 +138,23 @@ function ExpeditionConsole({
         <button type="button" onClick={onBack}>Return to Ark Deck</button>
       </header>
 
-      <div className="continuity-summary-band">
+      <div className="continuity-summary-band expedition-summary-band">
         <div><span>Status</span><strong>{expeditions.stranded ? "DISTRESS" : expeditions.active ? (expeditions.active.kind === "rescue" ? "Rescue underway" : "Mission underway") : "Bay ready"}</strong></div>
         <div><span>Surveys certified</span><strong>{surveyStatus.required > 0 ? `${Math.min(surveyStatus.completed, surveyStatus.required)}/${surveyStatus.required}` : "—"}</strong></div>
         <div><span>Critical operation</span><strong>{criticalSites.length > 0 ? `${criticalComplete}/${criticalSites.length}` : "—"}</strong></div>
-        <div><span>Missions completed</span><strong>{expeditions.stats.completed}</strong></div>
         <div title={`Every successful mission charts this world. SOS scans currently take ${recon.scanLabel}; recon can cut them to a third of the uncharted rate.`}>
           <span>Surface Recon</span>
           <strong>{recon.multiplier >= 1 ? "Uncharted" : `−${Math.round((1 - recon.multiplier) * 100)}% scan time`}</strong>
         </div>
-        <div><span>Crew lost</span><strong>{expeditions.stats.abandoned}</strong></div>
-        <div className="continuity-summary-help"><span>Manual <HelpTrigger label="Explain the Expeditions page" onClick={() => onOpenHelp("expeditions")} /></span><strong>Signals never expire</strong></div>
       </div>
+
+      <nav className="expedition-stage-rail" aria-label="Expedition workflow">
+        <span className={!expeditions.active && expeditionCrewIds.length === 0 ? "is-active" : "is-complete"}><i>01</i><strong>Choose operation</strong></span>
+        <span className={!expeditions.active && expeditionCrewIds.length > 0 ? "is-active" : expeditions.active ? "is-complete" : ""}><i>02</i><strong>Prepare team</strong></span>
+        <span className={expeditions.active ? "is-active" : ""}><i>03</i><strong>Track mission</strong></span>
+        <span className={!expeditions.active && expeditions.log.length > 0 ? "is-ready" : ""}><i>04</i><strong>Review outcome</strong></span>
+        <HelpTrigger label="Explain Expeditions" onClick={() => onOpenHelp("expeditions")} />
+      </nav>
 
       {expeditions.stranded && (
         <section className="continuity-panel is-online">
@@ -202,7 +208,7 @@ function ExpeditionConsole({
                         return (
                           <label className={`crew-rarity-${rarity.id} ${picked ? "is-selected" : ""}`} key={survivor.id}>
                             <input type="checkbox" checked={picked} onChange={() => toggleRescuer(survivor.id)} />
-                            <span className="crew-avatar">{survivor.name.slice(0, 1)}</span>
+                            <CrewToken id={survivor.id} name={survivor.name} role={survivor.role} rarity={rarity.id} status="deployed" />
                             <span><strong>{survivor.callsign || survivor.name}</strong><small>{survivor.role === "civilian" ? "Civilian" : `${titleCase(survivor.role)} · Level ${getSurvivorSkillLevel(survivor, survivor.role)}`}</small></span>
                             <span className="settler-row-status"><b>{picked ? "RESCUE" : ""}</b></span>
                           </label>
@@ -255,7 +261,7 @@ function ExpeditionConsole({
         </section>
       )}
 
-      <section className="continuity-panel expedition-bay-panel">
+      <section className={`continuity-panel expedition-bay-panel ${expeditions.active ? "is-tracking" : "is-planning"}`}>
         <header><div><span>MISSION BAY</span><h3>{expeditions.active ? (expeditions.active.kind === "rescue" ? "Rescue in flight" : "Expedition in flight") : "Plan the next launch"}</h3></div><small>Navigators level 3+ shorten every trip</small></header>
         {expeditions.active ? (() => {
           const site = getExpeditionSite(expeditions.active!.siteId);
@@ -268,6 +274,13 @@ function ExpeditionConsole({
           }));
           return (
             <div className="expedition-planning-grid">
+              <div className="expedition-mission-theater is-in-flight" aria-hidden="true">
+                <div className="expedition-stars">{Array.from({ length: 18 }, (_, index) => <i key={index} />)}</div>
+                <div className="expedition-world-limb"><i /><i /><i /></div>
+                <div className="expedition-flight-path"><span style={{ left: `${Math.max(4, Math.min(96, progress * 100))}%` }} /></div>
+                <div className="expedition-shuttle"><i /></div>
+                <strong>{site.operationCode} // IN FLIGHT</strong>
+              </div>
               <div className="expedition-dossier">
                 <span className="expedition-box-label">MISSION</span>
                 <h4>{site.name}</h4>
@@ -284,7 +297,7 @@ function ExpeditionConsole({
                 <div className="expedition-manifest-rows" aria-label="Party biometrics">
                   {members.map(({ survivor, gear, fallbackLabel }, index) => (
                     <div className="expedition-manifest-row" key={survivor?.id ?? index}>
-                      <span className="crew-avatar">{(survivor?.name ?? fallbackLabel).slice(0, 1)}</span>
+                      <CrewToken id={survivor?.id ?? fallbackLabel} name={survivor?.name ?? fallbackLabel} role={survivor?.role} rarity={survivor ? getSurvivorRarity(survivor).id : "standard"} status="deployed" />
                       <span className="expedition-manifest-name"><strong>{survivor ? survivor.callsign || survivor.name : fallbackLabel}</strong></span>
                       {survivor && <span className="crew-health-chip"><HealthBar survivor={survivor} /><small>{Math.round(survivor.health)}</small></span>}
                       <span className="expedition-gear-tags">
@@ -364,6 +377,13 @@ function ExpeditionConsole({
                 })}
               </nav>
               <div className="expedition-planning-grid">
+                <div className={`expedition-mission-theater expedition-category-${site.category}`} aria-hidden="true">
+                  <div className="expedition-stars">{Array.from({ length: 18 }, (_, index) => <i key={index} />)}</div>
+                  <div className="expedition-world-limb"><i /><i /><i /></div>
+                  <div className="expedition-site-beacon"><i /></div>
+                  <div className="expedition-shuttle"><i /></div>
+                  <strong>{site.operationCode} // {site.name.toUpperCase()}</strong>
+                </div>
                 <div className="expedition-dossier">
                   <span className="expedition-box-label">{site.operationCode} · {site.category.toUpperCase()} OPERATION</span>
                   <h4>{site.name}</h4>
@@ -403,7 +423,7 @@ function ExpeditionConsole({
                       return (
                         <label className={`expedition-manifest-row crew-rarity-${rarity.id} ${picked ? "is-selected" : ""}`} key={survivor.id}>
                           <input type="checkbox" checked={picked} onChange={() => toggle(survivor.id)} />
-                          <span className="crew-avatar">{survivor.name.slice(0, 1)}</span>
+                          <CrewToken id={survivor.id} name={survivor.name} role={survivor.role} rarity={rarity.id} status={picked ? "deployed" : "ready"} />
                           <span className="expedition-manifest-name">
                             <strong>{survivor.callsign || survivor.name}</strong>
                             <small>{survivor.role === "civilian" ? "Civilian" : `${titleCase(survivor.role)} · Lv ${getSurvivorSkillLevel(survivor, survivor.role)}`}</small>
@@ -478,11 +498,16 @@ function ExpeditionConsole({
         })()}
       </section>
 
-      {expeditions.log.length > 0 && (
-        <section className="continuity-panel">
-          <header><div><span>MISSION LOG</span><h3>Recent results</h3></div><small>Every outcome is explainable</small></header>
-          <ul className="deficit-list">
-            {[...expeditions.log].reverse().map((entry, index) => {
+      {expeditions.log.length > 0 && (() => {
+        const reverseLogs = [...expeditions.log].reverse();
+        const activeLog = reverseLogs[Math.min(selectedLogIndex, reverseLogs.length - 1)];
+        const activeSite = getExpeditionSite(activeLog.siteId);
+        return (
+        <section className="continuity-panel expedition-debrief-reader">
+          <header><div><span>MISSION DEBRIEF</span><h3>One outcome at a time</h3></div><small>{expeditions.log.length} reports preserved</small></header>
+          <div className="expedition-debrief-layout">
+            <nav aria-label="Mission reports">
+              {reverseLogs.map((entry, index) => {
               const site = getExpeditionSite(entry.siteId);
               const outcomeLabel =
                 entry.outcome === "success" ? "SUCCESS"
@@ -490,25 +515,38 @@ function ExpeditionConsole({
                     : entry.outcome === "setback" ? "SETBACK"
                       : entry.outcome === "distress" ? "DISTRESS — CREW STRANDED"
                         : "RESCUE MISSION";
-              const crewNote =
-                entry.outcome === "setback"
-                  ? `crew returned wounded (${entry.wounds.filter((wound) => wound.armorId).length}/${entry.wounds.length} hits absorbed by armor)`
-                  : entry.outcome === "distress"
-                    ? "the party sheltered in place and awaits rescue"
-                    : entry.outcome === "rescue"
-                      ? `${entry.rescuedCrewIds.length} people brought home${entry.wounds.length > 0 ? " · rescuers took wounds" : " · clean extraction"}`
-                      : "crew returned safely";
               return (
-                <li key={`${entry.resolvedAtSeconds}-${index}`}>
-                  <strong>{site.name} · {outcomeLabel} (strength {Math.round(entry.strength)} vs {entry.difficulty})</strong>
-                  <span>{entry.salvage > 0 ? `+${entry.salvage} Salvage · ` : ""}{entry.schematics > 0 ? `+${entry.schematics} Schematics · ` : ""}{entry.engineeringModels > 0 ? `+${entry.engineeringModels} Engineering Models · ` : ""}{entry.biologicalSamples > 0 ? `+${entry.biologicalSamples} Biological Samples · ` : ""}{entry.culturalRecords > 0 ? `+${entry.culturalRecords} Cultural Records · ` : ""}{entry.nullTraces > 0 ? `+${entry.nullTraces} Null Traces · ` : ""}{entry.surveyCredited ? "survey certified · " : ""}{crewNote}</span>
-                  {entry.outcome === "success" && <small className="expedition-debrief">{site.successReport}</small>}
-                </li>
+                <button type="button" className={index === Math.min(selectedLogIndex, reverseLogs.length - 1) ? "is-active" : ""} onClick={() => setSelectedLogIndex(index)} key={`${entry.resolvedAtSeconds}-${index}`}>
+                  <span>{String(index + 1).padStart(2, "0")} // {outcomeLabel}</span>
+                  <strong>{site.name}</strong>
+                  <small>{Math.round(entry.strength)} strength / {entry.difficulty} difficulty</small>
+                </button>
               );
-            })}
-          </ul>
+              })}
+            </nav>
+            <article>
+              <span>{activeSite.operationCode} // {activeLog.outcome.toUpperCase()}</span>
+              <h3>{activeSite.name}</h3>
+              <p>{activeLog.outcome === "success" ? activeSite.successReport : activeLog.outcome === "lean" ? "The party returned safely with a reduced recovery." : activeLog.outcome === "setback" ? "The party returned with injuries. No one was lost." : activeLog.outcome === "distress" ? "The party established a stable shelter and transmitted a rescue signal." : "The stranded party and rescuers returned to the Ark."}</p>
+              <div className="expedition-reward-strip">
+                {activeLog.salvage > 0 && <span><b>+{activeLog.salvage}</b> Salvage</span>}
+                {activeLog.schematics > 0 && <span><b>+{activeLog.schematics}</b> Schematics</span>}
+                {activeLog.engineeringModels > 0 && <span><b>+{activeLog.engineeringModels}</b> Models</span>}
+                {activeLog.biologicalSamples > 0 && <span><b>+{activeLog.biologicalSamples}</b> Samples</span>}
+                {activeLog.culturalRecords > 0 && <span><b>+{activeLog.culturalRecords}</b> Records</span>}
+                {activeLog.nullTraces > 0 && <span><b>+{activeLog.nullTraces}</b> Null Traces</span>}
+                {activeLog.surveyCredited && <span><b>✓</b> Survey certified</span>}
+              </div>
+              <dl>
+                <div><dt>Outcome</dt><dd>{activeLog.outcome.toUpperCase()}</dd></div>
+                <div><dt>Party strength</dt><dd>{Math.round(activeLog.strength)} / {activeLog.difficulty}</dd></div>
+                <div><dt>Crew status</dt><dd>{activeLog.wounds.length > 0 ? `${activeLog.wounds.length} wounded` : "All clear"}</dd></div>
+              </dl>
+            </article>
+          </div>
         </section>
-      )}
+        );
+      })()}
 
       {expeditions.memorials.length > 0 && (
         <section className="continuity-panel">

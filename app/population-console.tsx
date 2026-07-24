@@ -6,7 +6,7 @@ import {
   BeaconReadinessList,
 } from "./beacon-readiness";
 import type { BeaconReadiness } from "./beacon-readiness-engine";
-import { HealthBar, titleCase } from "./crew-view-shared";
+import { CrewToken, HealthBar, titleCase } from "./crew-view-shared";
 import {
   CONTINUITY_EXPERTISE_PRESENTATION,
   getSurvivorContinuityExpertise,
@@ -352,7 +352,7 @@ function PopulationConsole({
                       : getSurvivorSkillLevel(survivor, survivor.role);
                   return (
                     <li className={`crew-rarity-${rarity.id}`} key={survivor.id}>
-                      <div className="crew-avatar">{survivor.name.slice(0, 1)}</div>
+                      <CrewToken id={survivor.id} name={survivor.name} role={survivor.role} rarity={rarity.id} status={isSurvivorWounded(survivor) ? "wounded" : "ready"} />
                       <div>
                         <strong>{survivor.name}</strong>
                         <small>{titleCase(survivor.ageGroup)} · {titleCase(survivor.role)}{professionLevel > 1 ? ` · Level ${professionLevel}` : ""} · {BACKGROUND_DEFINITIONS.find((item) => item.id === survivor.backgroundId)?.name ?? titleCase(survivor.backgroundId)}</small>
@@ -465,10 +465,10 @@ function PopulationConsole({
                   >
                     <span className="team-alpha-slot-label">{label}</span>
                     {survivor ? (
-                      <>
-                        <strong>{survivor.callsign || survivor.name}</strong>
-                        <small>{survivor.role === "civilian" ? "Civilian" : `${titleCase(survivor.role)} · Lv ${getSurvivorSkillLevel(survivor, survivor.role)}`}{isSurvivorWounded(survivor) ? " · recovering (not counting)" : ""}</small>
-                      </>
+                      <span className="team-alpha-identity">
+                        <CrewToken id={survivor.id} name={survivor.name} role={survivor.assignedRole ?? survivor.role} rarity={getSurvivorRarity(survivor).id} status={isSurvivorWounded(survivor) ? "wounded" : "ready"} />
+                        <span><strong>{survivor.callsign || survivor.name}</strong><small>{survivor.role === "civilian" ? "Civilian" : `${titleCase(survivor.role)} · Lv ${getSurvivorSkillLevel(survivor, survivor.role)}`}{isSurvivorWounded(survivor) ? " · recovering (not counting)" : ""}</small></span>
+                      </span>
                     ) : (
                       <strong className="is-empty">EMPTY</strong>
                     )}
@@ -528,7 +528,7 @@ function PopulationConsole({
                 const reserve = !training && !survivor.assignedRole && !wounded && !adapting;
                 return (
                   <button className={`crew-rarity-${rarity.id} ${selectedCrew?.id === survivor.id ? "is-selected" : ""} ${reserve ? "is-idle" : ""}`} type="button" key={survivor.id} onClick={() => setSelectedCrewId(survivor.id)}>
-                    <span className="crew-avatar">{survivor.name.slice(0, 1)}</span>
+                    <CrewToken id={survivor.id} name={survivor.name} role={survivor.assignedRole ?? survivor.role} rarity={rarity.id} status={wounded ? "wounded" : training ? "training" : "ready"} />
                     <span><strong>{survivor.callsign ? `“${survivor.callsign}” ${survivor.name}` : survivor.name}</strong><small>{titleCase(survivor.ageGroup)} · {adapting ? "Bioadaptation procedure" : training ? `Studying ${titleCase(training.targetRole)} · ${Math.round((training.progressSeconds / training.durationSeconds) * 100)}%` : survivor.role === "civilian" ? titleCase(survivor.assignedRole ?? "Ark Reserve") : `${titleCase(survivor.role)} · Level ${getSurvivorSkillLevel(survivor, survivor.role)} · ${titleCase(survivor.assignedRole ?? "Ark Reserve")}`}</small>{(wounded || survivor.injury || survivor.health < MAX_SURVIVOR_HEALTH) && <HealthBar survivor={survivor} />}</span>
                     <span className="crew-roster-status">
                       <em className="crew-rarity-badge" title={rarity.description}>{rarity.label}</em>
@@ -550,7 +550,7 @@ function PopulationConsole({
             <>
               <header><div><span>PERSONNEL FILE</span><h3>{selectedCrew.name}</h3></div><div className="crew-file-classification"><em className="crew-rarity-badge" title={selectedRarity?.description}>{selectedRarity?.label}</em><small>{titleCase(selectedCrew.ageGroup)} · {selectedCrew.storyHookId ? "Archive discrepancy attached" : `Joined from ${titleCase(selectedCrew.origin)}`}</small></div></header>
               <div className="crew-detail-identity">
-                <span className="crew-avatar large">{selectedCrew.name.slice(0, 1)}</span>
+                <CrewToken id={selectedCrew.id} name={selectedCrew.name} role={selectedCrew.assignedRole ?? selectedCrew.role} rarity={selectedRarity?.id} status={isSurvivorWounded(selectedCrew) ? "wounded" : "ready"} large />
                 <div>
                   <strong>{selectedCrew.ageGroup === "child" ? "Child · Education program" : selectedProfessionalRole && selectedSkillProgress ? `${titleCase(selectedProfessionalRole)} · Level ${selectedSkillProgress.level}` : "Civilian · Ready to learn"}</strong>
                   <small>{BACKGROUND_DEFINITIONS.find((item) => item.id === selectedCrew.backgroundId)?.summary ?? titleCase(selectedCrew.backgroundId)}</small>

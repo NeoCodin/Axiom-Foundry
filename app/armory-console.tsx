@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { HelpTrigger, type ManualTopicId } from "./game-manual";
 import {
   ARMORY_ITEM_DEFINITIONS,
@@ -58,71 +59,179 @@ export type ArmoryConsoleProps = {
   onBack: () => void;
 };
 
+type ArmoryTab = "inventory" | "development" | "laws";
 const ROMAN: Record<ArmoryMark, string> = { 1: "I", 2: "II", 3: "III", 4: "IV" };
 
-function ArmoryItemCard({ item, quote, onCraft, onRepair, onUpgrade, onModification }: {
-  item: ArmoryItemDefinition;
-  quote: ArmoryItemQuoteView;
-  onCraft: (itemId: ArmoryItemId) => void;
-  onRepair: (itemId: ArmoryItemId) => void;
-  onUpgrade: (itemId: ArmoryItemId) => void;
-  onModification: (itemId: ArmoryItemId, modificationId: ArmoryModificationId | null) => void;
-}) {
-  return (
-    <article className={`armory-item-card ${quote.researchMet ? "is-online" : "is-locked"}`}>
-      <header>
-        <div><span>{item.kind.toUpperCase()} FRAME · MARK {ROMAN[quote.mark]}</span><h3>{item.name}</h3></div>
-        <div className="armory-stock-readout"><strong>{quote.ready}</strong><small>ready{quote.damaged ? ` · ${quote.damaged} damaged` : ""}</small></div>
-      </header>
-      <p>{item.description}</p>
-      <ul className="armory-item-stats">
-        <li><span>{item.kind === "weapon" ? "Expedition strength" : "Wound damage"}</span><strong>{quote.effectivePrimary}</strong></li>
-        {item.kind === "armor" && <li><span>Frame durability</span><strong>{quote.effectiveDurability} hits</strong></li>}
-        <li><span>Carrier qualification</span><strong>Level {item.wieldLevel}+ · {quote.wielders} aboard</strong></li>
-        <li><span>Active fit</span><strong>{quote.modification ? ARMORY_MODIFICATIONS[quote.modification].name : "Standard pattern"}</strong></li>
-      </ul>
-
-      <div className="armory-mark-project">
-        <div><span>FRAME DEVELOPMENT</span><strong>{quote.upgrade.targetMark ? `Mark ${ROMAN[quote.upgrade.targetMark]}` : "Pattern complete"}</strong></div>
-        <small>{quote.upgrade.targetMark ? `${quote.upgrade.costLabel} · ${quote.upgrade.durationLabel}` : "Maximum known refinement reached."}</small>
-        {quote.upgrade.researchName && <small>Design gate: {quote.upgrade.researchName}</small>}
-        <button className="forecast-action" type="button" disabled={!quote.upgrade.canStart} onClick={() => onUpgrade(item.id)}>
-          {quote.upgrade.canStart ? `Begin Mark ${quote.upgrade.targetMark ? ROMAN[quote.upgrade.targetMark] : ""} project` : quote.upgrade.reason ?? "Unavailable"}
-        </button>
-      </div>
-
-      <div className="armory-modification-list">
-        <span>ONE SPECIALIZATION SLOT</span>
-        {quote.modifications.map((mod) => (
-          <button key={mod.id} type="button" className={quote.modification === mod.id ? "active" : ""} disabled={!mod.available || (!mod.canInstall && quote.modification !== mod.id)} onClick={() => onModification(item.id, quote.modification === mod.id ? null : mod.id)} title={ARMORY_MODIFICATIONS[mod.id].description}>
-            <strong>{ARMORY_MODIFICATIONS[mod.id].name}</strong><small>{quote.modification === mod.id ? "FITTED · remove" : mod.available ? mod.costLabel : `REQUIRES ${mod.researchName}`}</small>
-          </button>
-        ))}
-      </div>
-
-      <div className="armory-item-actions">
-        <button className="forecast-action" type="button" disabled={!quote.canCraft} onClick={() => onCraft(item.id)}>{quote.canCraft ? `Forge current pattern · ${quote.craftCostLabel}` : quote.reason === "research" ? `Requires ${quote.researchName}` : `Forge needs ${quote.craftCostLabel}`}</button>
-        {quote.damaged > 0 && <button className="forecast-action" type="button" disabled={!quote.canRepair} onClick={() => onRepair(item.id)}>{quote.canRepair ? `Repair 1 · ${quote.repairCostLabel}` : `Repair needs ${quote.repairCostLabel}`}</button>}
-      </div>
-    </article>
-  );
+function frameStatus(item: ArmoryItemDefinition, quote: ArmoryItemQuoteView) {
+  if (!quote.researchMet) return `LOCKED · ${quote.researchName}`;
+  if (quote.damaged > 0) return `${quote.ready} READY · ${quote.damaged} DAMAGED`;
+  return `${quote.ready} READY · MARK ${ROMAN[quote.mark]}`;
 }
 
-export default function ArmoryConsole({ currentWorldName, quotes, activeProject, laws, onCraft, onRepair, onUpgrade, onModification, onBuyLaw, onOpenHelp, onBack }: ArmoryConsoleProps) {
+export default function ArmoryConsole({
+  currentWorldName,
+  quotes,
+  activeProject,
+  laws,
+  onCraft,
+  onRepair,
+  onUpgrade,
+  onModification,
+  onBuyLaw,
+  onOpenHelp,
+  onBack,
+}: ArmoryConsoleProps) {
+  const [activeTab, setActiveTab] = useState<ArmoryTab>("inventory");
+  const [selectedItemId, setSelectedItemId] = useState<ArmoryItemId>(ARMORY_ITEM_DEFINITIONS[0].id);
+  const selectedItem = ARMORY_ITEM_DEFINITIONS.find((item) => item.id === selectedItemId) ?? ARMORY_ITEM_DEFINITIONS[0];
+  const selectedQuote = quotes[selectedItem.id];
   const weapons = ARMORY_ITEM_DEFINITIONS.filter((item) => item.kind === "weapon");
   const armor = ARMORY_ITEM_DEFINITIONS.filter((item) => item.kind === "armor");
   const totalReady = ARMORY_ITEM_DEFINITIONS.reduce((sum, item) => sum + quotes[item.id].ready, 0);
+  const completedLaws = (Object.keys(ARMORY_LAWS) as ArmoryLawId[]).reduce((sum, id) => sum + laws[id].level, 0);
+
+  const chooseItem = (itemId: ArmoryItemId, nextTab: ArmoryTab = activeTab) => {
+    setSelectedItemId(itemId);
+    setActiveTab(nextTab);
+  };
+
   return (
-    <section className="continuity-console armory-console" aria-labelledby="armory-console-title">
-      <header className="continuity-console-header"><div><p>PERSONNEL // ARMORY // {currentWorldName.toUpperCase()}</p><h2 id="armory-console-title">Six frames. One evolving doctrine.</h2><span>The Ark improves trusted patterns instead of collecting disposable loot. Expeditions still auto-equip the strongest qualified crew.</span></div><button type="button" onClick={onBack}>Return to Personnel</button></header>
-      <div className="continuity-summary-band"><div><span>Frames</span><strong>3 weapon · 3 armor</strong></div><div><span>Items ready</span><strong>{totalReady}</strong></div><div><span>Active project</span><strong>{activeProject ? `${activeProject.itemName} Mk ${ROMAN[activeProject.targetMark]}` : "Forge idle"}</strong></div><div className="continuity-summary-help"><span>Manual <HelpTrigger label="Explain Armory progression" onClick={() => onOpenHelp("armory")} /></span><strong>Marks survive Recalibration</strong></div></div>
+    <section className="continuity-console armory-console armory-console-v2" aria-labelledby="armory-console-title">
+      <header className="continuity-console-header">
+        <div>
+          <p>PERSONNEL // ARMORY // {currentWorldName.toUpperCase()}</p>
+          <h2 id="armory-console-title">Ark Armory</h2>
+          <span>Six trusted frames. Select one pattern, then decide whether to forge, repair, or develop it.</span>
+        </div>
+        <div className="armory-header-actions">
+          <HelpTrigger label="Explain Armory progression" onClick={() => onOpenHelp("armory")} />
+          <button type="button" onClick={onBack}>Return to Personnel</button>
+        </div>
+      </header>
 
-      {activeProject && <section className="armory-active-project" aria-live="polite"><div><span>ARMORY PROJECT IN PROGRESS</span><strong>{activeProject.itemName} · Mark {ROMAN[activeProject.targetMark]}</strong><small>{activeProject.remainingLabel} remaining · continues while offline</small></div><div className="continuity-progress"><span style={{ width: `${Math.max(1, activeProject.progress * 100)}%` }} /></div></section>}
+      <nav className="armory-workspace-tabs" aria-label="Armory stations">
+        <button type="button" className={activeTab === "inventory" ? "is-active" : ""} aria-pressed={activeTab === "inventory"} onClick={() => setActiveTab("inventory")}><span>01</span><strong>Inventory</strong><small>{totalReady} FRAMES READY</small></button>
+        <button type="button" className={activeTab === "development" ? "is-active" : ""} aria-pressed={activeTab === "development"} onClick={() => setActiveTab("development")}><span>02</span><strong>Development</strong><small>{activeProject ? "PROJECT ACTIVE" : "FORGE IDLE"}</small></button>
+        <button type="button" className={activeTab === "laws" ? "is-active" : ""} aria-pressed={activeTab === "laws"} onClick={() => setActiveTab("laws")}><span>03</span><strong>Permanent Laws</strong><small>{completedLaws} LEVELS PROVEN</small></button>
+      </nav>
 
-      <section className="continuity-panel armory-law-panel"><header><div><span>RECALIBRATION LAWS</span><h3>Change how every future pattern is forged</h3></div><small>Research proves each law; Axioms then make it permanent across recalibrations.</small></header><div className="armory-law-grid">{(Object.keys(ARMORY_LAWS) as ArmoryLawId[]).map((id) => { const law = ARMORY_LAWS[id]; const quote = laws[id]; return <article key={id}><span>LAW LEVEL {quote.level}/{law.maxLevel}</span><strong>{law.name}</strong><p>{law.description}</p><small>{quote.researchMet ? `PROVEN · ${quote.researchName}` : `RESEARCH · ${quote.researchName}`}</small><button type="button" disabled={!quote.canBuy} onClick={() => onBuyLaw(id)}>{quote.maxed ? "LAW COMPLETE" : !quote.researchMet ? `Requires ${quote.researchName}` : `${quote.cost} Axioms`}</button></article>; })}</div></section>
+      {activeProject && (
+        <section className="armory-project-ribbon" aria-live="polite">
+          <div><span>ACTIVE DEVELOPMENT</span><strong>{activeProject.itemName} · MARK {ROMAN[activeProject.targetMark]}</strong><small>{activeProject.remainingLabel} remains · continues offline</small></div>
+          <div><i style={{ width: `${Math.max(1, activeProject.progress * 100)}%` }} /></div>
+        </section>
+      )}
 
-      <section className="continuity-panel"><header><div><span>WEAPON FRAMES</span><h3>Controlled force for difficult operations</h3></div><small>Marks add bounded strength; specializations change the mission tradeoff.</small></header><div className="armory-item-grid">{weapons.map((item) => <ArmoryItemCard key={item.id} item={item} quote={quotes[item.id]} onCraft={onCraft} onRepair={onRepair} onUpgrade={onUpgrade} onModification={onModification} />)}</div></section>
-      <section className="continuity-panel"><header><div><span>ARMOR FRAMES</span><h3>Protection that grows with the crew</h3></div><small>Higher Marks improve mitigation and durability without eliminating risk.</small></header><div className="armory-item-grid">{armor.map((item) => <ArmoryItemCard key={item.id} item={item} quote={quotes[item.id]} onCraft={onCraft} onRepair={onRepair} onUpgrade={onUpgrade} onModification={onModification} />)}</div></section>
+      {activeTab === "inventory" && (
+        <section className="armory-inventory-workspace">
+          <div className="armory-frame-racks">
+            <section>
+              <header><span>WEAPON RACK</span><strong>Controlled force</strong></header>
+              <div>{weapons.map((item) => {
+                const quote = quotes[item.id];
+                return (
+                  <button type="button" className={`${selectedItem.id === item.id ? "is-selected" : ""} ${quote.researchMet ? "is-online" : "is-locked"}`} aria-pressed={selectedItem.id === item.id} onClick={() => chooseItem(item.id)} key={item.id}>
+                    <span className={`armory-frame-sprite is-${item.kind}`} aria-hidden="true"><i /><i /><i /></span>
+                    <span><b>MARK {ROMAN[quote.mark]}</b><strong>{item.name}</strong><small>{frameStatus(item, quote)}</small></span>
+                  </button>
+                );
+              })}</div>
+            </section>
+            <section>
+              <header><span>ARMOR RACK</span><strong>Survival architecture</strong></header>
+              <div>{armor.map((item) => {
+                const quote = quotes[item.id];
+                return (
+                  <button type="button" className={`${selectedItem.id === item.id ? "is-selected" : ""} ${quote.researchMet ? "is-online" : "is-locked"}`} aria-pressed={selectedItem.id === item.id} onClick={() => chooseItem(item.id)} key={item.id}>
+                    <span className={`armory-frame-sprite is-${item.kind}`} aria-hidden="true"><i /><i /><i /></span>
+                    <span><b>MARK {ROMAN[quote.mark]}</b><strong>{item.name}</strong><small>{frameStatus(item, quote)}</small></span>
+                  </button>
+                );
+              })}</div>
+            </section>
+          </div>
+
+          <aside className="armory-selected-pattern">
+            <span>SELECTED PATTERN // {selectedItem.kind.toUpperCase()}</span>
+            <h3>{selectedItem.name}</h3>
+            <p>{selectedItem.description}</p>
+            <div className="armory-selected-visual" aria-hidden="true">
+              <span className={`armory-frame-sprite is-${selectedItem.kind}`}><i /><i /><i /></span>
+              <i className="scan-a" /><i className="scan-b" />
+            </div>
+            <dl>
+              <div><dt>{selectedItem.kind === "weapon" ? "Expedition strength" : "Wound damage"}</dt><dd>{selectedQuote.effectivePrimary}</dd></div>
+              {selectedItem.kind === "armor" && <div><dt>Durability</dt><dd>{selectedQuote.effectiveDurability} hits</dd></div>}
+              <div><dt>Qualified crew</dt><dd>{selectedQuote.wielders}</dd></div>
+              <div><dt>Active fit</dt><dd>{selectedQuote.modification ? ARMORY_MODIFICATIONS[selectedQuote.modification].name : "Standard"}</dd></div>
+            </dl>
+            <div className="armory-inventory-actions">
+              <button type="button" disabled={!selectedQuote.canCraft} onClick={() => onCraft(selectedItem.id)}>{selectedQuote.canCraft ? `FORGE · ${selectedQuote.craftCostLabel}` : selectedQuote.reason === "research" ? `REQUIRES ${selectedQuote.researchName}` : `NEEDS ${selectedQuote.craftCostLabel}`}</button>
+              {selectedQuote.damaged > 0 && <button type="button" disabled={!selectedQuote.canRepair} onClick={() => onRepair(selectedItem.id)}>{selectedQuote.canRepair ? `REPAIR ONE · ${selectedQuote.repairCostLabel}` : `NEEDS ${selectedQuote.repairCostLabel}`}</button>}
+              <button type="button" onClick={() => setActiveTab("development")}>OPEN DEVELOPMENT</button>
+            </div>
+          </aside>
+        </section>
+      )}
+
+      {activeTab === "development" && (
+        <section className="armory-development-workspace">
+          <nav aria-label="Select frame to develop">
+            {ARMORY_ITEM_DEFINITIONS.map((item) => <button type="button" className={item.id === selectedItem.id ? "is-active" : ""} onClick={() => chooseItem(item.id, "development")} key={item.id}><span>{item.kind.toUpperCase()}</span><strong>{item.name}</strong><small>MARK {ROMAN[quotes[item.id].mark]}</small></button>)}
+          </nav>
+          <article className="armory-development-bench">
+            <header>
+              <div><span>FRAME DEVELOPMENT</span><h3>{selectedItem.name}</h3></div>
+              <strong>MARK {ROMAN[selectedQuote.mark]}</strong>
+            </header>
+            <div className="armory-development-track" aria-label={`Mark ${selectedQuote.mark} of 4`}>
+              {([1, 2, 3, 4] as ArmoryMark[]).map((mark) => <i className={mark <= selectedQuote.mark ? "is-complete" : mark === selectedQuote.upgrade.targetMark ? "is-next" : ""} key={mark}><b>{ROMAN[mark]}</b></i>)}
+            </div>
+            <section>
+              <span>NEXT MARK</span>
+              <strong>{selectedQuote.upgrade.targetMark ? `MARK ${ROMAN[selectedQuote.upgrade.targetMark]}` : "PATTERN COMPLETE"}</strong>
+              <p>{selectedQuote.upgrade.targetMark ? `${selectedQuote.upgrade.costLabel} · ${selectedQuote.upgrade.durationLabel}` : "Maximum known refinement reached."}</p>
+              {selectedQuote.upgrade.researchName && <small>Design gate: {selectedQuote.upgrade.researchName}</small>}
+              <button type="button" disabled={!selectedQuote.upgrade.canStart} onClick={() => onUpgrade(selectedItem.id)}>{selectedQuote.upgrade.canStart ? `BEGIN MARK ${selectedQuote.upgrade.targetMark ? ROMAN[selectedQuote.upgrade.targetMark] : ""}` : selectedQuote.upgrade.reason ?? "UNAVAILABLE"}</button>
+            </section>
+            <section>
+              <span>SPECIALIZATION SLOT</span>
+              <strong>{selectedQuote.modification ? ARMORY_MODIFICATIONS[selectedQuote.modification].name : "STANDARD PATTERN"}</strong>
+              <div className="armory-specialization-options">
+                {selectedQuote.modifications.map((mod) => (
+                  <button type="button" className={selectedQuote.modification === mod.id ? "is-active" : ""} disabled={!mod.available || (!mod.canInstall && selectedQuote.modification !== mod.id)} onClick={() => onModification(selectedItem.id, selectedQuote.modification === mod.id ? null : mod.id)} key={mod.id}>
+                    <strong>{ARMORY_MODIFICATIONS[mod.id].name}</strong>
+                    <small>{ARMORY_MODIFICATIONS[mod.id].description}</small>
+                    <em>{selectedQuote.modification === mod.id ? "FITTED · SELECT TO REMOVE" : mod.available ? mod.costLabel : `REQUIRES ${mod.researchName}`}</em>
+                  </button>
+                ))}
+              </div>
+            </section>
+          </article>
+        </section>
+      )}
+
+      {activeTab === "laws" && (
+        <section className="armory-laws-workspace">
+          <header><div><span>RECALIBRATION LAWS</span><h3>Permanent doctrine, proven through Research</h3></div><small>Axioms make each law survive every future Recalibration.</small></header>
+          <div>
+            {(Object.keys(ARMORY_LAWS) as ArmoryLawId[]).map((id, index) => {
+              const law = ARMORY_LAWS[id];
+              const quote = laws[id];
+              return (
+                <article key={id}>
+                  <span>{String(index + 1).padStart(2, "0")} // LAW LEVEL {quote.level}/{law.maxLevel}</span>
+                  <div className="armory-law-glyph" aria-hidden="true"><i /><i /><i /></div>
+                  <h3>{law.name}</h3>
+                  <p>{law.description}</p>
+                  <small>{quote.researchMet ? `PROVEN · ${quote.researchName}` : `RESEARCH REQUIRED · ${quote.researchName}`}</small>
+                  <button type="button" disabled={!quote.canBuy} onClick={() => onBuyLaw(id)}>{quote.maxed ? "LAW COMPLETE" : !quote.researchMet ? `REQUIRES ${quote.researchName}` : `MAKE PERMANENT · ${quote.cost} AXIOMS`}</button>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
     </section>
   );
 }

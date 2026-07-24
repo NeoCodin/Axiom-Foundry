@@ -1,9 +1,10 @@
 "use client";
 
 import { HelpTrigger, type ManualTopicId } from "./game-manual";
-import { HealthBar, titleCase } from "./crew-view-shared";
+import { CrewToken, HealthBar, titleCase } from "./crew-view-shared";
 import {
   BASE_HEALTH_RECOVERY_PER_HOUR,
+  getSurvivorRarity,
   getSurvivorHealthCap,
   getSurvivorSkillLevel,
   isSurvivorWounded,
@@ -119,7 +120,7 @@ function MedicalConsole({
               const surgery = survivor.injury ? getProstheticQuote(survivor.id) : null;
               return (
                 <div className="medbay-row" key={survivor.id}>
-                  <span className="crew-avatar">{survivor.name.slice(0, 1)}</span>
+                  <CrewToken id={survivor.id} name={survivor.name} role={survivor.role} rarity={getSurvivorRarity(survivor).id} status="wounded" />
                   <span className="medbay-row-name">
                     <strong>{survivor.callsign || survivor.name}</strong>
                     <small>{survivor.role === "civilian" ? "Civilian" : `${titleCase(survivor.role)} · Lv ${getSurvivorSkillLevel(survivor, survivor.role)}`}{survivor.injury ? ` · ${survivor.injury} injury (cap ${cap})` : ""}</small>
@@ -180,7 +181,7 @@ function MedicalConsole({
                   : null;
               return (
                 <div className="medbay-row" key={survivor.id}>
-                  <span className="crew-avatar">{survivor.name.slice(0, 1)}</span>
+                  <CrewToken id={survivor.id} name={survivor.name} role={survivor.role} rarity={getSurvivorRarity(survivor).id} status={isSurvivorWounded(survivor) ? "wounded" : "ready"} />
                   <span className="medbay-row-name">
                     <strong>{survivor.callsign || survivor.name}</strong>
                     <small>{survivor.role === "civilian" ? "Civilian" : `${titleCase(survivor.role)} · Lv ${getSurvivorSkillLevel(survivor, survivor.role)}`}{isSurvivorWounded(survivor) ? " · RECOVERING" : ""}{survivor.injury ? ` · ${survivor.injury} injury (cap ${cap})` : ""}</small>

@@ -103,7 +103,6 @@ export type ArkDeckProps = {
   roomReinforcements?: readonly ArkRoomReinforcement[];
   supportUpgradeCosts?: Partial<Record<LifeSupportKey, number>>;
   onCommission?: () => void;
-  onReinforceRoom?: (roomId: RoomId) => void;
   onUpgradeSupport?: (key: LifeSupportKey) => void;
   onOpenView: (view: ArkViewId) => void;
 };
@@ -169,7 +168,6 @@ function ArkDeck({
   roomReinforcements = [],
   supportUpgradeCosts,
   onCommission,
-  onReinforceRoom,
   onUpgradeSupport,
   onOpenView,
 }: ArkDeckProps) {
@@ -629,37 +627,6 @@ function ArkDeck({
         </div>
       )}
 
-      {roomReinforcements.length > 0 && (
-        <details className="ark-reinforcement-console">
-          <summary
-            data-pixel-tooltip="Permanent physical upgrades for rooms already visible on the Ark. Reinforcement spends recovered Salvage, survives Recalibration, and changes the named system immediately."
-          >
-            <span>ARK REINFORCEMENT</span>
-            <strong>{salvageLabel} SALVAGE AVAILABLE</strong>
-          </summary>
-          <div className="ark-reinforcement-grid">
-            {roomReinforcements.map((room) => {
-              const maximum = room.level >= room.maxLevel;
-              return (
-                <article key={room.id}>
-                  <header>
-                    <span>{room.name}</span>
-                    <strong>MARK {room.level}/{room.maxLevel}</strong>
-                  </header>
-                  <p>{room.effect}</p>
-                  <button
-                    type="button"
-                    disabled={maximum || !room.canUpgrade}
-                    onClick={() => onReinforceRoom?.(room.id)}
-                  >
-                    {maximum ? "FULLY REINFORCED" : `REINFORCE · ${room.costLabel}`}
-                  </button>
-                </article>
-              );
-            })}
-          </div>
-        </details>
-      )}
     </section>
   );
 }
