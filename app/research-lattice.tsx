@@ -433,6 +433,11 @@ export function ResearchLattice({
                     );
                     const startX = edge === 1 ? 98 : edge === 3 ? 2 : lane;
                     const startY = edge === 0 ? 3 : edge === 2 ? 97 : lane;
+                    const targetVariation = ((particleIndex * 7) % 9) - 4;
+                    const blockedX =
+                      edge === 1 ? 61 : edge === 3 ? 39 : 50 + targetVariation * 0.7;
+                    const blockedY =
+                      edge === 0 ? 35 : edge === 2 ? 59 : 47 + targetVariation * 0.7;
                     return (
                       <i
                         key={`${input.id}-${packetIndex}`}
@@ -441,6 +446,8 @@ export function ResearchLattice({
                           ...getInputStyle(input.id),
                           "--particle-start-x": `${startX}%`,
                           "--particle-start-y": `${startY}%`,
+                          "--particle-block-x": `${blockedX}%`,
+                          "--particle-block-y": `${blockedY}%`,
                           "--packet-delay": `${-(packetIndex * 0.57 + inputIndex * 0.31)}s`,
                           "--packet-duration": `${duration}s`,
                           "--packet-size": `${packetIndex % 5 === 0 ? 7 : packetIndex % 2 === 0 ? 5 : 3}px`,
@@ -491,6 +498,11 @@ export function ResearchLattice({
               <div className="research-core-readout is-status">
                 <span>ANALYSIS CORE</span>
                 <strong>{network.stalledReason ?? "RESEARCH ACTIVE"}</strong>
+                <small>
+                  {network.stalledReason
+                    ? "Evidence is waiting at the Core boundary"
+                    : "Evidence is entering the active synthesis"}
+                </small>
               </div>
 
               <div className="research-core-legend" aria-label="Evidence in motion">
