@@ -33,9 +33,9 @@ type TooltipPosition = {
 
 const TOOLTIP_RULES: TooltipRule[] = [
   // Ark command deck
-  { selector: ".ark-core-engine", copy: "AXIOM Chamber. Click to force a Core alignment and gain Flux immediately. Repeated tuning wakes the Ark's first systems." },
-  { selector: ".ark-target-world", copy: "Current destination. The marker shows this chapter's total Continuity readiness, not physical travel distance." },
-  { selector: ".ark-ship", copy: "ARK // ITERATION 44. Lit rooms are operational; dark rooms awaken as the current chapter advances." },
+  { selector: ".ark-law-relay", copy: "Law-Heart power bus. The Foundry owns the Law-Heart itself; this read-only relay shows its output moving through the physical Ark." },
+  { selector: ".ark-world-limb", copy: "Current destination. Its distance and orbital presentation change during travel; chapter readiness remains managed through Continuity." },
+  { selector: ".ark-vessel", copy: "ARK // ITERATION 44. Lit compartments are operational, moving details reflect real ship activity, and permanent Reinforcement Marks add visible hull plating." },
   { selector: ".ark-room-fabrication", copy: "Fabrication Deck. Builds nested mechanisms that turn Flux into stronger, automatic production." },
   { selector: ".ark-room-support", copy: "Life Support. Atmosphere, water, food, and medical capacity determine how many rescued people the Ark can sustain." },
   { selector: ".ark-room-habitation", copy: "Habitation. Living Space sets the Ark's hard population capacity and can be expanded with Salvage." },

@@ -83,6 +83,12 @@ export type ArkDeckProps = {
   totalRoomCount: number;
   fabricationDepth: number;
   fabricationIntensity: number;
+  transit?: {
+    active: boolean;
+    progress: number;
+    originName: string;
+    destinationName: string;
+  } | null;
   unlockedViews: readonly ArkViewId[];
   coldWakeCommissioning?: {
     active: boolean;
@@ -106,6 +112,7 @@ type ArkRoom = {
   sublabel: string;
   kind: string;
   online: boolean;
+  reinforcementLevel: number;
 };
 
 function clamp(value: number, minimum = 0, maximum = 1) {
@@ -152,6 +159,7 @@ function ArkDeck({
   totalRoomCount,
   fabricationDepth,
   fabricationIntensity,
+  transit = null,
   unlockedViews,
   coldWakeCommissioning = null,
   roomReinforcements = [],
@@ -171,6 +179,8 @@ function ArkDeck({
   const researchRate = numericLabelValue(researchThroughput);
   const roomRatio = clamp(onlineRoomCount / Math.max(1, totalRoomCount));
   const worldSlug = worldName.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-").replaceAll(/(^-|-$)/g, "");
+  const transitActive = transit?.active === true;
+  const transitProgress = clamp(transit?.progress ?? 0);
 
   const unlockedViewSet = new Set(unlockedViews);
   const isRoomAccessible = (room: ArkRoom) =>
@@ -200,6 +210,11 @@ function ArkDeck({
   const coreEnergy = clamp(0.14 + normalizedWorldProgress * 0.34 + roomRatio * 0.38 + Math.min(0.14, fluxValue / 2_000));
   const coreDuration = 3.9 - coreEnergy * 2.85;
   const researchDuration = clamp(7.5 / (1 + researchRate * 0.35 + normalizedResearchProgress * 2.5), 0.65, 7.5);
+  const reinforcementLevel = (...ids: RoomId[]) =>
+    roomReinforcements
+      .filter((room) => ids.includes(room.id))
+      .reduce((maximum, room) => Math.max(maximum, room.level), 0);
+  const totalReinforcement = roomReinforcements.reduce((total, room) => total + room.level, 0);
   const shipStyle = {
     "--ark-world-progress": normalizedWorldProgress,
     "--ark-occupancy": clamp(population / Math.max(1, populationCapacity)),
@@ -207,6 +222,15 @@ function ArkDeck({
     "--ark-core-duration": `${coreDuration}s`,
     "--ark-research-duration": `${researchDuration}s`,
     "--ark-room-ratio": roomRatio,
+    "--ark-transit-progress": transitProgress,
+    "--ark-transit-progress-width": `${transitProgress * 100}%`,
+    "--ark-reinforcement": clamp(totalReinforcement / 24),
+    "--ark-drive-opacity": 0.22 + coreEnergy * 0.76,
+    "--ark-drive-width": `${54 + coreEnergy * 46}%`,
+    "--ark-drive-duration": `${0.38 + (1 - coreEnergy) * 0.54}s`,
+    "--ark-spine-opacity": 0.18 + coreEnergy * 0.52,
+    "--ark-transit-world-opacity": 0.18 + transitProgress * 0.58,
+    "--ark-transit-world-scale": 0.58 + transitProgress * 0.34,
   } as CSSProperties;
 
   const rooms: ArkRoom[] = [
@@ -217,6 +241,7 @@ function ArkDeck({
       sublabel: fabricationOnline ? `${fluxPerSecondLabel}/sec routed` : "No repeating pattern",
       kind: "fabrication",
       online: fabricationOnline,
+      reinforcementLevel: reinforcementLevel("fabrication-floor", "axiom-chamber"),
     },
     {
       id: "population",
@@ -225,6 +250,7 @@ function ArkDeck({
       sublabel: supportOnline ? `${population}/${populationCapacity} safely supported` : "Atmosphere absent",
       kind: "support",
       online: supportOnline,
+      reinforcementLevel: reinforcementLevel("axiom-chamber"),
     },
     {
       id: "population",
@@ -237,14 +263,18 @@ function ArkDeck({
         : "Empty bunks, cold glass",
       kind: "habitation",
       online: habitationOnline,
+      reinforcementLevel: reinforcementLevel("axiom-chamber"),
     },
     {
       id: "research",
       code: "05",
       label: "Analysis Core",
-      sublabel: researchProject ?? "Lattice unconfigured",
+      sublabel: researchProject
+        ? `${researchProject} · ${Math.round(normalizedResearchProgress * 100)}%`
+        : "Lattice unconfigured",
       kind: "research",
       online: researchOnline,
+      reinforcementLevel: reinforcementLevel("research-observatory"),
     },
     {
       id: "population",
@@ -253,92 +283,119 @@ function ArkDeck({
       sublabel: crew.some((member) => member.training) ? "Instruction in progress" : "No active curriculum",
       kind: "education",
       online: educationOnline,
+      reinforcementLevel: reinforcementLevel("memory-archive"),
     },
     {
       id: "settlement",
       code: "07",
       label: "Continuity Bridge",
-      sublabel: settlementReady ? "World release authorized" : "Forecast in progress",
+      sublabel: settlementReady
+        ? "World release authorized"
+        : settlementDeficit ?? `${Math.round(normalizedSettlement)}% viability`,
       kind: "bridge",
       online: continuityOnline,
+      reinforcementLevel: reinforcementLevel("planetfall-bridge"),
     },
   ];
 
   return (
-    <section className={`ark-command-deck fabrication-depth-${Math.min(6, fabricationDepth)} ${fabricationIntensity >= 150 ? "core-phase-locked" : ""}`} style={shipStyle} aria-labelledby="ark-command-title">
+    <section
+      className={`ark-command-deck ark-command-deck-v2 fabrication-depth-${Math.min(6, fabricationDepth)} ${fabricationIntensity >= 150 ? "core-phase-locked" : ""} ${transitActive ? "is-in-transit" : "is-in-orbit"}`}
+      style={shipStyle}
+      aria-labelledby="ark-command-title"
+    >
       <header className="ark-command-heading">
         <div className="ark-ai-identity">
           <span className="ark-ai-eye" aria-hidden="true"><i /></span>
           <div>
-            <p>AXIOM // CARETAKER INTELLIGENCE</p>
+            <p>ARK COMMAND // CARETAKER VIEW</p>
             <h2 id="ark-command-title">{foundryName}</h2>
-            <span>Biological command authority: {population > 0 ? "advisory" : "absent"}</span>
+            <span>{transitActive ? `${transit?.originName} → ${transit?.destinationName}` : `${worldName} orbital watch`}</span>
           </div>
         </div>
         <div className="ark-heading-metrics" aria-label="Ark status">
-          <div><span>Population aboard</span><strong>{population}/{populationCapacity}</strong></div>
+          <div>
+            <span>People aboard</span>
+            <strong>{population}/{populationCapacity}</strong>
+            <small>{population > 0 ? "life-signs stable" : "biological decks silent"}</small>
+          </div>
         </div>
       </header>
 
       <section className="ark-visual-stage" data-guide-target="ark-visual" data-world={worldSlug} aria-label={`The Ark approaching ${worldName}`}>
-        <div className="ark-space" aria-hidden="true">
+        <div className="ark-void" aria-hidden="true">
+          <span className="ark-void-nebula" />
           <span className="ark-star-field ark-star-field-near" />
           <span className="ark-star-field ark-star-field-far" />
-          <span className="ark-route-line" />
+          <span className="ark-star-field ark-star-field-deep" />
+          <span className="ark-flight-wake" />
           <span className={`ark-sos-wave ${beaconOnline ? "is-live" : ""}`}><i /><i /><i /></span>
+          <span className="ark-void-particles">
+            {Array.from({ length: 64 }, (_, index) => {
+              const particleStyle = {
+                "--particle-x": `${(index * 47 + 9) % 100}%`,
+                "--particle-y": `${(index * 31 + 17) % 100}%`,
+                "--particle-delay": `${-((index * 0.37) % 9).toFixed(2)}s`,
+                "--particle-duration": `${6 + (index % 7) * 1.15}s`,
+                "--particle-transit-duration": `${(6 + (index % 7) * 1.15) * 0.38}s`,
+                "--particle-size": `${1 + (index % 4)}px`,
+              } as CSSProperties;
+              return <i key={index} style={particleStyle} />;
+            })}
+          </span>
         </div>
 
         <div className="ark-theater-caption">
-          <span>PLANETARY THEATER // LIVE</span>
-          <strong>{worldName}</strong>
+          <span>{transitActive ? "NAVIGATION FEED // TRANSIT" : "ORBITAL FEED // LOCKED"}</span>
+          <strong>{transitActive ? transit?.destinationName : worldName}</strong>
           <p>{worldSubtitle}</p>
-          <small><i aria-hidden="true" /> ORBITAL FEED LOCKED</small>
+          <small><i aria-hidden="true" /> {transitActive ? `${Math.round(transitProgress * 100)}% OF CROSSING COMPLETE` : `${Math.round(normalizedWorldProgress * 100)}% CONTINUITY READINESS`}</small>
         </div>
 
-        <div className="ark-target-world" aria-hidden="true">
-          <span className="ark-world-atmosphere" />
-          <span className="ark-world-surface" />
-          <span className="ark-world-clouds" />
-          <span className="ark-world-night" />
-          <span className="ark-world-pixels"><i /><i /><i /><i /><i /></span>
-          <span className="ark-world-orbit ark-world-orbit-one" />
-          <span className="ark-world-orbit ark-world-orbit-two" />
-          <span className="ark-world-marker">{Math.round(normalizedWorldProgress * 100)}%</span>
+        <div className="ark-world-limb" aria-hidden="true">
+          <span className="ark-world-glow" />
+          <span className="ark-world-body" />
+          <span className="ark-world-weather" />
+          <span className="ark-world-shadow" />
+          <span className="ark-world-scan"><i /><i /><i /></span>
+          <em>{transitActive ? "DISTANT" : "ORBIT"}</em>
         </div>
 
-        <div className="ark-ship" aria-label={`${onlineRoomCount} of ${totalRoomCount} Ark rooms online`}>
-          <span className="ark-engine-plume" aria-hidden="true"><i /><i /><i /></span>
-          <span className="ark-hull-top" aria-hidden="true" />
-          <span className="ark-hull-keel" aria-hidden="true" />
-          <span className="ark-bow" aria-hidden="true" />
-          <span className="ark-dorsal-fin" aria-hidden="true" />
-          <span className="ark-ship-nameplate">ARK // ITERATION 44</span>
+        <div className="ark-vessel" aria-label={`${onlineRoomCount} of ${totalRoomCount} Ark rooms online`}>
+          <span className="ark-drive-plume" aria-hidden="true"><i /><i /><i /><i /></span>
+          <span className="ark-vessel-shadow" aria-hidden="true" />
+          <div className="ark-vessel-hull">
+            <span className="ark-hull-edge ark-hull-edge-top" aria-hidden="true" />
+            <span className="ark-hull-edge ark-hull-edge-bottom" aria-hidden="true" />
+            <span className="ark-engine-stack" aria-hidden="true"><i /><i /><i /></span>
+            <span className="ark-command-tower" aria-hidden="true"><i /><b /></span>
+            <span className="ark-forward-sensor" aria-hidden="true"><i /></span>
+            <span className="ark-ventral-hangar" aria-hidden="true"><i /><i /><i /></span>
+            <span className="ark-vessel-nameplate">ARK // ITERATION 44</span>
 
-          <div className="ark-core-bay">
+            <span className="ark-hull-reinforcements" aria-hidden="true">
+              {Array.from({ length: Math.min(18, totalReinforcement) }, (_, index) => <i key={index} />)}
+            </span>
+
             <div
-              className="ark-core-engine is-readonly"
-              aria-label={`Axiom Chamber monitor: ${fluxLabel} Flux stored and ${fluxPerSecondLabel} Flux per second routed through the Foundry`}
+              className="ark-law-relay"
+              aria-label={`Law-Heart power bus: ${fluxLabel} Flux stored and ${fluxPerSecondLabel} Flux per second routed through the Ark`}
+              tabIndex={0}
             >
-              <span className="ark-core-orbit ark-core-orbit-one" aria-hidden="true"><i /><i /><i /></span>
-              <span className="ark-core-orbit ark-core-orbit-two" aria-hidden="true"><i /><i /><i /><i /></span>
-              <span className="ark-core-aperture" aria-hidden="true"><i /></span>
-              <span className="ark-core-evolution" aria-hidden="true">
-                {Array.from({ length: 24 }, (_, index) => <i className={index < Math.min(24, fabricationIntensity) ? "is-live" : ""} key={index} />)}
-              </span>
-              {fabricationDepth >= 2 && <span className="ark-core-phase-arc" aria-hidden="true"><i /><i /></span>}
-              {fabricationDepth >= 3 && <span className="ark-core-lattice" aria-hidden="true"><i /><i /><i /></span>}
-              <span className="ark-core-copy">
-                <small>AXIOM CHAMBER</small>
-                <strong>{fluxLabel}</strong>
-                <em>{fluxPerSecondLabel}/sec</em>
+              <span className="ark-law-relay-core" aria-hidden="true"><i /><b /></span>
+              <span>
+                <small>LAW-HEART BUS</small>
+                <strong>{fluxPerSecondLabel}/s</strong>
               </span>
             </div>
-            <span className="ark-core-instruction">Foundry output monitor</span>
-          </div>
 
-          <div className="ark-hull-frame">
-            <div className="ark-room-grid">
-              {rooms.map((room) => {
+            <div className="ark-power-spine" aria-hidden="true">
+              <span />
+              {Array.from({ length: 12 }, (_, index) => <i key={index} style={{ "--power-delay": `${index * -0.16}s` } as CSSProperties} />)}
+            </div>
+
+            <div className="ark-deck-layout">
+              {rooms.map((room, index) => {
                 const commissioningRoom = coldWakeCommissioning?.active === true && (
                   (!coldWakeCommissioning.navigationRestored && room.kind === "bridge") ||
                   (coldWakeCommissioning.navigationRestored && !coldWakeCommissioning.lifeSupportRestored && room.kind === "support")
@@ -348,77 +405,101 @@ function ArkDeck({
                   ? Boolean(onCommission) && coldWakeCommissioning.canAct
                   : roomAccessible;
                 const roomState = room.online || commissioningRoom ? "is-online" : "is-dormant";
+                const roomProgress =
+                  room.kind === "fabrication" ? coreEnergy :
+                  room.kind === "support" ? roomRatio :
+                  room.kind === "habitation" ? clamp(population / Math.max(1, berthCapacity)) :
+                  room.kind === "research" ? normalizedResearchProgress :
+                  room.kind === "education" ? clamp(crew.filter((member) => member.training).length / Math.max(1, crew.length)) :
+                  normalizedSettlement / 100;
+                const roomStyle = {
+                  "--room-progress": roomProgress,
+                  "--room-progress-width": `${roomProgress * 100}%`,
+                  "--room-index": index,
+                  "--room-mark": room.reinforcementLevel,
+                } as CSSProperties;
                 return (
-                <button
-                  className={`ark-room ark-room-${room.kind} ${roomState} ${commissioningRoom ? "is-commissioning" : ""}`}
-                  data-room={room.id}
-                  data-kind={room.kind}
-                  data-guide-target={commissioningRoom ? "ark-commissioning-room" : undefined}
-                  key={`${room.code}-${room.label}`}
-                  type="button"
-                  onClick={() => {
-                    if (commissioningRoom) {
-                      onCommission?.();
-                      return;
-                    }
-                    if (room.id !== "core" && roomAccessible) onOpenView(room.id);
-                  }}
-                  disabled={!roomInteractive}
-                  aria-label={commissioningRoom
-                    ? coldWakeCommissioning.canAct
-                      ? `${coldWakeCommissioning.actionLabel} into ${room.label}`
-                      : `${room.label} is awaiting available Flux`
-                    : roomAccessible
-                      ? `Open ${room.label}`
-                      : `${room.label} is not yet available`}
-                >
-                  <span className="ark-room-status" aria-hidden="true" />
-                  <span className="ark-room-code">DECK {room.code}</span>
-                  <strong>{room.label}</strong>
-                  <small>{commissioningRoom
-                    ? coldWakeCommissioning.canAct
-                      ? coldWakeCommissioning.actionLabel
-                      : "Produce Flux in the Foundry"
-                    : room.online ? room.sublabel : "Awakens later"}</small>
-                  {commissioningRoom && <em className="ark-room-commissioning-label">COMMISSION</em>}
+                  <button
+                    className={`ark-vessel-room ark-room-${room.kind} ${roomState} mark-${Math.min(5, room.reinforcementLevel)} ${commissioningRoom ? "is-commissioning" : ""}`}
+                    data-room={room.id}
+                    data-kind={room.kind}
+                    data-guide-target={commissioningRoom ? "ark-commissioning-room" : undefined}
+                    key={`${room.code}-${room.label}`}
+                    type="button"
+                    style={roomStyle}
+                    onClick={() => {
+                      if (commissioningRoom) {
+                        onCommission?.();
+                        return;
+                      }
+                      if (room.id !== "core" && roomAccessible) onOpenView(room.id);
+                    }}
+                    disabled={!roomInteractive}
+                    aria-label={commissioningRoom
+                      ? coldWakeCommissioning.canAct
+                        ? `${coldWakeCommissioning.actionLabel} into ${room.label}`
+                        : `${room.label} is awaiting available Flux`
+                      : roomAccessible
+                        ? `Open ${room.label}`
+                        : `${room.label} is not yet available`}
+                  >
+                    <span className="ark-room-power-tap" aria-hidden="true"><i /></span>
+                    <span className="ark-room-status" aria-hidden="true" />
+                    <span className="ark-room-code">DECK {room.code}</span>
+                    <strong>{room.label}</strong>
+                    <small>{commissioningRoom
+                      ? coldWakeCommissioning.canAct
+                        ? coldWakeCommissioning.actionLabel
+                        : "Produce Flux in the Foundry"
+                      : room.online ? room.sublabel : "Dormant outline"}</small>
+                    {room.reinforcementLevel > 0 && <em className="ark-room-mark">MARK {room.reinforcementLevel}</em>}
+                    {commissioningRoom && <em className="ark-room-commissioning-label">COMMISSION</em>}
 
-                  <span className="ark-room-scene" aria-hidden="true">
-                    <i /><i /><i /><i /><i /><i />
-                  </span>
-
-                  {room.kind === "research" && (
-                    <span className="ark-mini-lattice" aria-hidden="true">
-                      <i /><i /><i /><i /><i />
-                      <b /><b /><b />
+                    <span className={`ark-compartment-scene ark-scene-${room.kind}`} aria-hidden="true">
+                      {Array.from({ length: 8 }, (_, activityIndex) => <i key={activityIndex} />)}
+                      {(room.kind === "habitation" || room.kind === "education") &&
+                        Array.from({ length: Math.min(8, occupiedDots) }, (_, personIndex) => <b key={personIndex} />)}
                     </span>
-                  )}
 
-                  {(room.kind === "habitation" || room.kind === "education") && room.online && (
-                    <span className="ark-room-people" aria-hidden="true">
-                      {Array.from({ length: Math.min(6, occupiedDots) }, (_, index) => <i key={index} />)}
-                    </span>
-                  )}
+                    {room.kind === "habitation" && room.online && (
+                      <span className="ark-berth-pods" aria-hidden="true">
+                        {Array.from({ length: berthPodCount }, (_, berthIndex) => <i key={berthIndex} />)}
+                        {berthConstructionProgress !== null && berthPodCount < 10 && (
+                          <i className="is-under-construction" style={{ "--berth-progress": berthConstructionProgress } as CSSProperties} />
+                        )}
+                      </span>
+                    )}
 
-                  {room.kind === "habitation" && room.online && (
-                    <span className="ark-berth-pods" aria-hidden="true">
-                      {Array.from({ length: berthPodCount }, (_, index) => <i key={index} />)}
-                      {berthConstructionProgress !== null && berthPodCount < 10 && (
-                        <i className="is-under-construction" style={{ "--berth-progress": berthConstructionProgress } as CSSProperties} />
-                      )}
-                    </span>
-                  )}
-                </button>
+                    <span className="ark-room-load" aria-hidden="true"><i /></span>
+                  </button>
                 );
               })}
+            </div>
+
+            <div
+              className="ark-ship-legend"
+              aria-label="Ship interaction guide"
+            >
+              <span><i /> ONLINE</span>
+              <span><i /> DORMANT</span>
+              <strong>SELECT A LIT COMPARTMENT</strong>
             </div>
           </div>
         </div>
 
+        {transitActive && (
+          <div className="ark-transit-readout">
+            <span>{transit?.originName}</span>
+            <div><i /></div>
+            <strong>{transit?.destinationName}</strong>
+          </div>
+        )}
+
         <p className="ark-screen-reader-status" aria-live="polite" />
       </section>
 
-      {(fullBeaconPanel || compactBeaconPanel || researchUnlocked || settlementUnlocked) ? (
-        <div className="ark-awakened-systems">
+      {(fullBeaconPanel || compactBeaconPanel) ? (
+        <div className="ark-operations-dock">
           {fullBeaconPanel && (
             <section className={`ark-system-bay ark-beacon-card ${beaconOnline ? "is-broadcasting" : ""}`} data-guide-target="ark-sos-array">
               <div className="ark-bay-visual ark-beacon-visual" aria-hidden="true">
@@ -502,52 +583,11 @@ function ArkDeck({
             </section>
           )}
 
-          {researchUnlocked && (
-            <section className="ark-system-bay ark-research-card">
-              <div className="ark-bay-visual ark-lattice-visual" aria-hidden="true">
-                <span className="ark-lattice-core"><i /></span>
-                <span className="ark-lattice-node ark-node-one" />
-                <span className="ark-lattice-node ark-node-two" />
-                <span className="ark-lattice-node ark-node-three" />
-                <span className="ark-lattice-node ark-node-four" />
-                <b className="ark-lattice-path ark-path-one"><i /></b>
-                <b className="ark-lattice-path ark-path-two"><i /></b>
-                <b className="ark-lattice-path ark-path-three"><i /></b>
-                <b className="ark-lattice-path ark-path-four"><i /></b>
-              </div>
-              <div className="ark-bay-content">
-                <header><span>RESEARCH LATTICE</span><strong>{researchThroughput}</strong></header>
-                <h3>{researchProject ?? "Analysis Core awaiting a project"}</h3>
-                <div className="ark-inline-progress" role="progressbar" aria-label="Research progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(normalizedResearchProgress * 100)}>
-                  <i style={{ width: `${normalizedResearchProgress * 100}%` }} />
-                </div>
-                <p>Every routed input accelerates the machine you can see.</p>
-                <button type="button" onClick={() => onOpenView("research")}>Enter the Analysis Core</button>
-              </div>
-            </section>
-          )}
-
-          {settlementUnlocked && (
-            <section className={`ark-system-bay ark-settlement-card ${settlementReady ? "is-ready" : ""}`}>
-              <div className="ark-bay-visual ark-settlement-visual" aria-hidden="true">
-                <span /><i /><i /><i /><b />
-              </div>
-              <div className="ark-bay-content">
-                <header><span>PLANETARY CONTINUITY</span><strong>{Math.round(normalizedSettlement)}%</strong></header>
-                <h3>{settlementReady ? "A world can continue without you" : "The Ark is still needed"}</h3>
-                <div className="ark-inline-progress" role="progressbar" aria-label="Settlement viability" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(normalizedSettlement)}>
-                  <i style={{ width: `${normalizedSettlement}%` }} />
-                </div>
-                <p>{settlementReady ? "Choose the founders who will remain and carry this world forward." : settlementDeficit ?? "Rescue, train, research, and supply the population."}</p>
-                <button type="button" onClick={() => onOpenView("settlement")}>Open continuity forecast</button>
-              </div>
-            </section>
-          )}
         </div>
       ) : (
         <div className="ark-dormant-horizon" aria-label="Dormant Ark systems">
           <span aria-hidden="true"><i /><i /><i /><i /></span>
-          <div><strong>The rest of the Ark is silent.</strong><small>Wake the chamber. The ship will reveal itself as it remembers.</small></div>
+          <div><strong>The Ark is listening.</strong><small>Operational rooms are shown inside the hull. Future systems illuminate only when their work becomes relevant.</small></div>
         </div>
       )}
 

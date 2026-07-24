@@ -90,7 +90,8 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(page, /The Ark has people, not statistics/);
   assert.match(page, /createQaPlanetIntroductionCheckpoint/);
   assert.doesNotMatch(arkDeck, /onTuneCore|Tune the Core/);
-  assert.match(arkDeck, /Foundry output monitor/);
+  assert.match(arkDeck, /Law-Heart power bus/);
+  assert.doesNotMatch(arkDeck, />AXIOM CHAMBER</);
   assert.match(foundryLawHeart, /Strike the Law-Heart/);
   assert.match(foundryLawHeart, /LawPressCanvas.*law-heart-particle-field/s);
   assert.match(page, /className="foundry-workspace has-reactor-workspace"/);
