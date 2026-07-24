@@ -422,14 +422,14 @@ export function ResearchLattice({
                   const required = Math.max(1, activeCosts[input.id] ?? 1);
                   const evidenceRatio = Math.min(1, Math.max(0, state.inventory[input.id] / required));
                   const missing = network.missingInputs.includes(input.id);
-                  const particleCount = missing ? 3 : 5 + Math.round(evidenceRatio * 7);
+                  const particleCount = missing ? 8 : 14 + Math.round(evidenceRatio * 16);
                   return Array.from({ length: particleCount }, (_, packetIndex) => {
-                    const particleIndex = inputIndex * 12 + packetIndex;
+                    const particleIndex = inputIndex * 30 + packetIndex;
                     const edge = particleIndex % 4;
                     const lane = 7 + ((particleIndex * 19) % 86);
                     const duration = Math.max(
-                      1.25,
-                      5.8 - activity * 3.1 + inputIndex * 0.14 + (packetIndex % 4) * 0.18,
+                      0.72,
+                      3.15 - activity * 1.65 + inputIndex * 0.08 + (packetIndex % 4) * 0.1,
                     );
                     const startX = edge === 1 ? 98 : edge === 3 ? 2 : lane;
                     const startY = edge === 0 ? 3 : edge === 2 ? 97 : lane;
@@ -441,7 +441,7 @@ export function ResearchLattice({
                     return (
                       <i
                         key={`${input.id}-${packetIndex}`}
-                        className={missing ? "is-missing" : ""}
+                        className={`${missing ? "is-missing" : ""} is-edge-${edge}`}
                         style={{
                           ...getInputStyle(input.id),
                           "--particle-start-x": `${startX}%`,
@@ -450,7 +450,7 @@ export function ResearchLattice({
                           "--particle-block-y": `${blockedY}%`,
                           "--packet-delay": `${-(packetIndex * 0.57 + inputIndex * 0.31)}s`,
                           "--packet-duration": `${duration}s`,
-                          "--packet-size": `${packetIndex % 5 === 0 ? 7 : packetIndex % 2 === 0 ? 5 : 3}px`,
+                          "--packet-size": `${packetIndex % 5 === 0 ? 9 : packetIndex % 2 === 0 ? 6 : 4}px`,
                         } as CSSProperties}
                       />
                     );

@@ -2927,6 +2927,44 @@
   animation-play-state: paused;
 }
 
+.research-core-particles > i::after {
+  position: absolute;
+  content: "";
+  background: linear-gradient(90deg, transparent, rgb(var(--research-input-rgb) / 0.68));
+  pointer-events: none;
+}
+
+.research-core-particles > i.is-edge-0::after {
+  right: 50%;
+  bottom: 100%;
+  width: 2px;
+  height: 18px;
+  background: linear-gradient(180deg, transparent, rgb(var(--research-input-rgb) / 0.68));
+}
+
+.research-core-particles > i.is-edge-1::after {
+  top: 50%;
+  left: 100%;
+  width: 18px;
+  height: 2px;
+  background: linear-gradient(90deg, rgb(var(--research-input-rgb) / 0.68), transparent);
+}
+
+.research-core-particles > i.is-edge-2::after {
+  top: 100%;
+  left: 50%;
+  width: 2px;
+  height: 18px;
+  background: linear-gradient(180deg, rgb(var(--research-input-rgb) / 0.68), transparent);
+}
+
+.research-core-particles > i.is-edge-3::after {
+  top: 50%;
+  right: 100%;
+  width: 18px;
+  height: 2px;
+}
+
 .is-core-online .research-core-particles > i {
   animation-play-state: running;
 }
@@ -3015,14 +3053,14 @@
   transform: translate(-50%, -50%);
 }
 
-.game-shell .research-core-node:hover:not(:disabled),
-.game-shell .research-core-node:active:not(:disabled),
-.game-shell .research-core-node:focus-visible {
+.game-shell .research-lattice-shell button.research-core-node:hover:not(:disabled),
+.game-shell .research-lattice-shell button.research-core-node:active:not(:disabled),
+.game-shell .research-lattice-shell button.research-core-node:focus-visible {
   border: 0;
   color: #effffb;
   background: transparent;
   box-shadow: none;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) !important;
 }
 
 .research-core-node:focus-visible {
@@ -3062,6 +3100,29 @@
   clip-path: polygon(22% 0, 78% 0, 100% 22%, 100% 78%, 78% 100%, 22% 100%, 0 78%, 0 22%);
 }
 
+.research-core-body::before,
+.research-core-body::after {
+  position: absolute;
+  z-index: 2;
+  content: "";
+  background: var(--active-project-accent);
+  box-shadow: 0 0 8px var(--active-project-accent);
+}
+
+.research-core-body::before {
+  top: 9px;
+  left: calc(50% - 15px);
+  width: 30px;
+  height: 5px;
+}
+
+.research-core-body::after {
+  top: calc(50% - 12px);
+  right: 8px;
+  width: 5px;
+  height: 24px;
+}
+
 .research-core-body > i {
   position: absolute;
   inset: 29px;
@@ -3083,7 +3144,9 @@
 }
 
 .is-core-online .research-core-body {
-  animation: researchCoreBodyBreath max(0.9s, calc(var(--research-core-speed) * 0.24)) steps(5, end) infinite;
+  animation:
+    researchCoreBodyBreath max(0.9s, calc(var(--research-core-speed) * 0.24)) steps(5, end) infinite,
+    researchCoreRotate max(1.5s, calc(var(--research-core-speed) * 0.62)) steps(48, end) infinite;
 }
 
 .is-core-online .research-core-body > b {
@@ -3115,6 +3178,10 @@
   }
 }
 
+@keyframes researchCoreRotate {
+  to { transform: rotate(1turn); }
+}
+
 .research-core-glyph {
   position: relative;
   z-index: 3;
@@ -3136,7 +3203,9 @@
 }
 
 .research-lattice-shell.is-core-stalled .research-core-body {
-  animation: researchCoreBlockedBreath 3.2s steps(5, end) infinite;
+  animation:
+    researchCoreBlockedBreath 3.2s steps(5, end) infinite,
+    researchCoreRotate 12s steps(48, end) infinite;
 }
 
 .research-lattice-shell.is-core-stalled .research-core-body > b {
@@ -3159,11 +3228,12 @@
 .research-core-stage-row {
   position: absolute;
   z-index: 9;
-  top: calc(47% + 132px);
+  right: auto;
+  bottom: 22px;
   left: 50%;
   display: grid;
-  grid-template-columns: repeat(4, minmax(100px, 1fr));
-  width: min(620px, calc(100% - 80px));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: min(520px, 42%);
   border-top: 1px solid #1b343a;
   transform: translateX(-50%);
 }
@@ -5035,7 +5105,8 @@
   }
 
   .research-core-stage-row {
-    top: calc(45% + 86px);
+    top: auto;
+    bottom: 124px;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     width: calc(100% - 24px);
   }
