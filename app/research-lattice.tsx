@@ -286,6 +286,10 @@ export function ResearchLattice({
     0,
     RESEARCH_STAGES.findIndex((stage) => stage.id === network.stage),
   );
+  const activeStagePosition = 13 + activeStageIndex * 24.5;
+  const activeInputs = RESEARCH_INPUT_DEFINITIONS.filter(
+    (input) => (activeCosts[input.id] ?? 0) > 0,
+  );
   const firstMissingInput = network.missingInputs[0]
     ? getResearchInputDefinition(network.missingInputs[0])
     : undefined;
@@ -390,86 +394,114 @@ export function ResearchLattice({
 
       {view === "core" && activeDefinition ? (
         <section className="research-core-workspace" aria-label="Active research synthesis">
-          <div className="research-stage-rail" aria-label="Research stages">
-            {RESEARCH_STAGES.map((stage, index) => (
-              <div
-                key={stage.id}
-                className={`${index < activeStageIndex ? "is-complete" : ""} ${
-                  index === activeStageIndex && activeDefinition ? "is-active" : ""
-                }`}
-              >
-                <span>{String(index + 1).padStart(2, "0")}</span>
-                <strong>{stage.name}</strong>
-                <small>
-                  {index < activeStageIndex
-                    ? "Resolved"
-                    : index === activeStageIndex && activeDefinition
-                      ? `${Math.round(activeProgress * 100)}% total`
-                      : "Awaiting evidence"}
-                </small>
-              </div>
-            ))}
-          </div>
-
           <div className="research-engine-bay" data-guide-target="research-network">
-            <div className="research-engine-void" aria-hidden="true">
-              <div className="research-engine-grid" />
-              <div className="research-engine-streams">
-                {RESEARCH_INPUT_DEFINITIONS.map((input, index) => {
-                  const required = Boolean((activeCosts[input.id] ?? 0) > 0);
-                  const missing = network.missingInputs.includes(input.id);
-                  return (
-                    <i
-                      key={input.id}
-                      className={`${required ? "is-required" : ""} ${missing ? "is-missing" : ""}`}
-                      style={{
-                        ...getInputStyle(input.id),
-                        "--stream-index": index,
-                      } as CSSProperties}
-                    >
-                      <b />
-                    </i>
-                  );
-                })}
+            <div
+              className="research-analysis-field"
+              style={{
+                "--active-stage-x": `${activeStagePosition}%`,
+                "--project-progress": activeProgress.toFixed(4),
+              } as CSSProperties}
+            >
+              <div className="research-field-depth" aria-hidden="true" />
+              <div className="research-field-scan" aria-hidden="true" />
+
+              <div className="research-stage-thresholds" aria-label="Research stages">
+                {RESEARCH_STAGES.map((stage, index) => (
+                  <div
+                    key={stage.id}
+                    className={`${index < activeStageIndex ? "is-complete" : ""} ${
+                      index === activeStageIndex ? "is-active" : ""
+                    }`}
+                    style={{
+                      "--stage-index": index,
+                      "--stage-x": `${13 + index * 24.5}%`,
+                    } as CSSProperties}
+                  >
+                    <span>{String(index + 1).padStart(2, "0")}</span>
+                    <i><b /></i>
+                    <strong>{stage.name}</strong>
+                    <small>
+                      {index < activeStageIndex
+                        ? "PROVEN"
+                        : index === activeStageIndex
+                          ? `${Math.round(activeProgress * 100)}% TOTAL`
+                          : "UNRESOLVED"}
+                    </small>
+                  </div>
+                ))}
               </div>
-              <div className="research-engine-orbit is-outer"><i /><i /><i /></div>
-              <div className="research-engine-orbit is-middle"><i /><i /><i /><i /></div>
-              <div className="research-engine-orbit is-inner"><i /><i /></div>
+
+              <div className="research-synthesis-spine" aria-hidden="true">
+                <i style={{ width: `${Math.max(1.5, activeProgress * 100)}%` }} />
+              </div>
+
+              <div className="research-evidence-swarm" aria-hidden="true">
+                {activeInputs.flatMap((input, inputIndex) =>
+                  Array.from({ length: 9 }, (_, packetIndex) => {
+                    const missing = network.missingInputs.includes(input.id);
+                    const duration = Math.max(
+                      1.4,
+                      5.4 - activity * 2.7 + inputIndex * 0.16 + (packetIndex % 3) * 0.22,
+                    );
+                    return (
+                      <i
+                        key={`${input.id}-${packetIndex}`}
+                        className={missing ? "is-missing" : ""}
+                        style={{
+                          ...getInputStyle(input.id),
+                          "--packet-y": `${11 + ((inputIndex * 17 + packetIndex * 9) % 72)}%`,
+                          "--packet-delay": `${-(packetIndex * 0.61 + inputIndex * 0.24)}s`,
+                          "--packet-duration": `${duration}s`,
+                          "--packet-size": `${packetIndex % 4 === 0 ? 7 : packetIndex % 2 === 0 ? 5 : 3}px`,
+                          "--packet-drift": `${((packetIndex % 5) - 2) * 12}px`,
+                        } as CSSProperties}
+                      >
+                        <b />
+                      </i>
+                    );
+                  }),
+                )}
+              </div>
+
+              <div className="research-analysis-wake" aria-hidden="true"><i /><i /><i /></div>
               <button
                 type="button"
-                className="research-analysis-prism"
-                disabled={!activeDefinition}
-                onClick={() => setView(activeDefinition ? "lattice" : "technology")}
-                aria-label={activeDefinition ? "Inspect the active evidence lattice" : "Choose a research program"}
+                className="research-analysis-head"
+                onClick={() => setView("lattice")}
+                aria-label="Inspect the active evidence lattice"
               >
-                <span className="research-prism-shell"><i /><i /><i /><i /></span>
-                <span className="research-prism-glyph">{activeDefinition ? "A" : "?"}</span>
+                <span className="research-head-frame"><i /><i /><i /><i /></span>
+                <span className="research-head-glyph">
+                  {BRANCHES.find((item) => item.id === activeDefinition.branch)?.code ?? "AXM"}
+                </span>
               </button>
-              <div className="research-engine-readout is-throughput">
+
+              <div className="research-field-readout is-throughput">
                 <span>THROUGHPUT</span>
                 <strong>{(network.progressPerSecond * 60).toFixed(1)}</strong>
                 <small>work / min</small>
               </div>
-              <div className="research-engine-readout is-power">
+              <div className="research-field-readout is-power">
                 <span>CORE LOAD</span>
                 <strong>{network.powerUsed.toFixed(0)} / {Math.max(0, powerAvailable).toFixed(0)}</strong>
                 <small>megawatts</small>
               </div>
-              <div className="research-engine-readout is-status">
-                <span>ANALYSIS CORE</span>
+              <div className="research-field-readout is-status">
+                <span>CURRENT THRESHOLD</span>
                 <strong>{network.stalledReason ?? (activeDefinition ? "SYNTHESIZING" : "DORMANT")}</strong>
               </div>
-            </div>
-            <div className="research-engine-legend">
-              {RESEARCH_INPUT_DEFINITIONS.map((input) => (
-                <span
-                  key={input.id}
-                  className={(activeCosts[input.id] ?? 0) > 0 ? "is-live" : ""}
-                  style={getInputStyle(input.id)}
-                >
-                  <i /> {input.shortName}
-                </span>
-              ))}
+
+              <div className="research-field-legend" aria-label="Evidence in motion">
+                {activeInputs.map((input) => (
+                  <span
+                    key={input.id}
+                    className={network.missingInputs.includes(input.id) ? "is-missing" : ""}
+                    style={getInputStyle(input.id)}
+                  >
+                    <i /> {input.shortName}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
 
