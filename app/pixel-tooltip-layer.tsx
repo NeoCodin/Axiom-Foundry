@@ -131,8 +131,11 @@ const TOOLTIP_RULES: TooltipRule[] = [
     return `${name}. Source: ${source} Ark supply is outside the machine; loaded evidence is inside its reservoir.`;
   } },
   { selector: ".research-reservoir-actions button:last-child", copy: "Transfer up to 25 units from Ark supply into this Lattice reservoir. Qualified Researchers can automate common transfers." },
-  { selector: ".research-conduit-rack > div:not(.research-routing-core)", copy: "Evidence route. It names the source, processor, power draw, and whether the required reservoir is ready or empty." },
-  { selector: ".research-conduit-processor", copy: "Analysis processor. Its multiplier raises route throughput while its megawatt value contributes to Core load." },
+  { selector: ".research-evidence-tube", copy: (element) => {
+    const name = element.querySelector("footer strong")?.textContent?.trim() ?? "Evidence conduit";
+    const status = element.querySelector("footer b")?.textContent?.trim() ?? "STANDBY";
+    return `${name} conduit: ${status}. Colored packets move only while this evidence source is required, supplied, routed, powered, and actively advancing Research.`;
+  } },
   { selector: ".research-routing-core", copy: "Routing Core readout. It names the loaded program and reports either effective work per minute or the current hold." },
   { selector: ".research-operation-readouts", copy: "Throughput breakdown. These are the actual power, staffing, expertise, automation, and field-validation factors affecting research." },
   { selector: ".research-station-control", copy: "Analysis staffing. Assigned healthy crew contribute relevant expertise but remain unavailable to other Ark duties." },

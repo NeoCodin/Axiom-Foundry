@@ -130,6 +130,32 @@ const PROJECT_ACCENTS: Record<ResearchBranch, { color: string; rgb: string }> = 
   "null-studies": { color: "#c18aff", rgb: "193 138 255" },
 };
 
+const ERA_ACCENTS: Record<ResearchEra, { color: string; rgb: string }> = {
+  recovery: { color: "#52d8ee", rgb: "82 216 238" },
+  integration: { color: "#74df9c", rgb: "116 223 156" },
+  synthesis: { color: "#f2b957", rgb: "242 185 87" },
+  convergence: { color: "#c18aff", rgb: "193 138 255" },
+};
+
+const DOMAIN_ACCENTS: Record<ResearchDomainId, { color: string; rgb: string }> = {
+  systems: { color: "#52d8ee", rgb: "82 216 238" },
+  humanity: { color: "#74df9c", rgb: "116 223 156" },
+  worlds: { color: "#f2b957", rgb: "242 185 87" },
+  causal: { color: "#c18aff", rgb: "193 138 255" },
+};
+
+const getOptionStyle = (accent: { color: string; rgb: string }) =>
+  ({
+    "--option-accent": accent.color,
+    "--option-rgb": accent.rgb,
+  }) as CSSProperties;
+
+const getBranchStyle = (branch: ResearchBranch) =>
+  ({
+    "--branch-accent": PROJECT_ACCENTS[branch].color,
+    "--branch-rgb": PROJECT_ACCENTS[branch].rgb,
+  }) as CSSProperties;
+
 const INPUT_SOURCE_COPY: Record<ResearchInputId, string> = {
   "calibration-data": "Core tunes + passive chamber observations",
   "engineering-models": "Machine purchases, Flux production, and infrastructure",
@@ -638,6 +664,7 @@ export function ResearchLattice({
                   key={candidate.id}
                   type="button"
                   className={era === candidate.id ? "is-active" : ""}
+                  style={getOptionStyle(ERA_ACCENTS[candidate.id])}
                   disabled={!available}
                   onClick={() => {
                     setEra(candidate.id);
@@ -695,6 +722,7 @@ export function ResearchLattice({
                   key={candidate.id}
                   type="button"
                   className={domain === candidate.id ? "is-active" : ""}
+                  style={getOptionStyle(DOMAIN_ACCENTS[candidate.id])}
                   disabled={projects.length === 0}
                   onClick={() => {
                     setDomain(candidate.id);
@@ -710,7 +738,11 @@ export function ResearchLattice({
           </nav>
 
           <div className="research-map-layout">
-            <main className="research-domain-map" aria-label={`${RESEARCH_DOMAINS.find((item) => item.id === domain)?.name} programs`}>
+            <main
+              className="research-domain-map"
+              style={getOptionStyle(DOMAIN_ACCENTS[domain])}
+              aria-label={`${RESEARCH_DOMAINS.find((item) => item.id === domain)?.name} programs`}
+            >
               <header>
                 <span>DOMAIN // {RESEARCH_DOMAINS.find((item) => item.id === domain)?.code}</span>
                 <h2>{RESEARCH_DOMAINS.find((item) => item.id === domain)?.name}</h2>
@@ -722,7 +754,11 @@ export function ResearchLattice({
                   const projects = visibleProjects.filter((project) => project.branch === branchId);
                   if (projects.length === 0) return null;
                   return (
-                    <section className="research-map-lane" key={branchId}>
+                    <section
+                      className="research-map-lane"
+                      key={branchId}
+                      style={getBranchStyle(branchId)}
+                    >
                       <div className="research-map-lane-label">
                         <span>{branchDefinition?.code}</span>
                         <strong>{branchDefinition?.name}</strong>
@@ -744,7 +780,9 @@ export function ResearchLattice({
                               type="button"
                               className={`${selectedProject?.id === project.id ? "is-selected" : ""} ${
                                 complete ? "is-complete" : ""
-                              } ${active ? "is-active" : ""} ${locked ? "is-locked" : ""}`}
+                              } ${active ? "is-active" : ""} ${locked ? "is-locked" : ""} ${
+                                !complete && !active && !locked ? "is-available" : ""
+                              }`}
                               onClick={() => setSelectedProjectId(project.id)}
                               aria-label={`Inspect ${project.name}`}
                             >
@@ -770,7 +808,10 @@ export function ResearchLattice({
               </div>
             </main>
 
-            <aside className="research-program-inspector">
+            <aside
+              className="research-program-inspector"
+              style={selectedProject ? getBranchStyle(selectedProject.branch) : undefined}
+            >
               {selectedProject ? (() => {
                 const repeatCount = getResearchRepeatCount(state, selectedProject.id);
                 const complete = selectedProject.repeatable
@@ -937,49 +978,72 @@ export function ResearchLattice({
               </p>
             </header>
             <div className="research-conduit-rack">
-              {resolvedRoutes.map((resolvedRoute) => {
-                const input = resolvedRoute.sourceId
-                  ? getResearchInputDefinition(resolvedRoute.sourceId)
-                  : undefined;
-                const processor = resolvedRoute.processorId
-                  ? getResearchProcessorDefinition(resolvedRoute.processorId)
-                  : undefined;
-                const missing = Boolean(
-                  resolvedRoute.sourceId && network.missingInputs.includes(resolvedRoute.sourceId),
-                );
-                return (
-                  <div
-                    key={resolvedRoute.slot}
-                    className={`${resolvedRoute.sourceId ? "is-connected" : "is-empty"} ${
-                      resolvedRoute.enabled ? "" : "is-disabled"
-                    } ${missing ? "is-missing" : ""}`}
-                    style={{
-                      ...(resolvedRoute.sourceId ? getInputStyle(resolvedRoute.sourceId) : {}),
-                      "--route-delay": `${resolvedRoute.slot * -0.31}s`,
-                    } as CSSProperties}
-                  >
-                    <span className="research-conduit-index">
-                      {String(resolvedRoute.slot + 1).padStart(2, "0")}
-                    </span>
-                    <div className="research-conduit-source">
-                      <span>{input?.shortName ?? "OPEN"}</span>
-                      <strong>{input?.name ?? "Unrouted port"}</strong>
-                      <small>{missing ? "RESERVOIR EMPTY" : input ? "SOURCE READY" : "NOT REQUIRED"}</small>
-                    </div>
-                    <span className="research-conduit-line" aria-hidden="true"><i /><i /></span>
-                    <div className="research-conduit-processor">
-                      <span className="research-conduit-rotor" aria-hidden="true"><i /><i /><i /></span>
-                      <span>{processor?.code ?? "---"}</span>
-                      <strong>{processor?.name ?? "No processor"}</strong>
-                      <small>{processor ? `x${processor.throughputMultiplier.toFixed(2)} / ${processor.powerDraw} MW` : "STANDBY"}</small>
-                    </div>
-                    <span className="research-conduit-line is-output" aria-hidden="true"><i /><i /></span>
-                  </div>
-                );
-              })}
+              <div className="research-evidence-tube-bank">
+                {RESEARCH_INPUT_DEFINITIONS.map((input, tubeIndex) => {
+                  const resolvedRoute = resolvedRoutes.find((route) => route.sourceId === input.id);
+                  const required = Boolean((activeCosts[input.id] ?? 0) > 0);
+                  const missing = network.missingInputs.includes(input.id);
+                  const processor = resolvedRoute?.processorId
+                    ? getResearchProcessorDefinition(resolvedRoute.processorId)
+                    : undefined;
+                  const flowing = Boolean(
+                    coreOnline &&
+                    required &&
+                    resolvedRoute?.enabled &&
+                    processor &&
+                    !missing,
+                  );
+                  const routeState = flowing
+                    ? "FLOWING"
+                    : missing
+                      ? "EMPTY"
+                      : required && !resolvedRoute
+                        ? "UNROUTED"
+                        : required
+                          ? "HELD"
+                          : "STANDBY";
+                  return (
+                    <article
+                      key={input.id}
+                      className={`research-evidence-tube ${required ? "is-required" : "is-standby"} ${
+                        flowing ? "is-flowing" : ""
+                      } ${missing ? "is-missing" : ""}`}
+                      style={{
+                        ...getInputStyle(input.id),
+                        "--tube-index": tubeIndex,
+                      } as CSSProperties}
+                    >
+                      <header>
+                        <span>{String(tubeIndex + 1).padStart(2, "0")}</span>
+                        <strong>{input.shortName}</strong>
+                      </header>
+                      <div className="research-evidence-cylinder" aria-hidden="true">
+                        <span className="research-evidence-glass">
+                          {Array.from({ length: 12 }, (_, particleIndex) => (
+                            <i
+                              key={particleIndex}
+                              style={{
+                                "--tube-particle-delay": `${-(particleIndex * 0.19 + tubeIndex * 0.11)}s`,
+                                "--tube-particle-lane": `${18 + ((particleIndex * 29 + tubeIndex * 7) % 64)}%`,
+                                "--tube-particle-size": `${particleIndex % 4 === 0 ? 7 : particleIndex % 2 === 0 ? 5 : 3}px`,
+                              } as CSSProperties}
+                            />
+                          ))}
+                        </span>
+                        <span className="research-evidence-valve"><i /><i /><b /></span>
+                      </div>
+                      <footer>
+                        <strong>{input.name}</strong>
+                        <small>{processor ? `${processor.code} // ${processor.name}` : "PORT UNASSIGNED"}</small>
+                        <b>{routeState}</b>
+                      </footer>
+                    </article>
+                  );
+                })}
+              </div>
               <div className={`research-routing-core ${coreOnline ? "is-online" : ""}`}>
                 <span className="research-routing-core-rings" aria-hidden="true"><i /><i /><i /></span>
-                <span>ANALYSIS CORE</span>
+                <span>ANALYSIS CORE INTAKE</span>
                 <strong>{activeDefinition?.name ?? "NO PROGRAM"}</strong>
                 <small>{network.stalledReason ?? `${(network.progressPerSecond * 60).toFixed(1)} work/min`}</small>
               </div>
