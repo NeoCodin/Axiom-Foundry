@@ -14,6 +14,10 @@ type QaSandboxProps = {
   onReplayResearchIntroduction: () => void;
   onGrantResources: () => void;
   onAddFlux: (amount: number) => void;
+  onResetResearch: () => void;
+  onStockResearchEvidence: () => void;
+  onFillResearchLattice: () => void;
+  onCompleteActiveResearch: () => void;
   onCompleteResearch: () => void;
   onBoostCrew: () => void;
   onPrepareContinuity: () => void;
@@ -31,6 +35,10 @@ export function QaSandbox({
   onReplayResearchIntroduction,
   onGrantResources,
   onAddFlux,
+  onResetResearch,
+  onStockResearchEvidence,
+  onFillResearchLattice,
+  onCompleteActiveResearch,
   onCompleteResearch,
   onBoostCrew,
   onPrepareContinuity,
@@ -84,12 +92,25 @@ export function QaSandbox({
           <section>
             <span>TEST OVERRIDES</span>
             <div className="qa-action-grid">
-              <button type="button" onClick={onGrantResources}>Stock resources</button>
-              <button type="button" onClick={onCompleteResearch}>Complete research</button>
+              <button type="button" onClick={onGrantResources}>Stock all resources</button>
               <button type="button" onClick={onBoostCrew}>Max trained skills</button>
               <button type="button" onClick={onPrepareContinuity}>Prepare Continuity</button>
               <button type="button" onClick={onSimulateOfflineDay}>Simulate 24h</button>
             </div>
+          </section>
+          <section>
+            <span>RESEARCH LAB</span>
+            <div className="qa-action-grid">
+              <button className="qa-danger-button" type="button" onClick={onResetResearch}>Reset Research tree</button>
+              <button type="button" onClick={onStockResearchEvidence}>Max Ark evidence</button>
+              <button type="button" onClick={onFillResearchLattice}>Max lattice reservoirs</button>
+              <button type="button" onClick={onCompleteActiveResearch}>Complete active project</button>
+              <button type="button" onClick={onCompleteResearch}>Complete all Research</button>
+            </div>
+            <small className="qa-section-help">
+              Reset clears only Research progress inside this isolated QA profile. Ark evidence and loaded
+              Lattice reservoirs are separate so you can test transfers, blockers, and project stages.
+            </small>
           </section>
           <section className="qa-custom-flux">
             <span>CUSTOM FLUX GRANT</span>

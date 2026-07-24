@@ -287,14 +287,18 @@ import {
   QA_SAVE_KEY,
   addQaFlux,
   boostQaCrew,
+  completeQaActiveResearch,
   completeQaResearch,
   createQaCheckpoint,
   createQaPelagosOnboardingCheckpoint,
   createQaPlanetIntroductionCheckpoint,
   createQaResearchIntroductionCheckpoint,
+  fillQaResearchLattice,
   grantQaResources,
   prepareQaContinuity,
+  resetQaResearch,
   simulateQaOfflineDay,
+  stockQaResearchEvidence,
 } from "./qa-sandbox-engine";
 
 type FoundryConsoleTab =
@@ -2655,7 +2659,38 @@ export default function Home() {
             const next = addQaFlux(gameRef.current, amount);
             applyQaState(next, `${formatNumber(Math.min(amount, 1e280))} custom Flux added to the QA profile.`);
           }}
-          onCompleteResearch={() => applyQaState(completeQaResearch(gameRef.current), "Every research program marked complete for testing.")}
+          onResetResearch={() =>
+            applyQaState(
+              resetQaResearch(gameRef.current),
+              "Research projects, progress, repeat counts, echoes, and loaded reservoirs reset. The current world and crew were preserved.",
+            )
+          }
+          onStockResearchEvidence={() =>
+            applyQaState(
+              stockQaResearchEvidence(gameRef.current),
+              "Every Ark Research evidence stock raised to the QA maximum.",
+            )
+          }
+          onFillResearchLattice={() =>
+            applyQaState(
+              fillQaResearchLattice(gameRef.current),
+              "Every internal Lattice reservoir raised to the QA maximum.",
+            )
+          }
+          onCompleteActiveResearch={() =>
+            applyQaState(
+              completeQaActiveResearch(gameRef.current),
+              gameRef.current.research.activeProjectId
+                ? "The active Research project was completed."
+                : "No active Research project was loaded.",
+            )
+          }
+          onCompleteResearch={() =>
+            applyQaState(
+              completeQaResearch(gameRef.current),
+              "Every Research program, mastery cycle, and recovered contradiction marked complete for endgame testing.",
+            )
+          }
           onBoostCrew={() => applyQaState(boostQaCrew(gameRef.current), "QA crew advanced to maximum professional skill.")}
           onPrepareContinuity={() => {
             const next = prepareQaContinuity(gameRef.current);

@@ -246,6 +246,10 @@ export function ResearchLattice({
   const completedResearch = state.completedProjectIds.length;
   const availableEras = getAvailableResearchEras(state);
   const eraProgress = getResearchEraProgress(state, era);
+  const eraPercent =
+    eraProgress.total > 0
+      ? Math.min(100, Math.max(0, (eraProgress.complete / eraProgress.total) * 100))
+      : 0;
   const connectedRoutes = resolvedRoutes.filter(
     (route) => route.sourceId && route.processorId && route.enabled,
   ).length;
@@ -282,6 +286,9 @@ export function ResearchLattice({
     0,
     RESEARCH_STAGES.findIndex((stage) => stage.id === network.stage),
   );
+  const firstMissingInput = network.missingInputs[0]
+    ? getResearchInputDefinition(network.missingInputs[0])
+    : undefined;
   const archiveProjects = state.completedProjectIds
     .map((projectId) => getResearchProjectDefinition(projectId))
     .filter((project): project is NonNullable<typeof project> => Boolean(project));
@@ -309,7 +316,7 @@ export function ResearchLattice({
       <header className="research-lattice-header" data-guide-target="research-header">
         <div>
           <p className="research-lattice-kicker">ANALYSIS DECK // {RESEARCH_ERAS.find((item) => item.id === era)?.code}</p>
-          <h1>{view === "core" ? "Analysis Core" : view === "technology" ? "Technology Map" : view === "lattice" ? "Research Lattice" : "Research Archive"}</h1>
+          <h1>{view === "core" ? "Active Project" : view === "technology" ? "Technology Map" : view === "lattice" ? "Research Lattice" : "Research Archive"}</h1>
           <p>
             {view === "core"
               ? "One discovery at a time. Watch evidence become theory, hardware, field proof, and finally a capability."
@@ -341,7 +348,7 @@ export function ResearchLattice({
 
       <nav className="research-command-tabs" aria-label="Research sections">
         {([
-          ["core", "Core", "Active synthesis and crew contribution"],
+          ["core", "Active Project", "Current question, progress, and blockers"],
           ["technology", "Technology Map", "Eras, branches, and programs"],
           ["lattice", "Lattice", "Evidence routing and Analysis stations"],
           ["archive", "Archive", "Completed work and contradictions"],
@@ -363,26 +370,25 @@ export function ResearchLattice({
         className="research-lattice-awakening"
         aria-label={`${eraProgress.complete} of ${eraProgress.total} ${era} discoveries resolved`}
       >
-        <span>{RESEARCH_ERAS.find((item) => item.id === era)?.name.toUpperCase()} ERA</span>
-        <div aria-hidden="true">
-          {RESEARCH_PROJECT_DEFINITIONS.filter((project) => getResearchProjectEra(project) === era && !project.repeatable).map((project, index) => (
-            <i
-              className={
-                state.completedProjectIds.includes(project.id)
-                  ? "is-lit"
-                  : state.activeProjectId === project.id
-                    ? "is-current"
-                    : ""
-              }
-              key={project.id}
-              style={{ "--evolution-index": index } as CSSProperties}
-            />
-          ))}
+        <span>{`${RESEARCH_ERAS.find((item) => item.id === era)?.code} // ${
+          RESEARCH_ERAS.find((item) => item.id === era)?.name.toUpperCase()
+        }`}</span>
+        <div
+          className="research-era-meter"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={eraProgress.total}
+          aria-valuenow={eraProgress.complete}
+        >
+          <i style={{ width: `${eraPercent}%` }} />
         </div>
-        <strong>{eraProgress.complete.toString().padStart(2, "0")} / {eraProgress.total}</strong>
+        <strong>
+          {eraProgress.complete} / {eraProgress.total}
+          <small>{eraPercent >= 100 ? "ERA MASTERED" : `${Math.round(eraPercent)}% PROVEN`}</small>
+        </strong>
       </div>
 
-      {view === "core" ? (
+      {view === "core" && activeDefinition ? (
         <section className="research-core-workspace" aria-label="Active research synthesis">
           <div className="research-stage-rail" aria-label="Research stages">
             {RESEARCH_STAGES.map((stage, index) => (
@@ -468,8 +474,7 @@ export function ResearchLattice({
           </div>
 
           <aside className="research-active-dossier" data-guide-target="research-crew">
-            {activeDefinition ? (
-              <>
+            <>
                 <header>
                   <span>ACTIVE DISCOVERY // {BRANCHES.find((item) => item.id === activeDefinition.branch)?.code}</span>
                   <h2>{activeDefinition.name}</h2>
@@ -517,7 +522,11 @@ export function ResearchLattice({
                     <strong>{network.stalledReason}</strong>
                     <p>
                       {network.stalledReason === "Awaiting research inputs"
-                        ? "Open the Lattice to see the depleted reservoir and its exact source."
+                        ? `${firstMissingInput?.name ?? "A required evidence reservoir"} is empty. Source: ${
+                            firstMissingInput
+                              ? INPUT_SOURCE_COPY[firstMissingInput.id]
+                              : "open the Lattice for the exact recovery path"
+                          }.`
                         : "Open the Lattice to inspect power, stations, and routing."}
                     </p>
                     <button type="button" onClick={() => setView("lattice")}>Inspect lattice</button>
@@ -530,18 +539,36 @@ export function ResearchLattice({
                 >
                   Pause research
                 </button>
-              </>
-            ) : (
-              <div className="research-dossier-empty">
-                <span>ANALYSIS CORE // DORMANT</span>
-                <h2>No question is loaded.</h2>
-                <p>
-                  The machine does not research a generic resource. Choose one practical problem and it will
-                  reveal the evidence, expertise, and field proof that problem needs.
-                </p>
-                <button type="button" onClick={() => setView("technology")}>Open Technology Map</button>
-              </div>
-            )}
+            </>
+          </aside>
+        </section>
+      ) : view === "core" ? (
+        <section className="research-core-empty-workspace" aria-label="No active research project">
+          <div className="research-core-empty-sigil" aria-hidden="true">
+            <span><i /><i /><i /><i /></span>
+            <b>?</b>
+          </div>
+          <div className="research-core-empty-copy" data-guide-target="research-network">
+            <span>ACTIVE PROJECT // NONE LOADED</span>
+            <h2>The Analysis Core needs a question.</h2>
+            <p>
+              Research is not a passive currency. The Ark studies one practical problem at a time, and every
+              problem names the evidence and expertise it needs before work begins.
+            </p>
+            <ol>
+              <li><b>1</b><span><strong>Choose a program</strong><small>Open Technology Map and inspect one capability.</small></span></li>
+              <li><b>2</b><span><strong>Load evidence</strong><small>The Lattice identifies each resource and where it comes from.</small></span></li>
+              <li><b>3</b><span><strong>Assign researchers</strong><small>Crew expertise and Analysis stations set throughput.</small></span></li>
+              <li><b>4</b><span><strong>Let analysis continue</strong><small>Valid research progresses online and offline.</small></span></li>
+            </ol>
+            <button type="button" onClick={() => setView("technology")}>Choose a Research Program</button>
+          </div>
+          <aside className="research-core-purpose" data-guide-target="research-crew">
+            <span>WHAT THIS SCREEN ANSWERS</span>
+            <div><b>01</b><strong>What are we researching?</strong></div>
+            <div><b>02</b><strong>Is evidence moving?</strong></div>
+            <div><b>03</b><strong>If not, what is blocking it?</strong></div>
+            <p>The animated Analysis Engine appears only after a program is loaded.</p>
           </aside>
         </section>
       ) : null}

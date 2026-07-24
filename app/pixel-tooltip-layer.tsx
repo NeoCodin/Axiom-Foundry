@@ -92,38 +92,50 @@ const TOOLTIP_RULES: TooltipRule[] = [
   { selector: ".crew-advanced-record", copy: "Advanced personnel record. Open this only when you want traits, every profession level, profile elevation, or voluntary clinical choices." },
 
   // Analysis Core and research lattice
-  { selector: ".research-command-tabs > button", copy: "Research workspace. Network routes evidence; Projects chooses discoveries; Archive reviews completed work and recovered contradictions." },
-  { selector: ".research-lattice-awakening", copy: "Core evolution. Research eras awaken in sequence as the lattice completes major programs and field validations." },
-  { selector: ".research-lattice-telemetry > div:nth-child(1)", copy: "Analysis power. Active routes consume power; research and Ark upgrades increase the safe network budget." },
-  { selector: ".research-lattice-telemetry > div:nth-child(2)", copy: "Evidence throughput. Researchers, routing, and automation determine how much evidence reaches the Analysis Core each second." },
-  { selector: ".research-lattice-telemetry > div:nth-child(3)", copy: "Network efficiency. Stalled inputs, missing expertise, or insufficient power lower effective processing." },
-  { selector: ".research-lattice-telemetry > div:nth-child(4)", copy: "Core state. ONLINE means evidence is moving into the selected project; a warning names the exact blocker." },
-  { selector: ".research-operations-panel", copy: "Operational expertise. Assigned Researchers provide throughput and help satisfy the lead-expertise requirement for advanced projects." },
-  { selector: ".research-lattice-input-bank", copy: "Evidence reservoirs. Expeditions, medical work, engineering, colonies, archives, and threat incidents recover different input types." },
-  { selector: ".research-lattice-input", copy: (element) => {
-    const name = element.querySelector(".research-lattice-input-title")?.textContent?.replace(/\s+/g, " ").trim();
-    const source = element.querySelector(".research-lattice-input-source")?.textContent?.trim();
-    return `${name ?? "Research evidence"}. ${source ?? "Recovered by connected Ark systems."} Required inputs are consumed only while the core is processing.`;
+  { selector: ".research-command-tabs > button", copy: (element) => {
+    const label = element.querySelector("span")?.textContent?.trim() ?? "Research";
+    const descriptions: Record<string, string> = {
+      "Active Project": "Shows the one question currently loaded, whether it is progressing, and the exact blocker when it stops.",
+      "Technology Map": "Choose the next capability by era and domain. Selecting a node only opens its details; the action button begins it.",
+      Lattice: "Explains where evidence comes from, what is loaded, how processors route it, and how crew or power affects throughput.",
+      Archive: "Opens one completed discovery or Null contradiction at a time.",
+    };
+    return descriptions[label] ?? "Open this Research workspace.";
   } },
-  { selector: ".research-lattice-route", copy: "Evidence route. A lit conduit means this input is flowing through its processor; a stalled route points to a missing reservoir, power, or project requirement." },
-  { selector: ".research-lattice-source-node", copy: "Reservoir feed. The amount here is the evidence currently available to this route." },
-  { selector: ".research-lattice-processor-node", copy: "Analysis processor. Faster animation means stronger effective throughput from crew, research, and automation support." },
-  { selector: ".research-lattice-conduit", copy: "Data conduit. Its pulses visualize evidence moving toward the Analysis Core; dormant lines are not currently required." },
-  { selector: ".research-lattice-analysis-core", copy: "Analysis Core. It combines every required evidence stream into the selected project. Its pulse rate and orbit speed rise with real throughput." },
-  { selector: ".research-lattice-core-field", copy: "Containment field. Its intensity reflects whether the Analysis Core is powered and receiving valid evidence." },
-  { selector: ".research-lattice-core-orbit", copy: "Synthesis orbit. Faster rotation is a visual reward for higher research throughput." },
-  { selector: ".research-lattice-core-reactor", copy: "Core reactor. This is the final convergence point for routed evidence before project progress is written." },
-  { selector: ".research-lattice-core-readout", copy: "Current analysis readout. Shows the active project, effective processing rate, and progress to the next discovery." },
-  { selector: ".research-lattice-core-progress", copy: "Project progress. It advances online and offline whenever every required input, power, crew, and validation condition is satisfied." },
-  { selector: ".research-lattice-crew-control", copy: "Research staffing. Assigned Researchers raise throughput, but pulling too many people from Engineering, Medical, or Security can weaken those systems." },
-  { selector: ".research-era-tabs > button", copy: "Research era. Later eras contain more expensive programs and deeper connections to defense, automation, biology, and the Null." },
-  { selector: ".research-lattice-branch-tabs > button", copy: "Research branch. Branches organize projects by the Ark system they strengthen; prerequisites can cross between branches." },
-  { selector: ".research-lattice-project", copy: "Research program. Review its evidence costs, prerequisite, expertise requirement, field validation, and permanent unlock before starting it." },
-  { selector: ".research-lattice-project-costs", copy: "Evidence cost. These reservoirs are consumed gradually while analysis runs, not all at once when the project is selected." },
-  { selector: ".research-lattice-project-unlocks", copy: "Permanent result. Completed project effects remain active for the rest of the save unless the description explicitly says they are cycle-bound." },
-  { selector: ".research-lattice-prerequisite", copy: "Project lock. Complete the named prerequisite or field action first; the Command Briefing should link to the exact missing step." },
-  { selector: ".research-lattice-archive", copy: "Completed research archive. Use it to review permanent effects and understand which systems your discoveries now support." },
-  { selector: ".research-lattice-echoes", copy: "Null contradictions. These fragments reveal the enemy mystery slowly and may challenge AXIOM's assumptions without immediately explaining the full truth." },
+  { selector: ".research-lattice-awakening", copy: "Era progress. The single meter shows completed discoveries divided by all discoveries in the selected era; it never represents the active project's progress." },
+  { selector: ".research-core-empty-sigil", copy: "Dormant Analysis Core. It is intentionally still because no research question is loaded." },
+  { selector: ".research-core-empty-copy", copy: "Research begins by choosing one program. Evidence, staffing, and offline progress become relevant only after that question is loaded." },
+  { selector: ".research-stage-rail > div", copy: "Research stage. Every project moves through Theory, Prototype, Field Validation, and Final Synthesis. Different crew expertise supports each stage." },
+  { selector: ".research-engine-bay", copy: "Active Analysis Engine. Colored streams are required evidence entering the selected project; speed reflects real throughput." },
+  { selector: ".research-engine-streams > i", copy: "Evidence stream. Bright motion means this input is required and flowing. A red broken stream means its loaded reservoir is empty." },
+  { selector: ".research-engine-orbit", copy: "Synthesis orbit. Rotation is visual feedback for active throughput and stops when research cannot advance." },
+  { selector: ".research-analysis-prism", copy: "Analysis convergence point. It combines the selected project's evidence and opens the detailed Lattice when activated." },
+  { selector: ".research-engine-readout.is-throughput", copy: "Throughput. Work completed each minute after power, routes, crew expertise, leadership, automation, and field validation are applied." },
+  { selector: ".research-engine-readout.is-power", copy: "Core load. Research pauses if its processors require more power than the Analysis deck can safely supply." },
+  { selector: ".research-engine-readout.is-status", copy: "Current Analysis Core state. Any hold condition shown here names why progress has stopped." },
+  { selector: ".research-dossier-progress", copy: "Active project progress and estimated completion time. Valid research continues while the page or game is closed." },
+  { selector: ".research-dossier-status > div", copy: "Operational support for the current stage: lead Researcher, staffed stations and expertise, or evidence earned from real field work." },
+  { selector: ".research-dossier-evidence > div", copy: "Required evidence. Loaded is already inside the Lattice; projected is the remaining amount this project expects to consume." },
+  { selector: ".research-dossier-alert", copy: "Hold condition. Follow its button to the exact Research workspace that explains and resolves the blocker." },
+  { selector: ".research-era-console > button", copy: "Research era. Later eras stay sealed until prerequisite discoveries prove that the Ark is ready for them." },
+  { selector: ".research-domain-console > button", copy: "Research domain. Domains group related programs without changing their actual prerequisite paths." },
+  { selector: ".research-map-node-line button", copy: "Research program node. Select it to inspect costs, prerequisites, progress, and the capability it creates." },
+  { selector: ".research-program-costs", copy: "Full projected evidence cost. Evidence is consumed gradually while the project advances, not when you inspect or select it." },
+  { selector: ".research-program-lock", copy: "Program lock. Complete the named prerequisite or pause the currently loaded project before beginning this one." },
+  { selector: ".research-program-action", copy: "Begin, resume, or pause the inspected program. The Ark analyzes only one program at a time." },
+  { selector: ".research-reservoir-list article", copy: (element) => {
+    const name = element.querySelector("strong")?.textContent?.trim() ?? "Research evidence";
+    const source = element.querySelector("small")?.textContent?.trim() ?? "Recovered by connected Ark systems.";
+    return `${name}. Source: ${source} Ark supply is outside the machine; loaded evidence is inside its reservoir.`;
+  } },
+  { selector: ".research-reservoir-actions button:last-child", copy: "Transfer up to 25 units from Ark supply into this Lattice reservoir. Qualified Researchers can automate common transfers." },
+  { selector: ".research-conduit-rack > div:not(.research-routing-core)", copy: "Evidence route. It names the source, processor, power draw, and whether the required reservoir is ready or empty." },
+  { selector: ".research-conduit-processor", copy: "Analysis processor. Its multiplier raises route throughput while its megawatt value contributes to Core load." },
+  { selector: ".research-routing-core", copy: "Routing Core readout. It names the loaded program and reports either effective work per minute or the current hold." },
+  { selector: ".research-operation-readouts", copy: "Throughput breakdown. These are the actual power, staffing, expertise, automation, and field-validation factors affecting research." },
+  { selector: ".research-station-control", copy: "Analysis staffing. Assigned healthy crew contribute relevant expertise but remain unavailable to other Ark duties." },
+  { selector: ".research-archive-index", copy: "Archive index. Choose an era or Contradictions, then open one preserved record from the list." },
+  { selector: ".research-archive-reader", copy: "Focused Research record. Proven capabilities are permanent; contradictions are preserved as evidence rather than accepted as truth." },
 ];
 
 function resolveTooltip(start: Element | null): ActiveTooltip | null {

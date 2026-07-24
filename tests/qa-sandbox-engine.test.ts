@@ -3,21 +3,30 @@ import test from "node:test";
 
 import { COLD_WAKE_FOUNDRY_STAGE, MISSIONS, SAVE_KEY } from "../app/game-engine.ts";
 import { CAMPAIGN_WORLD_IDS, getCampaignWorld } from "../app/campaign-content.ts";
-import { RESEARCH_PROJECT_DEFINITIONS } from "../app/research-engine.ts";
+import {
+  RESEARCH_PROJECT_DEFINITIONS,
+  createResearchLatticeState,
+  selectResearchProject,
+} from "../app/research-engine.ts";
 import { getSurvivorBestSkillLevel } from "../app/survivor-engine.ts";
 import { getProgressiveDisclosure } from "../app/progressive-disclosure.ts";
 import {
   QA_SAVE_KEY,
   QA_RESOURCE_GRANT,
+  QA_RESEARCH_EVIDENCE_GRANT,
   addQaFlux,
   boostQaCrew,
+  completeQaActiveResearch,
   completeQaResearch,
   createQaCheckpoint,
   createQaPelagosOnboardingCheckpoint,
   createQaPlanetIntroductionCheckpoint,
   createQaResearchIntroductionCheckpoint,
+  fillQaResearchLattice,
   grantQaResources,
   prepareQaContinuity,
+  resetQaResearch,
+  stockQaResearchEvidence,
 } from "../app/qa-sandbox-engine.ts";
 
 test("custom QA Flux grants are additive, tracked, and safely bounded", () => {
@@ -110,4 +119,48 @@ test("QA overrides expose research, Continuity, resources, and expert crew", () 
   assert.equal(state.missions.awaitingAcknowledgement, true);
   assert.deepEqual(state.worldProgress.completedInfrastructureIds, world.infrastructure.map((objective) => objective.id));
   assert.deepEqual(state.worldProgress.completedExpeditionIds, world.requiredExpeditionIds);
+});
+
+test("QA Research controls reset projects without resetting the world or crew", () => {
+  const state = completeQaResearch(createQaCheckpoint(5, 1_000_000));
+  const next = resetQaResearch(state);
+  assert.deepEqual(next.research, createResearchLatticeState());
+  assert.deepEqual(next.settlement, state.settlement);
+  assert.deepEqual(next.survivors, state.survivors);
+  assert.deepEqual(next.researchStock, state.researchStock);
+});
+
+test("QA can stock Ark evidence and loaded Lattice reservoirs independently", () => {
+  const state = resetQaResearch(createQaCheckpoint(5, 1_000_000));
+  const stocked = stockQaResearchEvidence(state);
+  assert.ok(
+    Object.values(stocked.researchStock).every(
+      (value) => value === QA_RESEARCH_EVIDENCE_GRANT,
+    ),
+  );
+  assert.ok(Object.values(stocked.research.inventory).every((value) => value === 0));
+
+  const loaded = fillQaResearchLattice(state);
+  assert.ok(Object.values(loaded.research.inventory).every((value) => value === QA_RESOURCE_GRANT));
+  assert.deepEqual(loaded.researchStock, state.researchStock);
+});
+
+test("QA completes only the active Research project when requested", () => {
+  const state = resetQaResearch(createQaCheckpoint(5, 1_000_000));
+  assert.strictEqual(completeQaActiveResearch(state), state);
+  const active = {
+    ...state,
+    research: selectResearchProject(
+      state.research,
+      "resonance-stabilization",
+      1_000_000,
+    ),
+  };
+  const completed = completeQaActiveResearch(active);
+  assert.equal(completed.research.activeProjectId, null);
+  assert.equal(completed.research.completedProjectIds.includes("resonance-stabilization"), true);
+  assert.equal(
+    completed.research.completedProjectIds.length,
+    active.research.completedProjectIds.length + 1,
+  );
 });

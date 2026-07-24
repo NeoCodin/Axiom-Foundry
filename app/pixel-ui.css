@@ -1488,6 +1488,8 @@ img.pixelated,
 }
 .qa-world-grid button:hover,
 .qa-action-grid button:hover { border-color: var(--world-accent); color: #fff; }
+.qa-action-grid button.qa-danger-button { border-color: #7d4040; color: #ffaaa3; }
+.qa-action-grid button.qa-danger-button:hover { border-color: #ff766f; color: #ffd1cd; background: #1a0a0a; }
 .qa-custom-flux form { display: grid; gap: 5px; }
 .qa-custom-flux label { color: #9db4ae; font-size: 12px; }
 .qa-custom-flux form > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px; }

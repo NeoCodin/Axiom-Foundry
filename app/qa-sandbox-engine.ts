@@ -17,6 +17,8 @@ import {
 } from "./campaign-content.ts";
 import {
   RESEARCH_PROJECT_DEFINITIONS,
+  createResearchLatticeState,
+  getResearchProjectDefinition,
   getResearchProjectEra,
 } from "./research-engine.ts";
 import {
@@ -32,6 +34,7 @@ import { CONTEXT_GUIDES } from "./story-content.ts";
 export const QA_SAVE_KEY = "axiom-foundry-qa-sandbox-v1";
 export const QA_QUERY_PARAMETER = "qa";
 export const QA_RESOURCE_GRANT = 1_000_000_000_000_000;
+export const QA_RESEARCH_EVIDENCE_GRANT = 1_000_000_000_000;
 
 const RESEARCH_ERA_ORDER = ["recovery", "integration", "synthesis", "convergence"] as const;
 // A world-opening checkpoint carries only work that could have been completed
@@ -50,6 +53,11 @@ const RESEARCH_INPUT_IDS = [
   "null-traces",
   "axiom-proofs",
 ] as const;
+
+const createQaResearchInputs = (amount = QA_RESOURCE_GRANT) =>
+  Object.fromEntries(
+    RESEARCH_INPUT_IDS.map((id) => [id, amount]),
+  ) as GameState["researchStock"];
 
 function createQaCrew(worldIndex: number) {
   if (worldIndex <= 1) return createSurvivorSystemState(0x41_58_49_4f);
@@ -299,7 +307,7 @@ export function createQaResearchIntroductionCheckpoint(now = Date.now()): GameSt
 }
 
 export function grantQaResources(state: GameState): GameState {
-  const inventory = Object.fromEntries(RESEARCH_INPUT_IDS.map((id) => [id, QA_RESOURCE_GRANT])) as GameState["researchStock"];
+  const inventory = createQaResearchInputs();
   return sanitizeGameState({
     ...state,
     flux: QA_RESOURCE_GRANT,
@@ -311,6 +319,30 @@ export function grantQaResources(state: GameState): GameState {
     living: { ...state.living, salvage: 1_000_000_000, cohesion: 100 },
     researchStock: inventory,
     research: { ...state.research, inventory },
+  });
+}
+
+export function resetQaResearch(state: GameState): GameState {
+  return sanitizeGameState({
+    ...state,
+    research: createResearchLatticeState(),
+  });
+}
+
+export function stockQaResearchEvidence(state: GameState): GameState {
+  return sanitizeGameState({
+    ...state,
+    researchStock: createQaResearchInputs(QA_RESEARCH_EVIDENCE_GRANT),
+  });
+}
+
+export function fillQaResearchLattice(state: GameState): GameState {
+  return sanitizeGameState({
+    ...state,
+    research: {
+      ...state.research,
+      inventory: createQaResearchInputs(),
+    },
   });
 }
 
@@ -330,12 +362,60 @@ export function addQaFlux(state: GameState, requestedAmount: number): GameState 
 }
 
 export function completeQaResearch(state: GameState): GameState {
+  const repeatCounts = Object.fromEntries(
+    RESEARCH_PROJECT_DEFINITIONS.filter((project) => project.repeatable).map((project) => [
+      project.id,
+      project.repeatable!.maxCompletions,
+    ]),
+  );
+  const unlockedEchoIds = RESEARCH_PROJECT_DEFINITIONS.flatMap((project) =>
+    project.nullEchoId ? [project.nullEchoId] : [],
+  );
   return sanitizeGameState({
     ...state,
     research: {
       ...state.research,
       activeProjectId: null,
       completedProjectIds: RESEARCH_PROJECT_DEFINITIONS.map((project) => project.id),
+      progress: {},
+      repeatCounts,
+      unlockedEchoIds,
+      lastAdvancedAt: null,
+    },
+  });
+}
+
+export function completeQaActiveResearch(state: GameState): GameState {
+  const activeProjectId = state.research.activeProjectId;
+  if (!activeProjectId) return state;
+  const project = getResearchProjectDefinition(activeProjectId);
+  if (!project) return state;
+  const completedProjectIds = state.research.completedProjectIds.includes(activeProjectId)
+    ? state.research.completedProjectIds
+    : [...state.research.completedProjectIds, activeProjectId];
+  const repeatCounts = project.repeatable
+    ? {
+        ...state.research.repeatCounts,
+        [activeProjectId]: Math.min(
+          project.repeatable.maxCompletions,
+          (state.research.repeatCounts[activeProjectId] ?? 0) + 1,
+        ),
+      }
+    : state.research.repeatCounts;
+  const unlockedEchoIds =
+    project.nullEchoId && !state.research.unlockedEchoIds.includes(project.nullEchoId)
+      ? [...state.research.unlockedEchoIds, project.nullEchoId]
+      : state.research.unlockedEchoIds;
+  return sanitizeGameState({
+    ...state,
+    research: {
+      ...state.research,
+      activeProjectId: null,
+      completedProjectIds,
+      progress: { ...state.research.progress, [activeProjectId]: 1 },
+      repeatCounts,
+      unlockedEchoIds,
+      lastAdvancedAt: null,
     },
   });
 }
