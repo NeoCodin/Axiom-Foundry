@@ -4,8 +4,10 @@ import { type CSSProperties } from "react";
 import {
   BeaconReadinessList,
 } from "./beacon-readiness";
+import { ArkPixelWorld } from "./ark-pixel-world";
 import type { BeaconReadiness } from "./beacon-readiness-engine";
 import type { RoomId } from "./discovery-content";
+import { getLawHeartSpectrum } from "./law-heart-particle-field";
 import type { LifeSupportKey } from "./survivor-engine";
 
 export type ArkViewId =
@@ -83,6 +85,7 @@ export type ArkDeckProps = {
   totalRoomCount: number;
   fabricationDepth: number;
   fabricationIntensity: number;
+  lifetimeAxioms: number;
   transit?: {
     active: boolean;
     progress: number;
@@ -159,6 +162,7 @@ function ArkDeck({
   totalRoomCount,
   fabricationDepth,
   fabricationIntensity,
+  lifetimeAxioms,
   transit = null,
   unlockedViews,
   coldWakeCommissioning = null,
@@ -177,6 +181,7 @@ function ArkDeck({
   const fluxValue = numericLabelValue(fluxLabel);
   const recoveredMaterialsValue = numericLabelValue(salvageLabel);
   const researchRate = numericLabelValue(researchThroughput);
+  const lawHeartSpectrum = getLawHeartSpectrum(lifetimeAxioms);
   const roomRatio = clamp(onlineRoomCount / Math.max(1, totalRoomCount));
   const worldSlug = worldName.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-").replaceAll(/(^-|-$)/g, "");
   const transitActive = transit?.active === true;
@@ -231,6 +236,12 @@ function ArkDeck({
     "--ark-spine-opacity": 0.18 + coreEnergy * 0.52,
     "--ark-transit-world-opacity": 0.18 + transitProgress * 0.58,
     "--ark-transit-world-scale": 0.58 + transitProgress * 0.34,
+    "--ark-power-core": lawHeartSpectrum.core,
+    "--ark-power-surface": lawHeartSpectrum.surface,
+    "--ark-power-bright": lawHeartSpectrum.surfaceBright,
+    "--ark-power-limb": lawHeartSpectrum.limb,
+    "--ark-power-corona-a": lawHeartSpectrum.corona[0] ?? lawHeartSpectrum.surface,
+    "--ark-power-corona-b": lawHeartSpectrum.corona[1] ?? lawHeartSpectrum.limb,
   } as CSSProperties;
 
   const rooms: ArkRoom[] = [
@@ -300,7 +311,7 @@ function ArkDeck({
 
   return (
     <section
-      className={`ark-command-deck ark-command-deck-v2 fabrication-depth-${Math.min(6, fabricationDepth)} ${fabricationIntensity >= 150 ? "core-phase-locked" : ""} ${transitActive ? "is-in-transit" : "is-in-orbit"}`}
+      className={`ark-command-deck ark-command-deck-v2 ark-command-deck-v3 fabrication-depth-${Math.min(6, fabricationDepth)} ${fabricationIntensity >= 150 ? "core-phase-locked" : ""} ${transitActive ? "is-in-transit" : "is-in-orbit"}`}
       style={shipStyle}
       aria-labelledby="ark-command-title"
     >
@@ -352,12 +363,13 @@ function ArkDeck({
           <small><i aria-hidden="true" /> {transitActive ? `${Math.round(transitProgress * 100)}% OF CROSSING COMPLETE` : `${Math.round(normalizedWorldProgress * 100)}% CONTINUITY READINESS`}</small>
         </div>
 
-        <div className="ark-world-limb" aria-hidden="true">
-          <span className="ark-world-glow" />
-          <span className="ark-world-body" />
-          <span className="ark-world-weather" />
-          <span className="ark-world-shadow" />
-          <span className="ark-world-scan"><i /><i /><i /></span>
+        <div className="ark-world-limb">
+          <ArkPixelWorld
+            worldName={worldName}
+            progress={normalizedWorldProgress}
+            transit={transitActive}
+          />
+          <span className="ark-world-pixel-bracket" aria-hidden="true"><i /><i /><i /><i /></span>
           <em>{transitActive ? "DISTANT" : "ORBIT"}</em>
         </div>
 
@@ -365,13 +377,39 @@ function ArkDeck({
           <span className="ark-drive-plume" aria-hidden="true"><i /><i /><i /><i /></span>
           <span className="ark-vessel-shadow" aria-hidden="true" />
           <div className="ark-vessel-hull">
+            <span className="ark-hull-silhouette ark-hull-silhouette-aft" aria-hidden="true" />
+            <span className="ark-hull-silhouette ark-hull-silhouette-keel" aria-hidden="true" />
+            <span className="ark-hull-silhouette ark-hull-silhouette-prow" aria-hidden="true" />
             <span className="ark-hull-edge ark-hull-edge-top" aria-hidden="true" />
             <span className="ark-hull-edge ark-hull-edge-bottom" aria-hidden="true" />
             <span className="ark-engine-stack" aria-hidden="true"><i /><i /><i /></span>
-            <span className="ark-command-tower" aria-hidden="true"><i /><b /></span>
+            <span className="ark-command-tower" aria-hidden="true"><i /><b /><em /></span>
             <span className="ark-forward-sensor" aria-hidden="true"><i /></span>
             <span className="ark-ventral-hangar" aria-hidden="true"><i /><i /><i /></span>
             <span className="ark-vessel-nameplate">ARK // ITERATION 44</span>
+            <span className="ark-observation-domes" aria-hidden="true"><i /><i /><i /></span>
+
+            <span className="ark-population-lights" aria-hidden="true">
+              {Array.from({ length: Math.min(28, Math.ceil(population * 0.75)) }, (_, index) => (
+                <i key={index} style={{ "--window-delay": `${index * -0.11}s` } as CSSProperties} />
+              ))}
+            </span>
+
+            <span className="ark-service-drones" aria-hidden="true">
+              {Array.from({
+                length: Math.min(8, Math.min(3, fabricationDepth) + Math.floor(totalReinforcement / 3)),
+              }, (_, index) => (
+                <i
+                  key={index}
+                  style={{
+                    "--drone-top": `${18 + (index % 4) * 6}%`,
+                    "--drone-left": `${16 + (index % 3) * 25}%`,
+                    "--drone-duration": `${5.2 + index * 0.34}s`,
+                    "--drone-delay": `${index * -0.7}s`,
+                  } as CSSProperties}
+                />
+              ))}
+            </span>
 
             <span className="ark-hull-reinforcements" aria-hidden="true">
               {Array.from({ length: Math.min(18, totalReinforcement) }, (_, index) => <i key={index} />)}
@@ -384,7 +422,7 @@ function ArkDeck({
             >
               <span className="ark-law-relay-core" aria-hidden="true"><i /><b /></span>
               <span>
-                <small>LAW-HEART BUS</small>
+                <small>{lawHeartSpectrum.name}</small>
                 <strong>{fluxPerSecondLabel}/s</strong>
               </span>
             </div>

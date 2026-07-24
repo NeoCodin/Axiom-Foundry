@@ -9,6 +9,7 @@ import "./awakening.css";
 import "./pixel-ui.css";
 import "./axiom-law-heart.css";
 import "./lore-archive.css";
+import "./ark-command-v3.css";
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();

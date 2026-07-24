@@ -34,8 +34,8 @@ type TooltipPosition = {
 const TOOLTIP_RULES: TooltipRule[] = [
   // Ark command deck
   { selector: ".ark-law-relay", copy: "Law-Heart power bus. The Foundry owns the Law-Heart itself; this read-only relay shows its output moving through the physical Ark." },
-  { selector: ".ark-world-limb", copy: "Current destination. Its distance and orbital presentation change during travel; chapter readiness remains managed through Continuity." },
-  { selector: ".ark-vessel", copy: "ARK // ITERATION 44. Lit compartments are operational, moving details reflect real ship activity, and permanent Reinforcement Marks add visible hull plating." },
+  { selector: ".ark-world-limb", copy: "Current destination, reconstructed as a low-resolution orbital feed. Its palette belongs to the world; Ark power color comes from the Law-Heart." },
+  { selector: ".ark-vessel", copy: "ARK // ITERATION 44. Lit compartments are operational, inhabited windows reflect the crew aboard, service drones reflect developed systems, and power routing inherits the Law-Heart's current spectrum." },
   { selector: ".ark-room-fabrication", copy: "Fabrication Deck. Builds nested mechanisms that turn Flux into stronger, automatic production." },
   { selector: ".ark-room-support", copy: "Life Support. Atmosphere, water, food, and medical capacity determine how many rescued people the Ark can sustain." },
   { selector: ".ark-room-habitation", copy: "Habitation. Living Space sets the Ark's hard population capacity and can be expanded with Salvage." },

@@ -10,6 +10,7 @@ import "../app/awakening.css";
 import "../app/pixel-ui.css";
 import "../app/axiom-law-heart.css";
 import "../app/lore-archive.css";
+import "../app/ark-command-v3.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

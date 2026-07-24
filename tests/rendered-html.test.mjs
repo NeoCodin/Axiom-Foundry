@@ -50,10 +50,11 @@ test("server-renders the Axiom Foundry game surface", async () => {
 });
 
 test("removes all temporary starter-preview wiring", async () => {
-  const [page, arkDeck, lawHeart, foundryLawHeart, lawPress, loreArchive, layout, pagesEntry, packageJson, css, arkCss, continuityCss, researchCss, manualCss, awakeningCss, pixelCss, lawHeartCss, loreArchiveCss, story, manual, survivorEngine, populationConsole, settlementConsole, continuityExpertise, campaignContent, researchEngine] =
+  const [page, arkDeck, arkPixelWorld, lawHeart, foundryLawHeart, lawPress, loreArchive, layout, pagesEntry, packageJson, css, arkCss, arkCommandCss, continuityCss, researchCss, manualCss, awakeningCss, pixelCss, lawHeartCss, loreArchiveCss, story, manual, survivorEngine, populationConsole, settlementConsole, continuityExpertise, campaignContent, researchEngine] =
     await Promise.all([
       readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/ark-deck.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/ark-pixel-world.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/axiom-law-heart.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/foundry-law-heart.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/law-heart-particle-field.tsx", import.meta.url), "utf8"),
@@ -63,6 +64,7 @@ test("removes all temporary starter-preview wiring", async () => {
       readFile(new URL("../package.json", import.meta.url), "utf8"),
       readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
       readFile(new URL("../app/ark-deck.css", import.meta.url), "utf8"),
+      readFile(new URL("../app/ark-command-v3.css", import.meta.url), "utf8"),
       readFile(new URL("../app/continuity-console.css", import.meta.url), "utf8"),
       readFile(new URL("../app/research-lattice.css", import.meta.url), "utf8"),
       readFile(new URL("../app/game-manual.css", import.meta.url), "utf8"),
@@ -92,6 +94,14 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.doesNotMatch(arkDeck, /onTuneCore|Tune the Core/);
   assert.match(arkDeck, /Law-Heart power bus/);
   assert.doesNotMatch(arkDeck, />AXIOM CHAMBER</);
+  assert.match(arkDeck, /ArkPixelWorld/);
+  assert.match(arkDeck, /--ark-power-surface/);
+  assert.match(arkPixelWorld, /imageSmoothingEnabled = false/);
+  assert.match(arkPixelWorld, /vesper:[\s\S]*#d94845/);
+  assert.match(arkCommandCss, /cathedral-freighter/i);
+  assert.match(arkCommandCss, /image-rendering: pixelated/);
+  assert.match(layout, /ark-command-v3\.css/);
+  assert.match(pagesEntry, /ark-command-v3\.css/);
   assert.match(foundryLawHeart, /Strike the Law-Heart/);
   assert.match(foundryLawHeart, /LawPressCanvas.*law-heart-particle-field/s);
   assert.match(page, /className="foundry-workspace has-reactor-workspace"/);
@@ -114,6 +124,9 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(lawPress, /LAW_HEART_SPECTRA/);
   assert.match(lawPress, /getLawHeartSpectrum/);
   assert.match(lawPress, /threshold: 24/);
+  assert.match(lawPress, /threshold: 72/);
+  assert.match(lawPress, /name: "Convergent Star"[\s\S]*surface: "#e84538"/);
+  assert.match(lawPress, /name: "Transcendent Star"/);
   assert.match(lawPress, /drawSolarSurface/);
   assert.match(lawPress, /drawSolarCorona/);
   assert.match(lawPress, /drawAxiomShards/);

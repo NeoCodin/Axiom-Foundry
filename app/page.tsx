@@ -2867,6 +2867,7 @@ export default function Home() {
           totalRoomCount={game.living.rooms.length}
           fabricationDepth={game.tiers.filter((tier) => tier.bought > 0).length}
           fabricationIntensity={game.tiers.reduce((total, tier) => total + tier.bought, 0)}
+          lifetimeAxioms={game.lifetimeAxioms}
           transit={activeTransit ? {
             active: true,
             progress: activeTransit.progress,

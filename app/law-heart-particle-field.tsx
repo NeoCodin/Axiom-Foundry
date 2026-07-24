@@ -146,6 +146,16 @@ export const LAW_HEART_SPECTRA: readonly LawHeartSpectrum[] = [
   {
     threshold: 24,
     name: "Convergent Star",
+    core: "#fff1df",
+    surface: "#e84538",
+    surfaceBright: "#ff8a52",
+    limb: "#8e1320",
+    corona: ["#ff6048", "#e12335", "#ffad58", "#7d0d1a"],
+    shard: "#ffc09b",
+  },
+  {
+    threshold: 72,
+    name: "Transcendent Star",
     core: "#ffffff",
     surface: "#edfaff",
     surfaceBright: "#ffffff",

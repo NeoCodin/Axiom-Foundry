@@ -1,0 +1,922 @@
+/*
+ * ARK COMMAND III
+ * The Ark is a pixel-art place first and a navigation surface second.
+ * World color belongs to the planet; ship power belongs to the Law-Heart.
+ */
+
+.ark-command-deck-v3 {
+  --ark-cyan: var(--ark-power-surface, #55e6e8);
+  --ark-blue: var(--ark-power-limb, #327f91);
+  --ark-room-border: #2b414a;
+  overflow: visible;
+  border-color: #293f48;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 3px, rgb(255 255 255 / 0.012) 3px 4px),
+    #020609;
+  box-shadow:
+    inset 0 0 0 3px #010304,
+    inset 0 0 0 4px #14262e;
+}
+
+.ark-command-deck-v3 .ark-command-heading {
+  min-height: 88px;
+  border-bottom-color: #263d46;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--ark-power-surface) 8%, transparent), transparent 28%),
+    #050b10;
+}
+
+.ark-command-deck-v3 .ark-ai-eye {
+  border-color: var(--ark-power-limb);
+  box-shadow:
+    inset 0 0 0 4px #020508,
+    0 0 12px color-mix(in srgb, var(--ark-power-surface) 22%, transparent);
+}
+
+.ark-command-deck-v3 .ark-ai-eye::before,
+.ark-command-deck-v3 .ark-ai-eye i {
+  border-color: var(--ark-power-surface);
+  background: var(--ark-power-surface);
+}
+
+.ark-command-deck-v3 .ark-ai-identity p,
+.ark-command-deck-v3 .ark-heading-metrics strong {
+  color: var(--ark-power-surface);
+}
+
+.ark-command-deck-v3 .ark-visual-stage {
+  position: relative;
+  height: clamp(820px, calc(100vh - 100px), 940px);
+  min-height: 820px;
+  overflow: hidden;
+  isolation: isolate;
+  border-bottom: 2px solid #263d46;
+  background: #010305;
+}
+
+.ark-command-deck-v3 .ark-visual-stage::before {
+  z-index: 30;
+  opacity: 0.18;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 3px, rgb(164 215 229 / 0.025) 3px 4px);
+  pointer-events: none;
+}
+
+.ark-command-deck-v3 .ark-visual-stage::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  content: "";
+  background:
+    linear-gradient(90deg, rgb(0 0 0 / 0.52), transparent 18%, transparent 77%, rgb(0 0 0 / 0.2)),
+    radial-gradient(ellipse at 50% 50%, color-mix(in srgb, var(--ark-power-limb) 5%, transparent), transparent 58%);
+  pointer-events: none;
+}
+
+.ark-command-deck-v3 .ark-void-nebula {
+  opacity: 0.16;
+  background:
+    linear-gradient(115deg, transparent 15%, color-mix(in srgb, var(--ark-power-limb) 9%, transparent) 45%, transparent 71%);
+  filter: none;
+}
+
+.ark-command-deck-v3 .ark-star-field,
+.ark-command-deck-v3 .ark-void-particles i {
+  image-rendering: pixelated;
+  filter: none;
+}
+
+.ark-command-deck-v3 .ark-void-particles i {
+  background: color-mix(in srgb, var(--ark-power-surface) 54%, #8aa2a8);
+  box-shadow: none;
+}
+
+.ark-command-deck-v3 .ark-theater-caption {
+  z-index: 22;
+  top: 24px;
+  left: clamp(22px, 3vw, 52px);
+  width: min(360px, 42vw);
+  max-width: none;
+  padding: 11px 14px 13px;
+  border: 1px solid #263e47;
+  border-left: 4px solid var(--world-accent);
+  background:
+    repeating-linear-gradient(0deg, transparent 0 3px, rgb(255 255 255 / 0.018) 3px 4px),
+    rgb(2 7 10 / 0.9);
+  box-shadow: 4px 4px 0 rgb(0 0 0 / 0.7);
+}
+
+.ark-command-deck-v3 .ark-theater-caption > span,
+.ark-command-deck-v3 .ark-theater-caption small {
+  color: var(--world-accent);
+}
+
+.ark-command-deck-v3 .ark-theater-caption strong {
+  color: #e8f4f2;
+  font-size: clamp(25px, 2.2vw, 36px);
+}
+
+.ark-command-deck-v3 .ark-theater-caption small i {
+  background: var(--world-accent);
+  box-shadow: none;
+}
+
+/* A real low-resolution orbital body replaces the smooth CSS sphere. */
+.ark-command-deck-v3 .ark-world-limb {
+  z-index: 3;
+  right: clamp(20px, 3vw, 54px);
+  bottom: 44px;
+  width: clamp(210px, 19vw, 340px);
+  aspect-ratio: 1;
+  opacity: 0.92;
+  transform: none;
+  image-rendering: pixelated;
+  pointer-events: auto;
+}
+
+.ark-pixel-world-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  filter: drop-shadow(8px 10px 0 rgb(0 0 0 / 0.34));
+}
+
+.ark-world-pixel-bracket {
+  position: absolute;
+  z-index: 2;
+  inset: 7%;
+  pointer-events: none;
+}
+
+.ark-world-pixel-bracket i {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-color: color-mix(in srgb, var(--world-accent) 62%, #32464d);
+  border-style: solid;
+  opacity: 0.62;
+}
+
+.ark-world-pixel-bracket i:nth-child(1) {
+  top: 0;
+  left: 0;
+  border-width: 2px 0 0 2px;
+}
+
+.ark-world-pixel-bracket i:nth-child(2) {
+  top: 0;
+  right: 0;
+  border-width: 2px 2px 0 0;
+}
+
+.ark-world-pixel-bracket i:nth-child(3) {
+  right: 0;
+  bottom: 0;
+  border-width: 0 2px 2px 0;
+}
+
+.ark-world-pixel-bracket i:nth-child(4) {
+  bottom: 0;
+  left: 0;
+  border-width: 0 0 2px 2px;
+}
+
+.ark-command-deck-v3 .ark-world-limb em {
+  top: auto;
+  right: 13%;
+  bottom: 9%;
+  left: auto;
+  border-color: color-mix(in srgb, var(--world-accent) 52%, #283b42);
+  background: #020609;
+  color: var(--world-accent);
+}
+
+.ark-command-deck-v3.is-in-transit .ark-world-limb {
+  opacity: var(--ark-transit-world-opacity);
+  transform: translate(24px, 18px) scale(var(--ark-transit-world-scale));
+}
+
+/* Cathedral-freighter silhouette: stepped hull, narrow prow, deep keel. */
+.ark-command-deck-v3 .ark-vessel {
+  z-index: 7;
+  top: clamp(176px, 23vh, 222px);
+  width: min(1540px, 92vw);
+  height: clamp(455px, 33vw, 560px);
+  filter: drop-shadow(0 24px 0 rgb(0 0 0 / 0.42));
+}
+
+.ark-command-deck-v3 .ark-vessel-shadow {
+  right: 8%;
+  bottom: 0;
+  left: 8%;
+  height: 24px;
+  background: rgb(0 0 0 / 0.74);
+  filter: none;
+}
+
+.ark-command-deck-v3 .ark-vessel-hull {
+  inset: 0;
+  overflow: hidden;
+  border: 0;
+  clip-path: polygon(
+    3% 21%, 7% 21%, 7% 15%, 15% 15%, 15% 10%,
+    27% 10%, 27% 5%, 43% 5%, 43% 1%, 59% 1%,
+    59% 5%, 72% 5%, 72% 10%, 82% 10%, 82% 15%,
+    89% 15%, 89% 21%, 94% 21%, 94% 28%, 98% 28%,
+    98% 38%, 100% 38%, 100% 62%, 97% 62%, 97% 71%,
+    92% 71%, 92% 78%, 84% 78%, 84% 84%, 70% 84%,
+    70% 90%, 60% 90%, 60% 97%, 42% 97%, 42% 93%,
+    28% 93%, 28% 88%, 18% 88%, 18% 83%, 10% 83%,
+    10% 77%, 4% 77%, 4% 69%, 1% 69%, 1% 31%, 3% 31%
+  );
+  background:
+    repeating-linear-gradient(90deg, transparent 0 47px, rgb(118 157 169 / 0.025) 47px 49px),
+    linear-gradient(180deg, #172730 0 9%, #0a151b 9% 78%, #03070a 78%);
+  box-shadow:
+    inset 0 0 0 6px #010406,
+    inset 0 0 0 8px #2a434e,
+    inset 0 17px 0 rgb(104 144 158 / 0.08),
+    inset 0 -26px 0 #010305;
+}
+
+.ark-command-deck-v3 .ark-vessel-hull::before {
+  inset: 8px;
+  border: 2px solid #304c57;
+  clip-path: inherit;
+  opacity: 0.72;
+}
+
+.ark-command-deck-v3 .ark-vessel-hull::after {
+  top: 50%;
+  right: 3%;
+  left: 3%;
+  height: 3px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      #293f49 0 14px,
+      var(--ark-power-surface) 14px 20px,
+      #293f49 20px 42px
+    );
+  box-shadow:
+    0 -193px 0 rgb(56 84 96 / 0.23),
+    0 193px 0 rgb(56 84 96 / 0.2);
+}
+
+.ark-hull-silhouette {
+  position: absolute;
+  z-index: 2;
+  display: block;
+  pointer-events: none;
+}
+
+.ark-hull-silhouette-aft {
+  top: 24%;
+  bottom: 24%;
+  left: 1%;
+  width: 13%;
+  border: 3px solid #34525e;
+  background:
+    repeating-linear-gradient(0deg, #071016 0 22px, #152a33 22px 27px);
+  box-shadow: inset -10px 0 0 #020609;
+  clip-path: polygon(0 13%, 25% 13%, 25% 0, 100% 0, 100% 100%, 25% 100%, 25% 87%, 0 87%);
+}
+
+.ark-hull-silhouette-keel {
+  right: 29%;
+  bottom: 1%;
+  width: 28%;
+  height: 16%;
+  border: 2px solid #2f4954;
+  background: #061016;
+  clip-path: polygon(8% 0, 92% 0, 100% 48%, 82% 48%, 82% 73%, 66% 73%, 66% 100%, 33% 100%, 33% 73%, 18% 73%, 18% 48%, 0 48%);
+}
+
+.ark-hull-silhouette-prow {
+  top: 31%;
+  right: 0;
+  width: 11%;
+  height: 38%;
+  border: 2px solid #34505b;
+  background:
+    linear-gradient(90deg, #09151b, #03070a);
+  clip-path: polygon(0 0, 68% 0, 68% 12%, 87% 12%, 87% 28%, 100% 28%, 100% 72%, 87% 72%, 87% 88%, 68% 88%, 68% 100%, 0 100%);
+}
+
+.ark-command-deck-v3 .ark-hull-edge {
+  z-index: 4;
+  right: 16%;
+  left: 17%;
+  height: 6px;
+  border-color: #31505a;
+  background:
+    repeating-linear-gradient(90deg, #071117 0 24px, var(--ark-power-limb) 24px 28px, #1d323b 28px 36px);
+}
+
+.ark-command-deck-v3 .ark-hull-edge-top {
+  top: 29px;
+}
+
+.ark-command-deck-v3 .ark-hull-edge-bottom {
+  bottom: 39px;
+}
+
+.ark-command-deck-v3 .ark-vessel-nameplate {
+  top: 47px;
+  left: 18%;
+  color: color-mix(in srgb, var(--ark-power-surface) 45%, #8aa0a8);
+}
+
+.ark-command-deck-v3 .ark-engine-stack {
+  z-index: 8;
+  top: 27%;
+  bottom: 27%;
+  left: 2.4%;
+  width: 10%;
+}
+
+.ark-command-deck-v3 .ark-engine-stack i {
+  border-color: #34525e;
+  background:
+    linear-gradient(90deg, #010305 0 28%, var(--ark-power-limb) 28% 42%, var(--ark-power-surface) 42% 67%, #03080b 67%);
+  box-shadow:
+    inset 0 0 0 5px #061016,
+    0 0 10px color-mix(in srgb, var(--ark-power-surface) 18%, transparent);
+}
+
+.ark-command-deck-v3 .ark-drive-plume {
+  top: 29%;
+  left: -9%;
+  width: 22%;
+  height: 42%;
+  filter: none;
+}
+
+.ark-command-deck-v3 .ark-drive-plume::before,
+.ark-command-deck-v3 .ark-drive-plume i {
+  height: 8px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 9px,
+      var(--ark-power-limb) 9px 18px,
+      var(--ark-power-surface) 18px 28px,
+      var(--ark-power-bright) 28px 31px
+    );
+}
+
+.ark-command-deck-v3 .ark-command-tower {
+  z-index: 9;
+  top: 8px;
+  right: 20%;
+  width: 150px;
+  height: 74px;
+  border-color: #35515d;
+  background: #071117;
+  clip-path: polygon(0 48%, 13% 48%, 13% 26%, 37% 26%, 37% 10%, 69% 10%, 69% 0, 84% 0, 84% 25%, 100% 25%, 100% 100%, 0 100%);
+}
+
+.ark-command-deck-v3 .ark-command-tower i {
+  background:
+    repeating-linear-gradient(90deg, var(--ark-power-surface) 0 11px, #071016 11px 16px);
+  box-shadow: none;
+}
+
+.ark-command-deck-v3 .ark-command-tower b {
+  background: var(--ark-power-bright);
+  box-shadow: 0 0 8px var(--ark-power-surface);
+}
+
+.ark-command-deck-v3 .ark-command-tower em {
+  position: absolute;
+  top: 18px;
+  left: 24px;
+  width: 14px;
+  height: 8px;
+  background: var(--ark-power-limb);
+  box-shadow: 20px 0 0 var(--ark-power-limb), 40px 0 0 var(--ark-power-limb);
+}
+
+.ark-command-deck-v3 .ark-forward-sensor {
+  z-index: 8;
+  top: 36%;
+  right: 1%;
+  width: 8%;
+  height: 28%;
+  border-color: #34515c;
+  clip-path: polygon(0 0, 68% 0, 68% 16%, 88% 16%, 88% 36%, 100% 36%, 100% 64%, 88% 64%, 88% 84%, 68% 84%, 68% 100%, 0 100%);
+}
+
+.ark-command-deck-v3 .ark-forward-sensor i {
+  background: var(--ark-power-bright);
+  box-shadow:
+    0 0 8px var(--ark-power-surface),
+    -22px 0 var(--ark-power-surface),
+    -44px 0 var(--ark-power-limb);
+}
+
+.ark-command-deck-v3 .ark-ventral-hangar {
+  z-index: 8;
+  right: 31%;
+  bottom: 7px;
+  width: 190px;
+  height: 49px;
+  border-color: #304b56;
+  background: #02070a;
+}
+
+.ark-command-deck-v3 .ark-ventral-hangar i {
+  border-color: #29424b;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 5px, var(--ark-power-limb) 5px 6px),
+    #061016;
+}
+
+.ark-observation-domes {
+  position: absolute;
+  z-index: 8;
+  top: 28px;
+  left: 35%;
+  display: flex;
+  gap: 32px;
+}
+
+.ark-observation-domes i {
+  display: block;
+  width: 38px;
+  height: 19px;
+  border: 2px solid #36545e;
+  border-bottom: 0;
+  background:
+    repeating-linear-gradient(90deg, var(--ark-power-limb) 0 6px, #061016 6px 9px);
+  clip-path: polygon(17% 0, 83% 0, 100% 100%, 0 100%);
+  opacity: 0.58;
+}
+
+.ark-population-lights {
+  position: absolute;
+  z-index: 8;
+  right: 15%;
+  bottom: 43px;
+  left: 18%;
+  display: grid;
+  grid-template-columns: repeat(14, 5px);
+  justify-content: space-between;
+  gap: 7px;
+  pointer-events: none;
+}
+
+.ark-population-lights i {
+  display: block;
+  width: 5px;
+  height: 3px;
+  background: color-mix(in srgb, var(--ark-power-surface) 62%, #e6d29b);
+  box-shadow: 0 0 4px color-mix(in srgb, var(--ark-power-surface) 44%, transparent);
+  animation: ark-v3-window 3.1s steps(2, end) var(--window-delay) infinite;
+}
+
+.ark-service-drones {
+  position: absolute;
+  z-index: 16;
+  inset: 0;
+  pointer-events: none;
+}
+
+.ark-service-drones i {
+  position: absolute;
+  top: var(--drone-top);
+  left: var(--drone-left);
+  width: 7px;
+  height: 5px;
+  border: 1px solid var(--ark-power-surface);
+  background: #020609;
+  box-shadow: 6px 0 0 var(--ark-power-limb);
+  animation: ark-v3-drone var(--drone-duration) steps(16, end) var(--drone-delay) infinite alternate;
+}
+
+.ark-command-deck-v3 .ark-hull-reinforcements {
+  z-index: 7;
+  right: 15%;
+  bottom: 27px;
+  left: 18%;
+}
+
+.ark-command-deck-v3 .ark-hull-reinforcements i {
+  border-color: #516b76;
+  background: linear-gradient(90deg, #15252c, #4e6972, #15252c);
+  box-shadow: none;
+}
+
+/* The Law-Heart is a power source embedded into the hull, not a world-colored badge. */
+.ark-command-deck-v3 .ark-law-relay {
+  z-index: 18;
+  top: calc(50% - 56px);
+  left: 11.5%;
+  width: 145px;
+  height: 112px;
+  border-color: var(--ark-power-limb);
+  background:
+    repeating-linear-gradient(0deg, transparent 0 3px, rgb(255 255 255 / 0.025) 3px 4px),
+    #020609;
+  box-shadow:
+    4px 4px 0 #000,
+    inset 0 0 0 3px #091218,
+    inset 0 0 20px color-mix(in srgb, var(--ark-power-surface) 12%, transparent);
+}
+
+.ark-command-deck-v3 .ark-law-relay-core {
+  border-color: var(--ark-power-surface);
+  background:
+    radial-gradient(circle, var(--ark-power-core) 0 13%, var(--ark-power-surface) 14% 33%, var(--ark-power-limb) 34% 54%, #03070a 55%);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--ark-power-surface) 34%, transparent);
+}
+
+.ark-command-deck-v3 .ark-law-relay-core::before {
+  border-color: var(--ark-power-corona-a);
+}
+
+.ark-command-deck-v3 .ark-law-relay-core i {
+  background: var(--ark-power-core);
+  box-shadow:
+    0 0 7px var(--ark-power-bright),
+    0 0 17px var(--ark-power-surface);
+}
+
+.ark-command-deck-v3 .ark-law-relay-core b {
+  background: var(--ark-power-corona-b);
+  box-shadow: 0 0 8px var(--ark-power-corona-a);
+}
+
+.ark-command-deck-v3 .ark-law-relay small {
+  color: color-mix(in srgb, var(--ark-power-surface) 67%, #758a91);
+}
+
+.ark-command-deck-v3 .ark-law-relay strong {
+  color: var(--ark-power-bright);
+}
+
+.ark-command-deck-v3 .ark-power-spine {
+  z-index: 11;
+  top: calc(50% - 4px);
+  right: 12%;
+  left: 18%;
+  border-color: #334e58;
+  box-shadow: none;
+}
+
+.ark-command-deck-v3 .ark-power-spine > span {
+  background:
+    linear-gradient(90deg, var(--ark-power-limb), var(--ark-power-surface), var(--ark-power-limb));
+}
+
+.ark-command-deck-v3 .ark-power-spine > i {
+  background: var(--ark-power-core);
+  box-shadow: 0 0 7px var(--ark-power-surface);
+}
+
+/* Compartments are physical cutaway rooms with bulkheads, not floating cards. */
+.ark-command-deck-v3 .ark-deck-layout {
+  z-index: 12;
+  top: 83px;
+  right: 13.5%;
+  bottom: 74px;
+  left: 23.4%;
+  gap: 4px;
+}
+
+.ark-command-deck-v3 .ark-vessel-room {
+  overflow: hidden;
+  padding: 14px 13px 16px;
+  border: 1px solid #263c45;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--room-accent) 5%, transparent), transparent 44%),
+    #040a0e;
+  box-shadow:
+    inset 0 0 0 3px #020609,
+    inset 0 -10px 0 rgb(0 0 0 / 0.22);
+  transform: none;
+  transition:
+    opacity 120ms steps(2, end),
+    filter 120ms steps(2, end),
+    border-color 120ms steps(2, end),
+    background-color 120ms steps(2, end);
+}
+
+.ark-command-deck-v3 .ark-vessel-room::before {
+  width: 6px;
+  height: 6px;
+  border: 0;
+  background: var(--room-accent);
+  box-shadow: 0 0 5px var(--room-accent);
+}
+
+.ark-command-deck-v3 .ark-vessel-room::after {
+  top: auto;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: auto;
+  height: 3px;
+  background:
+    repeating-linear-gradient(90deg, var(--room-accent) 0 18px, #071016 18px 25px);
+  box-shadow: none;
+  opacity: 0.38;
+}
+
+.ark-command-deck-v3 .ark-vessel-room.is-online {
+  border-color: color-mix(in srgb, var(--room-accent) 44%, #2b414a);
+  box-shadow:
+    inset 0 0 0 3px #020609,
+    inset 0 0 20px color-mix(in srgb, var(--room-accent) 5%, transparent);
+}
+
+.ark-command-deck-v3 .ark-vessel-room.is-online:hover,
+.ark-command-deck-v3 .ark-vessel-room.is-online:focus-visible,
+.ark-command-deck-v3 .ark-vessel-room[data-tooltip-active="true"] {
+  border-color: var(--room-accent);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--room-accent) 10%, transparent), transparent 48%),
+    #061016;
+  filter: brightness(1.12);
+  transform: none;
+  outline: 2px solid var(--room-accent);
+  outline-offset: -3px;
+  box-shadow:
+    inset 0 0 0 3px #020609,
+    inset 0 0 24px color-mix(in srgb, var(--room-accent) 9%, transparent);
+}
+
+.ark-command-deck-v3 .ark-deck-layout:has(.ark-vessel-room.is-online:hover) .ark-vessel-room.is-online:not(:hover),
+.ark-command-deck-v3 .ark-deck-layout:has(.ark-vessel-room.is-online:focus-visible) .ark-vessel-room.is-online:not(:focus-visible) {
+  opacity: 0.56;
+  filter: saturate(0.62);
+}
+
+.ark-command-deck-v3 .ark-vessel-room.is-dormant {
+  border-color: #18272d;
+  background:
+    repeating-linear-gradient(135deg, transparent 0 13px, rgb(70 90 98 / 0.025) 13px 14px),
+    #020609;
+  filter: grayscale(0.8) brightness(0.66);
+}
+
+.ark-command-deck-v3 .ark-vessel-room > strong {
+  max-width: 61%;
+  color: #e2eeec;
+  font-size: clamp(14px, 0.95vw, 17px);
+}
+
+.ark-command-deck-v3 .ark-vessel-room > small {
+  max-width: 61%;
+  color: #789098;
+  font-size: 11px;
+}
+
+.ark-command-deck-v3 .ark-compartment-scene {
+  right: 9px;
+  bottom: 15px;
+  width: 34%;
+  height: 54%;
+  opacity: 0.82;
+}
+
+.ark-command-deck-v3 .ark-room-load {
+  right: 10px;
+  bottom: 7px;
+  left: 10px;
+}
+
+.ark-command-deck-v3 .ark-room-power-tap {
+  border-color: var(--ark-power-limb);
+}
+
+.ark-command-deck-v3 .ark-room-power-tap i {
+  background: var(--ark-power-core);
+  box-shadow: 0 0 6px var(--ark-power-surface);
+}
+
+.ark-command-deck-v3 .ark-ship-legend {
+  z-index: 18;
+  right: 15%;
+  bottom: 44px;
+  padding: 5px 7px;
+  background: rgb(1 4 6 / 0.88);
+}
+
+.ark-command-deck-v3 .ark-ship-legend i {
+  background: var(--ark-power-surface);
+  box-shadow: 0 0 5px var(--ark-power-surface);
+}
+
+.ark-command-deck-v3 .ark-transit-readout {
+  z-index: 24;
+  bottom: 19px;
+}
+
+.ark-command-deck-v3 .ark-transit-readout > div i {
+  background:
+    repeating-linear-gradient(90deg, var(--ark-power-surface) 0 11px, transparent 11px 15px);
+  box-shadow: 0 0 6px var(--ark-power-surface);
+}
+
+.ark-command-deck-v3 .ark-transit-readout strong {
+  color: var(--ark-power-surface);
+}
+
+.ark-command-deck-v3 .ark-operations-dock {
+  margin-top: 8px;
+}
+
+.ark-command-deck-v3 .ark-dormant-horizon {
+  margin-top: 8px;
+}
+
+@keyframes ark-v3-window {
+  48% { opacity: 1; }
+  50%, 70% { opacity: 0.3; }
+  72% { opacity: 1; }
+}
+
+@keyframes ark-v3-drone {
+  0% { transform: translate(-12px, 5px); }
+  100% { transform: translate(34px, -8px); }
+}
+
+@media (max-width: 1180px) {
+  .ark-command-deck-v3 .ark-visual-stage {
+    height: 830px;
+    min-height: 830px;
+  }
+
+  .ark-command-deck-v3 .ark-vessel {
+    top: 190px;
+    width: 96vw;
+    height: 560px;
+  }
+
+  .ark-command-deck-v3 .ark-deck-layout {
+    top: 88px;
+    right: 13%;
+    bottom: 82px;
+    left: 24%;
+  }
+
+  .ark-command-deck-v3 .ark-world-limb {
+    right: 14px;
+    bottom: 28px;
+    width: 235px;
+    opacity: 0.72;
+  }
+
+  .ark-command-deck-v3 .ark-law-relay {
+    left: 11%;
+  }
+}
+
+@media (max-width: 820px) {
+  .ark-command-deck-v3 .ark-visual-stage {
+    height: auto;
+    min-height: 1320px;
+  }
+
+  .ark-command-deck-v3 .ark-theater-caption {
+    right: 142px;
+    left: 14px;
+    width: auto;
+  }
+
+  .ark-command-deck-v3 .ark-world-limb {
+    top: 25px;
+    right: -15px;
+    bottom: auto;
+    width: 170px;
+    opacity: 0.64;
+  }
+
+  .ark-command-deck-v3 .ark-vessel {
+    top: 190px;
+    width: calc(100% - 8px);
+    height: 1050px;
+  }
+
+  .ark-command-deck-v3 .ark-vessel-hull {
+    clip-path: polygon(
+      4% 4%, 72% 4%, 72% 2%, 87% 2%, 87% 5%, 95% 5%,
+      95% 9%, 99% 9%, 99% 92%, 94% 92%, 94% 96%,
+      72% 96%, 72% 99%, 29% 99%, 29% 97%, 12% 97%,
+      12% 94%, 4% 94%, 4% 90%, 1% 90%, 1% 10%, 4% 10%
+    );
+  }
+
+  .ark-command-deck-v3 .ark-deck-layout {
+    top: 150px;
+    right: 8%;
+    bottom: 88px;
+    left: 8%;
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(6, minmax(0, 1fr));
+    gap: 5px;
+  }
+
+  .ark-command-deck-v3 .ark-law-relay {
+    top: 32px;
+    left: 8%;
+  }
+
+  .ark-command-deck-v3 .ark-power-spine {
+    top: 140px;
+    right: 8%;
+    left: 8%;
+  }
+
+  .ark-command-deck-v3 .ark-command-tower {
+    top: 40px;
+    right: 8%;
+    width: 135px;
+  }
+
+  .ark-command-deck-v3 .ark-engine-stack,
+  .ark-command-deck-v3 .ark-forward-sensor,
+  .ark-command-deck-v3 .ark-ventral-hangar,
+  .ark-command-deck-v3 .ark-hull-silhouette,
+  .ark-command-deck-v3 .ark-observation-domes,
+  .ark-command-deck-v3 .ark-hull-edge,
+  .ark-command-deck-v3 .ark-hull-reinforcements,
+  .ark-command-deck-v3 .ark-population-lights,
+  .ark-command-deck-v3 .ark-service-drones {
+    display: none;
+  }
+
+  .ark-command-deck-v3 .ark-drive-plume {
+    top: 6%;
+    left: -7%;
+    width: 16%;
+    height: 14%;
+  }
+
+  .ark-command-deck-v3 .ark-vessel-room > strong,
+  .ark-command-deck-v3 .ark-vessel-room > small {
+    max-width: 69%;
+  }
+
+  .ark-command-deck-v3 .ark-compartment-scene {
+    width: 28%;
+  }
+
+  .ark-command-deck-v3 .ark-ship-legend {
+    right: 8%;
+    bottom: 42px;
+    left: 8%;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 480px) {
+  .ark-command-deck-v3 .ark-visual-stage {
+    min-height: 1380px;
+  }
+
+  .ark-command-deck-v3 .ark-theater-caption {
+    top: 13px;
+    right: 12px;
+  }
+
+  .ark-command-deck-v3 .ark-world-limb {
+    top: 111px;
+    width: 145px;
+  }
+
+  .ark-command-deck-v3 .ark-vessel {
+    top: 245px;
+  }
+
+  .ark-command-deck-v3 .ark-command-tower {
+    width: 115px;
+  }
+
+  .ark-command-deck-v3 .ark-vessel-room > strong,
+  .ark-command-deck-v3 .ark-vessel-room > small {
+    max-width: 63%;
+  }
+
+  .ark-command-deck-v3 .ark-compartment-scene {
+    width: 33%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ark-command-deck-v3 .ark-population-lights i,
+  .ark-command-deck-v3 .ark-service-drones i {
+    animation: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .ark-command-deck-v3 .ark-vessel-hull,
+  .ark-command-deck-v3 .ark-vessel-room,
+  .ark-command-deck-v3 .ark-law-relay {
+    border: 2px solid CanvasText;
+  }
+}
