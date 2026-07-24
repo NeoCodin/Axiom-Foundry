@@ -458,18 +458,19 @@ export function ResearchLattice({
                 })}
               </div>
 
-              <button
-                type="button"
-                className="research-core-node"
-                onClick={() => setView("lattice")}
-                aria-label="Inspect the active evidence lattice"
+              <div
+                className={`research-core-node research-core-stage-${activeStageIndex + 1}`}
+                role="img"
+                aria-label={`${activeDefinition.name} Analysis Core`}
               >
-                <span className="research-core-brackets"><i /><i /><i /><i /></span>
-                <span className="research-core-body"><i /><b /></span>
+                <span className="research-core-corona"><i /><i /><i /></span>
+                <span className="research-core-shell"><i /><i /><i /><i /></span>
+                <span className="research-core-plasma"><i /><b /></span>
                 <span className="research-core-glyph">
                   {BRANCHES.find((item) => item.id === activeDefinition.branch)?.code ?? "AXM"}
                 </span>
-              </button>
+                <span className="research-core-impacts"><i /><i /><i /><i /><i /><i /></span>
+              </div>
 
               <div className="research-core-stage-row" aria-label="Research stages">
                 {RESEARCH_STAGES.map((stage, index) => (
@@ -503,6 +504,13 @@ export function ResearchLattice({
                     ? "Evidence is waiting at the Core boundary"
                     : "Evidence is entering the active synthesis"}
                 </small>
+                <button
+                  type="button"
+                  className="research-core-inspect"
+                  onClick={() => setView("lattice")}
+                >
+                  Inspect Lattice
+                </button>
               </div>
 
               <div className="research-core-legend" aria-label="Evidence in motion">
