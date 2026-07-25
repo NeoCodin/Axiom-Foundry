@@ -760,22 +760,158 @@
 .armory-frame-racks strong { color: #d8e5e9; font-size: 13px; }
 .armory-frame-racks small { color: #657c86; font-size: 12px; line-height: 1.35; }
 .armory-frame-sprite {
+  --gear-primary: #82dce6;
+  --gear-secondary: #315c68;
+  --gear-energy: var(--world-accent, #55d6e8);
   position: relative;
   display: block;
   width: 66px;
   height: 66px;
+  overflow: hidden;
   border: 2px solid #3d6574;
-  background: #02080b;
-  box-shadow: inset 0 0 0 6px #0b1c23;
+  background:
+    linear-gradient(rgb(52 91 104 / .11) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(52 91 104 / .09) 1px, transparent 1px),
+    #02080b;
+  background-size: 8px 8px;
+  box-shadow: inset 0 0 0 5px #0b1c23;
+  image-rendering: pixelated;
 }
-.armory-frame-sprite.is-weapon::before { position: absolute; top: 28px; left: 9px; width: 48px; height: 8px; content: ""; background: #78b5c4; box-shadow: 10px -7px 0 -2px #78b5c4, -4px 8px 0 -2px #365d68; }
-.armory-frame-sprite.is-weapon::after { position: absolute; top: 23px; right: 7px; width: 12px; height: 18px; content: ""; border: 2px solid var(--world-accent, #55d6e8); }
-.armory-frame-sprite.is-armor::before { position: absolute; top: 11px; left: 17px; width: 30px; height: 40px; content: ""; border: 5px solid #78b5c4; clip-path: polygon(0 0, 100% 0, 88% 80%, 50% 100%, 12% 80%); background: #173944; }
-.armory-frame-sprite.is-armor::after { position: absolute; top: 20px; left: 27px; width: 10px; height: 18px; content: ""; background: var(--world-accent, #55d6e8); opacity: .55; }
-.armory-frame-sprite > i { position: absolute; z-index: 2; width: 4px; height: 4px; background: #fff; opacity: .45; }
-.armory-frame-sprite > i:nth-child(1) { top: 7px; left: 8px; }
-.armory-frame-sprite > i:nth-child(2) { right: 8px; bottom: 8px; }
-.armory-frame-sprite > i:nth-child(3) { top: 13px; right: 10px; background: var(--world-accent, #55d6e8); }
+.armory-frame-sprite::before,
+.armory-frame-sprite::after,
+.armory-frame-sprite > i {
+  position: absolute;
+  display: block;
+  content: "";
+  image-rendering: pixelated;
+}
+.armory-frame-sprite > i { z-index: 3; }
+
+/* Kinetic Pike: telescoping impulse staff with a weighted emitter head. */
+.armory-frame-sprite.item-kinetic-pike { --gear-primary: #8be6ed; --gear-secondary: #355c66; --gear-energy: #c47aff; }
+.item-kinetic-pike::before {
+  top: 29px;
+  left: 7px;
+  width: 52px;
+  height: 6px;
+  background: linear-gradient(90deg, #253e46 0 10%, var(--gear-primary) 10% 70%, #e5ffff 70% 77%, var(--gear-secondary) 77%);
+  box-shadow: 0 3px #13272e;
+  transform: rotate(-16deg);
+}
+.item-kinetic-pike::after {
+  top: 11px;
+  right: 5px;
+  width: 16px;
+  height: 16px;
+  border: 3px solid var(--gear-energy);
+  background: #130b1e;
+  box-shadow: inset 0 0 0 3px #714291, 0 0 6px rgb(196 122 255 / .55);
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+.item-kinetic-pike > i:nth-child(1) { top: 31px; left: 23px; width: 13px; height: 9px; background: #1a3037; border-right: 3px solid #dffcff; transform: rotate(-16deg); }
+.item-kinetic-pike > i:nth-child(2) { top: 39px; left: 5px; width: 9px; height: 9px; background: var(--gear-secondary); transform: rotate(-16deg); }
+.item-kinetic-pike > i:nth-child(3) { top: 20px; right: 18px; width: 5px; height: 5px; background: #f2d6ff; box-shadow: 0 0 5px var(--gear-energy); }
+
+/* Arc Carbine: compact directed-discharge rifle with stock, grip, and rail. */
+.armory-frame-sprite.item-arc-carbine { --gear-primary: #6db9ff; --gear-secondary: #274d71; --gear-energy: #68efff; }
+.item-arc-carbine::before {
+  top: 21px;
+  left: 13px;
+  width: 38px;
+  height: 17px;
+  border: 3px solid #7fc7ee;
+  background: linear-gradient(90deg, #17334a 0 36%, #4898cb 36% 74%, #1a405e 74%);
+  box-shadow: 0 4px #0d202e;
+  clip-path: polygon(0 20%, 16% 0, 100% 0, 100% 72%, 30% 72%, 20% 100%, 0 100%);
+}
+.item-arc-carbine::after {
+  top: 24px;
+  right: 4px;
+  width: 22px;
+  height: 6px;
+  background: #a4e8ff;
+  box-shadow: 7px 0 #3d7189, 0 5px #173240;
+}
+.item-arc-carbine > i:nth-child(1) { top: 24px; left: 5px; width: 14px; height: 16px; border: 4px solid #38647a; border-right: 0; background: transparent; transform: skewY(-15deg); }
+.item-arc-carbine > i:nth-child(2) { top: 36px; left: 31px; width: 9px; height: 17px; background: #2c566b; box-shadow: 3px 2px #102832; transform: skewX(-10deg); }
+.item-arc-carbine > i:nth-child(3) { top: 16px; left: 29px; width: 12px; height: 6px; border: 2px solid var(--gear-energy); background: #06161c; box-shadow: 0 0 6px rgb(104 239 255 / .55); }
+
+/* Null Lance: a long field weapon whose violet edge is held away from its grip. */
+.armory-frame-sprite.item-null-lance { --gear-primary: #c491ff; --gear-secondary: #553276; --gear-energy: #f0d3ff; }
+.item-null-lance::before {
+  top: 29px;
+  left: 7px;
+  width: 47px;
+  height: 5px;
+  background: linear-gradient(90deg, #29303a 0 22%, #ba8bdd 22% 80%, #f2ddff 80%);
+  box-shadow: 0 3px #261833;
+  transform: rotate(-31deg);
+}
+.item-null-lance::after {
+  top: 5px;
+  right: 4px;
+  width: 23px;
+  height: 13px;
+  background: linear-gradient(90deg, #8750b7, #f3e1ff);
+  filter: drop-shadow(0 0 4px #b77aff);
+  clip-path: polygon(0 34%, 68% 34%, 100% 0, 84% 50%, 100% 100%, 68% 66%, 0 66%);
+  transform: rotate(-31deg);
+}
+.item-null-lance > i:nth-child(1) { top: 35px; left: 14px; width: 14px; height: 9px; border: 2px solid #9b65c8; background: #0e0717; transform: rotate(-31deg); }
+.item-null-lance > i:nth-child(2) { top: 43px; left: 3px; width: 8px; height: 10px; background: #46515e; transform: rotate(-31deg); }
+.item-null-lance > i:nth-child(3) { top: 15px; right: 19px; width: 4px; height: 4px; background: #fff; box-shadow: 0 0 8px #d295ff; }
+
+/* Composite Weave: flexible field vest with visible woven panels. */
+.armory-frame-sprite.item-composite-weave { --gear-primary: #77d9bf; --gear-secondary: #285c53; --gear-energy: #9ff3dc; }
+.item-composite-weave::before {
+  top: 10px;
+  left: 16px;
+  width: 34px;
+  height: 45px;
+  border: 4px solid #76cdb8;
+  background:
+    repeating-linear-gradient(45deg, rgb(154 243 220 / .25) 0 3px, transparent 3px 6px),
+    #173d39;
+  clip-path: polygon(18% 0, 40% 8%, 60% 8%, 82% 0, 100% 22%, 88% 100%, 12% 100%, 0 22%);
+}
+.item-composite-weave::after { top: 21px; left: 25px; width: 16px; height: 25px; border: 2px solid #a1ead8; background: repeating-linear-gradient(0deg, #24564f 0 4px, #173a36 4px 7px); }
+.item-composite-weave > i:nth-child(1) { top: 9px; left: 25px; width: 16px; height: 9px; border: 3px solid #173c38; border-top: 0; background: #02080b; }
+.item-composite-weave > i:nth-child(2) { top: 28px; left: 12px; width: 7px; height: 18px; background: #3c7e70; box-shadow: 35px 0 #3c7e70; }
+.item-composite-weave > i:nth-child(3) { top: 34px; left: 30px; width: 6px; height: 6px; background: var(--gear-energy); box-shadow: 0 0 5px rgb(159 243 220 / .5); }
+
+/* Reactive Shell: overlapping impact plates around a hot response core. */
+.armory-frame-sprite.item-reactive-shell { --gear-primary: #f09b62; --gear-secondary: #713b31; --gear-energy: #ff6e65; }
+.item-reactive-shell::before {
+  top: 8px;
+  left: 13px;
+  width: 40px;
+  height: 49px;
+  border: 4px solid #d87958;
+  background:
+    linear-gradient(90deg, transparent 46%, #f0a16d 46% 54%, transparent 54%),
+    repeating-linear-gradient(0deg, #622f2b 0 8px, #321d21 8px 11px);
+  clip-path: polygon(12% 0, 40% 7%, 60% 7%, 88% 0, 100% 24%, 88% 84%, 50% 100%, 12% 84%, 0 24%);
+}
+.item-reactive-shell::after { top: 19px; left: 22px; width: 22px; height: 26px; border: 3px solid #ed9164; background: #451f24; box-shadow: inset 0 7px #6e302c, inset 0 -7px #2b171d; clip-path: polygon(50% 0, 100% 20%, 85% 100%, 15% 100%, 0 20%); }
+.item-reactive-shell > i:nth-child(1) { top: 12px; left: 8px; width: 11px; height: 16px; background: #784034; box-shadow: 39px 0 #784034; }
+.item-reactive-shell > i:nth-child(2) { bottom: 7px; left: 19px; width: 9px; height: 12px; background: #6c342e; box-shadow: 18px 0 #6c342e; }
+.item-reactive-shell > i:nth-child(3) { top: 28px; left: 29px; width: 8px; height: 8px; background: #ffbf7c; box-shadow: 0 0 7px var(--gear-energy); }
+
+/* Aegis Frame: powered exoskeleton with articulated shoulders and leg braces. */
+.armory-frame-sprite.item-aegis-frame { --gear-primary: #f0d477; --gear-secondary: #66562b; --gear-energy: #fff3a6; }
+.item-aegis-frame::before {
+  top: 8px;
+  left: 21px;
+  width: 24px;
+  height: 41px;
+  border: 4px solid #e4c965;
+  background: linear-gradient(90deg, #3b361e 0 32%, #766632 32% 68%, #3b361e 68%);
+  clip-path: polygon(22% 0, 78% 0, 100% 22%, 85% 76%, 50% 100%, 15% 76%, 0 22%);
+}
+.item-aegis-frame::after { top: 16px; left: 4px; width: 54px; height: 28px; border: 5px solid #746333; border-top-color: #f2dc82; border-bottom: 0; background: transparent; clip-path: polygon(0 0, 28% 0, 35% 28%, 65% 28%, 72% 0, 100% 0, 88% 100%, 70% 100%, 61% 52%, 39% 52%, 30% 100%, 12% 100%); }
+.item-aegis-frame > i:nth-child(1) { top: 8px; left: 27px; width: 12px; height: 10px; border: 3px solid #f5dd7a; background: #17170e; }
+.item-aegis-frame > i:nth-child(2) { bottom: 4px; left: 16px; width: 8px; height: 21px; border: 3px solid #a8954d; border-top: 0; background: #17170e; box-shadow: 26px 0 0 -3px #17170e, 26px 0 0 0 #a8954d; }
+.item-aegis-frame > i:nth-child(3) { top: 27px; left: 29px; width: 8px; height: 8px; border: 2px solid #fff7bf; background: #c99f35; box-shadow: 0 0 8px var(--gear-energy); }
 
 .armory-selected-pattern { display: grid; align-content: start; gap: 10px; padding: 22px; background: #061016; }
 .armory-selected-pattern > span, .armory-development-bench span { color: var(--world-accent, #55d6e8); font-family: var(--font-mono, monospace); font-size: 12px; letter-spacing: .1em; }

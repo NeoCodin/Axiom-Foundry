@@ -81,16 +81,8 @@ textarea {
 }
 
 .living-foundry-nav::before {
-  display: grid;
-  min-width: 188px;
-  align-items: center;
-  padding-right: 24px;
-  color: #eef9fb;
-  content: "AXIOM  /  FOUNDRY";
-  font-family: var(--font-display);
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  display: none;
+  content: none;
 }
 
 .living-foundry-nav button {
@@ -1045,9 +1037,8 @@ textarea {
 
 @media (max-width: 1199px) {
   .living-foundry-nav::before {
-    min-width: 132px;
-    content: "AXIOM / FOUNDRY";
-    font-size: 17px;
+    display: none;
+    content: none;
   }
 
   .living-foundry-nav button {
@@ -1104,10 +1095,8 @@ textarea {
   .living-foundry-nav::-webkit-scrollbar { display: none; }
 
   .living-foundry-nav::before {
-    min-width: 54px;
-    padding-right: 7px;
-    content: "AF";
-    font-size: 18px;
+    display: none;
+    content: none;
   }
 
   .living-foundry-nav button {

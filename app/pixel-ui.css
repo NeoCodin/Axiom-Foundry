@@ -544,6 +544,17 @@ img.pixelated,
 }
 
 .nav-destination-copy { min-width: 0; }
+
+/* Primary destinations own the complete navigation rail. */
+.living-foundry-nav.primary-destinations::before {
+  display: none !important;
+  content: none !important;
+}
+.living-foundry-nav.primary-destinations > button {
+  min-width: 0;
+  flex: 1 1 0;
+}
+.personnel-navigation .facility-navigation-label { display: none; }
 .nav-destination-copy strong {
   display: block;
   color: #e2efe9;

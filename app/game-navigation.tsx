@@ -94,7 +94,6 @@ export function GameNavigation({ currentView, unlocks, guidedView = null, onNavi
 
       {activeGroup === "personnel" && (unlocks.medical || unlocks.armory) && (
         <nav className="facility-navigation personnel-navigation" aria-label="Personnel facilities">
-          <div className="facility-navigation-label"><span>Personnel</span><small>Crew, care, and field equipment</small></div>
           <button className={currentView === "population" ? "active" : ""} type="button" aria-current={currentView === "population" ? "page" : undefined} data-pixel-tooltip="Review every survivor, profession level, rarity, assignment, training plan, and Continuity contribution." onClick={() => onNavigate("population")}>Crew Roster</button>
           {unlocks.medical && <button className={currentView === "medical" ? "active" : ""} type="button" aria-current={currentView === "medical" ? "page" : undefined} data-pixel-tooltip="Treat injured crew, staff doctors, improve medical throughput, and prepare advanced procedures." onClick={() => onNavigate("medical")}>Medical Bay</button>}
           {unlocks.armory && <button className={currentView === "armory" ? "active" : ""} type="button" aria-current={currentView === "armory" ? "page" : undefined} data-pixel-tooltip="Craft, repair, upgrade, specialize, and assign the Ark's limited weapon and armor frames." onClick={() => onNavigate("armory")}>Armory</button>}

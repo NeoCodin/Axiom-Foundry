@@ -1834,6 +1834,79 @@ input[type="checkbox"]:disabled {
   opacity: 0.45;
 }
 
+/*
+ * True on/off controls use a small mechanical lever. Ordinary selection
+ * checkboxes keep the square indicator above, so choosing crew, tiers, or
+ * founders never masquerades as a persistent system switch.
+ */
+input[type="checkbox"][role="switch"] {
+  position: relative;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 38px;
+  border-color: #40545f;
+  background:
+    linear-gradient(90deg, transparent 0 8px, #14232b 8px 22px, transparent 22px),
+    #03080c;
+  box-shadow:
+    inset 2px 2px 0 #0d1a21,
+    inset -2px -2px 0 #000,
+    2px 2px 0 #010202;
+}
+
+input[type="checkbox"][role="switch"]::before {
+  position: absolute;
+  bottom: 5px;
+  left: 10px;
+  display: block;
+  width: 8px;
+  height: 16px;
+  margin: 0;
+  border: 1px solid #738790;
+  background: #53646c;
+  box-shadow:
+    inset 2px 0 0 #91a0a5,
+    2px 2px 0 #000;
+  content: "";
+  opacity: 1;
+  transform: none;
+  transition:
+    bottom 110ms steps(2, end),
+    background-color 110ms steps(2, end);
+}
+
+input[type="checkbox"][role="switch"]::after {
+  position: absolute;
+  top: 5px;
+  left: 11px;
+  width: 6px;
+  height: 5px;
+  background: #27343a;
+  box-shadow: 0 0 0 1px #05090b;
+  content: "";
+}
+
+input[type="checkbox"][role="switch"]:checked {
+  border-color: var(--flux);
+  background:
+    linear-gradient(90deg, transparent 0 8px, #0d3339 8px 22px, transparent 22px),
+    #041014;
+}
+
+input[type="checkbox"][role="switch"]:checked::before {
+  bottom: 16px;
+  background: var(--flux);
+  box-shadow:
+    inset 2px 0 0 #dfffff,
+    0 0 8px rgb(89 219 232 / 0.8),
+    2px 2px 0 #000;
+}
+
+input[type="checkbox"][role="switch"]:checked::after {
+  background: #88fff1;
+  box-shadow: 0 0 8px rgb(89 219 232 / 0.9);
+}
+
 .tier-toggles {
   display: grid;
   grid-template-columns: repeat(6, 1fr);

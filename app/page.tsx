@@ -3756,7 +3756,7 @@ export default function Home() {
                 <p className="section-kicker">Cycle control</p>
                 <h2>AXIOM Autonomy</h2>
               </div>
-              <span className={`status-chip ${game.settings.autoEnabled ? "online" : ""}`}>{game.settings.autoEnabled ? "ACTIVE" : "IDLE"}</span>
+              <span className={`status-chip ${game.settings.autoEnabled ? "online" : ""}`}>{game.settings.autoEnabled ? "ACTIVE" : "OFF"}</span>
             </div>
             {game.lifetimeAxioms < 1 ? (
               <div className="locked-copy">
@@ -3768,7 +3768,7 @@ export default function Home() {
                 <div className="autonomy-status-grid" aria-label="Autonomy status">
                   <article>
                     <span>Fabrication order</span>
-                    <strong>{game.settings.autoEnabled ? "AUTONOMY ONLINE" : "MANUAL CONTROL"}</strong>
+                    <strong>{game.settings.autoEnabled ? "AUTONOMY ONLINE" : "AUTONOMY OFF"}</strong>
                     <small>{game.settings.autoEnabled ? "One purchase pass each second" : "No Flux will be spent automatically"}</small>
                   </article>
                   <article>
@@ -3788,7 +3788,13 @@ export default function Home() {
                 </div>
                 <label className="toggle-row">
                   <span><strong>Autonomous fabrication</strong><small>Off by default. When enabled, AXIOM buys one affordable unit from each selected tier every second.</small></span>
-                  <input type="checkbox" checked={game.settings.autoEnabled} onChange={(event) => setGame((current) => setAutoEnabled(current, event.target.checked))} />
+                  <input
+                    type="checkbox"
+                    role="switch"
+                    aria-label="Autonomous fabrication"
+                    checked={game.settings.autoEnabled}
+                    onChange={(event) => setGame((current) => setAutoEnabled(current, event.target.checked))}
+                  />
                 </label>
                 <div className="autonomy-tier-grid" aria-label="Automatic machine tiers">
                   {autonomyTiers.map((tier) => (
@@ -3810,8 +3816,15 @@ export default function Home() {
                     <small>The blueprint survives Recalibration. Routing rebuilds only those saved Marks when their Flux costs become affordable.</small>
                   </div>
                   <label className={`${game.lifetimeAxioms < 3 ? "disabled" : ""}`}>
-                    <span>{game.settings.autoUpgrades ? "ROUTING ONLINE" : "ROUTING IDLE"}</span>
-                    <input type="checkbox" disabled={game.lifetimeAxioms < 3} checked={game.settings.autoUpgrades} onChange={(event) => setGame((current) => setAutoUpgrades(current, event.target.checked))} />
+                    <span>{game.settings.autoUpgrades ? "ROUTING ONLINE" : "ROUTING OFF"}</span>
+                    <input
+                      type="checkbox"
+                      role="switch"
+                      aria-label="Protocol routing"
+                      disabled={game.lifetimeAxioms < 3}
+                      checked={game.settings.autoUpgrades}
+                      onChange={(event) => setGame((current) => setAutoUpgrades(current, event.target.checked))}
+                    />
                   </label>
                   {game.lifetimeAxioms < 3 && <p>Protocol routing unlocks at 3 lifetime Axioms.</p>}
                 </section>

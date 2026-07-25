@@ -152,6 +152,8 @@ const SUPPORT_LABELS: Record<LifeSupportKey, string> = {
   medical: "Medical care",
 };
 
+type CrewRosterFilter = "all" | "reserve" | "assigned" | "training" | "care";
+
 function formatTime(seconds: number) {
   const safe = Math.max(0, Math.ceil(seconds));
   const hours = Math.floor(safe / 3600);
@@ -209,6 +211,8 @@ function PopulationConsole({
   const [teamPickerSlot, setTeamPickerSlot] = useState<"leader" | number | null>(
     null,
   );
+  const [rosterFilter, setRosterFilter] = useState<CrewRosterFilter>("all");
+  const [rosterQuery, setRosterQuery] = useState("");
   const [consoleView, setConsoleView] = useState<"systems" | "roster" | "command">(
     state.survivors.length > 0 ? "roster" : "systems",
   );
@@ -242,6 +246,66 @@ function PopulationConsole({
       ? selectedCrew.assignedRole
       : null;
   const activeSignal = state.activeSignal;
+  const rosterData = useMemo(() => {
+    const trainingIds = new Set(state.training.map((program) => program.survivorId));
+    const activeClinicId = bioadaptationState.active?.survivorId ?? null;
+    const statusFor = (
+      survivor: SurvivorSystemState["survivors"][number],
+    ): Exclude<CrewRosterFilter, "all"> => {
+      if (
+        isSurvivorWounded(survivor) ||
+        survivor.injury ||
+        survivor.id === activeClinicId
+      ) return "care";
+      if (trainingIds.has(survivor.id)) return "training";
+      if (survivor.assignedRole) return "assigned";
+      return "reserve";
+    };
+    const counts = {
+      all: state.survivors.length,
+      reserve: 0,
+      assigned: 0,
+      training: 0,
+      care: 0,
+    };
+    state.survivors.forEach((survivor) => {
+      counts[statusFor(survivor)] += 1;
+    });
+    const query = rosterQuery.trim().toLowerCase();
+    const rows = state.survivors
+      .filter(
+        (survivor) =>
+          rosterFilter === "all" || statusFor(survivor) === rosterFilter,
+      )
+      .filter((survivor) => {
+        if (!query) return true;
+        return [
+          survivor.name,
+          survivor.callsign,
+          survivor.role,
+          survivor.assignedRole,
+          getSurvivorRarity(survivor).label,
+        ].some((value) => String(value ?? "").toLowerCase().includes(query));
+      })
+      .sort((left, right) => {
+        const statusOrder: Record<Exclude<CrewRosterFilter, "all">, number> = {
+          care: 0,
+          training: 1,
+          assigned: 2,
+          reserve: 3,
+        };
+        const statusDifference =
+          statusOrder[statusFor(left)] - statusOrder[statusFor(right)];
+        return statusDifference || left.name.localeCompare(right.name);
+      });
+    return { counts, rows, statusFor };
+  }, [
+    bioadaptationState.active?.survivorId,
+    rosterFilter,
+    rosterQuery,
+    state.survivors,
+    state.training,
+  ]);
   const activeSignalReadiness = getRescueReadiness(
     state,
     salvage,
@@ -413,7 +477,14 @@ function PopulationConsole({
                 <strong>Survivor Duty</strong>
                 <small>{rescueDetail.active ? "Rescue detail ready: a level-5 Navigator and level-3 Soldier are assigned. Rescues dispatch automatically when every requirement is met." : "Assign a level-5 Navigator and a level-3 Soldier to dispatch rescues automatically."}</small>
               </span>
-              <input type="checkbox" disabled={!rescueDetail.active} checked={rescueDetail.enabled && rescueDetail.active} onChange={(event) => onToggleAutoRescue(event.target.checked)} />
+              <input
+                type="checkbox"
+                role="switch"
+                aria-label="Automatic rescue dispatch"
+                disabled={!rescueDetail.active}
+                checked={rescueDetail.enabled && rescueDetail.active}
+                onChange={(event) => onToggleAutoRescue(event.target.checked)}
+              />
             </label>
           )}
         </section>
@@ -427,7 +498,13 @@ function PopulationConsole({
               <strong>Automatic staffing</strong>
               <small>AXIOM refills routine work after study, recovery, expeditions, and rescues. Manual assignments stay locked.</small>
             </span>
-            <input type="checkbox" checked={state.autoAssignmentEnabled} onChange={(event) => onToggleAutoAssignment(event.target.checked)} />
+            <input
+              type="checkbox"
+              role="switch"
+              aria-label="Automatic crew placement"
+              checked={state.autoAssignmentEnabled}
+              onChange={(event) => onToggleAutoAssignment(event.target.checked)}
+            />
           </label>
           <button className="forecast-action" type="button" onClick={onOptimizeAssignments}>Optimize all crew</button>
           <p>Adults default to their highest-level profession. Elders are automatically placed only in medicine, research, navigation, or education. Children attend school and are never assigned to work or missions.</p>
@@ -600,41 +677,80 @@ function PopulationConsole({
       {consoleView === "roster" && (
       <div className="crew-management-grid">
         <section className="continuity-panel crew-roster-panel" data-guide-target="personnel-roster">
-          {(() => {
-            const trainingIds = new Set(state.training.map((program) => program.survivorId));
-            const reserveCount = state.survivors.filter(
-              (survivor) => !survivor.assignedRole && !trainingIds.has(survivor.id) && survivor.id !== bioadaptationState.active?.survivorId,
-            ).length;
-            return (
-              <header><div><span>CREW ROSTER</span><h3>{state.survivors.length > 0 ? `${state.survivors.length} people aboard` : "The Ark is empty"}</h3></div><small>{reserveCount > 0 ? `${reserveCount} in Ark Reserve` : "Everyone has a station"}</small></header>
-            );
-          })()}
+          <header><div><span>CREW ROSTER</span><h3>{state.survivors.length > 0 ? `${state.survivors.length} people aboard` : "The Ark is empty"}</h3></div><small>{rosterData.counts.reserve > 0 ? `${rosterData.counts.reserve} in Ark Reserve` : "Everyone has a station"}</small></header>
           {state.survivors.length === 0 ? (
             <div className="continuity-empty-state"><strong>No humans aboard.</strong><p>Restore life support, reach Pelagos, and activate the SOS beacon.</p></div>
           ) : (
-            <div className="crew-roster-list">
-              {state.survivors.map((survivor) => {
+            <>
+              <div className="crew-roster-tools">
+                <label>
+                  <span>Find crew</span>
+                  <input
+                    type="search"
+                    value={rosterQuery}
+                    placeholder="Name, callsign, profession"
+                    onChange={(event) => setRosterQuery(event.target.value)}
+                  />
+                </label>
+                <nav aria-label="Filter crew roster">
+                  {([
+                    ["all", "All"],
+                    ["reserve", "Reserve"],
+                    ["assigned", "On duty"],
+                    ["training", "Studying"],
+                    ["care", "Care"],
+                  ] as const).map(([filter, label]) => (
+                    <button
+                      type="button"
+                      className={rosterFilter === filter ? "is-active" : ""}
+                      aria-pressed={rosterFilter === filter}
+                      onClick={() => setRosterFilter(filter)}
+                      key={filter}
+                    >
+                      <span>{label}</span>
+                      <strong>{rosterData.counts[filter]}</strong>
+                    </button>
+                  ))}
+                </nav>
+              </div>
+              <div className="crew-roster-list">
+              {rosterData.rows.map((survivor) => {
                 const training = state.training.find((program) => program.survivorId === survivor.id);
                 const rarity = getSurvivorRarity(survivor);
                 const wounded = isSurvivorWounded(survivor);
                 const adapting = bioadaptationState.active?.survivorId === survivor.id;
-                const reserve = !training && !survivor.assignedRole && !wounded && !adapting;
+                const dutyStatus = rosterData.statusFor(survivor);
+                const reserve = dutyStatus === "reserve";
+                const dutyLabel = wounded
+                  ? "Recovering"
+                  : survivor.injury
+                    ? "Injured"
+                    : adapting
+                      ? "Clinic"
+                      : training
+                        ? "Studying"
+                        : survivor.assignedRole
+                          ? titleCase(survivor.assignedRole)
+                          : "Reserve";
                 return (
                   <button className={`crew-rarity-${rarity.id} ${selectedCrew?.id === survivor.id ? "is-selected" : ""} ${reserve ? "is-idle" : ""}`} type="button" key={survivor.id} onClick={() => setSelectedCrewId(survivor.id)}>
                     <CrewToken id={survivor.id} name={survivor.name} role={survivor.assignedRole ?? survivor.role} rarity={rarity.id} status={wounded ? "wounded" : training ? "training" : "ready"} />
                     <span><strong>{survivor.callsign ? `“${survivor.callsign}” ${survivor.name}` : survivor.name}</strong><small>{titleCase(survivor.ageGroup)} · {adapting ? "Bioadaptation procedure" : training ? `Studying ${titleCase(training.targetRole)} · ${Math.round((training.progressSeconds / training.durationSeconds) * 100)}%` : survivor.role === "civilian" ? titleCase(survivor.assignedRole ?? "Ark Reserve") : `${titleCase(survivor.role)} · Level ${getSurvivorSkillLevel(survivor, survivor.role)} · ${titleCase(survivor.assignedRole ?? "Ark Reserve")}`}</small>{(wounded || survivor.injury || survivor.health < MAX_SURVIVOR_HEALTH) && <HealthBar survivor={survivor} />}</span>
                     <span className="crew-roster-status">
                       <em className="crew-rarity-badge" title={rarity.description}>{rarity.label}</em>
-                      {wounded && <em className="crew-wounded-badge" title={`Health below ${WOUNDED_HEALTH_THRESHOLD}. Recovering aboard the Ark - no work, training, expeditions, or founding until healed.`}>RECOVERING</em>}
-                      {survivor.injury && !wounded && <em className="crew-injured-badge" title={`Permanent ${survivor.injury} injury caps health at ${getSurvivorHealthCap(survivor)}. Founding requires ${FOUNDER_HEALTH_THRESHOLD}+.`}>INJURED</em>}
-                      {survivor.settlementProtected && <em className="crew-idle-badge" title="Protected for the Ark. This person cannot be selected for planetary departure.">ARK PROTECTED</em>}
-                      {adapting && <em className="crew-adapting-badge" title="Voluntary clinical procedure in progress. This person is temporarily off duty.">CLINIC</em>}
-                      {reserve && <em className="crew-idle-badge" title="Ark Reserve automatically covers absences and performs light maintenance.">RESERVE</em>}
+                      <em className={`crew-duty-badge is-${dutyStatus}`}>{dutyLabel}</em>
                     </span>
                   </button>
                 );
               })}
-            </div>
+              {rosterData.rows.length === 0 && (
+                <div className="crew-roster-empty">
+                  <strong>No matching crew.</strong>
+                  <small>Change the filter or clear the search.</small>
+                </div>
+              )}
+              </div>
+            </>
           )}
         </section>
 

@@ -140,8 +140,74 @@
 
 .crew-roster-panel,
 .crew-detail-panel { min-height: 600px; }
+.population-console.is-view-roster .crew-management-grid {
+  grid-template-columns: minmax(390px, 0.8fr) minmax(0, 1.45fr);
+  align-items: start;
+  gap: 12px;
+}
+.crew-roster-tools {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 9px;
+  padding: 8px;
+  border: 1px solid #203745;
+  background: #050c11;
+  box-shadow: inset 3px 0 0 rgb(var(--world-accent-rgb, 85 214 232) / 0.35);
+}
+.crew-roster-tools > label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  color: #8297a5;
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.crew-roster-tools input {
+  width: 100%;
+  min-width: 0;
+}
+.crew-roster-tools nav {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+}
+.crew-roster-tools nav button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-width: 0;
+  min-height: 36px;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 8px;
+  color: #8195a2;
+  border: 1px solid #29414e;
+  background: #071118;
+  text-align: left;
+}
+.crew-roster-tools nav button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.crew-roster-tools nav button strong {
+  color: #bacbd3;
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+}
+.crew-roster-tools nav button:hover,
+.crew-roster-tools nav button:focus-visible,
+.crew-roster-tools nav button.is-active {
+  color: #efffff;
+  border-color: var(--world-accent, #55d6e8);
+  background: rgb(var(--world-accent-rgb, 85 214 232) / 0.1);
+  box-shadow: inset 0 -3px 0 var(--world-accent, #55d6e8);
+}
+.crew-roster-tools nav button.is-active strong { color: var(--world-accent, #55d6e8); }
 .crew-roster-list { display: grid; gap: 6px; max-height: 720px; overflow: auto; padding-right: 3px; }
-.crew-roster-list > button { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 9px; width: 100%; padding: 8px; color: inherit; text-align: left; border: 1px solid #192a37; border-left: 3px solid var(--crew-rarity, #a7b6c2); background: linear-gradient(90deg, rgb(var(--crew-rarity-rgb, 167 182 194) / 0.055), transparent 32%), #071019; cursor: pointer; }
+.crew-roster-list > button { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; min-height: 58px; align-items: center; gap: 9px; width: 100%; padding: 8px 10px; color: inherit; text-align: left; border: 1px solid #192a37; border-left: 3px solid var(--crew-rarity, #a7b6c2); background: linear-gradient(90deg, rgb(var(--crew-rarity-rgb, 167 182 194) / 0.055), transparent 32%), #071019; cursor: pointer; }
 .crew-roster-list > button.is-selected { border-color: rgb(var(--crew-rarity-rgb, 167 182 194) / 0.66); background: rgb(var(--crew-rarity-rgb, 167 182 194) / 0.1); box-shadow: inset 3px 0 0 var(--crew-rarity, #a7b6c2); }
 .crew-roster-list > button > span:nth-child(2) { min-width: 0; }
 .crew-roster-list strong,
@@ -149,7 +215,38 @@
 .crew-roster-list strong { color: #dce8ef; font-size: 12px; }
 .crew-roster-list small { margin-top: 3px; color: #6c8294; font-size: 12px; }
 .crew-roster-list em { font-style: normal; }
-.crew-roster-status { display: flex; flex-direction: column; gap: 3px; align-items: flex-end; }
+.crew-roster-status { display: flex; flex-flow: row wrap; gap: 4px; align-items: center; justify-content: flex-end; }
+.crew-duty-badge {
+  display: inline-flex;
+  min-height: 18px;
+  align-items: center;
+  padding: 2px 6px;
+  color: #9fb2bd;
+  border: 1px solid #344a56;
+  background: #08141a;
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.crew-duty-badge.is-assigned { color: #70e6db; border-color: rgb(112 230 219 / 0.5); background: rgb(112 230 219 / 0.07); }
+.crew-duty-badge.is-training { color: #bf9dff; border-color: rgb(191 157 255 / 0.52); background: rgb(191 157 255 / 0.08); }
+.crew-duty-badge.is-care { color: #ff7f8a; border-color: rgb(255 127 138 / 0.54); background: rgb(255 127 138 / 0.08); }
+.crew-duty-badge.is-reserve { color: #f2c063; border-color: rgb(242 192 99 / 0.5); background: rgb(242 192 99 / 0.08); }
+.crew-roster-empty {
+  display: grid;
+  min-height: 120px;
+  place-content: center;
+  gap: 5px;
+  color: #8297a5;
+  border: 1px dashed #29414e;
+  background: #050c11;
+  text-align: center;
+}
+.crew-roster-empty strong { color: #dce8ef; }
+.crew-roster-empty small { color: #718696; }
 .crew-idle-badge { display: inline-flex; align-items: center; min-height: 15px; padding: 2px 6px; color: #f2c063; border: 1px solid rgb(242 192 99 / 0.5); border-radius: 999px; background: rgb(242 192 99 / 0.1); font-family: var(--font-mono, monospace); font-size: 12px; font-style: normal; font-weight: 800; letter-spacing: 0.08em; line-height: 1; text-transform: uppercase; white-space: nowrap; }
 .crew-roster-list > button.is-idle { border-right: 2px solid rgb(242 192 99 / 0.55); }
 .crew-idle-alert { color: #f2c063; }
@@ -490,6 +587,8 @@ label.expedition-manifest-row { grid-template-columns: auto auto minmax(0, 1fr) 
   .continuity-two-column,
   .crew-management-grid,
   .settlement-layout { grid-template-columns: 1fr; }
+  .population-console.is-view-roster .crew-management-grid { grid-template-columns: 1fr; }
+  .crew-roster-tools nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .crew-detail-panel,
   .crew-roster-panel { min-height: auto; }
   .crew-skill-grid { grid-template-columns: repeat(2, 1fr); }
@@ -505,6 +604,7 @@ label.expedition-manifest-row { grid-template-columns: auto auto minmax(0, 1fr) 
 
 @media (max-width: 560px) {
   .expedition-operation-board { grid-template-columns: 1fr; }
+  .crew-roster-tools > label { grid-template-columns: 1fr; }
   .armory-law-grid, .armory-modification-list { grid-template-columns: 1fr; }
   .crisis-action-heading { grid-template-columns: 1fr; }
   .crisis-action-heading > button { width: 100%; }

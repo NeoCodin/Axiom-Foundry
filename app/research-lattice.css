@@ -89,14 +89,8 @@
 }
 
 .research-lattice-header::before {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: clamp(7px, 1.4vw, 22px);
-  width: 4px;
-  content: "";
-  background: repeating-linear-gradient(to bottom, var(--research-cyan) 0 12px, transparent 12px 19px);
-  opacity: 0.45;
+  display: none;
+  content: none;
 }
 
 .research-lattice-header h1 {

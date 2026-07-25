@@ -131,7 +131,7 @@ export default function ArmoryConsole({
                 const quote = quotes[item.id];
                 return (
                   <button type="button" className={`${selectedItem.id === item.id ? "is-selected" : ""} ${quote.researchMet ? "is-online" : "is-locked"}`} aria-pressed={selectedItem.id === item.id} onClick={() => chooseItem(item.id)} key={item.id}>
-                    <span className={`armory-frame-sprite is-${item.kind}`} aria-hidden="true"><i /><i /><i /></span>
+                    <span className={`armory-frame-sprite is-${item.kind} item-${item.id}`} aria-hidden="true"><i /><i /><i /></span>
                     <span><b>MARK {ROMAN[quote.mark]}</b><strong>{item.name}</strong><small>{frameStatus(item, quote)}</small></span>
                   </button>
                 );
@@ -143,7 +143,7 @@ export default function ArmoryConsole({
                 const quote = quotes[item.id];
                 return (
                   <button type="button" className={`${selectedItem.id === item.id ? "is-selected" : ""} ${quote.researchMet ? "is-online" : "is-locked"}`} aria-pressed={selectedItem.id === item.id} onClick={() => chooseItem(item.id)} key={item.id}>
-                    <span className={`armory-frame-sprite is-${item.kind}`} aria-hidden="true"><i /><i /><i /></span>
+                    <span className={`armory-frame-sprite is-${item.kind} item-${item.id}`} aria-hidden="true"><i /><i /><i /></span>
                     <span><b>MARK {ROMAN[quote.mark]}</b><strong>{item.name}</strong><small>{frameStatus(item, quote)}</small></span>
                   </button>
                 );
@@ -156,7 +156,7 @@ export default function ArmoryConsole({
             <h3>{selectedItem.name}</h3>
             <p>{selectedItem.description}</p>
             <div className="armory-selected-visual" aria-hidden="true">
-              <span className={`armory-frame-sprite is-${selectedItem.kind}`}><i /><i /><i /></span>
+              <span className={`armory-frame-sprite is-${selectedItem.kind} item-${selectedItem.id}`}><i /><i /><i /></span>
               <i className="scan-a" /><i className="scan-b" />
             </div>
             <dl>
