@@ -380,6 +380,19 @@ export function addQaFlux(state: GameState, requestedAmount: number): GameState 
   });
 }
 
+export function setQaAxioms(state: GameState, requestedAmount: number): GameState {
+  const amount = Math.min(
+    1_000_000_000,
+    Math.max(0, Math.floor(Number.isFinite(requestedAmount) ? requestedAmount : 0)),
+  );
+  return sanitizeGameState({
+    ...state,
+    axioms: amount,
+    lifetimeAxioms: amount,
+    cycle: Math.max(1, amount + 1),
+  });
+}
+
 export function completeQaResearch(state: GameState): GameState {
   const repeatCounts = Object.fromEntries(
     RESEARCH_PROJECT_DEFINITIONS.filter((project) => project.repeatable).map((project) => [

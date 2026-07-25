@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 export type LawPressState =
   | "dormant"
@@ -22,6 +22,43 @@ export type LawHeartDroneFrame = {
   compromised?: boolean;
 };
 
+export type LawHeartQaEventKind =
+  | "pulse"
+  | "purchase"
+  | "expenditure"
+  | "recalibration";
+
+export type LawHeartQaOverride = {
+  enabled: boolean;
+  state: LawPressState | "live";
+  spectrumAxioms: number;
+  shardAxioms: number;
+  speedMultiplier: number;
+  particleMultiplier: number;
+  intensityMultiplier: number;
+  coreScale: number;
+  tierCounts: readonly number[];
+  droneCount: number;
+  event: {
+    kind: LawHeartQaEventKind;
+    serial: number;
+  } | null;
+};
+
+export const DEFAULT_LAW_HEART_QA_OVERRIDE: LawHeartQaOverride = {
+  enabled: false,
+  state: "live",
+  spectrumAxioms: 0,
+  shardAxioms: 0,
+  speedMultiplier: 1,
+  particleMultiplier: 1,
+  intensityMultiplier: 1,
+  coreScale: 1,
+  tierCounts: [0, 0, 0, 0, 0, 0],
+  droneCount: 0,
+  event: null,
+};
+
 type LawPressCanvasProps = {
   state: LawPressState;
   flux: number;
@@ -35,6 +72,7 @@ type LawPressCanvasProps = {
   provenLaws: number;
   preparingRecalibration: boolean;
   droneFrames?: readonly LawHeartDroneFrame[];
+  qaOverride?: LawHeartQaOverride;
 };
 
 type PurchaseEvent = {
@@ -253,7 +291,13 @@ function getParticleDemand(props: LawPressCanvasProps) {
     return total + Math.sqrt(count) * countWeight + outputOrder * (tierIndex === 0 ? 2.2 : 1.25);
   }, 0);
   const manualDemand = Math.min(32, safe(props.manualPulses) * 2);
-  return Math.max(manualDemand, Math.round(storedFluxDemand + machineDemand));
+  const multiplier = props.qaOverride?.enabled
+    ? clamp(props.qaOverride.particleMultiplier, 0, 8)
+    : 1;
+  return Math.max(
+    multiplier > 0 ? manualDemand : 0,
+    Math.round((storedFluxDemand + machineDemand) * multiplier),
+  );
 }
 
 function getTierWeights(tiers: readonly LawHeartTier[]) {
@@ -430,6 +474,18 @@ function getVisibleAxiomShardCount(lifetimeAxioms: number) {
   return Math.min(20, 12 + Math.floor(Math.log2(axioms / 12 + 1) * 2.4));
 }
 
+function getVisualAxiomCount(props: LawPressCanvasProps) {
+  return props.qaOverride?.enabled
+    ? safe(props.qaOverride.shardAxioms)
+    : safe(props.lifetimeAxioms);
+}
+
+function getVisualSpectrumAxioms(props: LawPressCanvasProps) {
+  return props.qaOverride?.enabled
+    ? safe(props.qaOverride.spectrumAxioms)
+    : safe(props.lifetimeAxioms);
+}
+
 function drawAxiomShards(
   context: CanvasRenderingContext2D,
   props: LawPressCanvasProps,
@@ -438,13 +494,14 @@ function drawAxiomShards(
   starRadius: number,
   reducedMotion: boolean,
 ) {
-  const visibleCount = getVisibleAxiomShardCount(props.lifetimeAxioms);
+  const visualAxioms = getVisualAxiomCount(props);
+  const visibleCount = getVisibleAxiomShardCount(visualAxioms);
   if (visibleCount <= 0) return;
 
-  const axiomOrder = Math.log2(safe(props.lifetimeAxioms) + 1);
+  const axiomOrder = Math.log2(visualAxioms + 1);
   const productionOrder = Math.log10(safe(props.fluxPerSecond) + 1);
   const orbitSpeed = reducedMotion ? 0 : 0.00014 + Math.min(0.00072, productionOrder * 0.000055);
-  const consolidated = safe(props.lifetimeAxioms) > visibleCount;
+  const consolidated = visualAxioms > visibleCount;
 
   for (let index = 0; index < visibleCount; index += 1) {
     const seedA = hash(index * 17.31 + 4.7);
@@ -488,7 +545,7 @@ function drawSolarCorona(
   reducedMotion: boolean,
 ) {
   const productionOrder = Math.log10(safe(props.fluxPerSecond) + 1);
-  const axiomOrder = Math.log2(safe(props.lifetimeAxioms) + 1);
+  const axiomOrder = Math.log2(getVisualAxiomCount(props) + 1);
   const rayCount = 16 + Math.min(20, Math.floor(productionOrder * 2 + axiomOrder));
   const time = reducedMotion ? 0 : now;
 
@@ -587,17 +644,21 @@ function drawCore(
   recalibrationEvent: RecalibrationEvent | null,
   reducedMotion: boolean,
 ) {
+  const speedMultiplier = props.qaOverride?.enabled
+    ? clamp(props.qaOverride.speedMultiplier, 0, 8)
+    : 1;
+  const animationNow = now * speedMultiplier;
   const productionOrder = Math.log10(safe(props.fluxPerSecond) + 1);
   const machineCount = props.tiers.reduce((total, tier) => total + safe(tier.count), 0);
   const machineOrder = Math.log2(machineCount + 1);
   const active = props.manualPulses > 0 || machineCount > 0;
   const basePulseSpeed = 0.00125 + Math.min(0.0011, productionOrder * 0.00008);
-  const pulse = reducedMotion ? 0 : Math.sin(now * basePulseSpeed);
+  const pulse = reducedMotion ? 0 : Math.sin(animationNow * basePulseSpeed);
   const clickFlare = clickIntensity;
   const recalibrationPhase = recalibrationEvent ? clamp((now - recalibrationEvent.startedAt) / 1350) : 0;
   const spectrumAxioms = recalibrationEvent && recalibrationPhase < 0.55
     ? recalibrationEvent.fromAxioms
-    : props.lifetimeAxioms;
+    : getVisualSpectrumAxioms(props);
   const spectrum = getLawHeartSpectrum(spectrumAxioms);
 
   let transitionScale = 1;
@@ -607,16 +668,27 @@ function drawCore(
       : 0.12 + Math.pow((recalibrationPhase - 0.46) / 0.54, 0.42) * 0.88;
   }
   const idleBreath = active ? pulse * 2.1 : pulse * 1.15;
-  const radius = clamp((31 + idleBreath + clickFlare * 4.5) * transitionScale, 4, 38);
+  const qaScale = props.qaOverride?.enabled
+    ? clamp(props.qaOverride.coreScale, 0.45, 2)
+    : 1;
+  const qaIntensity = props.qaOverride?.enabled
+    ? clamp(props.qaOverride.intensityMultiplier, 0.25, 3)
+    : 1;
+  const radius = clamp(
+    (31 + idleBreath + clickFlare * 4.5) * transitionScale * qaScale,
+    4,
+    70,
+  );
   const intensity = clamp(
-    0.16 + productionOrder * 0.08 + machineOrder * 0.025 + clickFlare * 0.65,
+    (0.16 + productionOrder * 0.08 + machineOrder * 0.025 + clickFlare * 0.65) *
+      qaIntensity,
     0.12,
-    1.4,
+    3,
   );
 
-  drawAxiomShards(context, props, now, spectrum, Math.max(31, radius), reducedMotion);
-  drawSolarCorona(context, props, now, spectrum, radius, intensity, reducedMotion);
-  drawSolarSurface(context, now, spectrum, radius, intensity, reducedMotion);
+  drawAxiomShards(context, props, animationNow, spectrum, Math.max(31, radius), reducedMotion);
+  drawSolarCorona(context, props, animationNow, spectrum, radius, intensity, reducedMotion);
+  drawSolarSurface(context, animationNow, spectrum, radius, intensity, reducedMotion);
 
   if (recalibrationEvent && recalibrationPhase >= 0.43 && recalibrationPhase <= 0.7) {
     const novaPhase = 1 - Math.abs((recalibrationPhase - 0.565) / 0.135);
@@ -798,11 +870,16 @@ function renderLawHeart(
     2.2,
   );
 
+  const speedMultiplier = props.qaOverride?.enabled
+    ? clamp(props.qaOverride.speedMultiplier, 0, 8)
+    : 1;
+  const motionNow = now * speedMultiplier;
+
   context.clearRect(0, 0, SIZE, SIZE);
   context.imageSmoothingEnabled = false;
   drawVoid(context);
-  drawParticleSoup(context, props, now, impulse, reducedMotion);
-  drawUtilityDroneFrames(context, props.droneFrames ?? [], now, reducedMotion);
+  drawParticleSoup(context, props, motionNow, impulse, reducedMotion);
+  drawUtilityDroneFrames(context, props.droneFrames ?? [], motionNow, reducedMotion);
   drawPurchaseBloom(context, purchaseEvent, now);
   drawExpenditure(context, expenditureEvent, now);
   drawRecalibrationCollapse(context, recalibrationEvent, now);
@@ -825,10 +902,36 @@ export function LawPressCanvas(props: LawPressCanvasProps) {
     axioms: safe(props.lifetimeAxioms),
     counts: props.tiers.map((tier) => safe(tier.count)),
   });
+  const previousQaEventSerial = useRef(0);
+
+  const visualProps = useMemo(
+    () => props.qaOverride?.enabled
+      ? {
+          ...props,
+          tiers: props.tiers.map((tier, index) => ({
+            ...tier,
+            count: Math.max(0, props.qaOverride?.tierCounts[index] ?? tier.count),
+          })),
+          droneFrames: Array.from(
+            {
+              length: Math.max(
+                0,
+                Math.min(8, Math.floor(props.qaOverride.droneCount)),
+              ),
+            },
+            (_, index) => ({
+              id: `qa-drone-${index}`,
+              color: TIER_COLORS[index % TIER_COLORS.length],
+            }),
+          ),
+        }
+      : props,
+    [props],
+  );
 
   useEffect(() => {
-    propsRef.current = props;
-  }, [props]);
+    propsRef.current = visualProps;
+  }, [visualProps]);
 
   useEffect(() => {
     if (props.pulseSerial <= 0) return;
@@ -838,6 +941,46 @@ export function LawPressCanvas(props: LawPressCanvasProps) {
       { serial: props.pulseSerial, startedAt: now },
     ].slice(-12);
   }, [props.pulseSerial]);
+
+  useEffect(() => {
+    const qaEvent = props.qaOverride?.enabled ? props.qaOverride.event : null;
+    if (!qaEvent || qaEvent.serial <= previousQaEventSerial.current) return;
+    previousQaEventSerial.current = qaEvent.serial;
+    const now = performance.now();
+    if (qaEvent.kind === "pulse") {
+      pulseEvents.current = [
+        ...pulseEvents.current.filter((event) => now - event.startedAt < 720),
+        { serial: 100_000 + qaEvent.serial, startedAt: now },
+      ].slice(-12);
+      return;
+    }
+    if (qaEvent.kind === "purchase") {
+      const tierIndex = Math.max(
+        0,
+        visualProps.tiers.findIndex((tier) => tier.count > 0),
+      );
+      purchaseEvent.current = {
+        tierIndex,
+        quantity: Math.max(1, visualProps.tiers[tierIndex]?.count ?? 25),
+        startedAt: now,
+      };
+      return;
+    }
+    if (qaEvent.kind === "expenditure") {
+      expenditureEvent.current = { strength: 1, startedAt: now };
+      return;
+    }
+    const targetAxioms = getVisualSpectrumAxioms(visualProps);
+    const spectrumIndex = Math.max(
+      0,
+      LAW_HEART_SPECTRA.findIndex((spectrum) => spectrum.threshold === targetAxioms),
+    );
+    recalibrationEvent.current = {
+      startedAt: now,
+      fromAxioms: LAW_HEART_SPECTRA[Math.max(0, spectrumIndex - 1)]?.threshold ?? 0,
+      toAxioms: targetAxioms,
+    };
+  }, [props.qaOverride?.enabled, props.qaOverride?.event, visualProps]);
 
   useEffect(() => {
     const now = performance.now();

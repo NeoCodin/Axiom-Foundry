@@ -154,6 +154,10 @@ import { WORLD_VISUALS } from "./world-visuals";
 import ArkDeck, { type ArkViewId } from "./ark-deck";
 import { AxiomLawHeart } from "./axiom-law-heart";
 import { FoundryLawHeart } from "./foundry-law-heart";
+import {
+  DEFAULT_LAW_HEART_QA_OVERRIDE,
+  type LawHeartQaOverride,
+} from "./law-heart-particle-field";
 import { getBeaconReadiness } from "./beacon-readiness-engine";
 import {
   GameManualDialog,
@@ -298,6 +302,7 @@ import {
   grantQaResources,
   prepareQaContinuity,
   resetQaResearch,
+  setQaAxioms,
   simulateQaOfflineDay,
   stockQaResearchEvidence,
 } from "./qa-sandbox-engine";
@@ -475,6 +480,8 @@ export default function Home() {
   const [tooltipsEnabled, setTooltipsEnabled] = useState(true);
   const [qaMode, setQaMode] = useState(false);
   const [qaCollapsed, setQaCollapsed] = useState(false);
+  const [qaLawHeartOverride, setQaLawHeartOverride] =
+    useState<LawHeartQaOverride>(DEFAULT_LAW_HEART_QA_OVERRIDE);
   const loadStarted = useRef(false);
   const activeSaveKeyRef = useRef(SAVE_KEY);
   const gameRef = useRef(game);
@@ -2723,6 +2730,29 @@ export default function Home() {
             const next = addQaFlux(gameRef.current, amount);
             applyQaState(next, `${formatNumber(Math.min(amount, 1e280))} custom Flux added to the QA profile.`);
           }}
+          onSetAxioms={(amount) =>
+            applyQaState(
+              setQaAxioms(gameRef.current, amount),
+              `QA profile set to ${formatNumber(amount)} spendable and lifetime Axioms.`,
+            )
+          }
+          lawHeartOverride={qaLawHeartOverride}
+          onLawHeartOverrideChange={setQaLawHeartOverride}
+          onTriggerLawHeartEvent={(kind) =>
+            setQaLawHeartOverride((current) => ({
+              ...current,
+              enabled: true,
+              event: {
+                kind,
+                serial: (current.event?.serial ?? 0) + 1,
+              },
+            }))
+          }
+          onOpenLawHeart={() => {
+            setPrimaryView(engineeringUnlocked ? "engineering" : "deck");
+            setFoundryConsoleTab("chain");
+            setQaCollapsed(true);
+          }}
           onResetResearch={() =>
             applyQaState(
               resetQaResearch(gameRef.current),
@@ -2848,6 +2878,7 @@ export default function Home() {
               divertLabel: formatNumber(Math.min(game.flux, Math.max(0, activeStage.target - game.missions.contributedFlux))),
               canContribute: game.flux > 0 && game.missions.contributedFlux < activeStage.target,
             } : null}
+            qaOverride={qaMode ? qaLawHeartOverride : undefined}
             onTune={handlePulse}
             onBuy={() => handleBuyTier(0)}
             onSetBuyMode={updateMode}
@@ -3376,6 +3407,7 @@ export default function Home() {
           }))}
           droneFrames={lawHeartDroneFrames}
           worldProgress={missionProgress.ratio}
+          qaOverride={qaMode ? qaLawHeartOverride : undefined}
           onTune={handlePulse}
         />
 

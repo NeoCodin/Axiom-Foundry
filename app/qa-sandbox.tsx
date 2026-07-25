@@ -3,6 +3,13 @@
 import { useState, type FormEvent } from "react";
 
 import { CAMPAIGN_WORLD_IDS, getCampaignWorld } from "./campaign-content";
+import {
+  DEFAULT_LAW_HEART_QA_OVERRIDE,
+  LAW_HEART_SPECTRA,
+  type LawHeartQaEventKind,
+  type LawHeartQaOverride,
+  type LawPressState,
+} from "./law-heart-particle-field";
 
 type QaSandboxProps = {
   collapsed: boolean;
@@ -15,6 +22,11 @@ type QaSandboxProps = {
   onReplayResearchIntroduction: () => void;
   onGrantResources: () => void;
   onAddFlux: (amount: number) => void;
+  onSetAxioms: (amount: number) => void;
+  lawHeartOverride: LawHeartQaOverride;
+  onLawHeartOverrideChange: (override: LawHeartQaOverride) => void;
+  onTriggerLawHeartEvent: (kind: LawHeartQaEventKind) => void;
+  onOpenLawHeart: () => void;
   onResetResearch: () => void;
   onStockResearchEvidence: () => void;
   onFillResearchLattice: () => void;
@@ -37,6 +49,11 @@ export function QaSandbox({
   onReplayResearchIntroduction,
   onGrantResources,
   onAddFlux,
+  onSetAxioms,
+  lawHeartOverride,
+  onLawHeartOverrideChange,
+  onTriggerLawHeartEvent,
+  onOpenLawHeart,
   onResetResearch,
   onStockResearchEvidence,
   onFillResearchLattice,
@@ -49,6 +66,18 @@ export function QaSandbox({
 }: QaSandboxProps) {
   const [customFlux, setCustomFlux] = useState("1e12");
   const [customFluxError, setCustomFluxError] = useState("");
+  const [customAxioms, setCustomAxioms] = useState("24");
+  const [customAxiomError, setCustomAxiomError] = useState("");
+
+  const updateLawHeart = (patch: Partial<LawHeartQaOverride>) => {
+    onLawHeartOverrideChange({ ...lawHeartOverride, ...patch });
+  };
+
+  const updateTierCount = (index: number, amount: number) => {
+    const tierCounts = [...lawHeartOverride.tierCounts];
+    tierCounts[index] = Math.max(0, Math.min(100_000, Math.floor(amount || 0)));
+    updateLawHeart({ tierCounts });
+  };
 
   const submitCustomFlux = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -60,6 +89,18 @@ export function QaSandbox({
     }
     setCustomFluxError("");
     onAddFlux(amount);
+  };
+
+  const submitCustomAxioms = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const normalized = customAxioms.trim().replaceAll(",", "");
+    const amount = Number(normalized);
+    if (!normalized || Number.isNaN(amount) || amount < 0) {
+      setCustomAxiomError("Enter zero or a positive whole number.");
+      return;
+    }
+    setCustomAxiomError("");
+    onSetAxioms(Math.floor(amount));
   };
 
   return (
@@ -114,6 +155,239 @@ export function QaSandbox({
               <button type="button" onClick={onPrepareContinuity}>Prepare Continuity</button>
               <button type="button" onClick={onSimulateOfflineDay}>Simulate 24h</button>
             </div>
+          </section>
+          <section className="qa-law-heart-lab">
+            <span>LAW-HEART VISUAL LAB</span>
+            <div className="qa-law-heart-master">
+              <button
+                type="button"
+                className={lawHeartOverride.enabled ? "is-active" : ""}
+                aria-pressed={lawHeartOverride.enabled}
+                onClick={() => updateLawHeart({ enabled: !lawHeartOverride.enabled })}
+              >
+                Visual override {lawHeartOverride.enabled ? "ON" : "OFF"}
+              </button>
+              <button type="button" onClick={onOpenLawHeart}>Open Law-Heart</button>
+              <button
+                type="button"
+                onClick={() => onLawHeartOverrideChange(DEFAULT_LAW_HEART_QA_OVERRIDE)}
+              >
+                Reset to live values
+              </button>
+            </div>
+            <small className="qa-section-help">
+              Display-only controls. They do not change production, prices, or the public save.
+            </small>
+            <div className={`qa-law-heart-controls ${lawHeartOverride.enabled ? "" : "is-disabled"}`}>
+              <label>
+                <span>Axiom spectrum</span>
+                <select
+                  value={lawHeartOverride.spectrumAxioms}
+                  onChange={(event) => {
+                    const axioms = Number(event.target.value);
+                    updateLawHeart({
+                      spectrumAxioms: axioms,
+                      shardAxioms: axioms,
+                    });
+                  }}
+                >
+                  {LAW_HEART_SPECTRA.map((spectrum) => (
+                    <option key={spectrum.name} value={spectrum.threshold}>
+                      {spectrum.threshold} · {spectrum.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Operational glow</span>
+                <select
+                  value={lawHeartOverride.state}
+                  onChange={(event) => updateLawHeart({
+                    state: event.target.value as LawPressState | "live",
+                  })}
+                >
+                  <option value="live">Live game state</option>
+                  <option value="dormant">Dormant</option>
+                  <option value="manual">Manual</option>
+                  <option value="warming">Warming</option>
+                  <option value="active">Active</option>
+                  <option value="rapid">Rapid</option>
+                  <option value="synchronized">Synchronized</option>
+                  <option value="law-ready">Law ready</option>
+                </select>
+              </label>
+              <label>
+                <span>Visible Axiom shards</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={100000}
+                  value={lawHeartOverride.shardAxioms}
+                  onChange={(event) => updateLawHeart({
+                    shardAxioms: Math.max(0, Number(event.target.value) || 0),
+                  })}
+                />
+              </label>
+              <label>
+                <span>Animation speed · {lawHeartOverride.speedMultiplier.toFixed(2)}×</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={8}
+                  step={0.25}
+                  value={lawHeartOverride.speedMultiplier}
+                  onChange={(event) => updateLawHeart({
+                    speedMultiplier: Number(event.target.value),
+                  })}
+                />
+              </label>
+              <label>
+                <span>Particle density · {lawHeartOverride.particleMultiplier.toFixed(2)}×</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={8}
+                  step={0.25}
+                  value={lawHeartOverride.particleMultiplier}
+                  onChange={(event) => updateLawHeart({
+                    particleMultiplier: Number(event.target.value),
+                  })}
+                />
+              </label>
+              <label>
+                <span>Star intensity · {lawHeartOverride.intensityMultiplier.toFixed(2)}×</span>
+                <input
+                  type="range"
+                  min={0.25}
+                  max={3}
+                  step={0.25}
+                  value={lawHeartOverride.intensityMultiplier}
+                  onChange={(event) => updateLawHeart({
+                    intensityMultiplier: Number(event.target.value),
+                  })}
+                />
+              </label>
+              <label>
+                <span>Star scale · {lawHeartOverride.coreScale.toFixed(2)}×</span>
+                <input
+                  type="range"
+                  min={0.5}
+                  max={2}
+                  step={0.1}
+                  value={lawHeartOverride.coreScale}
+                  onChange={(event) => updateLawHeart({
+                    coreScale: Number(event.target.value),
+                  })}
+                />
+              </label>
+              <label>
+                <span>Utility drones · {lawHeartOverride.droneCount}</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={8}
+                  step={1}
+                  value={lawHeartOverride.droneCount}
+                  onChange={(event) => updateLawHeart({
+                    droneCount: Number(event.target.value),
+                  })}
+                />
+              </label>
+            </div>
+            <div className="qa-law-heart-presets" aria-label="Law-Heart visual presets">
+              <button
+                type="button"
+                onClick={() => updateLawHeart({
+                  enabled: true,
+                  tierCounts: [0, 0, 0, 0, 0, 0],
+                  particleMultiplier: 0,
+                  speedMultiplier: 0,
+                  droneCount: 0,
+                  state: "dormant",
+                })}
+              >
+                Bare core
+              </button>
+              <button
+                type="button"
+                onClick={() => updateLawHeart({
+                  enabled: true,
+                  tierCounts: [25, 0, 0, 0, 0, 0],
+                  particleMultiplier: 1,
+                  speedMultiplier: 1,
+                  droneCount: 0,
+                  state: "active",
+                })}
+              >
+                Early cycle
+              </button>
+              <button
+                type="button"
+                onClick={() => updateLawHeart({
+                  enabled: true,
+                  tierCounts: [100, 80, 60, 40, 20, 10],
+                  particleMultiplier: 2.5,
+                  speedMultiplier: 2.5,
+                  intensityMultiplier: 1.5,
+                  droneCount: 4,
+                  state: "rapid",
+                })}
+              >
+                Full chain
+              </button>
+              <button
+                type="button"
+                onClick={() => updateLawHeart({
+                  enabled: true,
+                  tierCounts: [500, 400, 300, 200, 150, 100],
+                  particleMultiplier: 6,
+                  speedMultiplier: 6,
+                  intensityMultiplier: 2.5,
+                  coreScale: 1.25,
+                  droneCount: 8,
+                  state: "synchronized",
+                })}
+              >
+                Saturated field
+              </button>
+            </div>
+            <div className="qa-law-heart-tiers">
+              {["TAP", "COIL", "LOOM", "ARRAY", "ENGINE", "FORGE"].map((label, index) => (
+                <label key={label}>
+                  <span>{label}</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100000}
+                    value={lawHeartOverride.tierCounts[index] ?? 0}
+                    onChange={(event) => updateTierCount(index, Number(event.target.value))}
+                  />
+                </label>
+              ))}
+            </div>
+            <div className="qa-action-grid qa-law-heart-effects">
+              <button type="button" onClick={() => onTriggerLawHeartEvent("pulse")}>Click burst</button>
+              <button type="button" onClick={() => onTriggerLawHeartEvent("purchase")}>Purchase bloom</button>
+              <button type="button" onClick={() => onTriggerLawHeartEvent("expenditure")}>Flux discharge</button>
+              <button type="button" onClick={() => onTriggerLawHeartEvent("recalibration")}>Recalibration nova</button>
+            </div>
+            <form className="qa-axiom-form" onSubmit={submitCustomAxioms}>
+              <label htmlFor="qa-custom-axiom-input">Set real profile Axioms</label>
+              <div>
+                <input
+                  id="qa-custom-axiom-input"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={customAxioms}
+                  aria-invalid={customAxiomError ? true : undefined}
+                  onChange={(event) => setCustomAxioms(event.target.value)}
+                />
+                <button type="submit">Set Axioms</button>
+              </div>
+              {customAxiomError && <strong role="alert">{customAxiomError}</strong>}
+            </form>
           </section>
           <section>
             <span>RESEARCH LAB</span>

@@ -27,6 +27,7 @@ import {
   grantQaResources,
   prepareQaContinuity,
   resetQaResearch,
+  setQaAxioms,
   stockQaResearchEvidence,
 } from "../app/qa-sandbox-engine.ts";
 
@@ -41,6 +42,19 @@ test("custom QA Flux grants are additive, tracked, and safely bounded", () => {
   assert.strictEqual(addQaFlux(state, -1), state);
   assert.strictEqual(addQaFlux(state, Number.NaN), state);
   assert.equal(addQaFlux(state, Number.POSITIVE_INFINITY).flux, 1e280);
+});
+
+test("QA Axiom override sets exact spendable and lifetime stages", () => {
+  const state = createQaCheckpoint(4, 1_000_000);
+  const redStage = setQaAxioms(state, 24);
+  assert.equal(redStage.axioms, 24);
+  assert.equal(redStage.lifetimeAxioms, 24);
+  assert.equal(redStage.cycle, 25);
+
+  const dormantStage = setQaAxioms(redStage, 0);
+  assert.equal(dormantStage.axioms, 0);
+  assert.equal(dormantStage.lifetimeAxioms, 0);
+  assert.equal(dormantStage.cycle, 1);
 });
 
 test("QA world checkpoints are fresh arrivals rather than completed or overpowered saves", () => {

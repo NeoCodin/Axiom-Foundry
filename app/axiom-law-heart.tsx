@@ -2,7 +2,12 @@
 
 import { useState } from "react";
 import type { PurchaseMode } from "./game-engine";
-import { getLawHeartSpectrum, LawPressCanvas, type LawPressState } from "./law-heart-particle-field";
+import {
+  getLawHeartSpectrum,
+  LawPressCanvas,
+  type LawHeartQaOverride,
+  type LawPressState,
+} from "./law-heart-particle-field";
 
 export type LawHeartMachine = {
   name: string;
@@ -41,6 +46,7 @@ type AxiomLawHeartProps = {
     divertLabel: string;
     canContribute: boolean;
   } | null;
+  qaOverride?: LawHeartQaOverride;
   onTune: () => void;
   onBuy: () => void;
   onSetBuyMode: (mode: PurchaseMode) => void;
@@ -84,6 +90,7 @@ export function AxiomLawHeart({
   recalibrationThresholdLabel,
   recalibrationProgress,
   contribution,
+  qaOverride,
   onTune,
   onBuy,
   onSetBuyMode,
@@ -92,7 +99,9 @@ export function AxiomLawHeart({
 }: AxiomLawHeartProps) {
   const [pulseSerial, setPulseSerial] = useState(0);
   const [confirmRecalibration, setConfirmRecalibration] = useState(false);
-  const spectrum = getLawHeartSpectrum(lifetimeAxioms);
+  const spectrum = getLawHeartSpectrum(
+    qaOverride?.enabled ? qaOverride.spectrumAxioms : lifetimeAxioms,
+  );
   const automationVisible = manualPulses >= 6 || machine.bought > 0;
   const recalibrationVisible = stageIndex >= 3 || lifetimeAxioms > 0;
   const fabricationAuthorized = stageIndex >= 1;
@@ -101,7 +110,7 @@ export function AxiomLawHeart({
   const displayedRecalibrationProgress = coldWakeLawSetComplete
     ? 1
     : clamp(recalibrationProgress);
-  const pressState: LawPressState = recalibrationVisible && recalibrationGain > 0
+  const livePressState: LawPressState = recalibrationVisible && recalibrationGain > 0
     ? "law-ready"
     : machine.bought >= 25
       ? "synchronized"
@@ -114,6 +123,10 @@ export function AxiomLawHeart({
           : manualPulses > 0
             ? "manual"
             : "dormant";
+  const pressState: LawPressState =
+    qaOverride?.enabled && qaOverride.state !== "live"
+      ? qaOverride.state
+      : livePressState;
   const pressStatus = pressState === "law-ready"
     ? "LAW READY"
     : pressState === "synchronized"
@@ -182,6 +195,7 @@ export function AxiomLawHeart({
             recalibrationProgress={recalibrationProgress}
             provenLaws={provenLawCount}
             preparingRecalibration={confirmRecalibration}
+            qaOverride={qaOverride}
           />
           <span className="law-heart-readout">
             <small>LOCAL FLUX</small>

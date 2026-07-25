@@ -6,6 +6,7 @@ import {
   getLawHeartSpectrum,
   LawPressCanvas,
   type LawHeartDroneFrame,
+  type LawHeartQaOverride,
   type LawHeartTier,
   type LawPressState,
 } from "./law-heart-particle-field";
@@ -23,6 +24,7 @@ type FoundryLawHeartProps = {
   tiers: readonly LawHeartTier[];
   droneFrames: readonly LawHeartDroneFrame[];
   worldProgress: number;
+  qaOverride?: LawHeartQaOverride;
   onTune: () => void;
 };
 
@@ -43,12 +45,15 @@ export function FoundryLawHeart({
   tiers,
   droneFrames,
   worldProgress,
+  qaOverride,
   onTune,
 }: FoundryLawHeartProps) {
   const [pulseSerial, setPulseSerial] = useState(0);
-  const spectrum = getLawHeartSpectrum(lifetimeAxioms);
+  const spectrum = getLawHeartSpectrum(
+    qaOverride?.enabled ? qaOverride.spectrumAxioms : lifetimeAxioms,
+  );
   const fabricationIntensity = tiers.reduce((total, tier) => total + tier.count, 0);
-  const state: LawPressState = fabricationIntensity >= 150
+  const liveState: LawPressState = fabricationIntensity >= 150
     ? "synchronized"
     : fabricationIntensity >= 50
       ? "rapid"
@@ -57,6 +62,10 @@ export function FoundryLawHeart({
         : fabricationIntensity > 0
           ? "warming"
           : "manual";
+  const state: LawPressState =
+    qaOverride?.enabled && qaOverride.state !== "live"
+      ? qaOverride.state
+      : liveState;
 
   const handleTune = () => {
     setPulseSerial((current) => current + 1);
@@ -86,6 +95,7 @@ export function FoundryLawHeart({
             provenLaws={Math.min(3, lifetimeAxioms)}
             preparingRecalibration={false}
             droneFrames={droneFrames}
+            qaOverride={qaOverride}
           />
           <span className="foundry-law-heart-readout">
             <small>LOCAL FLUX</small>

@@ -1572,6 +1572,118 @@ img.pixelated,
 .qa-action-grid button:hover { border-color: var(--world-accent); color: #fff; }
 .qa-action-grid button.qa-danger-button { border-color: #7d4040; color: #ffaaa3; }
 .qa-action-grid button.qa-danger-button:hover { border-color: #ff766f; color: #ffd1cd; background: #1a0a0a; }
+.qa-law-heart-lab {
+  padding: 9px;
+  border: 2px solid #755f31;
+  background:
+    linear-gradient(90deg, rgba(255, 207, 100, 0.04), transparent 48%),
+    #081014;
+}
+.qa-law-heart-master {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+}
+.qa-law-heart-master button {
+  min-height: 38px;
+  padding: 7px 8px;
+  border: 2px solid #40545a;
+  background: #0b171b;
+  color: #c9dcd6;
+  font-size: 12px;
+  text-align: left;
+}
+.qa-law-heart-master button:first-child { grid-column: 1 / -1; }
+.qa-law-heart-master button.is-active {
+  border-color: #f2bc55;
+  background: #332711;
+  color: #ffe49b;
+  box-shadow: inset 0 -3px 0 #f2bc55;
+}
+.qa-law-heart-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  padding: 8px;
+  border: 2px solid #263b40;
+  background: #03090c;
+}
+.qa-law-heart-controls.is-disabled {
+  opacity: 0.46;
+  filter: saturate(0.35);
+}
+.qa-law-heart-controls label,
+.qa-law-heart-tiers label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  color: #9db4ae;
+  font-size: 12px;
+}
+.qa-law-heart-controls select,
+.qa-law-heart-controls input[type="number"],
+.qa-law-heart-tiers input,
+.qa-axiom-form input {
+  min-width: 0;
+  min-height: 34px;
+  padding: 5px 7px;
+  border: 2px solid #40545a;
+  border-radius: 0;
+  outline: 0;
+  background: #020709;
+  color: #8ff4e7;
+  font-family: var(--font-number);
+  font-size: 12px;
+}
+.qa-law-heart-controls select:focus,
+.qa-law-heart-controls input:focus,
+.qa-law-heart-tiers input:focus,
+.qa-axiom-form input:focus { border-color: #f2bc55; }
+.qa-law-heart-controls input[type="range"] {
+  width: 100%;
+  min-height: 22px;
+  accent-color: #f2bc55;
+}
+.qa-law-heart-presets {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 3px;
+}
+.qa-law-heart-presets button {
+  min-height: 34px;
+  padding: 5px;
+  border: 2px solid #445b61;
+  background: #071015;
+  color: #a9c1bb;
+  font-size: 11px;
+  text-align: center;
+}
+.qa-law-heart-presets button:hover {
+  border-color: #f2bc55;
+  color: #ffe49b;
+}
+.qa-law-heart-tiers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+}
+.qa-law-heart-effects button { border-color: #755f31; color: #ffe49b; }
+.qa-axiom-form { display: grid; gap: 5px; }
+.qa-axiom-form > label { color: #f2bc55; font-size: 12px; }
+.qa-axiom-form > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px;
+}
+.qa-axiom-form button {
+  min-height: 36px;
+  padding: 6px 9px;
+  border: 2px solid #aa7e32;
+  background: #332711;
+  color: #ffd475;
+  font-size: 12px;
+}
+.qa-axiom-form > strong { color: #ff8d89; font-size: 12px; font-weight: 400; }
 .qa-custom-flux form { display: grid; gap: 5px; }
 .qa-custom-flux label { color: #9db4ae; font-size: 12px; }
 .qa-custom-flux form > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px; }
