@@ -125,6 +125,7 @@ export type PopulationConsoleProps = {
   teamAlpha: TeamAlphaView;
   onAppointLeader: (survivorId: string | null) => void;
   onToggleTeamMember: (survivorId: string) => void;
+  onAssignTeamMember: (slotIndex: number, survivorId: string | null) => void;
   onSetDoctrine: (role: ProfessionalRole | null) => void;
   berthQuote: BerthPanelQuote;
   onStartBerthConstruction: () => void;
@@ -184,6 +185,7 @@ function PopulationConsole({
   teamAlpha,
   onAppointLeader,
   onToggleTeamMember,
+  onAssignTeamMember,
   onSetDoctrine,
   berthQuote,
   onStartBerthConstruction,
@@ -204,6 +206,9 @@ function PopulationConsole({
 }: PopulationConsoleProps) {
   const beaconAvailable = beaconReadiness.ready;
   const [selectedCrewId, setSelectedCrewId] = useState<string | null>(null);
+  const [teamPickerSlot, setTeamPickerSlot] = useState<"leader" | number | null>(
+    null,
+  );
   const [consoleView, setConsoleView] = useState<"systems" | "roster" | "command">(
     state.survivors.length > 0 ? "roster" : "systems",
   );
@@ -459,18 +464,36 @@ function PopulationConsole({
                     key={key}
                     type="button"
                     className={`team-alpha-slot ${survivor ? "is-filled" : ""} ${label === "LEADER" ? "is-leader" : ""}`}
-                    onClick={() => survivor && setSelectedCrewId(survivor.id)}
-                    disabled={!survivor}
-                    title={survivor ? "Open personnel file" : "Assign from a personnel file below"}
+                    onClick={() =>
+                      setTeamPickerSlot(
+                        label === "LEADER"
+                          ? "leader"
+                          : Number(key.replace("member-", "")),
+                      )
+                    }
+                    aria-expanded={
+                      teamPickerSlot ===
+                      (label === "LEADER"
+                        ? "leader"
+                        : Number(key.replace("member-", "")))
+                    }
+                    title={survivor ? "Replace or review this assignment" : "Choose any eligible adult from the Ark roster"}
                   >
                     <span className="team-alpha-slot-label">{label}</span>
                     {survivor ? (
                       <span className="team-alpha-identity">
                         <CrewToken id={survivor.id} name={survivor.name} role={survivor.assignedRole ?? survivor.role} rarity={getSurvivorRarity(survivor).id} status={isSurvivorWounded(survivor) ? "wounded" : "ready"} />
-                        <span><strong>{survivor.callsign || survivor.name}</strong><small>{survivor.role === "civilian" ? "Civilian" : `${titleCase(survivor.role)} · Lv ${getSurvivorSkillLevel(survivor, survivor.role)}`}{isSurvivorWounded(survivor) ? " · recovering (not counting)" : ""}</small></span>
+                        <span>
+                          <strong>{survivor.callsign || survivor.name}</strong>
+                          <small>{survivor.role === "civilian" ? "Civilian" : `${titleCase(survivor.role)} · Level ${getSurvivorSkillLevel(survivor, survivor.role)}`}</small>
+                          <small>{getSurvivorRarity(survivor).label} profile · Command {Object.values(getSurvivorContinuityExpertise(survivor)).reduce((sum, value) => sum + value, 0)}{isSurvivorWounded(survivor) ? " · recovering" : survivor.assignedRole ? ` · ${titleCase(survivor.assignedRole)} duty` : " · Ark Reserve"}</small>
+                        </span>
                       </span>
                     ) : (
-                      <strong className="is-empty">EMPTY</strong>
+                      <span className="team-alpha-empty-slot">
+                        <strong className="is-empty">CHOOSE CREW</strong>
+                        <small>Open the Ark roster here</small>
+                      </span>
                     )}
                   </button>
                 );
@@ -485,6 +508,76 @@ function PopulationConsole({
               );
             })()}
           </div>
+          {teamPickerSlot !== null && (
+            <section className="team-alpha-picker" aria-label="Choose Team Alpha crew">
+              <header>
+                <div>
+                  <span>ARK ROSTER</span>
+                  <h4>
+                    Choose {teamPickerSlot === "leader" ? "crew leader" : `officer ${teamPickerSlot + 1}`}
+                  </h4>
+                </div>
+                <button type="button" onClick={() => setTeamPickerSlot(null)}>Close</button>
+              </header>
+              <div className="team-alpha-picker-grid">
+                {state.survivors
+                  .filter(
+                    (survivor) =>
+                      survivor.ageGroup !== "child" &&
+                      (teamPickerSlot === "leader" ||
+                        survivor.id !== teamAlpha.leaderId),
+                  )
+                  .map((survivor) => {
+                    const commandValue = Object.values(
+                      getSurvivorContinuityExpertise(survivor),
+                    ).reduce((sum, value) => sum + value, 0);
+                    const active =
+                      teamPickerSlot === "leader"
+                        ? teamAlpha.leaderId === survivor.id
+                        : teamAlpha.memberIds[teamPickerSlot] === survivor.id;
+                    return (
+                      <button
+                        type="button"
+                        className={active ? "is-current" : ""}
+                        aria-pressed={active}
+                        key={survivor.id}
+                        onClick={() => {
+                          if (teamPickerSlot === "leader") {
+                            onAppointLeader(survivor.id);
+                          } else {
+                            onAssignTeamMember(teamPickerSlot, survivor.id);
+                          }
+                          setTeamPickerSlot(null);
+                        }}
+                      >
+                        <CrewToken id={survivor.id} name={survivor.name} role={survivor.assignedRole ?? survivor.role} rarity={getSurvivorRarity(survivor).id} status={isSurvivorWounded(survivor) ? "wounded" : "ready"} />
+                        <span>
+                          <strong>{survivor.callsign || survivor.name}</strong>
+                          <small>
+                            {titleCase(survivor.role)}{survivor.role === "civilian" ? "" : ` · Level ${getSurvivorSkillLevel(survivor, survivor.role)}`} · {getSurvivorRarity(survivor).label}
+                          </small>
+                          <small>
+                            Command {commandValue}{isSurvivorWounded(survivor) ? " · recovering" : survivor.assignedRole ? ` · ${titleCase(survivor.assignedRole)} duty` : " · Ark Reserve"}
+                          </small>
+                        </span>
+                        <em>{active ? "CURRENT" : "ASSIGN"}</em>
+                      </button>
+                    );
+                  })}
+              </div>
+              <button
+                className="team-alpha-clear"
+                type="button"
+                onClick={() => {
+                  if (teamPickerSlot === "leader") onAppointLeader(null);
+                  else onAssignTeamMember(teamPickerSlot, null);
+                  setTeamPickerSlot(null);
+                }}
+              >
+                Clear this slot
+              </button>
+            </section>
+          )}
           <div className="crew-actions-grid">
             <label>
               Training doctrine (lean)

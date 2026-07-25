@@ -19,6 +19,7 @@ import {
   getMedBayCarePool,
   getMedBayRecoveryPerHour,
   runTrainingDoctrine,
+  setCommandTeamMember,
   setTrainingDoctrine,
   toggleCommandTeamMember,
   getSurvivorHealthCap,
@@ -1470,6 +1471,27 @@ test("Team Alpha: appointments, member limits, and departure cleanup", () => {
   const bench = ids.filter((id) => id !== ids[1]).slice(0, 4);
   for (const id of bench) state = toggleCommandTeamMember(state, id);
   assert.equal(state.commandTeam.memberIds.length, Math.min(3, bench.length));
+
+  // Command-screen slot controls replace, move, and clear officers directly.
+  const replacement = ids.find(
+    (id) =>
+      id !== state.commandTeam.leaderId &&
+      !state.commandTeam.memberIds.includes(id),
+  );
+  if (replacement && state.commandTeam.memberIds.length > 0) {
+    state = setCommandTeamMember(state, 0, replacement);
+    assert.equal(state.commandTeam.memberIds[0], replacement);
+    const countBeforeMove = state.commandTeam.memberIds.length;
+    state = setCommandTeamMember(state, 1, replacement);
+    assert.equal(state.commandTeam.memberIds[1], replacement);
+    assert.equal(state.commandTeam.memberIds.length, countBeforeMove);
+    assert.equal(
+      state.commandTeam.memberIds.filter((id) => id === replacement).length,
+      1,
+    );
+    state = setCommandTeamMember(state, 1, null);
+    assert.equal(state.commandTeam.memberIds.includes(replacement), false);
+  }
 
   // founding a colony (or abandonment) removes departed crew from the team
   const departed = transferSurvivorsToSettlement(state, [

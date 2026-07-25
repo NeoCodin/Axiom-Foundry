@@ -278,15 +278,8 @@ function ExpeditionConsole({
           }));
           return (
             <div className="expedition-planning-grid">
-              <div className="expedition-mission-theater is-in-flight" aria-hidden="true">
-                <div className="expedition-stars">{Array.from({ length: 18 }, (_, index) => <i key={index} />)}</div>
-                <div className="expedition-world-limb"><i /><i /><i /></div>
-                <div className="expedition-flight-path"><span style={{ left: `${Math.max(4, Math.min(96, progress * 100))}%` }} /></div>
-                <div className="expedition-shuttle"><i /></div>
-                <strong>{site.operationCode} · IN FLIGHT</strong>
-              </div>
               <div className="expedition-dossier">
-                <span className="expedition-box-label">MISSION</span>
+                <span className="expedition-box-label">{site.operationCode} · ACTIVE OPERATION</span>
                 <h4>{site.name}</h4>
                 <strong className="expedition-flight-readout">{Math.round(progress * 100)}% · {formatMissionTime(remaining)} remaining</strong>
                 <div role="progressbar" aria-label={`${site.name} progress`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)} className="crew-xp-track"><i style={{ width: `${progress * 100}%` }} /></div>

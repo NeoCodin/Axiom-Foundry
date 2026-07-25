@@ -2089,6 +2089,54 @@ export function toggleCommandTeamMember(
   return next;
 }
 
+/** Places, moves, replaces, or clears one of Team Alpha's three officer slots. */
+export function setCommandTeamMember(
+  state: SurvivorSystemState,
+  slotIndex: number,
+  survivorId: string | null,
+) {
+  if (
+    !Number.isInteger(slotIndex) ||
+    slotIndex < 0 ||
+    slotIndex >= MAX_COMMAND_TEAM_MEMBERS
+  ) {
+    return state;
+  }
+  if (survivorId !== null) {
+    const exists = state.survivors.some(
+      (survivor) =>
+        survivor.id === survivorId && survivor.ageGroup !== "child",
+    );
+    if (!exists || state.commandTeam.leaderId === survivorId) return state;
+  }
+
+  const currentAtSlot = state.commandTeam.memberIds[slotIndex] ?? null;
+  if (currentAtSlot === survivorId) return state;
+
+  const next = cloneSurvivorSystemState(state);
+  const members = [...next.commandTeam.memberIds];
+  if (survivorId === null) {
+    if (slotIndex < members.length) members.splice(slotIndex, 1);
+  } else {
+    const currentIndex = members.indexOf(survivorId);
+    if (currentIndex >= 0 && slotIndex < members.length) {
+      [members[currentIndex], members[slotIndex]] = [
+        members[slotIndex]!,
+        members[currentIndex]!,
+      ];
+    } else if (currentIndex >= 0) {
+      members.splice(currentIndex, 1);
+      members.push(survivorId);
+    } else if (slotIndex < members.length) {
+      members[slotIndex] = survivorId;
+    } else {
+      members.push(survivorId);
+    }
+  }
+  next.commandTeam.memberIds = members.slice(0, MAX_COMMAND_TEAM_MEMBERS);
+  return next;
+}
+
 export function setTrainingDoctrine(
   state: SurvivorSystemState,
   doctrine: ProfessionalRole | null,

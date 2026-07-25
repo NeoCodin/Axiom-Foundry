@@ -138,6 +138,7 @@ import {
   BERTHS_PER_SECTION,
   canSurvivorFound,
   runTrainingDoctrine,
+  setCommandTeamMember as setCommandTeamMemberState,
   setTrainingDoctrine,
   toggleCommandTeamMember,
   cloneSurvivorSystemState,
@@ -3272,6 +3273,22 @@ export function setCommandLeader(state: GameState, survivorId: string | null) {
 
 export function toggleTeamAlphaMember(state: GameState, survivorId: string) {
   const survivors = toggleCommandTeamMember(state.survivors, survivorId);
+  if (survivors === state.survivors) return state;
+  const next = cloneGameState(state);
+  next.survivors = survivors;
+  return next;
+}
+
+export function assignTeamAlphaMember(
+  state: GameState,
+  slotIndex: number,
+  survivorId: string | null,
+) {
+  const survivors = setCommandTeamMemberState(
+    state.survivors,
+    slotIndex,
+    survivorId,
+  );
   if (survivors === state.survivors) return state;
   const next = cloneGameState(state);
   next.survivors = survivors;

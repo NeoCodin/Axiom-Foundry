@@ -64,6 +64,7 @@ import {
   getMedBayStatus,
   getProstheticSurgeryQuote,
   getSurfaceRecon,
+  assignTeamAlphaMember,
   setCommandLeader,
   toggleTeamAlphaMember,
   performProstheticSurgery,
@@ -1765,6 +1766,33 @@ export default function Home() {
     commitGameState(next, `${member?.callsign || member?.name || "Crew"} ${joined ? "joined" : "left"} Team Alpha.`);
   };
 
+  const handleAssignTeamMember = (
+    slotIndex: number,
+    survivorId: string | null,
+  ) => {
+    const current = gameRef.current;
+    const previousId =
+      current.survivors.commandTeam.memberIds[slotIndex] ?? null;
+    const next = assignTeamAlphaMember(current, slotIndex, survivorId);
+    if (next === current) return;
+    const member = survivorId
+      ? next.survivors.survivors.find(
+          (survivor) => survivor.id === survivorId,
+        )
+      : null;
+    const previous = previousId
+      ? current.survivors.survivors.find(
+          (survivor) => survivor.id === previousId,
+        )
+      : null;
+    commitGameState(
+      next,
+      member
+        ? `${member.callsign || member.name} assigned to Team Alpha officer slot ${slotIndex + 1}.`
+        : `${previous?.callsign || previous?.name || `Officer slot ${slotIndex + 1}`} released from Team Alpha.`,
+    );
+  };
+
   const handleSetDoctrine = (role: Parameters<typeof chooseTrainingDoctrine>[1]) => {
     const current = gameRef.current;
     const next = chooseTrainingDoctrine(current, role);
@@ -3034,6 +3062,7 @@ export default function Home() {
           })()}
           onAppointLeader={handleAppointLeader}
           onToggleTeamMember={handleToggleTeamMember}
+          onAssignTeamMember={handleAssignTeamMember}
           onSetDoctrine={handleSetDoctrine}
           berthQuote={berthPanelQuote}
           onStartBerthConstruction={handleStartBerthConstruction}
