@@ -331,7 +331,14 @@ function ArkDeck({
         </div>
       </header>
 
-      <section className="ark-visual-stage" data-guide-target="ark-visual" data-world={worldSlug} aria-label={`The Ark approaching ${worldName}`}>
+      <section
+        className="ark-visual-stage"
+        data-guide-target="ark-visual"
+        data-world={worldSlug}
+        aria-label={transitActive
+          ? `The Ark crossing deep space from ${transit?.originName} to ${transit?.destinationName}`
+          : `The Ark in orbit around ${worldName}`}
+      >
         <div className="ark-void" aria-hidden="true">
           <span className="ark-void-nebula" />
           <span className="ark-star-field ark-star-field-near" />
@@ -356,20 +363,24 @@ function ArkDeck({
 
         <div className="ark-theater-caption">
           <span>{transitActive ? "NAVIGATION FEED · TRANSIT" : "ORBITAL FEED · LOCKED"}</span>
-          <strong>{transitActive ? transit?.destinationName : worldName}</strong>
-          <p>{worldSubtitle}</p>
+          <strong>{transitActive ? "DEEP-SPACE CORRIDOR" : worldName}</strong>
+          <p>{transitActive
+            ? `${transit?.originName} anchor released · ${transit?.destinationName} anchor unresolved`
+            : worldSubtitle}</p>
           <small><i aria-hidden="true" /> {transitActive ? `${Math.round(transitProgress * 100)}% OF CROSSING COMPLETE` : `${Math.round(normalizedWorldProgress * 100)}% CONTINUITY READINESS`}</small>
         </div>
 
-        <div className="ark-world-limb">
-          <ArkPixelWorld
-            worldName={worldName}
-            progress={normalizedWorldProgress}
-            transit={transitActive}
-          />
-          <span className="ark-world-pixel-bracket" aria-hidden="true"><i /><i /><i /><i /></span>
-          <em>{transitActive ? "DISTANT" : "ORBIT"}</em>
-        </div>
+        {!transitActive && (
+          <div className="ark-world-limb">
+            <ArkPixelWorld
+              worldName={worldName}
+              progress={normalizedWorldProgress}
+              transit={false}
+            />
+            <span className="ark-world-pixel-bracket" aria-hidden="true"><i /><i /><i /><i /></span>
+            <em>ORBIT</em>
+          </div>
+        )}
 
         <div className="ark-vessel" aria-label={`${onlineRoomCount} of ${totalRoomCount} Ark rooms online`}>
           <span className="ark-drive-plume" aria-hidden="true"><i /><i /><i /><i /></span>

@@ -846,8 +846,19 @@ export default function Home() {
       setAnnouncement("That system has not awakened yet. Continue the active Core Deck directive.");
     }
   }, [disclosure, primaryView, ready]);
-  const worldVisual =
-    WORLD_VISUALS[campaignWorldIndex] ?? WORLD_VISUALS[0];
+  const activeTransit = getActiveTransit(game);
+  const worldVisual = activeTransit
+    ? {
+        slug: "transit",
+        accent: "#9fb3ba",
+        accentRgb: "159 179 186",
+        accentSoft: "rgb(159 179 186 / 0.13)",
+        secondary: "#71819a",
+        sky: "#010305",
+        ground: "#071016",
+        planet: "#17242b",
+      }
+    : WORLD_VISUALS[campaignWorldIndex] ?? WORLD_VISUALS[0];
   const shellStyle = {
     "--flux": worldVisual.accent,
     "--flux-soft": worldVisual.accentSoft,
@@ -923,7 +934,6 @@ export default function Home() {
     [game.living.discoveredLore, game.missions.worldsSaved],
   );
   const chosenDoctrine = getChosenDoctrine(game.living.doctrine);
-  const activeTransit = getActiveTransit(game);
   const firstLockedGenerator = GENERATORS.findIndex(
     (_, index) => !isTierUnlocked(game, index),
   );

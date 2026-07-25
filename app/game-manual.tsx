@@ -67,7 +67,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
       { title: "Follow the active directive", detail: "The strip above the Ark always names the next useful action and shows its progress. Nothing in Cold Wake has a deadline." },
       { title: "Enter awakened destinations", detail: "Foundry arrives during Cold Wake. Pelagos begins with the familiar Ark, Foundry, and Planet views; Personnel opens after the first rescue. Research waits for Viridia, where Pelagos records and a living biosphere give the Analysis Core a clear purpose." },
       { title: "Read AXIOM's priorities", detail: "The command briefing names up to three useful actions, shows exactly what is missing, names the one action to take, and opens the correct page and sub-panel." },
-      { title: "Travel without babysitting", detail: "After Pelagos, departure begins a real corridor journey instead of instantly changing worlds. Open Planet to see route progress and ETA; production, research, training, construction, repair, and Defense all continue online or offline." },
+      { title: "Travel without babysitting", detail: "Each destination orbits a different star. After Pelagos, departure folds an Axiom corridor across interstellar distance instead of instantly changing worlds. Open Continuity to see route progress and ETA; production, research, training, construction, repair, and Defense all continue online or offline." },
     ],
     sources: [
       { label: "Flux", detail: "Core tunes and Foundry machines create the energy used by almost every early action." },

@@ -1,14 +1,19 @@
 "use client";
 
+import { type CSSProperties } from "react";
+import type { CampaignWorldId } from "./campaign-content";
 import {
   DEFENSE_EVENT_DEFINITIONS,
   getIncomingForecast,
   type DefenseCrewContext,
   type DefenseState,
 } from "./defense-engine";
+import { WORLD_VISUALS } from "./world-visuals";
 
 type TransitConsoleProps = {
   journey: {
+    originWorldId: CampaignWorldId;
+    destinationWorldId: CampaignWorldId;
     originName: string;
     destinationName: string;
     progress: number;
@@ -45,27 +50,67 @@ export function TransitConsole({
   );
   const event = forecast ? DEFENSE_EVENT_DEFINITIONS[forecast.kind] : null;
   const progressPercent = Math.round(journey.progress * 1000) / 10;
+  const originVisual =
+    WORLD_VISUALS.find((visual) => visual.slug === journey.originWorldId) ??
+    WORLD_VISUALS[0];
+  const destinationVisual =
+    WORLD_VISUALS.find((visual) => visual.slug === journey.destinationWorldId) ??
+    WORLD_VISUALS.at(-1)!;
+  const routeAngle = journey.progress * Math.PI;
+  const arkPosition = {
+    left: `${9 + journey.progress * 82}%`,
+    top: `${72 - Math.sin(routeAngle) * 43}%`,
+  };
+  const transitStyle = {
+    "--transit-origin-accent": originVisual.accent,
+    "--transit-origin-sky": originVisual.sky,
+    "--transit-origin-ground": originVisual.ground,
+    "--transit-origin-planet": originVisual.planet,
+    "--transit-destination-accent": destinationVisual.accent,
+    "--transit-destination-sky": destinationVisual.sky,
+    "--transit-destination-ground": destinationVisual.ground,
+    "--transit-destination-planet": destinationVisual.planet,
+    "--transit-progress-width": `${progressPercent}%`,
+  } as CSSProperties;
 
   return (
-    <section className="transit-console" aria-labelledby="transit-title">
+    <section
+      className="transit-console"
+      style={transitStyle}
+      aria-labelledby="transit-title"
+    >
       <header className="transit-console-header">
         <div>
           <p>CONTINUITY CORRIDOR · FRONTIER TRANSIT</p>
           <h2 id="transit-title">{journey.originName} → {journey.destinationName}</h2>
-          <span>The Ark remains operational. Fabrication, Research, training, medicine, and restored-world defense continue online and offline.</span>
+          <span>
+            These worlds orbit different stars. The Ark is crossing a folded
+            Axiom corridor between their anchor systems while every onboard
+            operation continues online and offline.
+          </span>
         </div>
         <button type="button" onClick={onBack}>Return to Ark Deck</button>
       </header>
 
       <section className="transit-vista" aria-label={`${progressPercent}% of route completed`}>
         <div className="transit-stars" aria-hidden="true"><i /><i /><i /><i /><i /><i /></div>
-        <div className="transit-route-line" aria-hidden="true">
-          <span className="transit-origin"><b>{journey.originName}</b></span>
-          <span className="transit-ark" style={{ left: `${Math.max(4, Math.min(96, progressPercent))}%` }}><i /><b>ARK</b></span>
-          <span className="transit-destination"><i /><b>{journey.destinationName}</b></span>
+        <div className="transit-fold-field" aria-hidden="true">
+          {Array.from({ length: 7 }, (_, index) => <i key={index} />)}
+        </div>
+        <div className="transit-corridor-arc" aria-hidden="true">
+          <i className="transit-corridor-progress" />
+        </div>
+        <div className="transit-origin-anchor" aria-hidden="true">
+          <i /><span>ORIGIN ANCHOR</span><b>{journey.originName}</b>
+        </div>
+        <div className="transit-destination-anchor" aria-hidden="true">
+          <i /><span>DESTINATION ANCHOR</span><b>{journey.destinationName}</b>
+        </div>
+        <div className="transit-ark" style={arkPosition} aria-hidden="true">
+          <i /><b>ARK</b>
         </div>
         <div className="transit-progress-copy">
-          <span>ROUTE COMPLETION</span>
+          <span>FOLDED CORRIDOR · NOT TO SCALE</span>
           <strong>{progressPercent}%</strong>
           <p>{duration(journey.remainingSeconds)} until automatic orbital arrival</p>
         </div>
