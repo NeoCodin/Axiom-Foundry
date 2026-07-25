@@ -36,19 +36,18 @@ export type ArmoryItemDefinition = {
   damageMultiplier: number;
   worstInjury: SurvivorInjuryTier;
   durability: number;
-  fluxCostBase: number;
   modelCost: number;
   nullTraceCost: number;
   requiredResearchId: string;
 };
 
 export const ARMORY_ITEM_DEFINITIONS: readonly ArmoryItemDefinition[] = [
-  { id: "kinetic-pike", kind: "weapon", tier: 1, name: "Kinetic Pike", description: "A collapsible impulse staff: simple, dependable, and increasingly precise as its pattern matures.", wieldLevel: 2, strengthBonus: 2, damageMultiplier: 1, worstInjury: "severe", durability: 1, fluxCostBase: 800, modelCost: 40, nullTraceCost: 0, requiredResearchId: "expedition-armaments" },
-  { id: "arc-carbine", kind: "weapon", tier: 2, name: "Arc Carbine", description: "A directed-discharge rifle tuned to the Ark's power signature and hostile machinery.", wieldLevel: 4, strengthBonus: 4, damageMultiplier: 1, worstInjury: "severe", durability: 1, fluxCostBase: 2_400, modelCost: 100, nullTraceCost: 0, requiredResearchId: "arc-discharge-weapons" },
-  { id: "null-lance", kind: "weapon", tier: 3, name: "Null Lance", description: "A controlled edge of enforced absence. Powerful, scarce, and dangerous to misunderstand.", wieldLevel: 6, strengthBonus: 6, damageMultiplier: 1, worstInjury: "severe", durability: 1, fluxCostBase: 6_000, modelCost: 200, nullTraceCost: 40, requiredResearchId: "null-edge-armaments" },
-  { id: "composite-weave", kind: "armor", tier: 1, name: "Composite Weave", description: "Flexible fabrication mesh for survey work, mobility, and survivable field mistakes.", wieldLevel: 1, strengthBonus: 0, damageMultiplier: 0.5, worstInjury: "major", durability: 1, fluxCostBase: 800, modelCost: 40, nullTraceCost: 0, requiredResearchId: "composite-plating" },
-  { id: "reactive-shell", kind: "armor", tier: 2, name: "Reactive Shell", description: "Segmented plate that stiffens on impact and anchors difficult rescue operations.", wieldLevel: 3, strengthBonus: 0, damageMultiplier: 0.35, worstInjury: "major", durability: 2, fluxCostBase: 2_400, modelCost: 100, nullTraceCost: 0, requiredResearchId: "reactive-shell" },
-  { id: "aegis-frame", kind: "armor", tier: 3, name: "Aegis Frame", description: "A powered exoframe built for Null exposure and the Ark's most dangerous deployments.", wieldLevel: 5, strengthBonus: 0, damageMultiplier: 0.2, worstInjury: "minor", durability: 3, fluxCostBase: 6_000, modelCost: 200, nullTraceCost: 40, requiredResearchId: "aegis-frame" },
+  { id: "kinetic-pike", kind: "weapon", tier: 1, name: "Kinetic Pike", description: "A collapsible impulse staff: simple, dependable, and increasingly precise as its pattern matures.", wieldLevel: 2, strengthBonus: 2, damageMultiplier: 1, worstInjury: "severe", durability: 1, modelCost: 40, nullTraceCost: 0, requiredResearchId: "expedition-armaments" },
+  { id: "arc-carbine", kind: "weapon", tier: 2, name: "Arc Carbine", description: "A directed-discharge rifle tuned to the Ark's power signature and hostile machinery.", wieldLevel: 4, strengthBonus: 4, damageMultiplier: 1, worstInjury: "severe", durability: 1, modelCost: 100, nullTraceCost: 0, requiredResearchId: "arc-discharge-weapons" },
+  { id: "null-lance", kind: "weapon", tier: 3, name: "Null Lance", description: "A controlled edge of enforced absence. Powerful, scarce, and dangerous to misunderstand.", wieldLevel: 6, strengthBonus: 6, damageMultiplier: 1, worstInjury: "severe", durability: 1, modelCost: 200, nullTraceCost: 40, requiredResearchId: "null-edge-armaments" },
+  { id: "composite-weave", kind: "armor", tier: 1, name: "Composite Weave", description: "Flexible fabrication mesh for survey work, mobility, and survivable field mistakes.", wieldLevel: 1, strengthBonus: 0, damageMultiplier: 0.5, worstInjury: "major", durability: 1, modelCost: 40, nullTraceCost: 0, requiredResearchId: "composite-plating" },
+  { id: "reactive-shell", kind: "armor", tier: 2, name: "Reactive Shell", description: "Segmented plate that stiffens on impact and anchors difficult rescue operations.", wieldLevel: 3, strengthBonus: 0, damageMultiplier: 0.35, worstInjury: "major", durability: 2, modelCost: 100, nullTraceCost: 0, requiredResearchId: "reactive-shell" },
+  { id: "aegis-frame", kind: "armor", tier: 3, name: "Aegis Frame", description: "A powered exoframe built for Null exposure and the Ark's most dangerous deployments.", wieldLevel: 5, strengthBonus: 0, damageMultiplier: 0.2, worstInjury: "minor", durability: 3, modelCost: 200, nullTraceCost: 40, requiredResearchId: "aegis-frame" },
 ] as const;
 
 export const ARMORY_ITEM_IDS = ARMORY_ITEM_DEFINITIONS.map((item) => item.id) as readonly ArmoryItemId[];

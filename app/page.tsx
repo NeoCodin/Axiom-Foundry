@@ -77,6 +77,7 @@ import {
   startExpedition,
   startRescueMission,
   getBerthConstructionQuote,
+  getLifeSupportUpgradeSalvageCost,
   hasRescueDetail,
   performArkRescue,
   getDefenseInstallationQuote,
@@ -1115,15 +1116,10 @@ export default function Home() {
     () =>
       Object.fromEntries(
         (Object.keys(game.survivors.lifeSupport) as LifeSupportKey[]).map(
-          (key) => [
-            key,
-            8 +
-              game.survivors.lifeSupport[key] * 2 +
-              game.settlement.completedWorldIds.length * 4,
-          ],
+          (key) => [key, getLifeSupportUpgradeSalvageCost(game, key)],
         ),
       ) as Record<LifeSupportKey, number>,
-    [game.settlement.completedWorldIds.length, game.survivors.lifeSupport],
+    [game],
   );
   const roomReinforcements = campaignWorldIndex >= 2
     ? ROOM_DEFINITIONS.flatMap((definition) => {
@@ -1918,10 +1914,7 @@ export default function Home() {
 
   const handleUpgradeSupport = (key: LifeSupportKey) => {
     const current = gameRef.current;
-    const cost =
-      8 +
-      current.survivors.lifeSupport[key] * 2 +
-      current.settlement.completedWorldIds.length * 4;
+    const cost = getLifeSupportUpgradeSalvageCost(current, key);
     if (current.living.salvage < cost) return;
     const survivors = setLifeSupportCapacity(current.survivors, {
       [key]: current.survivors.lifeSupport[key] + 4,

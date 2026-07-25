@@ -163,6 +163,7 @@ import {
   type RareSurvivorHookId,
   type SurvivorRarityId,
   type Survivor,
+  type LifeSupportKey,
   type SurvivorSystemState,
 } from "./survivor-engine.ts";
 import {
@@ -197,6 +198,7 @@ import {
   type WorldProgressSummary,
 } from "./settlement-engine.ts";
 import {
+  CAMPAIGN_WORLD_IDS,
   getCampaignWorld,
   type CampaignWorldId,
 } from "./campaign-content.ts";
@@ -1805,11 +1807,109 @@ export function getEffectiveCohesion(state: GameState) {
   );
 }
 
-function continuityScale(state: GameState) {
-  const completed = Math.max(0, state.settlement.completedWorldIds.length);
-  return completed <= 1
-    ? safePower(100, completed)
-    : safeMultiply(100, safePower(60, completed - 1));
+/**
+ * Planetary work is authored against the conditions of a specific world.
+ * Keeping these budgets explicit prevents unrelated Ark equipment from
+ * silently inheriting a campaign-wide inflation multiplier.
+ */
+export type WorldOperationEconomy = {
+  infrastructureFlux: number;
+  supplyBatchFlux: number;
+  crisisFlux: number;
+  equipmentFlux: number;
+  rescueFlux: number;
+  expeditionScale: number;
+};
+
+export const WORLD_OPERATION_ECONOMY: Readonly<
+  Record<CampaignWorldId, WorldOperationEconomy>
+> = {
+  "cold-wake": {
+    infrastructureFlux: 500,
+    supplyBatchFlux: 500,
+    crisisFlux: 5_000,
+    equipmentFlux: 4_000,
+    rescueFlux: 150,
+    expeditionScale: 1,
+  },
+  pelagos: {
+    infrastructureFlux: 50_000,
+    supplyBatchFlux: 50_000,
+    crisisFlux: 500_000,
+    equipmentFlux: 400_000,
+    rescueFlux: 15_000,
+    expeditionScale: 100,
+  },
+  viridia: {
+    infrastructureFlux: 3_000_000,
+    supplyBatchFlux: 3_000_000,
+    crisisFlux: 30_000_000,
+    equipmentFlux: 24_000_000,
+    rescueFlux: 900_000,
+    expeditionScale: 6_000,
+  },
+  cinder: {
+    infrastructureFlux: 180_000_000,
+    supplyBatchFlux: 180_000_000,
+    crisisFlux: 1_800_000_000,
+    equipmentFlux: 1_440_000_000,
+    rescueFlux: 54_000_000,
+    expeditionScale: 360_000,
+  },
+  nox: {
+    infrastructureFlux: 10_800_000_000,
+    supplyBatchFlux: 10_800_000_000,
+    crisisFlux: 108_000_000_000,
+    equipmentFlux: 86_400_000_000,
+    rescueFlux: 3_240_000_000,
+    expeditionScale: 21_600_000,
+  },
+  vesper: {
+    infrastructureFlux: 648_000_000_000,
+    supplyBatchFlux: 648_000_000_000,
+    crisisFlux: 6_480_000_000_000,
+    equipmentFlux: 5_184_000_000_000,
+    rescueFlux: 194_400_000_000,
+    expeditionScale: 1_296_000_000,
+  },
+};
+
+/**
+ * Persistent assets keep one canonical recipe after they are unlocked.
+ * Later worlds make old equipment easier to replace rather than repricing the
+ * exact same object merely because the Ark moved.
+ */
+export const PERSISTENT_ARK_ECONOMY = {
+  berthFluxBase: 60_000,
+  armoryTierFlux: {
+    1: 288_000_000,
+    2: 51_840_000_000,
+    3: 7_776_000_000_000,
+  },
+  defenseFluxScale: 360_000,
+  automationFluxScale: 360_000,
+  prostheticSurgeryFlux: 432_000_000,
+  bioadaptationFluxScale: 1_296_000_000,
+  planetaryDefenseFluxScale: 216_000,
+} as const;
+
+function getEconomyWorldId(
+  state: GameState,
+  worldId?: CampaignWorldId | null,
+): CampaignWorldId {
+  return (
+    worldId ??
+    CAMPAIGN_WORLD_IDS[getCampaignWorldIndex(state)] ??
+    state.settlement.currentWorldId ??
+    "cold-wake"
+  );
+}
+
+export function getWorldOperationEconomy(
+  state: GameState,
+  worldId?: CampaignWorldId | null,
+) {
+  return WORLD_OPERATION_ECONOMY[getEconomyWorldId(state, worldId)];
 }
 
 export function getInfrastructureResearchMultiplier(state: GameState) {
@@ -1822,8 +1922,7 @@ export function getInfrastructureResearchMultiplier(state: GameState) {
 
 export function getInfrastructureFluxCost(state: GameState) {
   return bounded(
-    500 *
-      continuityScale(state) *
+    getWorldOperationEconomy(state).infrastructureFlux *
       getColonyLegacyEffects(state).fabricationCostMultiplier *
       getInfrastructureResearchMultiplier(state),
   );
@@ -1842,8 +1941,7 @@ export function getSupplyFabricationQuote(
   if (!requirement) return { cost: Number.POSITIVE_INFINITY, amount: 0 };
   return {
     cost: bounded(
-      500 *
-        continuityScale(state) *
+      getWorldOperationEconomy(state).supplyBatchFlux *
         getColonyLegacyEffects(state).fabricationCostMultiplier,
     ),
     amount: Math.max(1, Math.ceil(requirement.amount / 5)),
@@ -1851,7 +1949,7 @@ export function getSupplyFabricationQuote(
 }
 
 export function getCrisisFluxCost(state: GameState) {
-  return bounded(5_000 * continuityScale(state));
+  return bounded(getWorldOperationEconomy(state).crisisFlux);
 }
 
 export type EquipmentFabricationQuote = {
@@ -1894,13 +1992,11 @@ export function getEquipmentFabricationQuote(
   const researchMet = state.research.completedProjectIds.includes(
     definition.requiredResearchId as ResearchProjectId,
   );
-  // Flat continuity pricing per world (see berth pricing note): a real
-  // decision when the world begins, never a runaway target. Fabrication
-  // also consumes Engineering Models from the Ark supply so the
-  // research-input economy feeds equipment.
+  // World equipment is priced from the operation budget of the planet where
+  // it is installed. Fabrication also consumes Engineering Models from the
+  // Ark supply so the research-input economy feeds equipment.
   const cost = bounded(
-    4_000 *
-      continuityScale(state) *
+    getWorldOperationEconomy(state, world.id).equipmentFlux *
       getColonyLegacyEffects(state).fabricationCostMultiplier,
   );
   return {
@@ -2304,7 +2400,7 @@ function autoTransferResearchInputs(state: GameState) {
 }
 
 export function getRescueFluxCost(state: GameState) {
-  return bounded(150 * continuityScale(state));
+  return bounded(getWorldOperationEconomy(state).rescueFlux);
 }
 
 export type ArkRescueQuote = {
@@ -2438,8 +2534,7 @@ export function getArmoryCraftQuote(
 ): ArmoryCraftQuote {
   const item = getArmoryItemDefinition(itemId);
   const fluxCost = bounded(
-    item.fluxCostBase *
-      continuityScale(state) *
+    PERSISTENT_ARK_ECONOMY.armoryTierFlux[item.tier] *
       getColonyLegacyEffects(state).fabricationCostMultiplier,
   );
   const researchMet = state.research.completedProjectIds.includes(
@@ -2497,9 +2592,8 @@ export function getArmoryRepairQuote(
 ): ArmoryRepairQuote {
   const item = getArmoryItemDefinition(itemId);
   const fluxCost = bounded(
-    item.fluxCostBase *
+    PERSISTENT_ARK_ECONOMY.armoryTierFlux[item.tier] *
       ARMORY_REPAIR_COST_RATIO *
-      continuityScale(state) *
       getColonyLegacyEffects(state).fabricationCostMultiplier,
   );
   const damaged = getArmoryDamagedCount(state.armory, itemId);
@@ -2590,7 +2684,11 @@ export function getArmoryUpgradeQuote(
     Math.min(10, getResearchRepeatCount(state.research, "equipment-stress-tests")),
   );
   const tierFactor = 0.75 + item.tier * 0.25;
-  const fluxCost = bounded(item.fluxCostBase * ARMORY_MARK_FLUX_MULTIPLIER[targetMark] * continuityScale(state) * patternFactor);
+  const fluxCost = bounded(
+    PERSISTENT_ARK_ECONOMY.armoryTierFlux[item.tier] *
+      ARMORY_MARK_FLUX_MULTIPLIER[targetMark] *
+      patternFactor,
+  );
   const salvageCost = Math.ceil((targetMark === 2 ? 80 : targetMark === 3 ? 220 : 650) * item.tier * patternFactor);
   const schematicCost = Math.ceil((targetMark === 2 ? 30 : targetMark === 3 ? 80 : 200) * item.tier * patternFactor);
   const modelCost = Math.ceil(item.modelCost * (targetMark === 2 ? 2 : targetMark === 3 ? 4 : 8) * patternFactor);
@@ -2857,7 +2955,7 @@ export function getBioadaptationQuote(
     adaptationId,
     fluxCost: bounded(
       definition.cost.flux *
-        continuityScale(state) *
+        PERSISTENT_ARK_ECONOMY.bioadaptationFluxScale *
         getColonyLegacyEffects(state).fabricationCostMultiplier,
     ),
     axiomCost: definition.cost.axioms,
@@ -3037,7 +3135,10 @@ export function getExpeditionLaunchQuote(
   crewIds: readonly string[],
 ): ExpeditionLaunchQuote {
   const site = getExpeditionSite(siteId);
-  const fluxCost = bounded(site.fluxCostBase * continuityScale(state));
+  const fluxCost = bounded(
+    site.fluxCostBase *
+      getWorldOperationEconomy(state, site.worldId).expeditionScale,
+  );
   const researchSupport = getExpeditionResearchSupport(state);
   const blocked = (reason: ExpeditionLaunchQuote["reason"]) => ({
     fluxCost,
@@ -3373,7 +3474,6 @@ export function dischargeCrewFromMedBay(state: GameState, survivorId: string) {
 }
 
 export const PROSTHETIC_SURGEON_LEVEL = 5;
-export const PROSTHETIC_SURGERY_FLUX_BASE = 1_200;
 export const PROSTHETIC_SURGERY_MODEL_COST = 30;
 export const PROSTHETIC_SURGERY_SAMPLE_COST = 20;
 
@@ -3407,7 +3507,7 @@ export function getProstheticSurgeryQuote(
   state: GameState,
   survivorId: string,
 ): ProstheticSurgeryQuote {
-  const fluxCost = bounded(PROSTHETIC_SURGERY_FLUX_BASE * continuityScale(state));
+  const fluxCost = bounded(PERSISTENT_ARK_ECONOMY.prostheticSurgeryFlux);
   const researchMet =
     state.research.completedProjectIds.includes("prosthetic-fabrication");
   const patient = state.survivors.survivors.find(
@@ -3509,7 +3609,11 @@ export function getRescueMissionQuote(
   const stranded = state.expeditions.stranded;
   const site = stranded ? getExpeditionSite(stranded.siteId) : null;
   const fluxCost = site
-    ? bounded(site.fluxCostBase * RESCUE_FLUX_RATIO * continuityScale(state))
+    ? bounded(
+        site.fluxCostBase *
+          RESCUE_FLUX_RATIO *
+          getWorldOperationEconomy(state, site.worldId).expeditionScale,
+      )
     : 0;
   const rescueDifficulty = site
     ? Math.max(1, site.difficulty - RESCUE_DIFFICULTY_RELIEF)
@@ -3667,6 +3771,13 @@ export function getBerthConstructionSpeed(state: GameState) {
   return Math.min(5, 1 + getAssignedEngineeringExpertise(state) * 0.08);
 }
 
+export function getLifeSupportUpgradeSalvageCost(
+  state: GameState,
+  key: LifeSupportKey,
+) {
+  return 8 + state.survivors.lifeSupport[key] * 2;
+}
+
 export type BerthConstructionQuote = {
   cost: number;
   salvageCost: number;
@@ -3684,19 +3795,14 @@ export function getBerthConstructionQuote(
   state: GameState,
 ): BerthConstructionQuote {
   const sections = state.survivors.berthSections;
-  // Flat continuity pricing per world (like infrastructure and crises):
-  // meaningful when the Ark arrives, affordable soon after, and never a
-  // moving target. Production-relative pricing was tried and rejected — it
-  // outruns any wallet while the fabrication chain is compounding.
+  // Living-space construction is a persistent Ark project. Its quote follows
+  // built depth, not the current planet, so changing orbit cannot reprice the
   const cost = bounded(
-    600 *
-      continuityScale(state) *
+    PERSISTENT_ARK_ECONOMY.berthFluxBase *
       (1 + 0.08 * sections) *
       getColonyLegacyEffects(state).fabricationCostMultiplier,
   );
-  const salvageCost = Math.round(
-    12 + sections * 8 + getCampaignWorldIndex(state) * 6,
-  );
+  const salvageCost = Math.round(12 + sections * 8);
   return {
     cost,
     salvageCost,
@@ -3718,16 +3824,15 @@ export function getDefenseInstallationQuote(
   installationId: DefenseInstallationId,
 ) {
   const project = getInstallationProjectRequirements(state.defense, installationId);
-  const materialScale = 1 + getCampaignWorldIndex(state) * 0.15;
   const cost = project.maxed
     ? 0
     : bounded(
         project.fluxCost *
-          continuityScale(state) *
+          PERSISTENT_ARK_ECONOMY.defenseFluxScale *
           getColonyLegacyEffects(state).fabricationCostMultiplier,
       );
-  const salvageCost = project.maxed ? 0 : Math.ceil(project.salvageCost * materialScale);
-  const modelCost = project.maxed ? 0 : Math.ceil(project.modelCost * materialScale);
+  const salvageCost = project.maxed ? 0 : project.salvageCost;
+  const modelCost = project.maxed ? 0 : project.modelCost;
   const researchMet =
     project.requiredResearchId === null ||
     state.research.completedProjectIds.includes(project.requiredResearchId as ResearchProjectId);
@@ -3840,11 +3945,11 @@ export function getAutomationFrameQuote(state: GameState) {
     ? 0
     : bounded(
         250 *
-          continuityScale(state) *
+          PERSISTENT_ARK_ECONOMY.automationFluxScale *
           Math.pow(1.8, frame) *
           getColonyLegacyEffects(state).fabricationCostMultiplier,
       );
-  const salvageCost = maxed ? 0 : Math.ceil(80 + 35 * frame + getCampaignWorldIndex(state) * 20);
+  const salvageCost = maxed ? 0 : Math.ceil(80 + 35 * frame);
   const modelCost = maxed ? 0 : Math.ceil(120 + 60 * frame);
   const schematicCost = maxed || frame < 3 ? 0 : Math.ceil(25 + 15 * (frame - 3));
   const nullTraceCost = maxed || frame < 5 ? 0 : Math.ceil(20 + 20 * (frame - 5));
@@ -3926,7 +4031,9 @@ export function getPlanetaryDefenseConstructionQuote(
   const definition = PLANETARY_INSTALLATION_DEFINITIONS[installationId];
   const level = network?.installations[installationId] ?? 0;
   const maxed = level >= MAX_PLANETARY_INSTALLATION_LEVEL;
-  const scale = Math.pow(1.55, level) * Math.max(1, continuityScale(state) / 100);
+  const scale =
+    Math.pow(1.55, level) *
+    PERSISTENT_ARK_ECONOMY.planetaryDefenseFluxScale;
   const fluxCost = maxed ? 0 : bounded(definition.baseFluxCost * scale);
   const salvageCost = maxed ? 0 : Math.ceil(definition.baseSalvageCost * Math.pow(1.35, level));
   const modelCost = maxed ? 0 : Math.ceil(definition.baseModelCost * Math.pow(1.3, level));
@@ -5367,6 +5474,49 @@ function generateResearchStock(state: GameState, elapsedSeconds: number) {
   }
 }
 
+/**
+ * Salvage is recovered physical material. It requires either qualified
+ * Fabrication/Technical staff or healthy adults working from Ark Reserve;
+ * an empty Ark can no longer create Salvage from nothing.
+ */
+export function getPassiveSalvagePerSecond(state: GameState) {
+  const salvageExpertise = state.survivors.survivors.reduce(
+    (total, survivor) =>
+      total +
+      (isSurvivorOnDuty(survivor, "fabricator")
+        ? getSurvivorSkillLevel(survivor, "fabricator")
+        : 0) +
+      (isSurvivorOnDuty(survivor, "technician")
+        ? getSurvivorSkillLevel(survivor, "technician") * 0.6
+        : 0),
+    0,
+  );
+  const trainingIds = new Set(
+    state.survivors.training.map((program) => program.survivorId),
+  );
+  const deployedIds = getDeployedCrewIds(state.expeditions);
+  const reserveAdults = state.survivors.survivors.filter(
+    (survivor) =>
+      survivor.ageGroup !== "child" &&
+      survivor.assignedRole === null &&
+      !trainingIds.has(survivor.id) &&
+      !deployedIds.has(survivor.id) &&
+      survivor.id !== state.bioadaptation.active?.survivorId &&
+      !isSurvivorAdmitted(state.survivors, survivor.id) &&
+      !isSurvivorWounded(survivor),
+  ).length;
+  const reserveSupportMultiplier = state.research.completedProjectIds.includes(
+    "automated-personnel-logistics",
+  )
+    ? 1.25 * getActiveAutomationEffects(state).reserveSalvageMultiplier
+    : 1;
+  return Math.min(
+    0.08,
+    salvageExpertise * 0.0012 +
+      reserveAdults * 0.00075 * reserveSupportMultiplier,
+  );
+}
+
 export function simulateGame(
   state: GameState,
   elapsedSeconds: number,
@@ -5508,47 +5658,9 @@ export function simulateGame(
     ],
   };
   generateResearchStock(next, seconds);
-  const salvageExpertise = next.survivors.survivors.reduce(
-    (total, survivor) =>
-      total +
-      (isSurvivorOnDuty(survivor, "fabricator")
-        ? getSurvivorSkillLevel(survivor, "fabricator")
-        : 0) +
-      (isSurvivorOnDuty(survivor, "technician")
-        ? getSurvivorSkillLevel(survivor, "technician") * 0.6
-        : 0),
-    0,
-  );
-  const trainingIds = new Set(
-    next.survivors.training.map((program) => program.survivorId),
-  );
-  const deployedIds = getDeployedCrewIds(next.expeditions);
-  const reserveAdults = next.survivors.survivors.filter(
-    (survivor) =>
-      survivor.ageGroup !== "child" &&
-      survivor.assignedRole === null &&
-      !trainingIds.has(survivor.id) &&
-      !deployedIds.has(survivor.id) &&
-      survivor.id !== next.bioadaptation.active?.survivorId &&
-      !isSurvivorAdmitted(next.survivors, survivor.id) &&
-      !isSurvivorWounded(survivor),
-  ).length;
-  const reserveSupportMultiplier = next.research.completedProjectIds.includes(
-    "automated-personnel-logistics",
-  )
-    ? 1.25 * automationEffects.reserveSalvageMultiplier
-    : 1;
   next.living.salvage = Math.min(
     1e12,
-    next.living.salvage +
-      seconds *
-        Math.min(
-          0.15,
-          0.012 +
-            salvageExpertise * 0.0024 +
-            reserveAdults * 0.0015 * reserveSupportMultiplier +
-            getCampaignWorldIndex(next) * 0.003,
-        ),
+    next.living.salvage + seconds * getPassiveSalvagePerSecond(next),
   );
 
   const applyDefenseSegment = (

@@ -5,6 +5,32 @@ campaign completable in 14.8 bot-days of continuous play, no walls, recal
 cadence intact (17), peak flux 116B/s — every §5 rule passed on the first
 run because the campaign's true clock is crew/expertise growth, which this
 change preserves. Original draft follows.
+
+## Economy structure addendum - July 25, 2026
+
+The universal structural-price multiplier described in the original draft
+below is retired. It made identical permanent Ark equipment cost more merely
+because the Ark entered a later orbit.
+
+Pricing now has three explicit families:
+
+1. Local Foundry machines use their own purchase-count curves and reset on
+   Recalibration.
+2. Persistent Ark assets use one canonical recipe based on tier, Mark, or
+   constructed depth. Armory frames, repairs, Ark defenses, utility drones,
+   living space, prosthetics, bioadaptation, and planetary defense hardware
+   do not inherit the current world's price.
+3. Planetary operations use an authored budget for the world where the work
+   occurs. Infrastructure, supplies, crises, world equipment, rescue launches,
+   and expeditions remain world-scaled, but no longer share a hidden global
+   function.
+
+Salvage is now physical recovery rather than ambient chapter income. An empty
+Ark produces none; qualified Fabricators and Technicians, healthy Ark Reserve
+adults, expeditions, and defense recovery are its visible sources. Dedicated
+resource expeditions are tuned to recover at least 120 Salvage per hour on a
+full success.
+
 Direction set by the owner July 13, 2026: per-second Flux should change
 ONLY when you buy something; nothing adds to it passively except the
 Recalibration-earned auto-buyer; overnight gains should be a pleasant pile,

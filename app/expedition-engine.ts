@@ -90,7 +90,8 @@ export type ExpeditionSiteDefinition = {
   requiredForContinuity: boolean;
   durationSeconds: number;
   difficulty: number; // strength required for a full success
-  fluxCostBase: number; // x continuityScale at launch
+  /** Multiplied by the explicit budget of the operation's own world. */
+  fluxCostBase: number;
   /** Primary roles earning bonus expedition XP at this site. */
   focusRoles: readonly ProfessionalRole[];
   preparations: readonly ExpeditionPreparation[];
@@ -327,7 +328,7 @@ export const EXPEDITION_SITE_DEFINITIONS: readonly ExpeditionSiteDefinition[] = 
     fluxCostBase: 100,
     focusRoles: ["navigator", "technician", "fabricator"],
     preparations: [],
-    rewards: { salvage: 28, schematics: 10, nullTraces: 0, engineeringModels: 6 },
+    rewards: { salvage: 60, schematics: 10, nullTraces: 0, engineeringModels: 6 },
   },
   {
     id: "viridia-survey",
@@ -428,7 +429,7 @@ export const EXPEDITION_SITE_DEFINITIONS: readonly ExpeditionSiteDefinition[] = 
     fluxCostBase: 210,
     focusRoles: ["doctor", "farmer", "researcher"],
     preparations: [],
-    rewards: { salvage: 18, schematics: 12, nullTraces: 2, biologicalSamples: 35 },
+    rewards: { salvage: 90, schematics: 12, nullTraces: 2, biologicalSamples: 35 },
   },
   {
     id: "planetary-survey",
@@ -506,7 +507,7 @@ export const EXPEDITION_SITE_DEFINITIONS: readonly ExpeditionSiteDefinition[] = 
     fluxCostBase: 420,
     focusRoles: ["engineer", "fabricator", "technician"],
     preparations: [],
-    rewards: { salvage: 75, schematics: 35, nullTraces: 2, engineeringModels: 40 },
+    rewards: { salvage: 140, schematics: 35, nullTraces: 2, engineeringModels: 40 },
   },
   {
     id: "nox-survey",
@@ -620,7 +621,7 @@ export const EXPEDITION_SITE_DEFINITIONS: readonly ExpeditionSiteDefinition[] = 
     fluxCostBase: 600,
     focusRoles: ["researcher", "navigator"],
     preparations: [],
-    rewards: { salvage: 22, schematics: 18, nullTraces: 32, culturalRecords: 10 },
+    rewards: { salvage: 210, schematics: 18, nullTraces: 32, culturalRecords: 10 },
   },
   {
     id: "vesper-survey",
@@ -707,7 +708,7 @@ export const EXPEDITION_SITE_DEFINITIONS: readonly ExpeditionSiteDefinition[] = 
     fluxCostBase: 900,
     focusRoles: ["researcher", "navigator", "engineer"],
     preparations: [],
-    rewards: { salvage: 45, schematics: 36, nullTraces: 55, engineeringModels: 30, culturalRecords: 28 },
+    rewards: { salvage: 300, schematics: 36, nullTraces: 55, engineeringModels: 30, culturalRecords: 28 },
   },
   {
     id: "palimpsest-origin",

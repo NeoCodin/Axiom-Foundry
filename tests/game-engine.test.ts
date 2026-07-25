@@ -1306,7 +1306,7 @@ test("idle time cannot silently skip the continuity campaign", () => {
   assert.ok(fourHoursLater.playTime >= 4 * 3_600);
 });
 
-test("continuity crisis costs follow the deliberately flatter six-world scale", () => {
+test("continuity crisis costs follow each world's authored operation budget", () => {
   const expectedCosts = [
     5_000,
     500_000,
@@ -1317,11 +1317,13 @@ test("continuity crisis costs follow the deliberately flatter six-world scale", 
   ];
 
   assert.deepEqual(
-    expectedCosts.map((_, completedWorlds) => {
+    expectedCosts.map((_, worldIndex) => {
       const state = createInitialState(0);
+      state.missions.currentIndex = worldIndex;
+      state.settlement.currentWorldId = CAMPAIGN_WORLDS[worldIndex]!.id;
       state.settlement.completedWorldIds = CAMPAIGN_WORLDS.slice(
         0,
-        completedWorlds,
+        worldIndex,
       ).map((world) => world.id);
       return getCrisisFluxCost(state);
     }),
@@ -1515,7 +1517,7 @@ test("continuity equipment is fabricated with Flux and feeds substitutions", () 
   assert.equal(fabricateWorldEquipment(bought, "mobile-field-clinic"), bought);
 });
 
-test("equipment and berth prices scale with campaign progression, never with live production", () => {
+test("world equipment follows its world budget while Ark sections follow built depth", () => {
   const early = setTutorialComplete(createInitialState(0), true);
   early.missions.currentIndex = 2;
   early.settlement.completedWorldIds = ["cold-wake", "pelagos"];
@@ -1540,7 +1542,8 @@ test("equipment and berth prices scale with campaign progression, never with liv
     getBerthConstructionQuote(early).cost,
   );
 
-  // Later worlds cost more, and each berth section costs more than the last.
+  // Later planetary equipment costs more, while each permanent Ark section
+  // costs more only because the Ark has already expanded.
   const late = setTutorialComplete(createInitialState(0), true);
   late.settlement.completedWorldIds = ["cold-wake", "pelagos", "viridia"];
   late.settlement.currentWorldId = "cinder";
