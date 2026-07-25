@@ -52,7 +52,7 @@ export function GameCommandBar({
     <header className={`command-bar metric-count-${metricCount} ${focusWelcome || focusFlux ? "tour-focus" : ""}`}>
       <div className="brand-lockup" data-guide-target="command-context" data-pixel-tooltip={cycleTooltip} tabIndex={0} aria-label={cycleTooltip}>
         <span className="brand-mark" aria-hidden="true">◇</span>
-        <div><p className="eyebrow">{worldName.toUpperCase()} · CYCLE {String(cycle).padStart(2, "0")}</p><h1>{arrival}</h1></div>
+        <div><p className="eyebrow">{worldName.toUpperCase()} · CYCLE {cycle}</p><h1>{arrival}</h1></div>
       </div>
       <div className={`resource-readout ${focusFlux ? "tour-focus" : ""}`} data-guide-target="command-flux" data-pixel-tooltip={fluxTooltip} tabIndex={0} aria-label={fluxTooltip}>
         <span className="resource-label">Local Flux</span><strong>{fluxLabel}</strong><span className="rate">+{fluxPerSecondLabel} / sec</span>

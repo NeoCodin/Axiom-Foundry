@@ -46,11 +46,11 @@ export function GameNavigation({ currentView, unlocks, guidedView = null, onNavi
     sprite: string;
     unlocked: boolean;
   }> = [
-    { view: "deck", group: "ark", code: "A", label: "Ark", detail: "Command", tooltip: "Inspect the Ark itself: its illuminated rooms, population, SOS array, and physical systems.", sprite: "ark", unlocked: true },
-    { view: "engineering", group: "foundry", code: "01", label: "Foundry", detail: "Fabrication", tooltip: "Build nested mechanisms, increase Flux production, manage automation, and prepare planetary materials.", sprite: "foundry", unlocked: unlocks.engineering },
-    { view: "population", group: "personnel", code: "02", label: "Personnel", detail: "Crew & care", tooltip: "Rescue, train, assign, heal, and equip the people living aboard the Ark.", sprite: "crew", unlocked: unlocks.population },
-    { view: "research", group: "research", code: "03", label: "Research", detail: "Analysis", tooltip: "Route recovered evidence through the Analysis Core to unlock systems, equipment, and deeper Null knowledge.", sprite: "research", unlocked: unlocks.research },
-    { view: "settlement", group: "planet", code: "04", label: "Continuity", detail: "Current world", tooltip: "Follow the current world sequence, then review crises, infrastructure, founding requirements, colony history, and departure readiness.", sprite: "planet", unlocked: unlocks.settlement },
+    { view: "deck", group: "ark", code: "1", label: "Ark", detail: "Command", tooltip: "Inspect the Ark itself: its illuminated rooms, population, SOS array, and physical systems.", sprite: "ark", unlocked: true },
+    { view: "engineering", group: "foundry", code: "2", label: "Foundry", detail: "Fabrication", tooltip: "Build nested mechanisms, increase Flux production, manage automation, and prepare planetary materials.", sprite: "foundry", unlocked: unlocks.engineering },
+    { view: "population", group: "personnel", code: "3", label: "Personnel", detail: "Crew & care", tooltip: "Rescue, train, assign, heal, and equip the people living aboard the Ark.", sprite: "crew", unlocked: unlocks.population },
+    { view: "research", group: "research", code: "4", label: "Research", detail: "Analysis", tooltip: "Route recovered evidence through the Analysis Core to unlock systems, equipment, and deeper Null knowledge.", sprite: "research", unlocked: unlocks.research },
+    { view: "settlement", group: "planet", code: "5", label: "Continuity", detail: "Current world", tooltip: "Follow the current world sequence, then review crises, infrastructure, founding requirements, colony history, and departure readiness.", sprite: "planet", unlocked: unlocks.settlement },
   ];
   const unlockedDestinations = destinations.filter((destination) => destination.unlocked);
 
@@ -75,9 +75,9 @@ export function GameNavigation({ currentView, unlocks, guidedView = null, onNavi
             <span className={`nav-sprite sprite-${destination.sprite}`} aria-hidden="true"><i /></span>
             <span className="nav-destination-copy">
               <strong>{destination.label}</strong>
-              <small>{destination.code}{" // "}{destination.detail}</small>
+              <small>{destination.code} · {destination.detail}</small>
             </span>
-            {guided && <b className="nav-guide-label" aria-hidden="true">NEW // OPEN</b>}
+            {guided && <b className="nav-guide-label" aria-hidden="true">NEW · OPEN</b>}
           </button>
           );
         })}
@@ -87,7 +87,7 @@ export function GameNavigation({ currentView, unlocks, guidedView = null, onNavi
         <nav className="facility-navigation" aria-label="Ark facilities">
           <div className="facility-navigation-label"><span>Ark facilities</span><small>Operations stay aboard the ship</small></div>
           <button className={currentView === "deck" ? "active" : ""} type="button" aria-current={currentView === "deck" ? "page" : undefined} data-pixel-tooltip="Return to the Ark cutaway, its illuminated rooms, SOS array, and physical systems." onClick={() => onNavigate("deck")}>Command Deck</button>
-          {unlocks.expeditions && <button className={`${currentView === "expeditions" ? "active" : ""} ${guidedView === "expeditions" ? "is-guided-destination" : ""}`} type="button" aria-current={currentView === "expeditions" ? "page" : undefined} data-guided-destination={guidedView === "expeditions" ? "expeditions" : undefined} data-pixel-tooltip={guidedView === "expeditions" ? "New facility: open Expedition Bay now." : "Choose a current-world operation, prepare a qualified team, and launch an offline-safe expedition."} onClick={() => onNavigate("expeditions")}>Expedition Bay{guidedView === "expeditions" && <b className="nav-guide-label" aria-hidden="true">NEW // OPEN</b>}</button>}
+          {unlocks.expeditions && <button className={`${currentView === "expeditions" ? "active" : ""} ${guidedView === "expeditions" ? "is-guided-destination" : ""}`} type="button" aria-current={currentView === "expeditions" ? "page" : undefined} data-guided-destination={guidedView === "expeditions" ? "expeditions" : undefined} data-pixel-tooltip={guidedView === "expeditions" ? "New facility: open Expedition Bay now." : "Choose a current-world operation, prepare a qualified team, and launch an offline-safe expedition."} onClick={() => onNavigate("expeditions")}>Expedition Bay{guidedView === "expeditions" && <b className="nav-guide-label" aria-hidden="true">NEW · OPEN</b>}</button>}
           {unlocks.defense && <button className={currentView === "defense" ? "active" : ""} type="button" aria-current={currentView === "defense" ? "page" : undefined} data-pixel-tooltip="Set standing doctrines, construct defensive Marks, and review forecasted hazards and incident reports." onClick={() => onNavigate("defense")}>Defense Grid</button>}
         </nav>
       )}

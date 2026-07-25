@@ -131,7 +131,7 @@ function ExpeditionConsole({
     <section className="continuity-console expedition-console" data-guide-target="expedition-console" aria-labelledby="expedition-console-title">
       <header className="continuity-console-header">
         <div>
-          <p>EXPEDITION COMMAND // {currentWorldName.toUpperCase()}</p>
+          <p>EXPEDITION COMMAND · {currentWorldName.toUpperCase()}</p>
           <h2 id="expedition-console-title">Surface missions and crew retrieval</h2>
           <span>Every launch shows its projected outcome first. Missions resolve automatically, online or offline, and no one is ever lost without your explicit order.</span>
         </div>
@@ -149,10 +149,10 @@ function ExpeditionConsole({
       </div>
 
       <nav className="expedition-stage-rail" aria-label="Expedition workflow">
-        <span className={!expeditions.active && expeditionCrewIds.length === 0 ? "is-active" : "is-complete"}><i>01</i><strong>Choose operation</strong></span>
-        <span className={!expeditions.active && expeditionCrewIds.length > 0 ? "is-active" : expeditions.active ? "is-complete" : ""}><i>02</i><strong>Prepare team</strong></span>
-        <span className={expeditions.active ? "is-active" : ""}><i>03</i><strong>Track mission</strong></span>
-        <span className={!expeditions.active && expeditions.log.length > 0 ? "is-ready" : ""}><i>04</i><strong>Review outcome</strong></span>
+        <span className={!expeditions.active && expeditionCrewIds.length === 0 ? "is-active" : "is-complete"}><i>1</i><strong>Choose operation</strong></span>
+        <span className={!expeditions.active && expeditionCrewIds.length > 0 ? "is-active" : expeditions.active ? "is-complete" : ""}><i>2</i><strong>Prepare team</strong></span>
+        <span className={expeditions.active ? "is-active" : ""}><i>3</i><strong>Track mission</strong></span>
+        <span className={!expeditions.active && expeditions.log.length > 0 ? "is-ready" : ""}><i>4</i><strong>Review outcome</strong></span>
         <HelpTrigger label="Explain Expeditions" onClick={() => onOpenHelp("expeditions")} />
       </nav>
 
@@ -279,7 +279,7 @@ function ExpeditionConsole({
                 <div className="expedition-world-limb"><i /><i /><i /></div>
                 <div className="expedition-flight-path"><span style={{ left: `${Math.max(4, Math.min(96, progress * 100))}%` }} /></div>
                 <div className="expedition-shuttle"><i /></div>
-                <strong>{site.operationCode} // IN FLIGHT</strong>
+                <strong>{site.operationCode} · IN FLIGHT</strong>
               </div>
               <div className="expedition-dossier">
                 <span className="expedition-box-label">MISSION</span>
@@ -382,7 +382,7 @@ function ExpeditionConsole({
                   <div className="expedition-world-limb"><i /><i /><i /></div>
                   <div className="expedition-site-beacon"><i /></div>
                   <div className="expedition-shuttle"><i /></div>
-                  <strong>{site.operationCode} // {site.name.toUpperCase()}</strong>
+                  <strong>{site.operationCode} · {site.name.toUpperCase()}</strong>
                 </div>
                 <div className="expedition-dossier">
                   <span className="expedition-box-label">{site.operationCode} · {site.category.toUpperCase()} OPERATION</span>
@@ -517,7 +517,7 @@ function ExpeditionConsole({
                         : "RESCUE MISSION";
               return (
                 <button type="button" className={index === Math.min(selectedLogIndex, reverseLogs.length - 1) ? "is-active" : ""} onClick={() => setSelectedLogIndex(index)} key={`${entry.resolvedAtSeconds}-${index}`}>
-                  <span>{String(index + 1).padStart(2, "0")} // {outcomeLabel}</span>
+                  <span>{index + 1} · {outcomeLabel}</span>
                   <strong>{site.name}</strong>
                   <small>{Math.round(entry.strength)} strength / {entry.difficulty} difficulty</small>
                 </button>
@@ -525,7 +525,7 @@ function ExpeditionConsole({
               })}
             </nav>
             <article>
-              <span>{activeSite.operationCode} // {activeLog.outcome.toUpperCase()}</span>
+              <span>{activeSite.operationCode} · {activeLog.outcome.toUpperCase()}</span>
               <h3>{activeSite.name}</h3>
               <p>{activeLog.outcome === "success" ? activeSite.successReport : activeLog.outcome === "lean" ? "The party returned safely with a reduced recovery." : activeLog.outcome === "setback" ? "The party returned with injuries. No one was lost." : activeLog.outcome === "distress" ? "The party established a stable shelter and transmitted a rescue signal." : "The stranded party and rescuers returned to the Ark."}</p>
               <div className="expedition-reward-strip">

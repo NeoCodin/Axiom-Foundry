@@ -72,7 +72,7 @@ function MedicalConsole({
     <section className="continuity-console medical-console" data-guide-target="medical-console" aria-labelledby="medical-console-title">
       <header className="continuity-console-header">
         <div>
-          <p>MEDICAL BAY // {currentWorldName.toUpperCase()}</p>
+          <p>MEDICAL BAY · {currentWorldName.toUpperCase()}</p>
           <h2 id="medical-console-title">Admissions, recovery, and prosthetic surgery</h2>
           <span>
             Admitted patients do nothing but heal — no work, no training, no

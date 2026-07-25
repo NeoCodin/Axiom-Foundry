@@ -99,7 +99,7 @@ export default function ArmoryConsole({
     <section className="continuity-console armory-console armory-console-v2" aria-labelledby="armory-console-title">
       <header className="continuity-console-header">
         <div>
-          <p>PERSONNEL // ARMORY // {currentWorldName.toUpperCase()}</p>
+          <p>PERSONNEL · ARMORY · {currentWorldName.toUpperCase()}</p>
           <h2 id="armory-console-title">Ark Armory</h2>
           <span>Six trusted frames. Select one pattern, then decide whether to forge, repair, or develop it.</span>
         </div>
@@ -110,9 +110,9 @@ export default function ArmoryConsole({
       </header>
 
       <nav className="armory-workspace-tabs" aria-label="Armory stations">
-        <button type="button" className={activeTab === "inventory" ? "is-active" : ""} aria-pressed={activeTab === "inventory"} onClick={() => setActiveTab("inventory")}><span>01</span><strong>Inventory</strong><small>{totalReady} FRAMES READY</small></button>
-        <button type="button" className={activeTab === "development" ? "is-active" : ""} aria-pressed={activeTab === "development"} onClick={() => setActiveTab("development")}><span>02</span><strong>Development</strong><small>{activeProject ? "PROJECT ACTIVE" : "FORGE IDLE"}</small></button>
-        <button type="button" className={activeTab === "laws" ? "is-active" : ""} aria-pressed={activeTab === "laws"} onClick={() => setActiveTab("laws")}><span>03</span><strong>Permanent Laws</strong><small>{completedLaws} LEVELS PROVEN</small></button>
+        <button type="button" className={activeTab === "inventory" ? "is-active" : ""} aria-pressed={activeTab === "inventory"} onClick={() => setActiveTab("inventory")}><span>1</span><strong>Inventory</strong><small>{totalReady} FRAMES READY</small></button>
+        <button type="button" className={activeTab === "development" ? "is-active" : ""} aria-pressed={activeTab === "development"} onClick={() => setActiveTab("development")}><span>2</span><strong>Development</strong><small>{activeProject ? "PROJECT ACTIVE" : "FORGE IDLE"}</small></button>
+        <button type="button" className={activeTab === "laws" ? "is-active" : ""} aria-pressed={activeTab === "laws"} onClick={() => setActiveTab("laws")}><span>3</span><strong>Permanent Laws</strong><small>{completedLaws} LEVELS PROVEN</small></button>
       </nav>
 
       {activeProject && (
@@ -152,7 +152,7 @@ export default function ArmoryConsole({
           </div>
 
           <aside className="armory-selected-pattern">
-            <span>SELECTED PATTERN // {selectedItem.kind.toUpperCase()}</span>
+            <span>SELECTED PATTERN · {selectedItem.kind.toUpperCase()}</span>
             <h3>{selectedItem.name}</h3>
             <p>{selectedItem.description}</p>
             <div className="armory-selected-visual" aria-hidden="true">
@@ -220,7 +220,7 @@ export default function ArmoryConsole({
               const quote = laws[id];
               return (
                 <article key={id}>
-                  <span>{String(index + 1).padStart(2, "0")} // LAW LEVEL {quote.level}/{law.maxLevel}</span>
+                  <span>{index + 1} · LAW LEVEL {quote.level}/{law.maxLevel}</span>
                   <div className="armory-law-glyph" aria-hidden="true"><i /><i /><i /></div>
                   <h3>{law.name}</h3>
                   <p>{law.description}</p>

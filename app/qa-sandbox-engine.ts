@@ -30,6 +30,7 @@ import {
   setSosBeaconOnline,
 } from "./survivor-engine.ts";
 import { CONTEXT_GUIDES } from "./story-content.ts";
+import { beginTransit } from "./transit-engine.ts";
 
 export const QA_SAVE_KEY = "axiom-foundry-qa-sandbox-v1";
 export const QA_QUERY_PARAMETER = "qa";
@@ -225,6 +226,24 @@ export function createQaCheckpoint(worldIndex: number, now = Date.now()): GameSt
       autoUpgrades: false,
       buyMode: "1",
     },
+  }, now);
+}
+
+export function createQaTransitCheckpoint(originWorldIndex: number, now = Date.now()): GameState {
+  const originIndex = Math.max(1, Math.min(CAMPAIGN_WORLD_IDS.length - 2, Math.floor(originWorldIndex)));
+  const originWorldId = CAMPAIGN_WORLD_IDS[originIndex];
+  const destinationWorldId = CAMPAIGN_WORLD_IDS[originIndex + 1];
+  const base = createQaCheckpoint(originIndex, now);
+  return sanitizeGameState({
+    ...base,
+    transit: beginTransit(
+      base.transit,
+      originWorldId,
+      destinationWorldId,
+      8,
+      true,
+      now,
+    ),
   }, now);
 }
 

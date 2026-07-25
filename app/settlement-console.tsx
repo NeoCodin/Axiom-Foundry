@@ -122,6 +122,13 @@ function titleCase(value: string) {
   return display.replaceAll("-", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function formatDecimal(value: number, maximumFractionDigits = 2) {
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits,
+    minimumFractionDigits: 0,
+  }).format(value);
+}
+
 const RARITY_RANKS: Record<string, number> = {
   standard: 0,
   notable: 1,
@@ -175,7 +182,7 @@ function candidatesForDeficit(
     })
     .filter((candidate) => candidate.value > 0)
     .sort((left, right) => right.value - left.value);
-  return scored.slice(0, 6);
+  return scored;
 }
 
 function SettlementConsole({
@@ -216,6 +223,9 @@ function SettlementConsole({
 }: SettlementConsoleProps) {
   const [colonyName, setColonyName] = useState(`${world.name} Continuity Settlement`);
   const [activeSection, setActiveSection] = useState<ContinuitySection>("status");
+  const [selectedNetworkWorldId, setSelectedNetworkWorldId] = useState<CampaignWorldId | null>(
+    colonies[0]?.worldId ?? null,
+  );
   const selected = new Set(forecast.selectedSettlerIds);
   const planetaryForecast = getPlanetaryIncomingForecast(planetaryDefense);
   const planetaryInstallationIds = Object.keys(PLANETARY_INSTALLATION_DEFINITIONS) as PlanetaryInstallationId[];
@@ -224,12 +234,14 @@ function SettlementConsole({
   const worksUnlocked = !pelagosSequence && (!coldWakeSequence || coldWakeSequence.stepNumber >= 3);
   const foundersUnlocked = worksUnlocked && world.settlementRequired;
   const legacyUnlocked = colonies.length > 0 || planetaryDefenseActive;
+  const selectedNetworkColony =
+    colonies.find((colony) => colony.worldId === selectedNetworkWorldId) ?? colonies[0] ?? null;
 
   return (
     <section className={`continuity-console settlement-console settlement-console-v2 is-continuity-${activeSection}`} aria-labelledby="settlement-console-title">
       <header className="continuity-console-header">
         <div>
-          <p>PLANETARY CONTINUITY // CHAPTER {String(world.chapter).padStart(2, "0")}</p>
+          <p>PLANETARY CONTINUITY · CHAPTER {world.chapter}</p>
           <h2 id="settlement-console-title">{world.name} stabilization forecast</h2>
           <span>Departure is a choice made after a society can continue without the Ark.</span>
         </div>
@@ -237,11 +249,11 @@ function SettlementConsole({
       </header>
 
       <nav className="continuity-workspace-tabs" aria-label="Continuity stations">
-        <button type="button" className={activeSection === "status" ? "is-active" : ""} aria-pressed={activeSection === "status"} onClick={() => setActiveSection("status")}><span>01</span><strong>World Status</strong><small>{forecast.score}% VIABLE</small></button>
-        <button type="button" className={activeSection === "requirements" ? "is-active" : ""} aria-pressed={activeSection === "requirements"} disabled={!requirementsUnlocked} onClick={() => setActiveSection("requirements")}><span>02</span><strong>Requirements</strong><small>{requirementsUnlocked ? `${forecast.deficits.length} REMAIN` : "NOT YET RELEVANT"}</small></button>
-        <button type="button" className={activeSection === "works" ? "is-active" : ""} aria-pressed={activeSection === "works"} disabled={!worksUnlocked} onClick={() => setActiveSection("works")}><span>03</span><strong>Planetary Works</strong><small>{worksUnlocked ? "INFRASTRUCTURE" : "LOCKED"}</small></button>
-        <button type="button" className={activeSection === "founders" ? "is-active" : ""} aria-pressed={activeSection === "founders"} disabled={!foundersUnlocked} onClick={() => setActiveSection("founders")}><span>04</span><strong>Founding Community</strong><small>{foundersUnlocked ? `${selected.size} SELECTED` : "LATER"}</small></button>
-        <button type="button" className={activeSection === "legacy" ? "is-active" : ""} aria-pressed={activeSection === "legacy"} disabled={!legacyUnlocked} onClick={() => setActiveSection("legacy")}><span>05</span><strong>Restored Worlds</strong><small>{legacyUnlocked ? `${colonies.length} RELAYS` : "NO RELAYS"}</small></button>
+        <button type="button" className={activeSection === "status" ? "is-active" : ""} aria-pressed={activeSection === "status"} onClick={() => setActiveSection("status")}><span>1</span><strong>World Status</strong><small>{forecast.score}% VIABLE</small></button>
+        <button type="button" className={activeSection === "requirements" ? "is-active" : ""} aria-pressed={activeSection === "requirements"} disabled={!requirementsUnlocked} onClick={() => setActiveSection("requirements")}><span>2</span><strong>Requirements</strong><small>{requirementsUnlocked ? `${forecast.deficits.length} REMAIN` : "NOT YET RELEVANT"}</small></button>
+        <button type="button" className={activeSection === "works" ? "is-active" : ""} aria-pressed={activeSection === "works"} disabled={!worksUnlocked} onClick={() => setActiveSection("works")}><span>3</span><strong>Planetary Works</strong><small>{worksUnlocked ? "INFRASTRUCTURE" : "LOCKED"}</small></button>
+        <button type="button" className={activeSection === "founders" ? "is-active" : ""} aria-pressed={activeSection === "founders"} disabled={!foundersUnlocked} onClick={() => setActiveSection("founders")}><span>4</span><strong>Founding Community</strong><small>{foundersUnlocked ? `${selected.size} SELECTED` : "LATER"}</small></button>
+        <button type="button" className={activeSection === "legacy" ? "is-active" : ""} aria-pressed={activeSection === "legacy"} disabled={!legacyUnlocked} onClick={() => setActiveSection("legacy")}><span>5</span><strong>Restored Worlds</strong><small>{legacyUnlocked ? `${colonies.length} RELAYS` : "NO RELAYS"}</small></button>
       </nav>
 
       <section className="settlement-hero" data-guide-target="planet-world">
@@ -256,7 +268,7 @@ function SettlementConsole({
         <section className="continuity-panel cold-wake-commissioning" data-guide-target="planet-current-step" aria-labelledby="cold-wake-commissioning-title">
           <header>
             <div>
-              <span>COLD WAKE // STAGED COMMISSIONING</span>
+              <span>COLD WAKE · STAGED COMMISSIONING</span>
               <h3 id="cold-wake-commissioning-title">One restoration step at a time</h3>
             </div>
             <small>Step {coldWakeSequence.stepNumber} / {coldWakeSequence.stepCount}</small>
@@ -280,7 +292,7 @@ function SettlementConsole({
         <section className="continuity-panel pelagos-signal-sequence" data-guide-target="pelagos-signal-sequence" aria-labelledby="pelagos-signal-sequence-title">
           <header>
             <div>
-              <span>PELAGOS ORBIT // FIRST CONTACT</span>
+              <span>PELAGOS ORBIT · FIRST CONTACT</span>
               <h3 id="pelagos-signal-sequence-title">Restore contact one system at a time</h3>
             </div>
             <small>Step {pelagosSequence.stepNumber} / {pelagosSequence.stepCount}</small>
@@ -298,11 +310,11 @@ function SettlementConsole({
             )}
           </div>
           <div className="pelagos-sequence-preview">
-            <span className={pelagosSequence.stepNumber > 1 ? "is-complete" : "is-active"}>01 Receiver</span>
-            <span className={pelagosSequence.stepNumber > 2 ? "is-complete" : pelagosSequence.stepNumber === 2 ? "is-active" : ""}>02 Habitat</span>
-            <span className={pelagosSequence.stepNumber > 3 ? "is-complete" : pelagosSequence.stepNumber === 3 ? "is-active" : ""}>03 Broadcast</span>
-            <span className={pelagosSequence.stepNumber > 4 ? "is-complete" : pelagosSequence.stepNumber === 4 ? "is-active" : ""}>04 Listen</span>
-            <span className={pelagosSequence.stepNumber === 5 ? "is-active" : ""}>05 Rescue</span>
+            <span className={pelagosSequence.stepNumber > 1 ? "is-complete" : "is-active"}>1 Receiver</span>
+            <span className={pelagosSequence.stepNumber > 2 ? "is-complete" : pelagosSequence.stepNumber === 2 ? "is-active" : ""}>2 Habitat</span>
+            <span className={pelagosSequence.stepNumber > 3 ? "is-complete" : pelagosSequence.stepNumber === 3 ? "is-active" : ""}>3 Broadcast</span>
+            <span className={pelagosSequence.stepNumber > 4 ? "is-complete" : pelagosSequence.stepNumber === 4 ? "is-active" : ""}>4 Listen</span>
+            <span className={pelagosSequence.stepNumber === 5 ? "is-active" : ""}>5 Rescue</span>
           </div>
           <p className="crew-rarity-note">Later settlement requirements remain folded away until witnesses are safely aboard. Nothing here expires, and listening continues while the game is closed.</p>
         </section>
@@ -320,7 +332,7 @@ function SettlementConsole({
         <section className="continuity-panel campaign-complete continuity-status-doctrine" aria-labelledby="continuity-final-doctrine-title">
           {finalDoctrine.chosen ? (
             <>
-              <span>CONTINUITY DOCTRINE // RECORDED</span>
+              <span>CONTINUITY DOCTRINE · RECORDED</span>
               <h3 id="continuity-final-doctrine-title">{finalDoctrine.chosen.title}</h3>
               <p>{finalDoctrine.chosen.commitment}</p>
               <blockquote>{finalDoctrine.chosen.lyraResponse}</blockquote>
@@ -329,7 +341,7 @@ function SettlementConsole({
             </>
           ) : (
             <>
-              <span>CONTINUITY DOCTRINE // FINAL AUTHORITY</span>
+              <span>CONTINUITY DOCTRINE · FINAL AUTHORITY</span>
               <h3 id="continuity-final-doctrine-title">The Vesper Choice</h3>
               <p>The recovered record does not support AXIOM&apos;s bootstrap history. Choose what the Foundry carries into the next reality.</p>
               <div className="doctrine-grid">
@@ -357,10 +369,10 @@ function SettlementConsole({
           <div className="continuity-readiness-overview">
             <div><span>SECURED</span><strong>{securedRequirementCount}</strong></div>
             <div><span>REMAINING</span><strong>{forecast.deficits.length}</strong></div>
-            <p>The action board beside this readout shows only what still needs attention.</p>
+            <p>The requirement cards below show exactly what is secured and what still needs work.</p>
           </div>
           <details className="continuity-requirement-ledger">
-            <summary><span>FULL REQUIREMENT TELEMETRY</span><strong>Review all {forecast.lines.length} calculations</strong></summary>
+            <summary><span>ALL REQUIREMENTS</span><strong>Review all {forecast.lines.length} calculations</strong></summary>
             <div className="forecast-list">
               {forecast.lines.map((line) => {
                 const ratio = Math.min(1, line.currentValue / Math.max(1, line.requiredValue));
@@ -384,7 +396,7 @@ function SettlementConsole({
         </section>
 
         <section className="continuity-panel" data-guide-target="planet-deficits">
-          <header><div><span>EXPLICIT DEFICITS</span><h3>What this world still needs</h3></div><small>Profile gates are visible · quality safety net active</small></header>
+          <header><div><span>ACTION LIST</span><h3>What this world still needs</h3></div><small>Every blocker has a direct next action</small></header>
           {forecast.deficits.length > 0 ? (
             <ul className="deficit-list">
               {forecast.deficits.map((deficit) => {
@@ -396,7 +408,7 @@ function SettlementConsole({
                     {candidates !== null && (
                       candidates.length > 0 ? (
                         <div className="deficit-candidates" aria-label={`Available crew for ${deficit.label}`}>
-                          <small>Add to founders:</small>
+                          <small>Eligible founders</small>
                           {candidates.map((candidate) => (
                             <button
                               className={`deficit-candidate crew-rarity-${candidate.rarity}`}
@@ -437,20 +449,20 @@ function SettlementConsole({
             {world.infrastructure.map((objective) => {
               const complete = progress.completedInfrastructureIds.includes(objective.id);
               const quote = infrastructureQuotes[objective.id];
-              return <article className={`world-progress-action ${complete ? "is-complete" : ""}`} key={objective.id}><div><strong>{objective.name}</strong><small>{objective.description}</small></div>{complete ? <span>SECURED</span> : <button type="button" disabled={!quote?.canAfford} onClick={() => onCompleteInfrastructure(objective.id)}>{quote?.costLabel ?? "Unavailable"}</button>}</article>;
+              return <article className={`world-progress-action is-infrastructure ${complete ? "is-complete" : ""}`} key={objective.id}><div><strong>{objective.name}</strong><small>{objective.description}</small></div>{complete ? <span>SECURED</span> : <button type="button" disabled={!quote?.canAfford} onClick={() => onCompleteInfrastructure(objective.id)}>{quote?.costLabel ?? "Unavailable"}</button>}</article>;
             })}
             {world.supplyRequirements.map((requirement) => {
               const current = progress.supplies[requirement.id] ?? 0;
               const complete = current >= requirement.amount;
               const quote = supplyQuotes[requirement.id];
-              return <article className={`world-progress-action ${complete ? "is-complete" : ""}`} key={requirement.id}><div><strong>{requirement.label}</strong><small>{current}/{requirement.amount} stored · batches remain through departure</small></div>{complete ? <span>STOCKED</span> : <button type="button" disabled={!quote?.canAfford} onClick={() => onFabricateSupply(requirement.id)}>{quote?.costLabel ?? "Unavailable"}</button>}</article>;
+              return <article className={`world-progress-action is-supply ${complete ? "is-complete" : ""}`} key={requirement.id}><div><strong>{requirement.label}</strong><small>{current}/{requirement.amount} stored · batches remain through departure</small></div>{complete ? <span>STOCKED</span> : <button type="button" disabled={!quote?.canAfford} onClick={() => onFabricateSupply(requirement.id)}>{quote?.costLabel ?? "Unavailable"}</button>}</article>;
             })}
             {world.equipment.map((definition) => {
               const owned = progress.equipment[definition.id] ?? 0;
               const complete = owned >= definition.maxUnits;
               const quote = equipmentQuotes[definition.id];
               return (
-                <article className={`world-progress-action ${complete ? "is-complete" : ""}`} key={definition.id}>
+                <article className={`world-progress-action is-equipment ${complete ? "is-complete" : ""}`} key={definition.id}>
                   <div>
                     <strong>{definition.name}</strong>
                     <small>{owned}/{definition.maxUnits} built · {definition.description}</small>
@@ -503,7 +515,7 @@ function SettlementConsole({
             })}
             {world.requiredResearchIds.map((researchId) => {
               const complete = progress.completedResearchIds.includes(researchId);
-              return <article className={`world-progress-action ${complete ? "is-complete" : ""}`} key={researchId}><div><strong>{titleCase(researchId)}</strong><small>Research Lattice project</small></div>{complete ? <span>PROVEN</span> : <button type="button" onClick={onOpenResearch}>Research</button>}</article>;
+              return <article className={`world-progress-action is-research ${complete ? "is-complete" : ""}`} key={researchId}><div><strong>{titleCase(researchId)}</strong><small>Research project</small></div>{complete ? <span>PROVEN</span> : <button type="button" onClick={onOpenResearch}>Open Research</button>}</article>;
             })}
           </div>
         </section>
@@ -550,13 +562,13 @@ function SettlementConsole({
             {(Object.keys(PLANETARY_DEFENSE_DOCTRINES) as PlanetaryDefenseDoctrine[]).map((id) => {
               const definition = PLANETARY_DEFENSE_DOCTRINES[id];
               const active = planetaryDefense.doctrine === id;
-              return <button type="button" className={active ? "active" : ""} aria-pressed={active} onClick={() => onPlanetaryDoctrine(id)} key={id}><span>{definition.label}</span><strong>{definition.upkeepPerColony * 100}% per world</strong><small>{definition.summary}</small></button>;
+              return <button type="button" className={active ? "active" : ""} aria-pressed={active} onClick={() => onPlanetaryDoctrine(id)} key={id}><span>{definition.label}</span><strong>{formatDecimal(definition.upkeepPerColony * 100)}% per world</strong><small>{definition.summary}</small></button>;
             })}
           </div>
 
           {planetaryForecast ? (
             <div className="planetary-attack-forecast">
-              <span>INCOMING // {titleCase(planetaryForecast.signature)}</span>
+              <span>INCOMING · {titleCase(planetaryForecast.signature)}</span>
               <strong>{planetaryForecast.colonyName} · severity {planetaryForecast.severity}</strong>
               <p>Readiness {planetaryForecast.readiness}/100. Arrival in {Math.ceil(planetaryForecast.secondsUntil / 60)} minutes. The standing network resolves it automatically.</p>
             </div>
@@ -572,26 +584,46 @@ function SettlementConsole({
             </div>
           )}
 
-          <div className="planetary-network-list">
+          <nav className="planetary-network-tabs" aria-label="Restored world defense networks">
             {colonies.map((colony) => {
               const network = planetaryDefense.networks[colony.worldId];
               if (!network) return null;
-              const quotes = planetaryDefenseQuotes[colony.worldId];
+              const active = selectedNetworkColony?.worldId === colony.worldId;
               return (
-                <article key={colony.worldId}>
-                  <header><div><span>{getCampaignWorld(colony.worldId)?.name.toUpperCase()}</span><strong>{colony.name}</strong></div><b>{getPlanetaryNetworkReadiness(network, planetaryDefense.doctrine)}/100</b></header>
-                  {network.recoveryRemainingSeconds > 0 && <p className="network-instability">Temporary instability: +{Math.round(network.instability * 1000) / 10}% operational load for {Math.ceil(network.recoveryRemainingSeconds / 60)} more minutes.</p>}
+                <button
+                  type="button"
+                  className={active ? "is-active" : ""}
+                  aria-pressed={active}
+                  onClick={() => setSelectedNetworkWorldId(colony.worldId)}
+                  key={colony.worldId}
+                >
+                  <span>{getCampaignWorld(colony.worldId)?.name ?? colony.worldId}</span>
+                  <strong>{getPlanetaryNetworkReadiness(network, planetaryDefense.doctrine)}/100 ready</strong>
+                </button>
+              );
+            })}
+          </nav>
+
+          {selectedNetworkColony && (() => {
+            const network = planetaryDefense.networks[selectedNetworkColony.worldId];
+            if (!network) return null;
+            const quotes = planetaryDefenseQuotes[selectedNetworkColony.worldId];
+            return (
+              <div className="planetary-network-list">
+                <article>
+                  <header><div><span>{getCampaignWorld(selectedNetworkColony.worldId)?.name.toUpperCase()}</span><strong>{selectedNetworkColony.name}</strong></div><b>{getPlanetaryNetworkReadiness(network, planetaryDefense.doctrine)}/100</b></header>
+                  {network.recoveryRemainingSeconds > 0 && <p className="network-instability">Temporary instability: +{formatDecimal(network.instability * 100)}% operational load for {Math.ceil(network.recoveryRemainingSeconds / 60)} more minutes.</p>}
                   <div className="planetary-installation-grid">
                     {planetaryInstallationIds.map((installationId) => {
                       const definition = PLANETARY_INSTALLATION_DEFINITIONS[installationId];
                       const quote = quotes?.[installationId];
-                      return <div key={installationId}><span>{definition.name}</span><strong>Level {network.installations[installationId]}/{MAX_PLANETARY_INSTALLATION_LEVEL}</strong><small>{definition.description}</small><button type="button" disabled={!quote?.canBuild} onClick={() => onPlanetaryConstruction(colony.worldId, installationId)}>{quote?.maxed ? "MAXED" : quote?.busy ? "Another project active" : quote?.costLabel ?? "Unavailable"}</button></div>;
+                      return <div key={installationId}><span>{definition.name}</span><strong>Level {network.installations[installationId]}/{MAX_PLANETARY_INSTALLATION_LEVEL}</strong><small>{definition.description}</small><button type="button" disabled={!quote?.canBuild} onClick={() => onPlanetaryConstruction(selectedNetworkColony.worldId, installationId)}>{quote?.maxed ? "MAXED" : quote?.busy ? "Another project active" : quote?.costLabel ?? "Unavailable"}</button></div>;
                     })}
                   </div>
                 </article>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })()}
 
           {planetaryDefense.causalFragmentIds.length > 0 && (
             <div className="planetary-fragment-list">
@@ -611,7 +643,7 @@ function SettlementConsole({
       {colonies.length > 0 && (
         <section className="continuity-panel continuity-legacy-colonies">
           <header><div><span>RESTORED WORLDS</span><h3>Colonies that continue without the Ark</h3></div><small>{colonies.length} active relays</small></header>
-          <div className="colony-list">{colonies.map((colony) => { const restoredWorld = getCampaignWorld(colony.worldId); const adaptationCount = colony.founders.reduce((total, founder) => total + (founder.adaptationIds ?? []).length, 0); return <article key={colony.worldId}><h4>{colony.name}</h4><p>{colony.founders.length} founders · {colony.viabilityScore}% departure viability{adaptationCount > 0 ? ` · ${adaptationCount} voluntary adaptation record${adaptationCount === 1 ? "" : "s"} preserved` : ""}</p><small>{restoredWorld?.legacyBenefits.map((benefit) => `${benefit.label}: +${Math.round(benefit.value * 100)}% ${benefit.metric.replaceAll("-", " ")}`).join(" · ") || `${titleCase(colony.worldId)} relay online`}</small></article>; })}</div>
+          <div className="colony-list">{colonies.map((colony) => { const restoredWorld = getCampaignWorld(colony.worldId); const adaptationCount = colony.founders.reduce((total, founder) => total + (founder.adaptationIds ?? []).length, 0); return <article key={colony.worldId}><h4>{colony.name}</h4><p>{colony.founders.length} founders · {colony.viabilityScore}% departure viability{adaptationCount > 0 ? ` · ${adaptationCount} voluntary adaptation record${adaptationCount === 1 ? "" : "s"} preserved` : ""}</p><small>{restoredWorld?.legacyBenefits.map((benefit) => `${benefit.label}: +${formatDecimal(benefit.value * 100)}% ${benefit.metric.replaceAll("-", " ")}`).join(" · ") || `${titleCase(colony.worldId)} relay online`}</small></article>; })}</div>
         </section>
       )}
     </section>

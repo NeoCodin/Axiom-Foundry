@@ -293,6 +293,7 @@ import {
   createQaPelagosOnboardingCheckpoint,
   createQaPlanetIntroductionCheckpoint,
   createQaResearchIntroductionCheckpoint,
+  createQaTransitCheckpoint,
   fillQaResearchLattice,
   grantQaResources,
   prepareQaContinuity,
@@ -699,17 +700,17 @@ export default function Home() {
         ? {
             id: "continuity",
             view: "settlement",
-            eyebrow: "NEW DESTINATION // CONTINUITY",
+            eyebrow: "NEW DESTINATION · CONTINUITY",
             title: "The Planet forecast is online",
             description: "Continuity does not mean the Ark can leave yet. This forecast shows what the ship must restore before Pelagos approach is safe.",
             note: "Review the forecast first. It will introduce the Foundry only after you authorize the next restoration step.",
-            buttonLabel: "OPEN PLANET // FORECAST",
+            buttonLabel: "OPEN PLANET · FORECAST",
           }
         : disclosure.engineering && !game.settings.foundryIntroduced
           ? {
               id: "foundry",
               view: "engineering",
-              eyebrow: "NEW DESTINATION // FOUNDRY",
+              eyebrow: "NEW DESTINATION · FOUNDRY",
               title: "The Foundry Deck is awake",
               description: "The Law-Heart proved repetition. This separate deck now turns that law into ship-wide fabrication.",
               note: "Only one mechanism is available. Build the highlighted Vacuum Taps before any larger system appears.",
@@ -719,7 +720,7 @@ export default function Home() {
             ? {
                 id: "ark-overview",
                 view: "deck",
-                eyebrow: "ARK VIEW // COMMAND",
+                eyebrow: "ARK VIEW · COMMAND",
                 title: "AXIOM can see the whole Ark",
                 description: "The Law-Heart is no longer the entire interface. Navigation, life support, and the Continuity Bridge are visible as physical rooms aboard the ship.",
                 note: "Dormant rooms are previews, not new chores. Follow the single active directive on Ark Command.",
@@ -731,7 +732,7 @@ export default function Home() {
               ? {
                   id: "departure",
                   view: "settlement",
-                  eyebrow: "FINAL COLD WAKE STEP // APPROACH",
+                  eyebrow: "FINAL COLD WAKE STEP · APPROACH",
                   title: "Pelagos approach is ready to fund",
                   description: "Navigation and the empty life-support reserve are stable. The remaining task is a saved, partial Flux commitment for orbital insertion.",
                   note: "Open Planet again. Commit what you have over time; no timer is running and no partial payment is lost.",
@@ -741,7 +742,7 @@ export default function Home() {
                 ? {
                     id: "personnel",
                     view: "population",
-                    eyebrow: "NEW DESTINATION // PERSONNEL",
+                    eyebrow: "NEW DESTINATION · PERSONNEL",
                     title: "The Ark has people, not statistics",
                     description: "Personnel opens only now because the first rescued witnesses are aboard. This is where you learn their names, professions, levels, and assignments.",
                     note: "Start with the roster. Medical, training, equipment, and advanced management reveal only when they become relevant.",
@@ -752,7 +753,7 @@ export default function Home() {
                   ? {
                       id: "expeditions",
                       view: "expeditions",
-                      eyebrow: "NEW ARK FACILITY // EXPEDITION BAY",
+                      eyebrow: "NEW ARK FACILITY · EXPEDITION BAY",
                       title: "Pelagos field work is finally authorized",
                       description: "The first crew is established and the gravity operation has reached its final phase. Continuity can now request a deliberate planetary survey.",
                       note: "The Bay did not open when the first witnesses arrived. It opens now because the current world has created a specific field assignment.",
@@ -762,7 +763,7 @@ export default function Home() {
                   ? {
                       id: "research",
                       view: "research",
-                      eyebrow: "VIRIDIA DESTINATION // RESEARCH",
+                      eyebrow: "VIRIDIA DESTINATION · RESEARCH",
                       title: "The Analysis Core can finally open",
                       description: "Pelagos supplied witnesses and settlement records. Viridia presents a living problem fabrication cannot solve, so AXIOM can now turn those records into deliberate Research.",
                       note: "You already know crew and expeditions. Research will now connect their expertise and field evidence one program at a time.",
@@ -1607,6 +1608,21 @@ export default function Home() {
     setPrimaryView("deck");
     setFoundryConsoleTab("chain");
     applyQaState(next, `Fresh ${MISSIONS[worldIndex]?.world ?? "Cold Wake"} opening loaded with its normal arrival resources.`);
+    setQaCollapsed(true);
+    setContextGuide(null);
+    setTourStep(null);
+  };
+
+  const handleQaJumpTransit = (originWorldIndex: number) => {
+    const next = createQaTransitCheckpoint(originWorldIndex, Date.now());
+    const journey = next.transit.active;
+    setPrimaryView("settlement");
+    applyQaState(
+      next,
+      journey
+        ? `${getCampaignWorld(journey.originWorldId)?.name ?? "Origin"} to ${getCampaignWorld(journey.destinationWorldId)?.name ?? "destination"} transit loaded at departure.`
+        : "Transit preview could not be loaded.",
+    );
     setQaCollapsed(true);
     setContextGuide(null);
     setTourStep(null);
@@ -2575,9 +2591,9 @@ export default function Home() {
       <GameCommandBar
         worldName={activeTransit ? `Transit to ${activeTransit.destinationName}` : MISSIONS[campaignWorldIndex].world}
         cycle={game.cycle}
-        arrival={activeTransit ? `${activeTransit.originName} corridor // ${formatDuration(activeTransit.remainingSeconds)} to arrival` : MISSIONS[campaignWorldIndex].arrival}
+        arrival={activeTransit ? `${activeTransit.originName} corridor · ${formatDuration(activeTransit.remainingSeconds)} to arrival` : MISSIONS[campaignWorldIndex].arrival}
         fluxLabel={formatNumber(game.flux)}
-        fluxExact={game.flux.toExponential(6)}
+        fluxExact={formatNumber(game.flux)}
         fluxPerSecondLabel={formatNumber(production.fluxPerSecond)}
         axiomsLabel={formatNumber(game.axioms)}
         resonanceLabel={formatNumber(production.resonance.multiplier)}
@@ -2618,6 +2634,7 @@ export default function Home() {
           collapsed={qaCollapsed}
           onToggleCollapsed={() => setQaCollapsed((collapsed) => !collapsed)}
           onJumpWorld={handleQaJumpWorld}
+          onJumpTransit={handleQaJumpTransit}
           onFreshPlayerOpening={() => {
             const next = createInitialState(Date.now());
             applyQaState(next, "Fresh public-player opening loaded in the isolated QA profile.");
@@ -2715,7 +2732,7 @@ export default function Home() {
           <section className="destination-guide-card" role="dialog" aria-modal="true" aria-labelledby="destination-guide-title" aria-describedby="destination-guide-description">
             <div className="destination-guide-speaker">
               <span aria-hidden="true">A</span>
-              <div><strong>AXIOM // INTERFACE HANDOFF</strong><small>New destination detected</small></div>
+              <div><strong>AXIOM · INTERFACE HANDOFF</strong><small>New destination detected</small></div>
             </div>
             <p className="destination-guide-eyebrow">{destinationIntroduction.eyebrow}</p>
             <h2 id="destination-guide-title">{destinationIntroduction.title}</h2>
@@ -2837,7 +2854,7 @@ export default function Home() {
           beaconOnline={game.survivors.beaconOnline}
           pendingSignal={game.survivors.activeSignal ? {
             id: game.survivors.activeSignal.id,
-            label: `Signal ${String(game.survivors.activeSignal.sequence).padStart(2, "0")}`,
+            label: `Signal ${game.survivors.activeSignal.sequence}`,
             location: game.survivors.activeSignal.sourceLabel,
             groupSize: game.survivors.activeSignal.survivors.length,
             roles: [...new Set(game.survivors.activeSignal.survivors.map((survivor) => survivor.role.replaceAll("-", " ")))],
@@ -3259,7 +3276,7 @@ export default function Home() {
       <section className="foundry-workspace has-reactor-workspace" aria-labelledby="foundry-workspace-title">
         <header className="foundry-workspace-header" data-guide-target="foundry-heading">
           <div>
-            <p className="section-kicker">{campaignWorldIndex === 0 ? "First restored deck // Cold Wake" : "Fabrication deck // systems online"}</p>
+            <p className="section-kicker">{campaignWorldIndex === 0 ? "First restored deck · Cold Wake" : "Fabrication deck · systems online"}</p>
             <h2 id="foundry-workspace-title">{campaignWorldIndex === 0 ? "Commission the Foundry Deck" : "The Foundry Floor"}</h2>
             <span>{campaignWorldIndex === 0 ? "One machine line is awake. Build the highlighted Vacuum Taps; the rest of Engineering stays hidden until Pelagos." : "Strike the Law-Heart, build nested mechanisms, and expand automation. Planetary planning remains in Continuity."}</span>
           </div>
@@ -3383,7 +3400,7 @@ export default function Home() {
                           <p className="machine-index">TIER {index + 1} · PRODUCES {generator.produces.toUpperCase()}</p>
                           <h3>{generator.name}</h3>
                         </div>
-                        <span className="owned-count" title={`${tier.amount.toExponential(6)} total`}>
+                        <span className="owned-count" title={`${formatNumber(tier.amount)} total`}>
                           {formatNumber(tier.amount)} <small>owned</small>
                         </span>
                       </div>
@@ -3553,7 +3570,7 @@ export default function Home() {
                 data-pixel-tooltip={`The ${lawHeartPhaseGate.phaseName} cannot contain another portable law until Research completes ${lawHeartPhaseGate.projectName}. Your Flux, machines, and current cycle remain available while the Analysis Core works.`}
                 tabIndex={0}
               >
-                <span>NEXT STELLAR PHASE // RESEARCH GATE</span>
+                <span>NEXT STELLAR PHASE · RESEARCH GATE</span>
                 <strong>{lawHeartPhaseGate.phaseName}</strong>
                 <p>
                   The Law-Heart has reached this spectrum&apos;s safe capacity.

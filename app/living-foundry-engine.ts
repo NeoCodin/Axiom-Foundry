@@ -96,7 +96,7 @@ export function cloneLivingFoundryState(state: LivingFoundryState): LivingFoundr
 export function createLivingFoundryState(worldsSaved = 0): LivingFoundryState {
   return {
     schema: LIVING_FOUNDRY_SCHEMA,
-    foundryName: "Axiom Foundry // Iteration 44",
+    foundryName: "Axiom Foundry · Iteration 44",
     salvage: 35,
     cohesion: 50,
     rooms: ROOM_DEFINITIONS.map((room) => ({

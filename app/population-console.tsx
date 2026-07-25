@@ -259,7 +259,7 @@ function PopulationConsole({
     <section className={`continuity-console population-console is-view-${consoleView}`} aria-labelledby="population-console-title">
       <header className="continuity-console-header">
         <div>
-          <p>HUMAN CONTINUITY // {currentWorldName.toUpperCase()}</p>
+          <p>HUMAN CONTINUITY · {currentWorldName.toUpperCase()}</p>
           <h2 id="population-console-title">Crew, training, and living systems</h2>
           <span>AXIOM handles routine staffing. Manual assignments remain protected until you release them.</span>
         </div>
@@ -341,7 +341,7 @@ function PopulationConsole({
             </div>
           ) : activeSignal ? (
             <article className="survivor-signal-detail">
-              <span>SIGNAL {String(activeSignal.sequence).padStart(2, "0")} · {activeSignal.sourceLabel}</span>
+              <span>SIGNAL {activeSignal.sequence} · {activeSignal.sourceLabel}</span>
               <h4>{activeSignal.survivors.length} survivors requesting retrieval</h4>
               <ul>
                 {activeSignal.survivors.map((survivor) => {
@@ -447,7 +447,7 @@ function PopulationConsole({
       {consoleView === "command" && state.survivors.length > 0 && (
         <section className="continuity-panel team-alpha-panel">
           <header>
-            <div><span>TEAM ALPHA // COMMAND</span><h3>{teamAlpha.leaderId ? "Chain of command established" : "No crew leader appointed"}</h3></div>
+            <div><span>TEAM ALPHA · COMMAND</span><h3>{teamAlpha.leaderId ? "Chain of command established" : "No crew leader appointed"}</h3></div>
             <small>{teamAlpha.rating > 0 ? `Command rating ${teamAlpha.rating} · +${teamAlpha.bonusPercent}% training & job XP for everyone` : "Appoint a leader from any personnel file"}</small>
           </header>
           <div className="team-alpha-slots">
@@ -686,7 +686,7 @@ function PopulationConsole({
               {getBioadaptationQuote(selectedCrew.id, "atmospheric-adaptation").reason !== "charter" && (
                 <section className="bioadaptation-clinic" aria-label="Voluntary bioadaptation">
                   <header>
-                    <div><span>BIOADAPTATION CLINIC // VOLUNTARY</span><strong>{selectedCrew.bioadaptations.length}/{MAX_BIOADAPTATIONS_PER_SURVIVOR} permanent choices</strong></div>
+                    <div><span>BIOADAPTATION CLINIC · VOLUNTARY</span><strong>{selectedCrew.bioadaptations.length}/{MAX_BIOADAPTATIONS_PER_SURVIVOR} permanent choices</strong></div>
                     <small>Never required for rarity, service, settlement, or Continuity</small>
                   </header>
                   <p>Each adult may freely choose up to two permanent protocols. Procedures preserve name, identity, history, profession levels, rarity, and the right to refuse.</p>

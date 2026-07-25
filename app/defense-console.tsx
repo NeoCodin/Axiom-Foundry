@@ -131,7 +131,7 @@ function DefenseConsole({
     <section className="continuity-console defense-console defense-console-v2" aria-labelledby="defense-console-title">
       <header className="continuity-console-header defense-command-header">
         <div>
-          <p>THREAT OPERATIONS // {currentLocationName.toUpperCase()}</p>
+          <p>THREAT OPERATIONS · {currentLocationName.toUpperCase()}</p>
           <h2 id="defense-console-title">Ark Defense Grid</h2>
           <span>Forecast, doctrine, construction, and incident evidence are separated into dedicated stations.</span>
         </div>
@@ -143,16 +143,16 @@ function DefenseConsole({
 
       <nav className="defense-workspace-tabs" aria-label="Defense Grid stations">
         <button type="button" className={activeTab === "monitor" ? "is-active" : ""} aria-pressed={activeTab === "monitor"} onClick={() => setActiveTab("monitor")}>
-          <span>01</span><strong>Threat Monitor</strong><small>{forecast ? "CONTACT TRACKED" : condition.label}</small>
+          <span>1</span><strong>Threat Monitor</strong><small>{forecast ? "CONTACT TRACKED" : condition.label}</small>
         </button>
         <button type="button" className={activeTab === "orders" ? "is-active" : ""} aria-pressed={activeTab === "orders"} onClick={() => setActiveTab("orders")}>
-          <span>02</span><strong>Standing Orders</strong><small>2 DOCTRINES ACTIVE</small>
+          <span>2</span><strong>Standing Orders</strong><small>2 DOCTRINES ACTIVE</small>
         </button>
         <button type="button" className={activeTab === "fortifications" ? "is-active" : ""} aria-pressed={activeTab === "fortifications"} onClick={() => setActiveTab("fortifications")}>
-          <span>03</span><strong>Fortifications</strong><small>{installationMarks + totalRoomMarks} MARKS BUILT</small>
+          <span>3</span><strong>Fortifications</strong><small>{installationMarks + totalRoomMarks} MARKS BUILT</small>
         </button>
         <button type="button" className={activeTab === "archive" ? "is-active" : ""} aria-pressed={activeTab === "archive"} onClick={() => setActiveTab("archive")}>
-          <span>04</span><strong>After Action</strong><small>{state.eventLog.length} REPORTS</small>
+          <span>4</span><strong>After Action</strong><small>{state.eventLog.length} REPORTS</small>
         </button>
       </nav>
 
@@ -161,18 +161,29 @@ function DefenseConsole({
           <div className={`defense-tactical-void is-${condition.id} ${forecast ? "has-forecast" : "is-listening"}`}>
             <div className="defense-scanline" aria-hidden="true" />
             <div className="defense-threat-stars" aria-hidden="true">{Array.from({ length: 28 }, (_, index) => <i key={index} />)}</div>
-            <div className="defense-shield-ring" aria-hidden="true"><i /><i /><i /><i /></div>
+            <div className="defense-shield-envelope" aria-hidden="true">
+              <span className="edge-top" /><span className="edge-right" />
+              <span className="edge-bottom" /><span className="edge-left" />
+              {Array.from({ length: 8 }, (_, index) => <i key={index} />)}
+            </div>
             <div className="defense-ark-silhouette" aria-hidden="true">
-              <span className="defense-ark-spine" />
-              <span className="defense-ark-bow" />
-              <span className="defense-ark-room room-a" />
-              <span className="defense-ark-room room-b" />
-              <span className="defense-ark-room room-c" />
+              <span className="defense-ark-keel" />
+              <span className="defense-ark-hull hull-fore" />
+              <span className="defense-ark-hull hull-mid" />
+              <span className="defense-ark-hull hull-aft" />
+              <span className="defense-ark-bridge" />
+              <span className="defense-ark-module module-a" />
+              <span className="defense-ark-module module-b" />
+              <span className="defense-ark-module module-c" />
+              <span className="defense-ark-radiator radiator-top" />
+              <span className="defense-ark-radiator radiator-bottom" />
               <span className="defense-ark-drive" />
             </div>
             {forecast && (
-              <div className={`defense-contact-vector ${forecast.hostile ? "is-hostile" : "is-environmental"}`} aria-hidden="true">
-                <span /><i /><i /><i />
+              <div className={`defense-contact-cluster ${forecast.hostile ? "is-hostile" : "is-environmental"}`} aria-hidden="true">
+                <span />
+                {Array.from({ length: 10 }, (_, index) => <i key={index} />)}
+                <b /><em /><u />
               </div>
             )}
             <div className="defense-tactical-label label-readiness">
@@ -199,7 +210,7 @@ function DefenseConsole({
 
             {forecast && eventDefinition && forecastDoctrine ? (
               <div className="defense-forecast-brief">
-                <span>{eventDefinition.label} // SEVERITY {forecast.severityKnown ? forecast.severity : "UNKNOWN"}</span>
+                <span>{eventDefinition.label} · SEVERITY {forecast.severityKnown ? forecast.severity : "UNKNOWN"}</span>
                 <h3>{titleCase(forecast.target)} is being targeted</h3>
                 <p>{eventDefinition.summary}</p>
                 <dl>
@@ -312,7 +323,7 @@ function DefenseConsole({
             {roomReinforcements.map((room, index) => (
               <i className={`mark-${room.level}`} style={{ left: `${12 + index * (76 / Math.max(1, roomReinforcements.length - 1))}%` }} key={room.id}><span>{room.level}</span></i>
             ))}
-            <strong>ARK // STRUCTURAL MARK MAP</strong>
+            <strong>ARK · STRUCTURAL MARK MAP</strong>
           </div>
 
           <section className="defense-fortification-group">
@@ -367,7 +378,7 @@ function DefenseConsole({
             <nav aria-label="Incident reports">
               {reverseLog.length > 0 ? reverseLog.map((event, index) => (
                 <button type="button" className={index === Math.min(selectedIncident, reverseLog.length - 1) ? "is-active" : ""} onClick={() => setSelectedIncident(index)} key={`${event.resolvedAtSeconds}-${index}`}>
-                  <span>{String(index + 1).padStart(2, "0")} // {event.outcome.toUpperCase()}</span>
+                  <span>{index + 1} · {event.outcome.toUpperCase()}</span>
                   <strong>{DEFENSE_EVENT_DEFINITIONS[event.kind].label}</strong>
                   <small>{titleCase(event.target)} · severity {event.severity}</small>
                 </button>
@@ -399,7 +410,7 @@ function DefenseConsole({
 
           {(state.firstContactResolved || causalArchive.score > 0) && (
             <section className="defense-causal-reader">
-              <header><span>CAUSAL ARCHIVE // {causalArchive.activeClassification.code}</span><strong>{causalArchive.activeClassification.label}</strong><small>{causalArchive.activeClassification.summary}</small></header>
+              <header><span>CAUSAL ARCHIVE · {causalArchive.activeClassification.code}</span><strong>{causalArchive.activeClassification.label}</strong><small>{causalArchive.activeClassification.summary}</small></header>
               <div className="causal-classification-track">
                 {causalArchive.classifications.map((classification) => (
                   <article className={classification.unlocked ? "is-unlocked" : "is-locked"} key={classification.id}>

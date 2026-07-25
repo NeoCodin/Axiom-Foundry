@@ -22,6 +22,7 @@ import {
   createQaPelagosOnboardingCheckpoint,
   createQaPlanetIntroductionCheckpoint,
   createQaResearchIntroductionCheckpoint,
+  createQaTransitCheckpoint,
   fillQaResearchLattice,
   grantQaResources,
   prepareQaContinuity,
@@ -87,6 +88,19 @@ test("QA can replay Pelagos and Viridia introductions with public unlock rules",
   assert.equal(viridia.settings.researchIntroduced, false);
   assert.equal(getProgressiveDisclosure(viridia).research, true);
   assert.equal(viridia.settings.completedGuideIds.includes("viridia-research"), false);
+});
+
+test("QA travel previews enter a real live corridor between adjacent worlds", () => {
+  const now = 1_000_000;
+  const state = createQaTransitCheckpoint(1, now);
+  assert.equal(state.missions.currentIndex, 1);
+  assert.equal(state.settlement.currentWorldId, null);
+  assert.ok(state.transit.active);
+  assert.equal(state.transit.active?.originWorldId, "pelagos");
+  assert.equal(state.transit.active?.destinationWorldId, "viridia");
+  assert.equal(state.transit.active?.elapsedSeconds, 0);
+  assert.ok((state.transit.active?.totalSeconds ?? 0) > 0);
+  assert.equal(state.transit.active?.startedAt, now);
 });
 
 test("QA can replay the full staged public onboarding without a campaign wait", () => {

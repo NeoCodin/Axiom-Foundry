@@ -21,9 +21,9 @@ export function CommandBriefing({ priorities, onNavigate }: CommandBriefingProps
           <p>{priority.detail}</p>
           <div className={`command-priority-cadence is-${priority.cadence}`}>
             {priority.cadence === "offline"
-              ? "SAFE TO WAIT // CONTINUES OFFLINE"
+              ? "SAFE TO WAIT · CONTINUES OFFLINE"
               : priority.cadence === "automatic"
-                ? "AUTOMATIC // STANDING ORDERS APPLY"
+                ? "AUTOMATIC · STANDING ORDERS APPLY"
                 : "ACTION REQUIRED"}
           </div>
         </div>
@@ -51,7 +51,7 @@ export function CommandBriefing({ priorities, onNavigate }: CommandBriefingProps
     <section className="command-briefing" aria-labelledby="command-briefing-title">
       <div className="command-briefing-heading">
         <div>
-          <span>ACTIVE QUEST // AXIOM GUIDANCE</span>
+          <span>ACTIVE QUEST · AXIOM GUIDANCE</span>
           <h2 id="command-briefing-title">Your next move</h2>
         </div>
         <p>Nothing expires. Complete one clear objective at a time.</p>
@@ -61,7 +61,7 @@ export function CommandBriefing({ priorities, onNavigate }: CommandBriefingProps
       </div>
       {upcoming.length > 0 && (
         <details className="command-upcoming">
-          <summary>Queue // {upcoming.length} later objective{upcoming.length === 1 ? "" : "s"}</summary>
+          <summary>Later objectives · {upcoming.length}</summary>
           <div className="command-upcoming-grid">{upcoming.map((priority, index) => renderPriority(priority, index + 1))}</div>
         </details>
       )}

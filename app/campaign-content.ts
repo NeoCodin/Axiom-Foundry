@@ -133,7 +133,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     name: "Cold Wake",
     chapter: 0,
     kind: "space",
-    subtitle: "Emergency transit // Pelagos approach",
+    subtitle: "Emergency transit · Pelagos approach",
     arrivalBrief:
       "AXIOM wakes alone between stars. The Ark is moving, but only the Axiom Chamber remembers how to be alive.",
     environment:
@@ -186,7 +186,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     name: "Pelagos",
     chapter: 1,
     kind: "planet",
-    subtitle: "Drowned world // first continuity settlement",
+    subtitle: "Drowned world · first continuity settlement",
     arrivalBrief:
       "Flooded city relays are buried beneath static. The Ark has reached Pelagos, but AXIOM must rebuild its receiver, prepare safe rooms, and choose when to announce that help has arrived.",
     environment:
@@ -297,7 +297,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     name: "Viridia",
     chapter: 2,
     kind: "planet",
-    subtitle: "Overgrown world // the garden remembers",
+    subtitle: "Overgrown world · the garden remembers",
     arrivalBrief:
       "Viridia's forests consumed its cities after the atmospheric fall. Survivors live inside a biosphere that no longer recognizes them.",
     environment:
@@ -444,7 +444,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     name: "Cinder",
     chapter: 3,
     kind: "planet",
-    subtitle: "Furnace world // industry after the ash",
+    subtitle: "Furnace world · industry after the ash",
     arrivalBrief:
       "Cinder's mantle plants still burn beneath a permanent ash sky. Its shelters have people, but no machines they can safely inherit.",
     environment:
@@ -580,7 +580,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     name: "Nox",
     chapter: 4,
     kind: "planet",
-    subtitle: "Silent world // truth without consensus",
+    subtitle: "Silent world · truth without consensus",
     arrivalBrief:
       "Nox survived the fallout by distrusting every signal. Its settlements are alive, isolated, and certain the others are imitations.",
     environment:
@@ -735,7 +735,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     name: "Vesper",
     chapter: 5,
     kind: "planet",
-    subtitle: "Terminal world // continuity under revision",
+    subtitle: "Terminal world · continuity under revision",
     arrivalBrief:
       "Vesper is where the oldest survivor signals originate. Its observatories have been studying the Null—and waiting for AXIOM by name.",
     environment:

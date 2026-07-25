@@ -67,7 +67,7 @@ function buildMemoryPages(entries: readonly ArchiveMemoryEntry[]): ArchivePage[]
   return entries.map((entry, index) => ({
     id: entry.id,
     category: "memory",
-    code: `MEM-${String(index + 1).padStart(2, "0")}`,
+    code: `MEM-${index + 1}`,
     tabLabel: entry.tag,
     title: entry.title,
     source: entry.curator,
@@ -101,7 +101,7 @@ function buildFragmentPages(
     ...fragments.map((fragment, index): ArchivePage => ({
       id: fragment.id,
       category: "fragments",
-      code: `ERR-${String(index + 1).padStart(2, "0")}`,
+      code: `ERR-${index + 1}`,
       tabLabel: fragment.title,
       title: fragment.title,
       source: fragment.source,
@@ -119,7 +119,7 @@ function buildCausalPages(archive: CausalArchiveView): ArchivePage[] {
     code: archive.activeClassification.code,
     tabLabel: "Current classification",
     title: archive.activeClassification.label,
-    source: "Causal Archive // provisional analysis",
+    source: "Causal Archive · provisional analysis",
     paragraphs: [
       archive.activeClassification.summary,
       archive.nextClassification
@@ -128,7 +128,7 @@ function buildCausalPages(archive: CausalArchiveView): ArchivePage[] {
     ],
     facts: archive.classifications.map((classification) => ({
       label: classification.code,
-      value: classification.unlocked ? `${classification.label} // ${classification.operationalBenefit}` : "CLASSIFIED // insufficient evidence",
+      value: classification.unlocked ? `${classification.label} · ${classification.operationalBenefit}` : "CLASSIFIED · insufficient evidence",
       state: classification.unlocked ? "stable" : "locked",
     })),
   };
@@ -137,7 +137,7 @@ function buildCausalPages(archive: CausalArchiveView): ArchivePage[] {
     ...archive.recoveredEvidence.map((evidence, index): ArchivePage => ({
       id: evidence.id,
       category: "causal",
-      code: `CAU-${String(index + 1).padStart(2, "0")}`,
+      code: `CAU-${index + 1}`,
       tabLabel: evidence.title,
       title: evidence.title,
       source: evidence.source.replaceAll("-", " "),
@@ -150,10 +150,10 @@ function buildWorldPages(worlds: readonly ArchiveWorldEntry[]): ArchivePage[] {
   return worlds.map((world, index) => ({
     id: `world-${world.id}`,
     category: "worlds",
-    code: `WRL-${String(index + 1).padStart(2, "0")}`,
+    code: `WRL-${index + 1}`,
     tabLabel: world.name,
     title: world.name,
-    source: `${world.status === "saved" ? "Continuity record" : "Current navigation solution"} // ${world.subtitle}`,
+    source: `${world.status === "saved" ? "Continuity record" : "Current navigation solution"} · ${world.subtitle}`,
     paragraphs: [world.record],
     facts: [
       {
@@ -224,7 +224,7 @@ export function LoreArchive({
       <section className="lore-archive archive-tablet" role="dialog" aria-modal="true" aria-labelledby="archive-title">
         <header>
           <div>
-            <p className="section-kicker violet">AXIOM memory tablet // read-only</p>
+            <p className="section-kicker violet">AXIOM memory tablet · read-only</p>
             <h2 id="archive-title">The Axiom Archive</h2>
             <span>{readableCount} readable records · {worldsSaved} restored worlds · unknown records remain unnamed</span>
           </div>
@@ -251,7 +251,7 @@ export function LoreArchive({
         <div className="archive-tablet-body">
           <aside className="archive-entry-index" aria-label={`${categoryCopy.label} records`}>
             <header>
-              <span>{`${categoryCopy.code} // index`}</span>
+              <span>{`${categoryCopy.code} · index`}</span>
               <p>{categoryCopy.description}</p>
             </header>
             <div>
@@ -263,7 +263,7 @@ export function LoreArchive({
                   onClick={() => selectPage(activeCategory, page.id)}
                   key={page.id}
                 >
-                  <span>{String(index + 1).padStart(2, "0")}</span>
+                  <span>{index + 1}</span>
                   <strong>{page.tabLabel}</strong>
                 </button>
               ))}
@@ -279,7 +279,7 @@ export function LoreArchive({
                 <span>{activePage.code}</span>
                 <small>{activePage.source}</small>
               </div>
-              <strong>{String(activePageIndex + 1).padStart(2, "0")} / {String(categoryPages.length).padStart(2, "0")}</strong>
+              <strong>{activePageIndex + 1} / {categoryPages.length}</strong>
             </header>
             <div className="archive-reader-copy">
               <p className="archive-reader-label">{categoryCopy.label}</p>
@@ -304,7 +304,7 @@ export function LoreArchive({
             </div>
             <footer>
               <button type="button" disabled={activePageIndex === 0} onClick={() => movePage(-1)}>Previous record</button>
-              <span>{`${categoryCopy.code} // ${String(activePageIndex + 1).padStart(2, "0")}`}</span>
+              <span>{`${categoryCopy.code} · ${activePageIndex + 1}`}</span>
               <button type="button" disabled={activePageIndex >= categoryPages.length - 1} onClick={() => movePage(1)}>Next record</button>
             </footer>
           </article>

@@ -180,6 +180,15 @@ const formatDuration = (seconds: number) => {
   return `${(seconds / 3_600).toFixed(seconds < 36_000 ? 1 : 0)} hr`;
 };
 
+const RESEARCH_UNLOCK_LABELS: Readonly<Record<string, string>> = {
+  "staffing-doctrine-v2": "Improved research staffing",
+  "crew-contribution-telemetry": "Crew research contribution readout",
+};
+
+const formatUnlockLabel = (unlock: string) =>
+  RESEARCH_UNLOCK_LABELS[unlock] ??
+  unlock.replaceAll("-", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+
 const getInputStyle = (inputId: ResearchInputId) =>
   ({ "--research-input-rgb": INPUT_ACCENTS[inputId] }) as CSSProperties;
 
@@ -358,7 +367,7 @@ export function ResearchLattice({
     >
       <header className="research-lattice-header" data-guide-target="research-header">
         <div>
-          <p className="research-lattice-kicker">ANALYSIS DECK // {RESEARCH_ERAS.find((item) => item.id === era)?.code}</p>
+          <p className="research-lattice-kicker">ANALYSIS DECK · {RESEARCH_ERAS.find((item) => item.id === era)?.code}</p>
           <h1>{view === "core" ? "Active Project" : view === "technology" ? "Technology Map" : view === "lattice" ? "Research Lattice" : "Research Archive"}</h1>
           <p>
             {view === "core"
@@ -392,9 +401,9 @@ export function ResearchLattice({
       <nav className="research-command-tabs" aria-label="Research sections">
         {([
           ["core", "Active Project", "Current question, progress, and blockers"],
-          ["technology", "Technology Map", "Eras, branches, and programs"],
-          ["lattice", "Lattice", "Evidence routing and Analysis stations"],
-          ["archive", "Archive", "Completed work and contradictions"],
+          ["technology", "Technology Map", "Choose the next capability"],
+          ["lattice", "Evidence Flow", "Load evidence and assign researchers"],
+          ["archive", "Archive", "Read completed discoveries"],
         ] as const).map(([id, label, description]) => (
           <button
             key={id}
@@ -413,7 +422,7 @@ export function ResearchLattice({
         className="research-lattice-awakening"
         aria-label={`${eraProgress.complete} of ${eraProgress.total} ${era} discoveries resolved`}
       >
-        <span>{`${RESEARCH_ERAS.find((item) => item.id === era)?.code} // ${
+        <span>{`${RESEARCH_ERAS.find((item) => item.id === era)?.code} · ${
           RESEARCH_ERAS.find((item) => item.id === era)?.name.toUpperCase()
         }`}</span>
         <div
@@ -506,7 +515,7 @@ export function ResearchLattice({
                       index === activeStageIndex ? "is-active" : ""
                     }`}
                   >
-                    <span>{String(index + 1).padStart(2, "0")}</span>
+                    <span>{index + 1}</span>
                     <strong>{stage.name}</strong>
                   </div>
                 ))}
@@ -556,7 +565,7 @@ export function ResearchLattice({
           <aside className="research-active-dossier" data-guide-target="research-crew">
             <>
                 <header>
-                  <span>ACTIVE DISCOVERY // {BRANCHES.find((item) => item.id === activeDefinition.branch)?.code}</span>
+                  <span>ACTIVE DISCOVERY · {BRANCHES.find((item) => item.id === activeDefinition.branch)?.code}</span>
                   <h2>{activeDefinition.name}</h2>
                   <p>{getResearchProjectPresentation(state, activeDefinition.id)?.displaySummary}</p>
                 </header>
@@ -629,7 +638,7 @@ export function ResearchLattice({
             <b>?</b>
           </div>
           <div className="research-core-empty-copy" data-guide-target="research-network">
-            <span>ACTIVE PROJECT // NONE LOADED</span>
+            <span>ACTIVE PROJECT · NONE LOADED</span>
             <h2>The Analysis Core needs a question.</h2>
             <p>
               Research is not a passive currency. The Ark studies one practical problem at a time, and every
@@ -645,9 +654,9 @@ export function ResearchLattice({
           </div>
           <aside className="research-core-purpose" data-guide-target="research-crew">
             <span>WHAT THIS SCREEN ANSWERS</span>
-            <div><b>01</b><strong>What are we researching?</strong></div>
-            <div><b>02</b><strong>Is evidence moving?</strong></div>
-            <div><b>03</b><strong>If not, what is blocking it?</strong></div>
+            <div><b>1</b><strong>What are we researching?</strong></div>
+            <div><b>2</b><strong>Is evidence moving?</strong></div>
+            <div><b>3</b><strong>If not, what is blocking it?</strong></div>
             <p>The animated Analysis Engine appears only after a program is loaded.</p>
           </aside>
         </section>
@@ -694,7 +703,7 @@ export function ResearchLattice({
                     );
                   }}
                 >
-                  <span>{String(index + 1).padStart(2, "0")}</span>
+                  <span>{index + 1}</span>
                   <strong>{candidate.name}</strong>
                   <small>{available ? `${progress.complete}/${progress.total} resolved` : "SEALED"}</small>
                 </button>
@@ -744,7 +753,7 @@ export function ResearchLattice({
               aria-label={`${RESEARCH_DOMAINS.find((item) => item.id === domain)?.name} programs`}
             >
               <header>
-                <span>DOMAIN // {RESEARCH_DOMAINS.find((item) => item.id === domain)?.code}</span>
+                <span>DOMAIN · {RESEARCH_DOMAINS.find((item) => item.id === domain)?.code}</span>
                 <h2>{RESEARCH_DOMAINS.find((item) => item.id === domain)?.name}</h2>
                 <p>{RESEARCH_DOMAINS.find((item) => item.id === domain)?.description}</p>
               </header>
@@ -786,7 +795,7 @@ export function ResearchLattice({
                               onClick={() => setSelectedProjectId(project.id)}
                               aria-label={`Inspect ${project.name}`}
                             >
-                              <span>{String(index + 1).padStart(2, "0")}</span>
+                              <span>{index + 1}</span>
                               <i aria-hidden="true"><b /></i>
                               <strong>{project.name}</strong>
                               <small>
@@ -827,7 +836,7 @@ export function ResearchLattice({
                   <>
                     <header>
                       <span>
-                        PROGRAM // {BRANCHES.find((item) => item.id === selectedProject.branch)?.code}
+                        PROGRAM · {BRANCHES.find((item) => item.id === selectedProject.branch)?.code}
                       </span>
                       <h2>{selectedProject.name}</h2>
                       <b>{complete ? "PROVEN" : active ? "IN ANALYSIS" : lockedPrerequisites.length > 0 ? "SEALED" : "READY"}</b>
@@ -856,7 +865,7 @@ export function ResearchLattice({
                     </section>
                     <section>
                       <span>CAPABILITY CREATED</span>
-                      <p>{selectedProject.unlocks.map((unlock) => unlock.replaceAll("-", " ")).join(" / ")}</p>
+                      <p>{selectedProject.unlocks.map(formatUnlockLabel).join(" · ")}</p>
                     </section>
                     {lockedPrerequisites.length > 0 ? (
                       <div className="research-program-lock">
@@ -912,8 +921,8 @@ export function ResearchLattice({
         <section className="research-routing-workspace" aria-label="Evidence routing machine">
           <aside className="research-reservoir-console" data-guide-target="research-evidence">
             <header>
-              <span>EVIDENCE BAY // 01</span>
-              <h2>Reservoirs</h2>
+              <span>STATION 1</span>
+              <h2>Evidence Stores</h2>
               <p>Ark supply is outside the machine. Loaded evidence is inside it and survives recalibration.</p>
             </header>
             <div className="research-auto-transfer-status">
@@ -944,7 +953,7 @@ export function ResearchLattice({
                       <i style={{ height: `${Math.min(100, Math.max(6, state.inventory[input.id]))}%` }} />
                     </span>
                     <div>
-                      <span>{input.shortName} {required ? "// REQUIRED" : ""}</span>
+                      <span>{input.shortName} {required ? "· REQUIRED" : ""}</span>
                       <strong>{input.name}</strong>
                       <small>{INPUT_SOURCE_COPY[input.id]}</small>
                       <p>
@@ -970,8 +979,8 @@ export function ResearchLattice({
 
           <main className="research-routing-rig" data-guide-target="research-network">
             <header>
-              <span>ROUTING FLOOR // 02</span>
-              <h2>Evidence conduits</h2>
+              <span>STATION 2</span>
+              <h2>Evidence Flow</h2>
               <p>
                 AXIOM assigns safe processors automatically. Bright packets are evidence moving toward the
                 Analysis Core; a broken line identifies the exact hold.
@@ -1014,7 +1023,7 @@ export function ResearchLattice({
                       } as CSSProperties}
                     >
                       <header>
-                        <span>{String(tubeIndex + 1).padStart(2, "0")}</span>
+                        <span>{tubeIndex + 1}</span>
                         <strong>{input.shortName}</strong>
                       </header>
                       <div className="research-evidence-cylinder" aria-hidden="true">
@@ -1034,7 +1043,7 @@ export function ResearchLattice({
                       </div>
                       <footer>
                         <strong>{input.name}</strong>
-                        <small>{processor ? `${processor.code} // ${processor.name}` : "PORT UNASSIGNED"}</small>
+                        <small>{processor ? `${processor.code} · ${processor.name}` : "PORT UNASSIGNED"}</small>
                         <b>{routeState}</b>
                       </footer>
                     </article>
@@ -1052,8 +1061,8 @@ export function ResearchLattice({
 
           <aside className="research-operations-console" data-guide-target="research-crew">
             <header>
-              <span>OPERATIONS // 03</span>
-              <h2>Why it moves</h2>
+              <span>STATION 3</span>
+              <h2>Staffing & Power</h2>
             </header>
             <div className={`research-operation-state ${network.stalledReason ? "is-warning" : "is-online"}`}>
               <span>{network.stalledReason ? "HOLD CONDITION" : "SYNTHESIS NOMINAL"}</span>
@@ -1122,7 +1131,7 @@ export function ResearchLattice({
                   >
                     <span>{candidate.code}</span>
                     <strong>{candidate.name}</strong>
-                    <small>{count.toString().padStart(2, "0")} records</small>
+                    <small>{count} records</small>
                   </button>
                 );
               })}
@@ -1137,7 +1146,7 @@ export function ResearchLattice({
               >
                 <span>ERR</span>
                 <strong>Contradictions</strong>
-                <small>{echoes.length.toString().padStart(2, "0")} unsolicited</small>
+                <small>{echoes.length} unsolicited</small>
               </button>
             </nav>
             <div className="research-archive-record-list">
@@ -1149,7 +1158,7 @@ export function ResearchLattice({
                       className={(selectedEcho?.id ?? null) === echo.id ? "is-active is-contradiction" : "is-contradiction"}
                       onClick={() => setArchiveEntryId(echo.id)}
                     >
-                      <span>{`${String(index + 1).padStart(2, "0")} // CAUSAL ERROR`}</span>
+                      <span>{`${index + 1} · CAUSAL ERROR`}</span>
                       <strong>{getResearchProjectDefinition(echo.projectId)?.name ?? echo.projectId}</strong>
                     </button>
                   ))
@@ -1160,7 +1169,7 @@ export function ResearchLattice({
                       className={selectedArchiveProject?.id === project.id ? "is-active" : ""}
                       onClick={() => setArchiveEntryId(project.id)}
                     >
-                      <span>{`${String(index + 1).padStart(2, "0")} // ${
+                      <span>{`${index + 1} · ${
                         BRANCHES.find((item) => item.id === project.branch)?.code
                       }`}</span>
                       <strong>{project.name}</strong>
@@ -1177,7 +1186,7 @@ export function ResearchLattice({
             {archiveMode === "contradictions" && selectedEcho ? (
               <article>
                 <header>
-                  <span>UNSOLICITED OUTPUT // {selectedEcho.id}</span>
+                  <span>UNSOLICITED OUTPUT · {selectedEcho.id}</span>
                   <h2>{getResearchProjectDefinition(selectedEcho.projectId)?.name ?? "Unknown program"}</h2>
                   <b>AUTHORIZATION SIGNATURE DOES NOT MATCH</b>
                 </header>
@@ -1198,7 +1207,7 @@ export function ResearchLattice({
               <article>
                 <header>
                   <span>
-                    {getResearchProjectEra(selectedArchiveProject).toUpperCase()} ARCHIVE //{" "}
+                    {getResearchProjectEra(selectedArchiveProject).toUpperCase()} ARCHIVE ·{" "}
                     {BRANCHES.find((item) => item.id === selectedArchiveProject.branch)?.code}
                   </span>
                   <h2>{selectedArchiveProject.name}</h2>
@@ -1212,7 +1221,7 @@ export function ResearchLattice({
                   <span>WHAT CHANGED</span>
                   <ul>
                     {selectedArchiveProject.unlocks.map((unlock) => (
-                      <li key={unlock}>{unlock.replaceAll("-", " ")}</li>
+                      <li key={unlock}>{formatUnlockLabel(unlock)}</li>
                     ))}
                   </ul>
                 </section>
@@ -1239,7 +1248,7 @@ export function ResearchLattice({
               </div>
             )}
             <footer>
-              <span>AXIOM FOUNDRY // ANALYSIS ARCHIVE</span>
+              <span>AXIOM FOUNDRY · ANALYSIS ARCHIVE</span>
               <strong>{archiveMode === "contradictions" ? "EVIDENCE, NOT VERDICT" : "PERSISTENT ACROSS RECALIBRATION"}</strong>
             </footer>
           </main>

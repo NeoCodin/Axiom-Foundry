@@ -482,6 +482,7 @@ img.pixelated,
 }
 
 .living-foundry-nav.primary-destinations > button {
+  position: relative;
   display: grid;
   min-width: 0;
   flex: 1 1 0;
@@ -490,16 +491,54 @@ img.pixelated,
   align-items: center;
   gap: 10px;
   padding: 6px 10px;
-  border: 2px solid #253942;
+  border: 2px solid #3b5560;
   background: #081117;
   text-align: left;
-  box-shadow: none;
+  box-shadow: inset 0 0 0 2px #050a0d;
+  transition:
+    border-color 90ms steps(2, end),
+    background-color 90ms steps(2, end),
+    color 90ms steps(2, end);
+}
+
+.living-foundry-nav.primary-destinations > button::after,
+.facility-navigation button::after {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  background: #40555d;
+  content: "";
+}
+
+.living-foundry-nav.primary-destinations > button:hover,
+.living-foundry-nav.primary-destinations > button:focus-visible {
+  border-color: var(--world-accent, var(--flux));
+  background: #0d1c22;
+  color: #f5ffff;
+  box-shadow:
+    inset 0 0 0 2px #050a0d,
+    0 0 0 2px color-mix(in srgb, var(--world-accent, var(--flux)) 32%, transparent);
 }
 
 .living-foundry-nav.primary-destinations > button.active {
   border-color: var(--world-accent, var(--flux));
   background: #102129;
-  box-shadow: inset 0 -4px 0 var(--world-accent, var(--flux));
+  box-shadow:
+    inset 0 -5px 0 var(--world-accent, var(--flux)),
+    inset 0 0 0 2px #050a0d,
+    0 0 0 2px color-mix(in srgb, var(--world-accent, var(--flux)) 35%, transparent);
+}
+
+.living-foundry-nav.primary-destinations > button:hover::after,
+.living-foundry-nav.primary-destinations > button:focus-visible::after,
+.living-foundry-nav.primary-destinations > button.active::after,
+.facility-navigation button:hover::after,
+.facility-navigation button:focus-visible::after,
+.facility-navigation button.active::after {
+  background: var(--world-accent, var(--flux));
+  box-shadow: 0 0 8px var(--world-accent, var(--flux));
 }
 
 .nav-destination-copy { min-width: 0; }
@@ -582,13 +621,29 @@ img.pixelated,
 }
 .facility-navigation-label { flex: 0 0 clamp(150px, 13vw, 230px); }
 .facility-navigation button {
+  position: relative;
   min-width: 0;
   min-height: 52px;
   flex: 1 1 0;
   padding: 10px 26px 10px 14px;
-  box-shadow: none !important;
+  border-color: #3b5560;
+  background: #081117;
+  box-shadow: inset 0 0 0 2px #050a0d !important;
 }
-.facility-navigation button.active { border-color: var(--world-accent); background: #102128; color: #edfff6; }
+.facility-navigation button:hover,
+.facility-navigation button:focus-visible {
+  border-color: var(--world-accent);
+  background: #0d1c22;
+  color: #f5ffff;
+}
+.facility-navigation button.active {
+  border-color: var(--world-accent);
+  background: #102128;
+  color: #edfff6;
+  box-shadow:
+    inset 0 -4px 0 var(--world-accent),
+    inset 0 0 0 2px #050a0d !important;
+}
 
 /* Quest log: one objective first, everything else folded away */
 .command-briefing {

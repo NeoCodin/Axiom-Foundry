@@ -463,7 +463,7 @@ export function getCommandPriorities(state: GameState): CommandPriority[] {
       }
       add({
         id: "active-research",
-        eyebrow: `${network.stageLabel} // ${guidance.cadence === "offline" ? "offline safe" : "attention"}`,
+        eyebrow: `${network.stageLabel} · ${guidance.cadence === "offline" ? "offline safe" : "attention"}`,
         title: project.name,
         detail: guidance.detail,
         actionLabel: guidance.actionLabel,

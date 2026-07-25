@@ -31,7 +31,12 @@
   cursor: pointer;
 }
 .defense-workspace-tabs button:last-child { border-right: 0; }
-.defense-workspace-tabs button:hover { color: #c7d8df; background: #0a1820; }
+.defense-workspace-tabs button:hover,
+.defense-workspace-tabs button:focus-visible {
+  color: #effcff;
+  background: #0c1d25;
+  box-shadow: inset 0 0 0 2px rgb(var(--world-accent-rgb, 85 214 232) / .5);
+}
 .defense-workspace-tabs button.is-active {
   color: #e4f4f8;
   background: linear-gradient(90deg, rgb(var(--world-accent-rgb, 85 214 232) / .14), #08151c 70%);
@@ -76,9 +81,11 @@
 .defense-tactical-void::before,
 .defense-tactical-void::after { position: absolute; inset: 0; pointer-events: none; content: ""; }
 .defense-tactical-void::before {
-  opacity: .2;
-  background-image: linear-gradient(rgb(54 102 119 / .14) 1px, transparent 1px), linear-gradient(90deg, rgb(54 102 119 / .1) 1px, transparent 1px);
-  background-size: 64px 64px;
+  opacity: .22;
+  background:
+    radial-gradient(circle at 19% 28%, rgb(var(--world-accent-rgb, 85 214 232) / .18) 0 1px, transparent 2px),
+    radial-gradient(circle at 78% 66%, rgb(255 255 255 / .14) 0 1px, transparent 2px);
+  background-size: 173px 149px, 227px 191px;
 }
 .defense-tactical-void::after { inset: 5%; border: 1px solid rgb(65 135 155 / .16); }
 .defense-scanline {
@@ -124,58 +131,207 @@
 .defense-threat-stars i:nth-child(27) { left: 86%; top: 75%; }
 .defense-threat-stars i:nth-child(28) { left: 51%; top: 93%; }
 
-.defense-shield-ring {
+.defense-shield-envelope {
   position: absolute;
   z-index: 3;
   top: 50%;
-  left: 50%;
-  width: min(52vw, 460px);
-  aspect-ratio: 1;
+  left: 45%;
+  width: min(58vw, 620px);
+  height: 330px;
   color: var(--defense-safe);
-  border: 2px dashed rgb(114 230 165 / .55);
-  border-radius: 50%;
-  box-shadow: inset 0 0 0 18px rgb(114 230 165 / .02), 0 0 28px rgb(114 230 165 / .08);
   transform: translate(-50%, -50%);
-  animation: defense-shield-turn 24s steps(48) infinite;
 }
-.is-contested .defense-shield-ring { color: var(--defense-warn); border-color: rgb(241 189 98 / .55); }
-.is-exposed .defense-shield-ring { color: var(--defense-danger); border-color: rgb(255 98 111 / .52); }
-.defense-shield-ring i { position: absolute; width: 12px; height: 12px; border: 2px solid currentColor; background: #02080b; }
-.defense-shield-ring i:nth-child(1) { top: -7px; left: calc(50% - 6px); }
-.defense-shield-ring i:nth-child(2) { right: -7px; top: calc(50% - 6px); }
-.defense-shield-ring i:nth-child(3) { bottom: -7px; left: calc(50% - 6px); }
-.defense-shield-ring i:nth-child(4) { left: -7px; top: calc(50% - 6px); }
-@keyframes defense-shield-turn { to { transform: translate(-50%, -50%) rotate(360deg); } }
+.defense-shield-envelope > span {
+  position: absolute;
+  background: repeating-linear-gradient(90deg, currentColor 0 22px, transparent 22px 34px);
+  filter: drop-shadow(0 0 5px currentColor);
+  opacity: .58;
+}
+.defense-shield-envelope .edge-top,
+.defense-shield-envelope .edge-bottom { right: 52px; left: 52px; height: 3px; }
+.defense-shield-envelope .edge-top { top: 0; }
+.defense-shield-envelope .edge-bottom { bottom: 0; }
+.defense-shield-envelope .edge-left,
+.defense-shield-envelope .edge-right {
+  top: 52px;
+  bottom: 52px;
+  width: 3px;
+  background: repeating-linear-gradient(0deg, currentColor 0 22px, transparent 22px 34px);
+}
+.defense-shield-envelope .edge-left { left: 0; }
+.defense-shield-envelope .edge-right { right: 0; }
+.defense-shield-envelope::before,
+.defense-shield-envelope::after {
+  position: absolute;
+  inset: 25px;
+  border: 1px solid currentColor;
+  content: "";
+  opacity: .12;
+}
+.defense-shield-envelope::after { inset: 58px; opacity: .07; }
+.is-contested .defense-shield-envelope { color: var(--defense-warn); }
+.is-exposed .defense-shield-envelope { color: var(--defense-danger); }
+.defense-shield-envelope i {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  background: #010507;
+  box-shadow: 0 0 8px currentColor;
+  animation: defense-envelope-pulse 2.4s steps(4) infinite;
+}
+.defense-shield-envelope i:nth-of-type(1) { top: -5px; left: 8%; }
+.defense-shield-envelope i:nth-of-type(2) { top: -5px; left: 48%; animation-delay: -.4s; }
+.defense-shield-envelope i:nth-of-type(3) { top: -5px; right: 8%; animation-delay: -.8s; }
+.defense-shield-envelope i:nth-of-type(4) { top: 48%; right: -5px; animation-delay: -1.2s; }
+.defense-shield-envelope i:nth-of-type(5) { right: 8%; bottom: -5px; animation-delay: -1.6s; }
+.defense-shield-envelope i:nth-of-type(6) { bottom: -5px; left: 48%; animation-delay: -2s; }
+.defense-shield-envelope i:nth-of-type(7) { bottom: -5px; left: 8%; animation-delay: -1.1s; }
+.defense-shield-envelope i:nth-of-type(8) { top: 48%; left: -5px; animation-delay: -.7s; }
+@keyframes defense-envelope-pulse { 50% { opacity: .25; } }
 
 .defense-ark-silhouette {
   position: absolute;
   z-index: 5;
   top: 50%;
-  left: 50%;
-  width: 250px;
-  height: 108px;
-  border: 3px solid #6d9aaa;
-  background: #07141a;
-  box-shadow: inset 0 0 0 5px #102832, 0 0 22px rgb(85 214 232 / .15);
+  left: 45%;
+  width: 360px;
+  height: 132px;
+  filter: drop-shadow(0 0 14px rgb(var(--world-accent-rgb, 85 214 232) / .2));
   transform: translate(-50%, -50%);
 }
-.defense-ark-spine { position: absolute; top: 49px; left: -28px; width: 302px; height: 10px; background: #28515f; box-shadow: inset 0 2px #85c4d0; }
-.defense-ark-bow { position: absolute; top: 22px; right: -34px; width: 34px; height: 64px; border: 3px solid #6d9aaa; border-left: 0; clip-path: polygon(0 0, 100% 26%, 100% 74%, 0 100%); background: #0c2028; }
-.defense-ark-room { position: absolute; top: 18px; width: 54px; height: 29px; border: 2px solid #376777; background: #0e2932; }
-.defense-ark-room::after { position: absolute; inset: 7px; content: ""; background: var(--world-accent, #55d6e8); opacity: .42; }
-.defense-ark-room.room-a { left: 22px; }
-.defense-ark-room.room-b { left: 95px; }
-.defense-ark-room.room-c { left: 168px; }
-.defense-ark-drive { position: absolute; top: 24px; left: -20px; width: 18px; height: 60px; border: 2px solid var(--world-accent, #55d6e8); background: repeating-linear-gradient(0deg, var(--world-accent, #55d6e8) 0 5px, transparent 5px 10px); }
+.defense-ark-keel {
+  position: absolute;
+  top: 58px;
+  right: 0;
+  left: 0;
+  height: 16px;
+  border: 3px solid #6d9aaa;
+  background: repeating-linear-gradient(90deg, #274f5c 0 24px, #142c35 24px 32px);
+  box-shadow: inset 0 3px #9bd9df;
+}
+.defense-ark-hull {
+  position: absolute;
+  top: 31px;
+  height: 72px;
+  border: 3px solid #608d9d;
+  background: #07141a;
+  box-shadow: inset 0 0 0 5px #102832;
+}
+.defense-ark-hull::after {
+  position: absolute;
+  inset: 14px 12px;
+  content: "";
+  background: repeating-linear-gradient(90deg, rgb(var(--world-accent-rgb, 85 214 232) / .42) 0 18px, transparent 18px 28px);
+}
+.defense-ark-hull.hull-aft { left: 30px; width: 105px; }
+.defense-ark-hull.hull-mid { left: 132px; width: 116px; }
+.defense-ark-hull.hull-fore {
+  right: 10px;
+  width: 105px;
+  clip-path: polygon(0 0, 76% 0, 100% 26%, 100% 74%, 76% 100%, 0 100%);
+}
+.defense-ark-bridge {
+  position: absolute;
+  z-index: 2;
+  top: 15px;
+  right: 76px;
+  width: 62px;
+  height: 24px;
+  border: 3px solid #79aeba;
+  background: #0a2029;
+  box-shadow: inset 8px 0 rgb(var(--world-accent-rgb, 85 214 232) / .35);
+}
+.defense-ark-module {
+  position: absolute;
+  z-index: 3;
+  top: 48px;
+  width: 22px;
+  height: 40px;
+  border: 2px solid #83bbc5;
+  background: rgb(var(--world-accent-rgb, 85 214 232) / .22);
+}
+.defense-ark-module.module-a { left: 62px; }
+.defense-ark-module.module-b { left: 174px; }
+.defense-ark-module.module-c { right: 54px; }
+.defense-ark-radiator {
+  position: absolute;
+  left: 118px;
+  width: 132px;
+  height: 15px;
+  border: 2px solid #416f7b;
+  background: repeating-linear-gradient(90deg, #254d59 0 8px, #050d11 8px 13px);
+}
+.defense-ark-radiator.radiator-top { top: 0; }
+.defense-ark-radiator.radiator-bottom { bottom: 0; }
+.defense-ark-drive {
+  position: absolute;
+  top: 35px;
+  left: 0;
+  width: 28px;
+  height: 65px;
+  border: 3px solid var(--world-accent, #55d6e8);
+  background: repeating-linear-gradient(0deg, var(--world-accent, #55d6e8) 0 7px, transparent 7px 12px);
+  box-shadow: -14px 0 0 rgb(var(--world-accent-rgb, 85 214 232) / .22), -26px 0 0 rgb(var(--world-accent-rgb, 85 214 232) / .08);
+}
 
-.defense-contact-vector { position: absolute; z-index: 4; top: 22%; right: 7%; width: 34%; height: 28%; border-bottom: 2px dashed var(--defense-danger); transform: rotate(20deg); transform-origin: right bottom; }
-.defense-contact-vector span { position: absolute; right: -7px; bottom: -7px; width: 15px; height: 15px; border: 2px solid var(--defense-danger); background: #28070d; transform: rotate(45deg); }
-.defense-contact-vector i { position: absolute; bottom: -4px; width: 8px; height: 8px; background: var(--defense-danger); animation: defense-vector-pulse 1.2s steps(4) infinite; }
-.defense-contact-vector i:nth-child(2) { left: 20%; }
-.defense-contact-vector i:nth-child(3) { left: 52%; animation-delay: -.4s; }
-.defense-contact-vector i:nth-child(4) { left: 82%; animation-delay: -.8s; }
-.defense-contact-vector.is-environmental { filter: hue-rotate(55deg); }
-@keyframes defense-vector-pulse { 50% { opacity: .15; transform: scale(.6); } }
+.defense-contact-cluster {
+  position: absolute;
+  z-index: 6;
+  top: 29%;
+  right: 8%;
+  width: 160px;
+  height: 150px;
+  color: var(--defense-danger);
+}
+.defense-contact-cluster.is-environmental { color: var(--defense-warn); }
+.defense-contact-cluster > span {
+  position: absolute;
+  top: 56px;
+  left: 68px;
+  width: 24px;
+  height: 24px;
+  border: 4px solid currentColor;
+  background: #18070a;
+  box-shadow: 0 0 18px currentColor;
+  transform: rotate(45deg);
+  animation: defense-contact-beat 1.3s steps(3) infinite;
+}
+.defense-contact-cluster i {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+  animation: defense-contact-drift 1.8s steps(6) infinite alternate;
+}
+.defense-contact-cluster i:nth-of-type(1) { top: 10%; left: 22%; }
+.defense-contact-cluster i:nth-of-type(2) { top: 20%; right: 18%; animation-delay: -.2s; }
+.defense-contact-cluster i:nth-of-type(3) { top: 45%; left: 8%; animation-delay: -.5s; }
+.defense-contact-cluster i:nth-of-type(4) { top: 55%; right: 5%; animation-delay: -.8s; }
+.defense-contact-cluster i:nth-of-type(5) { bottom: 16%; left: 22%; animation-delay: -1s; }
+.defense-contact-cluster i:nth-of-type(6) { right: 25%; bottom: 5%; animation-delay: -1.3s; }
+.defense-contact-cluster i:nth-of-type(7) { top: 4%; left: 52%; animation-delay: -.7s; }
+.defense-contact-cluster i:nth-of-type(8) { bottom: 42%; left: 42%; animation-delay: -1.5s; }
+.defense-contact-cluster i:nth-of-type(9) { top: 34%; right: 34%; animation-delay: -.9s; }
+.defense-contact-cluster i:nth-of-type(10) { bottom: 30%; right: 18%; animation-delay: -1.7s; }
+.defense-contact-cluster b,
+.defense-contact-cluster em,
+.defense-contact-cluster u {
+  position: absolute;
+  right: 138px;
+  width: 12px;
+  height: 4px;
+  background: currentColor;
+  text-decoration: none;
+  animation: defense-contact-packet 1.5s steps(8) infinite;
+}
+.defense-contact-cluster b { top: 48px; }
+.defense-contact-cluster em { top: 74px; animation-delay: -.5s; }
+.defense-contact-cluster u { top: 99px; animation-delay: -1s; }
+@keyframes defense-contact-beat { 50% { transform: rotate(45deg) scale(1.28); } }
+@keyframes defense-contact-drift { to { transform: translate(9px, -6px); opacity: .35; } }
+@keyframes defense-contact-packet { to { transform: translateX(-210px); opacity: 0; } }
 
 .defense-tactical-label {
   position: absolute;
@@ -311,7 +467,8 @@
   .defense-report-reader { grid-template-columns: 1fr; }
   .defense-report-reader > nav { max-height: 230px; border-right: 0; border-bottom: 1px solid #294754; }
   .defense-ark-silhouette { transform: translate(-50%, -50%) scale(.72); }
-  .defense-shield-ring { width: 330px; }
+  .defense-shield-envelope { width: 360px; height: 260px; }
+  .defense-contact-cluster { right: 3%; transform: scale(.82); }
 }
 
 /* Expedition Bay: one sequential mission-control flow. */
@@ -780,10 +937,25 @@
   background: #061016;
 }
 .continuity-workspace-tabs button:last-child { border-right: 0; }
+.continuity-workspace-tabs button:not(:disabled) { cursor: pointer; }
 .continuity-workspace-tabs button > span { grid-row: 1 / 3; display: grid; place-items: center; color: var(--world-accent, #55d6e8); border: 1px solid currentColor; font-family: var(--font-mono, monospace); font-size: 12px; }
 .continuity-workspace-tabs strong { overflow: hidden; color: #bdcdd3; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .continuity-workspace-tabs small { overflow: hidden; color: #627984; font-family: var(--font-mono, monospace); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.continuity-workspace-tabs button.is-active { background: rgb(var(--world-accent-rgb, 85 214 232) / .1); box-shadow: inset 0 -3px var(--world-accent, #55d6e8); }
+.continuity-workspace-tabs button:not(:disabled):hover,
+.continuity-workspace-tabs button:not(:disabled):focus-visible {
+  color: #effcff;
+  background: rgb(var(--world-accent-rgb, 85 214 232) / .08);
+  box-shadow: inset 0 0 0 2px rgb(var(--world-accent-rgb, 85 214 232) / .5);
+}
+.continuity-workspace-tabs button.is-active {
+  background:
+    linear-gradient(100deg, rgb(var(--world-accent-rgb, 85 214 232) / .18), transparent 72%),
+    #0b1a21;
+  box-shadow:
+    inset 0 -4px var(--world-accent, #55d6e8),
+    inset 0 0 0 1px rgb(var(--world-accent-rgb, 85 214 232) / .45),
+    0 0 16px rgb(var(--world-accent-rgb, 85 214 232) / .1);
+}
 .continuity-workspace-tabs button.is-active strong { color: #e1edf1; }
 .continuity-workspace-tabs button:disabled { opacity: .34; cursor: default; }
 
@@ -807,7 +979,194 @@
 .settlement-console-v2.is-continuity-works .continuity-works-workspace > .settlement-side-column { display: none; }
 .settlement-console-v2.is-continuity-founders .continuity-works-workspace { grid-template-columns: 1fr; }
 .settlement-console-v2.is-continuity-founders .continuity-works-workspace > .continuity-panel:first-child { display: none; }
-.settlement-console-v2.is-continuity-requirements .continuity-requirements-workspace { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.settlement-console-v2.is-continuity-requirements .continuity-requirements-workspace {
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+
+/* Continuity is a set of full-width workstations, not the old dashboard split. */
+.settlement-console-v2.is-continuity-requirements .continuity-requirements-workspace > .continuity-panel,
+.settlement-console-v2.is-continuity-works .continuity-works-workspace > .continuity-panel,
+.settlement-console-v2.is-continuity-founders .settlement-side-column,
+.settlement-console-v2.is-continuity-legacy > .planetary-defense-panel,
+.settlement-console-v2.is-continuity-legacy > .continuity-legacy-colonies {
+  width: 100%;
+  max-width: none;
+}
+
+.settlement-console-v2 .continuity-readiness-overview {
+  grid-template-columns: minmax(120px, 0.2fr) minmax(120px, 0.2fr) minmax(280px, 1fr);
+}
+
+.settlement-console-v2 .deficit-list {
+  grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+  gap: 10px;
+}
+
+.settlement-console-v2 .deficit-list > li {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid rgb(255 98 111 / .24);
+  border-left: 4px solid #ff626f;
+  background:
+    linear-gradient(110deg, rgb(255 98 111 / .08), transparent 48%),
+    #070c11;
+}
+
+.settlement-console-v2 .deficit-list > li > strong {
+  color: #eef6f7;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.settlement-console-v2 .deficit-list > li > span {
+  color: #94a9af;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.settlement-console-v2 .deficit-candidates {
+  max-height: 160px;
+  align-content: flex-start;
+  padding-top: 10px;
+  overflow-y: auto;
+  border-top: 1px solid rgb(255 98 111 / .18);
+  scrollbar-color: var(--world-accent, #55d6e8) #03080b;
+  scrollbar-width: thin;
+}
+
+.settlement-console-v2 .deficit-candidates > small {
+  width: 100%;
+  color: #a9bec3;
+}
+
+.settlement-console-v2 .deficit-candidate {
+  min-height: 34px;
+  border-radius: 0;
+  font-size: 12px;
+}
+
+.settlement-console-v2.is-continuity-works .world-progress-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.settlement-console-v2.is-continuity-works .world-progress-action {
+  min-height: 96px;
+  align-content: center;
+  border-left: 4px solid #3c7785;
+}
+
+.settlement-console-v2.is-continuity-works .world-progress-action.is-supply { border-left-color: #68d29b; }
+.settlement-console-v2.is-continuity-works .world-progress-action.is-equipment { border-left-color: #d5a34f; }
+.settlement-console-v2.is-continuity-works .world-progress-action.is-research { border-left-color: #b38cff; }
+.settlement-console-v2.is-continuity-works .world-progress-action.crisis-action {
+  grid-column: 1 / -1;
+  min-height: 0;
+  border-left-color: #ff626f;
+}
+
+.settlement-console-v2.is-continuity-works .crisis-requirements ul {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.settlement-console-v2.is-continuity-founders .settlement-side-column {
+  display: grid;
+  grid-template-columns: minmax(0, 1.75fr) minmax(330px, .75fr);
+  align-items: start;
+  gap: 12px;
+}
+
+.settlement-console-v2.is-continuity-founders .settler-selection-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-height: 670px;
+  padding-right: 4px;
+}
+
+.settlement-console-v2.is-continuity-founders .settler-selection-list label {
+  min-height: 72px;
+}
+
+.settlement-console-v2.is-continuity-founders .departure-panel {
+  position: sticky;
+  top: 12px;
+}
+
+.settlement-console-v2.is-continuity-legacy > .planetary-defense-panel,
+.settlement-console-v2.is-continuity-legacy > .continuity-legacy-colonies {
+  margin-right: 0;
+  margin-left: 0;
+}
+
+.planetary-network-tabs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 6px;
+  padding: 0 14px 10px;
+}
+
+.planetary-network-tabs button {
+  display: grid;
+  min-height: 58px;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 2px solid #2b4752;
+  color: #8ca3aa;
+  background: #040a0e;
+  cursor: pointer;
+  text-align: left;
+}
+
+.planetary-network-tabs button:hover,
+.planetary-network-tabs button:focus-visible,
+.planetary-network-tabs button.is-active {
+  border-color: var(--world-accent, #55d6e8);
+  color: #eefeff;
+  background: rgb(var(--world-accent-rgb, 85 214 232) / .1);
+  box-shadow: inset 0 -3px var(--world-accent, #55d6e8), 0 0 14px rgb(var(--world-accent-rgb, 85 214 232) / .12);
+}
+
+.planetary-network-tabs span {
+  font-family: var(--font-display, sans-serif);
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+.planetary-network-tabs strong {
+  color: #74de9e;
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+}
+
+.settlement-console-v2 .planetary-installation-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.settlement-console-v2 .planetary-installation-grid > div {
+  min-height: 170px;
+  padding: 14px;
+}
+
+.settlement-console-v2 .planetary-installation-grid span,
+.settlement-console-v2 .planetary-installation-grid strong,
+.settlement-console-v2 .planetary-installation-grid small,
+.settlement-console-v2 .planetary-installation-grid button {
+  font-size: 12px;
+}
+
+.settlement-console-v2 .colony-list {
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 10px;
+}
+
+.settlement-console-v2 .colony-list article {
+  min-height: 130px;
+  padding: 16px;
+}
+
+.settlement-console-v2 .colony-list h4 { font-size: 15px; }
+.settlement-console-v2 .colony-list p,
+.settlement-console-v2 .colony-list small { font-size: 12px; line-height: 1.55; }
 
 .settlement-console-v2 .settlement-hero {
   min-height: 330px;
@@ -843,10 +1202,18 @@
   .continuity-workspace-tabs button:nth-child(3) { border-right: 0; }
   .continuity-workspace-tabs button:nth-child(-n + 3) { border-bottom: 1px solid #2c4a57; }
   .settlement-console-v2.is-continuity-requirements .continuity-requirements-workspace { grid-template-columns: 1fr; }
+  .settlement-console-v2.is-continuity-founders .settlement-side-column { grid-template-columns: 1fr; }
+  .settlement-console-v2.is-continuity-founders .departure-panel { position: static; }
+  .settlement-console-v2 .planetary-installation-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 650px) {
   .continuity-workspace-tabs { grid-template-columns: 1fr; }
   .continuity-workspace-tabs button { border-right: 0; border-bottom: 1px solid #2c4a57; }
   .settlement-console-v2 .settlement-hero > * { max-width: 100%; }
   .settlement-console-v2 .settlement-hero::after { opacity: .2; }
+  .settlement-console-v2 .continuity-readiness-overview,
+  .settlement-console-v2.is-continuity-works .world-progress-actions,
+  .settlement-console-v2.is-continuity-works .crisis-requirements ul,
+  .settlement-console-v2.is-continuity-founders .settler-selection-list,
+  .settlement-console-v2 .planetary-installation-grid { grid-template-columns: 1fr; }
 }

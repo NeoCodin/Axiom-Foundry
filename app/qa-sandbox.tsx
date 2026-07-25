@@ -8,6 +8,7 @@ type QaSandboxProps = {
   collapsed: boolean;
   onToggleCollapsed: () => void;
   onJumpWorld: (worldIndex: number) => void;
+  onJumpTransit: (originWorldIndex: number) => void;
   onFreshPlayerOpening: () => void;
   onReplayPlanetIntroduction: () => void;
   onReplayPelagosIntroduction: () => void;
@@ -29,6 +30,7 @@ export function QaSandbox({
   collapsed,
   onToggleCollapsed,
   onJumpWorld,
+  onJumpTransit,
   onFreshPlayerOpening,
   onReplayPlanetIntroduction,
   onReplayPelagosIntroduction,
@@ -63,7 +65,7 @@ export function QaSandbox({
   return (
     <aside className={`qa-sandbox ${collapsed ? "is-collapsed" : ""}`} aria-label="QA Sandbox controls">
       <button className="qa-sandbox-toggle" type="button" onClick={onToggleCollapsed} aria-expanded={!collapsed}>
-        QA // {collapsed ? "OPEN" : "CLOSE"}
+        QA PANEL · {collapsed ? "OPEN" : "CLOSE"}
       </button>
       {!collapsed && (
         <div className="qa-sandbox-body">
@@ -73,11 +75,26 @@ export function QaSandbox({
             <div className="qa-world-grid">
               {CAMPAIGN_WORLD_IDS.map((worldId, index) => (
                 <button type="button" key={worldId} onClick={() => onJumpWorld(index)}>
-                  {index === 0 ? "WAKE" : "ARRIVE"}{" // "}{getCampaignWorld(worldId)?.name}
+                  {index === 0 ? "WAKE" : "ARRIVE"}{" · "}{getCampaignWorld(worldId)?.name}
                 </button>
               ))}
             </div>
             <small className="qa-section-help">Each opening completes only earlier worlds, resets the active chapter to its first phase, and grants only its normal arrival cache. Use Test Overrides when you want to accelerate.</small>
+          </section>
+          <section>
+            <span>TRAVEL PREVIEWS</span>
+            <div className="qa-world-grid">
+              {CAMPAIGN_WORLD_IDS.slice(1, -1).map((worldId, index) => {
+                const originIndex = index + 1;
+                const destinationId = CAMPAIGN_WORLD_IDS[originIndex + 1];
+                return (
+                  <button type="button" key={`${worldId}-${destinationId}`} onClick={() => onJumpTransit(originIndex)}>
+                    {getCampaignWorld(worldId)?.name} → {getCampaignWorld(destinationId)?.name}
+                  </button>
+                );
+              })}
+            </div>
+            <small className="qa-section-help">Open a live corridor at its beginning with normal travel timing, route hazards, and offline progress enabled.</small>
           </section>
           <section>
             <span>PLAYER EXPERIENCE</span>

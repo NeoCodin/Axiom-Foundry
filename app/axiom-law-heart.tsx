@@ -151,7 +151,7 @@ export function AxiomLawHeart({
     <section className={`law-heart-deck is-${pressState}`} aria-labelledby="law-heart-title">
       <header className="law-heart-heading">
         <div>
-          <span>CORE DECK // COLD WAKE</span>
+          <span>CORE DECK · COLD WAKE</span>
           <h2 id="law-heart-title">AXIOM LAW-HEART</h2>
           <p>{headingCopy}</p>
         </div>
@@ -195,7 +195,7 @@ export function AxiomLawHeart({
         </button>
 
         <aside className="law-heart-directive" data-guide-target="law-heart-directive">
-          <span>ACTIVE DIRECTIVE // PHASE {stageIndex + 1} / {stageCount}</span>
+          <span>ACTIVE DIRECTIVE · PHASE {stageIndex + 1} / {stageCount}</span>
           <h3>{objectiveLabel}</h3>
           <p>{objectiveDetail}</p>
           <div className="law-segment-track" role="progressbar" aria-label={objectiveLabel} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(clamp(objectiveProgress) * 100)}>

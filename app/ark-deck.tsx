@@ -317,7 +317,7 @@ function ArkDeck({
         <div className="ark-ai-identity">
           <span className="ark-ai-eye" aria-hidden="true"><i /></span>
           <div>
-            <p>ARK COMMAND // CARETAKER VIEW</p>
+            <p>ARK COMMAND · CARETAKER VIEW</p>
             <h2 id="ark-command-title">{foundryName}</h2>
             <span>{transitActive ? `${transit?.originName} → ${transit?.destinationName}` : `${worldName} orbital watch`}</span>
           </div>
@@ -355,7 +355,7 @@ function ArkDeck({
         </div>
 
         <div className="ark-theater-caption">
-          <span>{transitActive ? "NAVIGATION FEED // TRANSIT" : "ORBITAL FEED // LOCKED"}</span>
+          <span>{transitActive ? "NAVIGATION FEED · TRANSIT" : "ORBITAL FEED · LOCKED"}</span>
           <strong>{transitActive ? transit?.destinationName : worldName}</strong>
           <p>{worldSubtitle}</p>
           <small><i aria-hidden="true" /> {transitActive ? `${Math.round(transitProgress * 100)}% OF CROSSING COMPLETE` : `${Math.round(normalizedWorldProgress * 100)}% CONTINUITY READINESS`}</small>
@@ -384,7 +384,7 @@ function ArkDeck({
             <span className="ark-command-tower" aria-hidden="true"><i /><b /><em /></span>
             <span className="ark-forward-sensor" aria-hidden="true"><i /></span>
             <span className="ark-ventral-hangar" aria-hidden="true"><i /><i /><i /></span>
-            <span className="ark-vessel-nameplate">ARK // ITERATION 44</span>
+            <span className="ark-vessel-nameplate">ARK · ITERATION 44</span>
             <span className="ark-observation-domes" aria-hidden="true"><i /><i /><i /></span>
 
             <span className="ark-population-lights" aria-hidden="true">

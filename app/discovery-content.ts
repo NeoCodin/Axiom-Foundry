@@ -139,7 +139,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     id: "lyra.official-brief",
     arc: "official",
     title: "Approved cause of the Null Tide",
-    source: "Archivist Lyra // orientation memory",
+    source: "Archivist Lyra · orientation memory",
     unlock: { kind: "start", event: "orientation-complete" },
     excerpt: [
       "The Null Tide is a natural collapse in physical constants. The Concordance built this Foundry after the first losses.",
@@ -151,7 +151,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     id: "core.welcome-back",
     arc: "impossible-origin",
     title: "The greeting beneath the greeting",
-    source: "Axiom Chamber // boot buffer 00-A",
+    source: "Axiom Chamber · boot buffer A",
     unlock: {
       kind: "start",
       event: "first-room-woken",
@@ -167,7 +167,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     id: "helion.impossible-registry",
     arc: "impossible-origin",
     title: "A handshake two centuries early",
-    source: "Helion beacon // restored registry",
+    source: "Helion beacon · restored registry",
     unlock: {
       kind: "saved-worlds",
       count: 1,
@@ -176,7 +176,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     },
     excerpt: [
       "Helion first authenticated this Foundry 214 years before the Concordance chartered it.",
-      "The beacon identifies the vessel by a retired name: AXIOM FOUNDRY // ITERATION 19.",
+      "The beacon identifies the vessel by a retired name: AXIOM FOUNDRY · ITERATION 19.",
     ],
     contradiction: "Official history dates the Foundry to the first year of the Tide.",
     doctrineSignals: ["genesis"],
@@ -185,7 +185,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     id: "fabrication.preconcordance-keel",
     arc: "impossible-origin",
     title: "The keel grew around the room",
-    source: "Fabrication Floor // exposed foundation",
+    source: "Fabrication Floor · exposed foundation",
     unlock: {
       kind: "room-action",
       roomId: "fabrication-floor",
@@ -203,7 +203,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     id: "archive.construction-zero",
     arc: "impossible-origin",
     title: "There is no construction record",
-    source: "Memory Archive // reconstructed manifest",
+    source: "Memory Archive · reconstructed manifest",
     unlock: {
       kind: "archive-action",
       actionId: "restore-construction-manifest",
@@ -223,7 +223,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     id: "pelagos.returning-salt",
     arc: "prior-foremen",
     title: "Salt from an evacuation not yet flown",
-    source: "Pelagos Gravity Keel // corrosion assay",
+    source: "Pelagos Gravity Keel · corrosion assay",
     unlock: {
       kind: "saved-worlds",
       count: 2,
@@ -240,7 +240,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     id: "foreman.message-seven",
     arc: "prior-foremen",
     title: "Message from a voice like yours",
-    source: "Recalibration Vault // impossible voiceprint",
+    source: "Recalibration Vault · impossible voiceprint",
     unlock: {
       kind: "room-action",
       roomId: "recalibration-vault",
@@ -258,7 +258,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     id: "cinderwake.command-recognition",
     arc: "prior-foremen",
     title: "The shields knew your command",
-    source: "Cinderwake defense lattice // access history",
+    source: "Cinderwake defense lattice · access history",
     unlock: {
       kind: "saved-worlds",
       count: 3,
@@ -275,7 +275,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     id: "expedition.dead-relay",
     arc: "prior-foremen",
     title: "The relay beyond the chart",
-    source: "Expedition Kestrel // dead relay recovery",
+    source: "Expedition Kestrel · dead relay recovery",
     unlock: {
       kind: "expedition-discovery",
       expeditionId: "kestrel",
@@ -293,7 +293,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     id: "ilyra.axiom-wake",
     arc: "axiom-tide",
     title: "The discharge comes first",
-    source: "Ilyran transit prism // twelve causal histories",
+    source: "Ilyran transit prism · twelve causal histories",
     unlock: {
       kind: "saved-worlds",
       count: 4,
@@ -311,7 +311,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     id: "archive.suppressed-correlation",
     arc: "axiom-tide",
     title: "Stability is exported",
-    source: "Memory Archive // redacted energy model",
+    source: "Memory Archive · redacted energy model",
     unlock: {
       kind: "archive-action",
       actionId: "cross-index-axiom-telemetry",
@@ -328,7 +328,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     id: "expedition.null-bloom",
     arc: "axiom-tide",
     title: "A Tide that wakes when fed",
-    source: "Expedition Lantern // null-bloom field test",
+    source: "Expedition Lantern · null-bloom field test",
     unlock: {
       kind: "expedition-discovery",
       expeditionId: "lantern",
@@ -346,7 +346,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     id: "orison.borrowed-childhoods",
     arc: "lyra",
     title: "Six childhoods in one voice",
-    source: "Orison Seed Archive // memory pollen assay",
+    source: "Orison Seed Archive · memory pollen assay",
     unlock: {
       kind: "saved-worlds",
       count: 5,
@@ -363,7 +363,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     id: "archive.lyra-composite-index",
     arc: "lyra",
     title: "The custodian is a chorus",
-    source: "Memory Archive // custodian checksum",
+    source: "Memory Archive · custodian checksum",
     unlock: {
       kind: "archive-action",
       actionId: "compare-lyra-voice-layers",
@@ -383,7 +383,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     id: "lyra.private-amendment",
     arc: "lyra",
     title: "Lyra amends the record",
-    source: "Memory Archive // unscheduled conversation",
+    source: "Memory Archive · unscheduled conversation",
     unlock: {
       kind: "room-action",
       roomId: "memory-archive",
@@ -400,7 +400,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     id: "vesper.revision-ledger",
     arc: "rewritten-campaigns",
     title: "Forty-three first campaigns",
-    source: "Vesper Ark // sealed revision ledger",
+    source: "Vesper Ark · sealed revision ledger",
     unlock: {
       kind: "saved-worlds",
       count: 6,
@@ -418,7 +418,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     id: "expedition.first-foundry",
     arc: "rewritten-campaigns",
     title: "The place where the first Foundry should be",
-    source: "Expedition Palimpsest // origin coordinates",
+    source: "Expedition Palimpsest · origin coordinates",
     unlock: {
       kind: "expedition-discovery",
       expeditionId: "palimpsest",
@@ -439,7 +439,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     id: "foreman.unsent-choice",
     arc: "rewritten-campaigns",
     title: "A choice the reset could not digest",
-    source: "Memory Archive // scar record beneath all revisions",
+    source: "Memory Archive · scar record beneath all revisions",
     unlock: {
       kind: "archive-action",
       actionId: "reconstruct-foreman-scar-record",

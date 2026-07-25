@@ -54,7 +54,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
   deck: {
     id: "deck",
     label: "Ark",
-    category: "Page guide // command deck",
+    category: "Page guide · command deck",
     title: "Wake the Ark one system at a time",
     summary:
       "Cold Wake begins on one focused Law-Heart. After three portable laws, Continuity appears as a forecast, the Foundry wakes for one commissioning task, and the view expands to the whole Ark before Pelagos orbit.",
@@ -79,7 +79,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
   engineering: {
     id: "engineering",
     label: "Foundry",
-    category: "Page guide // fabrication floor",
+    category: "Page guide · fabrication floor",
     title: "Build the machine that builds the next machine",
     summary:
       "The Foundry keeps the interactive Law-Heart on the left and every unlocked fabrication system in one tabbed console on the right. Continuity owns every planetary directive and departure requirement.",
@@ -108,7 +108,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
   research: {
     id: "research",
     label: "Research",
-    category: "Page guide // analysis core",
+    category: "Page guide · analysis core",
     title: "Choose one question and make its evidence move",
     summary:
       "The Active Project screen is not a resource generator: it visualizes the one practical question loaded into the Analysis Core. Evidence first collects in Ark Supply, moves into Lattice reservoirs, and then carries that project through Theory, Prototype, Field Validation, and Final Synthesis.",
@@ -138,7 +138,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
   population: {
     id: "population",
     label: "Crew",
-    category: "Page guide // human continuity",
+    category: "Page guide · human continuity",
     title: "Make the Ark safe, answer signals, then shape the crew",
     summary:
       "Rescue groups never expire. The Ark holds at most 48 people; expand living space and life support, then let AXIOM handle routine staffing while you protect the assignments that matter.",
@@ -170,7 +170,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
   defense: {
     id: "defense",
     label: "Defense",
-    category: "Page guide // threat operations",
+    category: "Page guide · threat operations",
     title: "Prepare the Ark, then let it defend itself",
     summary:
       "Travel hazards begin on the first interplanetary corridor, Cinder orbit teaches ash defense, and Nox reveals retrograde contacts. Installations, crew, equipment, research, drones, and two independent standing doctrines resolve every incident automatically online or offline.",
@@ -197,7 +197,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
   medical: {
     id: "medical",
     label: "Medical",
-    category: "Page guide // medical bay",
+    category: "Page guide · medical bay",
     title: "Admit the hurt, staff the doctors, pay the power",
     summary:
       "Everyone heals slowly on their own — that never stops and costs nothing. The Medical Bay is the fast lane: admitted patients do nothing but heal at a rate driven by Doctor levels. Research can improve recovery and lower the power diverted by each occupied bed.",
@@ -213,7 +213,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
   expeditions: {
     id: "expeditions",
     label: "Expeditions",
-    category: "Page guide // expedition command",
+    category: "Page guide · expedition command",
     title: "Read the projection, pick the crew, launch",
     summary:
       "Every inhabited world has its own operation board. Crews of 2-4 run surveys, one-time story operations, difficult Continuity work, and repeatable resource routes. Future-world operations stay hidden, and every launch projects its result first.",
@@ -234,7 +234,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
   armory: {
     id: "armory",
     label: "Armory",
-    category: "Personnel guide // equipment development",
+    category: "Personnel guide · equipment development",
     title: "Improve six trusted frames instead of collecting clutter",
     summary:
       "The Armory belongs to Personnel because equipment exists to support people. The Ark maintains three weapon frames and three armor frames; Research unlocks them, the forge stocks them, and long-running Mark projects improve every copy of a frame at once.",
@@ -256,7 +256,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
   settlement: {
     id: "settlement",
     label: "Continuity",
-    category: "Page guide // planetary continuity",
+    category: "Page guide · planetary continuity",
     title: "Leave only when a world can continue without the Ark",
     summary:
       "Continuity combines Community Readiness, Expertise, infrastructure, supplies, research, surveys, a critical planet-specific field operation, crisis response, and your chosen founders into one departure forecast.",
@@ -286,7 +286,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
   salvage: {
     id: "salvage",
     label: "Salvage",
-    category: "Resource guide // recovery stores",
+    category: "Resource guide · recovery stores",
     title: "Salvage is the bridge between an empty Ark and its first crew",
     summary:
       "Salvage pays for living-space construction, life-support capacity, rescue shuttles, and later repairs and upgrades. It recovers automatically and never requires a timer challenge.",
@@ -307,7 +307,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
   "calibration-data": {
     id: "calibration-data",
     label: "Calibration Data",
-    category: "Research input // CAL",
+    category: "Research input · CAL",
     title: "Record how the damaged Core responds",
     summary: "Calibration Data comes from operating and observing the Axiom Chamber.",
     steps: [
@@ -319,7 +319,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
   "engineering-models": {
     id: "engineering-models",
     label: "Engineering Models",
-    category: "Research input // ENG",
+    category: "Research input · ENG",
     title: "Turn fabrication into repeatable system models",
     summary: "Engineering Models are created by building mechanisms and proving infrastructure designs.",
     steps: [
@@ -331,7 +331,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
   "biological-samples": {
     id: "biological-samples",
     label: "Biological Samples",
-    category: "Research input // BIO",
+    category: "Research input · BIO",
     title: "Biological evidence begins with rescued life",
     summary: "Biological Samples begin with rescued life, then grow through clinical and ecological work rather than raw headcount.",
     steps: [
@@ -344,7 +344,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
   "cultural-records": {
     id: "cultural-records",
     label: "Cultural Records",
-    category: "Research input // CUL",
+    category: "Research input · CUL",
     title: "Every rescued person brings memory the Ark did not possess",
     summary: "Cultural Records come from testimony, teaching material, and recovered civic knowledge.",
     steps: [
@@ -357,7 +357,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
   schematics: {
     id: "schematics",
     label: "Schematics",
-    category: "Research input // SCH",
+    category: "Research input · SCH",
     title: "Designs the Ark cannot invent — only recover",
     summary:
       "Recovered Schematics fuel the Threat Operations research branch (weapons and armor tiers). Nothing aboard generates them: they arrive only with people and expeditions, which makes them one of the scarcest reservoirs in the game.",
@@ -371,7 +371,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
   "null-traces": {
     id: "null-traces",
     label: "Null Traces",
-    category: "Research input // NUL",
+    category: "Research input · NUL",
     title: "Measure absences that should not leave evidence",
     summary: "Null Traces begin accumulating after Cold Wake as the Ark enters later worlds.",
     steps: [
@@ -383,7 +383,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
   "axiom-proofs": {
     id: "axiom-proofs",
     label: "Axiom Proofs",
-    category: "Research input // AXM",
+    category: "Research input · AXM",
     title: "Prove which laws survive a rebuilt universe",
     summary: "Axiom Proofs are the research evidence created by Recalibration and permanent physical laws.",
     steps: [
@@ -448,7 +448,7 @@ export function GameManualDialog({
       <section className="game-manual" role="dialog" aria-modal="true" aria-labelledby="manual-title" aria-describedby="manual-summary">
         <header className="game-manual-header">
           <div>
-            <p>AXIOM FIELD MANUAL // CONTEXT LINK</p>
+            <p>AXIOM FIELD MANUAL · CONTEXT LINK</p>
             <h2 id="manual-title">{topic.title}</h2>
             <span id="manual-summary">{topic.summary}</span>
           </div>
@@ -488,7 +488,7 @@ export function GameManualDialog({
             <ol className="game-manual-steps">
               {topic.steps.map((step, index) => (
                 <li key={step.title}>
-                  <span>{String(index + 1).padStart(2, "0")}</span>
+                  <span>{index + 1}</span>
                   <div><strong>{step.title}</strong><p>{step.detail}</p></div>
                 </li>
               ))}

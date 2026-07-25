@@ -37,7 +37,7 @@ test("server-renders the Axiom Foundry game surface", async () => {
   assert.match(html, /law-press-canvas/);
   assert.match(html, /STRIKE LAW/);
   assert.doesNotMatch(html, /law-heart-ring/);
-  assert.match(html, /CORE DECK \/\/ COLD WAKE/);
+  assert.match(html, /CORE DECK · COLD WAKE/);
   assert.match(html, /FIRST AUTOMATION/);
   assert.match(html, /PORTABLE PHYSICS/);
   assert.doesNotMatch(html, /destinations awake|Your next move|ACTIVE QUEST|nav-sprite sprite-ark/);
@@ -212,7 +212,7 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(populationConsole, /PROFESSION XP/);
   assert.match(populationConsole, /CONTINUITY CONTRIBUTION/);
   assert.match(settlementConsole, /How this is counted/);
-  assert.match(settlementConsole, /quality safety net active/);
+  assert.doesNotMatch(settlementConsole, /\.slice\(0,\s*6\)/);
   assert.match(continuityExpertise, /70% of Soldier level/);
   assert.match(continuityExpertise, /Researcher level \+ a 50% Null Dreamer bonus/);
   assert.match(campaignContent, /vesper-exceptional-founders/);

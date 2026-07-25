@@ -50,7 +50,7 @@ export function TransitConsole({
     <section className="transit-console" aria-labelledby="transit-title">
       <header className="transit-console-header">
         <div>
-          <p>CONTINUITY CORRIDOR // FRONTIER TRANSIT</p>
+          <p>CONTINUITY CORRIDOR · FRONTIER TRANSIT</p>
           <h2 id="transit-title">{journey.originName} → {journey.destinationName}</h2>
           <span>The Ark remains operational. Fabrication, Research, training, medicine, and restored-world defense continue online and offline.</span>
         </div>

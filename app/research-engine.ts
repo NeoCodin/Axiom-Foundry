@@ -2076,7 +2076,7 @@ export const getResearchProjectPresentation = (
         : complete
           ? project.completedSummary
           : laterNullKnowledge && project.branch !== "null-studies"
-            ? `${project.summary} // AUTHORIZATION SIGNATURE DOES NOT MATCH.`
+            ? `${project.summary} · AUTHORIZATION SIGNATURE DOES NOT MATCH.`
             : project.summary,
   };
 };

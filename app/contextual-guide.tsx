@@ -145,7 +145,7 @@ export function ContextualGuide({
       >
         <div className="context-guide-speaker">
           <span aria-hidden="true">A</span>
-          <div><strong>AXIOM // GUIDED HANDOFF</strong><small>{label}</small></div>
+          <div><strong>AXIOM · GUIDED HANDOFF</strong><small>{label}</small></div>
         </div>
         <p className="context-guide-eyebrow">{step.eyebrow}</p>
         <h2 id="context-guide-title">{step.title}</h2>
