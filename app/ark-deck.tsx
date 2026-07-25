@@ -529,7 +529,6 @@ function ArkDeck({
             >
               <span><i /> ONLINE</span>
               <span><i /> DORMANT</span>
-              <strong>SELECT A LIT COMPARTMENT</strong>
             </div>
           </div>
         </div>

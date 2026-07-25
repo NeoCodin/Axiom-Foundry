@@ -54,6 +54,7 @@ export type ResearchLatticeProps = {
     sources: readonly { id: string; label: string; detail: string; points: number }[];
   };
   initialView?: ResearchView;
+  initialProjectId?: ResearchProjectId;
   now?: number;
   onStateChange: (state: ResearchLatticeState) => void;
   onTransferInput: (inputId: ResearchInputId, amount: number) => void;
@@ -204,6 +205,7 @@ export function ResearchLattice({
   leadResearcher,
   fieldValidation,
   initialView,
+  initialProjectId,
   now = 0,
   onStateChange,
   onTransferInput,
@@ -215,6 +217,9 @@ export function ResearchLattice({
   const activeDefinition = state.activeProjectId
     ? getResearchProjectDefinition(state.activeProjectId)
     : undefined;
+  const initialProjectDefinition = initialProjectId
+    ? getResearchProjectDefinition(initialProjectId)
+    : undefined;
   const lastCompletedDefinition =
     state.completedProjectIds.length > 0
       ? getResearchProjectDefinition(state.completedProjectIds[state.completedProjectIds.length - 1])
@@ -223,13 +228,21 @@ export function ResearchLattice({
     initialView ?? (state.activeProjectId || state.completedProjectIds.length > 0 ? "core" : "technology"),
   );
   const [era, setEra] = useState<ResearchEra>(
-    activeDefinition ? getResearchProjectEra(activeDefinition) : getCurrentResearchEra(state),
+    initialProjectDefinition
+      ? getResearchProjectEra(initialProjectDefinition)
+      : activeDefinition
+        ? getResearchProjectEra(activeDefinition)
+        : getCurrentResearchEra(state),
   );
   const [domain, setDomain] = useState<ResearchDomainId>(
-    getDomainForBranch(activeDefinition?.branch ?? "ark-engineering").id,
+    getDomainForBranch(
+      initialProjectDefinition?.branch ??
+      activeDefinition?.branch ??
+      "ark-engineering",
+    ).id,
   );
   const [selectedProjectId, setSelectedProjectId] = useState<ResearchProjectId | null>(
-    activeDefinition?.id ?? null,
+    initialProjectDefinition?.id ?? activeDefinition?.id ?? null,
   );
   const [archiveMode, setArchiveMode] = useState<ResearchEra | "contradictions">(
     lastCompletedDefinition ? getResearchProjectEra(lastCompletedDefinition) : getCurrentResearchEra(state),

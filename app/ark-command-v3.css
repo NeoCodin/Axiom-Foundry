@@ -8,6 +8,9 @@
   --ark-cyan: var(--ark-power-surface, #55e6e8);
   --ark-blue: var(--ark-power-limb, #327f91);
   --ark-room-border: #2b414a;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto 56px;
   overflow: visible;
   border-color: #293f48;
   background:
@@ -16,6 +19,10 @@
   box-shadow:
     inset 0 0 0 3px #010304,
     inset 0 0 0 4px #14262e;
+}
+
+.ark-command-deck-v3.is-in-transit .ark-flight-wake {
+  display: none;
 }
 
 .ark-command-deck-v3 .ark-command-heading {
@@ -715,6 +722,7 @@
   z-index: 18;
   right: 17%;
   bottom: 66px;
+  justify-content: center;
   padding: 5px 7px;
   background: rgb(1 4 6 / 0.88);
 }

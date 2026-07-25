@@ -54,6 +54,11 @@ type RecalibrationEvent = {
   toAxioms: number;
 };
 
+type ManualPulseEvent = {
+  serial: number;
+  startedAt: number;
+};
+
 type Point = readonly [number, number];
 
 export type LawHeartSpectrum = {
@@ -578,7 +583,7 @@ function drawCore(
   context: CanvasRenderingContext2D,
   props: LawPressCanvasProps,
   now: number,
-  clickPhase: number,
+  clickIntensity: number,
   recalibrationEvent: RecalibrationEvent | null,
   reducedMotion: boolean,
 ) {
@@ -588,7 +593,7 @@ function drawCore(
   const active = props.manualPulses > 0 || machineCount > 0;
   const basePulseSpeed = 0.00125 + Math.min(0.0011, productionOrder * 0.00008);
   const pulse = reducedMotion ? 0 : Math.sin(now * basePulseSpeed);
-  const clickFlare = clickPhase < 1 ? Math.sin(clickPhase * Math.PI) : 0;
+  const clickFlare = clickIntensity;
   const recalibrationPhase = recalibrationEvent ? clamp((now - recalibrationEvent.startedAt) / 1350) : 0;
   const spectrumAxioms = recalibrationEvent && recalibrationPhase < 0.55
     ? recalibrationEvent.fromAxioms
@@ -630,14 +635,18 @@ function drawClickImpact(
   context: CanvasRenderingContext2D,
   phase: number,
   manualGain: number,
+  eventSeed: number,
 ) {
   if (phase >= 1) return;
   const opacity = 1 - phase;
   const sparkCount = Math.min(34, 12 + Math.floor(Math.log10(safe(manualGain) + 1) * 3));
   for (let index = 0; index < sparkCount; index += 1) {
-    const angle = index / sparkCount * TWO_PI + hash(index * 13.1) * 0.42;
-    const distance = 22 + phase * (70 + hash(index) * 132);
-    const length = 4 + phase * (8 + hash(index * 3.2) * 18);
+    const angle =
+      index / sparkCount * TWO_PI +
+      hash(index * 13.1 + eventSeed * 17.7) * 0.42 +
+      hash(eventSeed * 3.9) * 0.5;
+    const distance = 22 + phase * (70 + hash(index + eventSeed * 2.1) * 132);
+    const length = 4 + phase * (8 + hash(index * 3.2 + eventSeed) * 18);
     const start: Point = [
       CENTER + Math.cos(angle) * distance,
       CENTER + Math.sin(angle) * distance * 0.9,
@@ -768,15 +777,26 @@ function renderLawHeart(
   context: CanvasRenderingContext2D,
   props: LawPressCanvasProps,
   now: number,
-  pulseStartedAt: number,
+  pulseEvents: readonly ManualPulseEvent[],
   purchaseEvent: PurchaseEvent | null,
   expenditureEvent: ExpenditureEvent | null,
   recalibrationEvent: RecalibrationEvent | null,
   reducedMotion: boolean,
 ) {
-  const clickAge = now - pulseStartedAt;
-  const clickPhase = Number.isFinite(clickAge) && clickAge >= 0 ? clamp(clickAge / 720) : 1;
-  const impulse = clickPhase < 1 ? Math.sin(clickPhase * Math.PI) : 0;
+  const activePulses = pulseEvents
+    .map((event) => ({
+      ...event,
+      phase: clamp((now - event.startedAt) / 720),
+    }))
+    .filter((event) => event.phase < 1);
+  const impulse = clamp(
+    activePulses.reduce(
+      (total, event) => total + Math.sin(event.phase * Math.PI) * 0.72,
+      0,
+    ),
+    0,
+    2.2,
+  );
 
   context.clearRect(0, 0, SIZE, SIZE);
   context.imageSmoothingEnabled = false;
@@ -786,14 +806,16 @@ function renderLawHeart(
   drawPurchaseBloom(context, purchaseEvent, now);
   drawExpenditure(context, expenditureEvent, now);
   drawRecalibrationCollapse(context, recalibrationEvent, now);
-  drawCore(context, props, now, clickPhase, recalibrationEvent, reducedMotion);
-  drawClickImpact(context, clickPhase, safe(props.manualGain));
+  drawCore(context, props, now, impulse, recalibrationEvent, reducedMotion);
+  activePulses.forEach((event) =>
+    drawClickImpact(context, event.phase, safe(props.manualGain), event.serial),
+  );
 }
 
 export function LawPressCanvas(props: LawPressCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const propsRef = useRef(props);
-  const pulseStartedAt = useRef(Number.NEGATIVE_INFINITY);
+  const pulseEvents = useRef<ManualPulseEvent[]>([]);
   const purchaseEvent = useRef<PurchaseEvent | null>(null);
   const expenditureEvent = useRef<ExpenditureEvent | null>(null);
   const recalibrationEvent = useRef<RecalibrationEvent | null>(null);
@@ -809,7 +831,12 @@ export function LawPressCanvas(props: LawPressCanvasProps) {
   }, [props]);
 
   useEffect(() => {
-    if (props.pulseSerial > 0) pulseStartedAt.current = performance.now();
+    if (props.pulseSerial <= 0) return;
+    const now = performance.now();
+    pulseEvents.current = [
+      ...pulseEvents.current.filter((event) => now - event.startedAt < 720),
+      { serial: props.pulseSerial, startedAt: now },
+    ].slice(-12);
   }, [props.pulseSerial]);
 
   useEffect(() => {
@@ -864,7 +891,7 @@ export function LawPressCanvas(props: LawPressCanvasProps) {
           context,
           propsRef.current,
           now,
-          pulseStartedAt.current,
+          pulseEvents.current,
           purchaseEvent.current,
           expenditureEvent.current,
           recalibrationEvent.current,

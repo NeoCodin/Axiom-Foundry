@@ -1046,6 +1046,24 @@
   font-size: 12px;
 }
 
+.settlement-console-v2 .deficit-route-action {
+  width: 100%;
+  min-height: 38px;
+  margin-top: 12px;
+  border: 2px solid color-mix(in srgb, var(--world-accent) 62%, #30464e);
+  background: #08151a;
+  color: #d9fbff;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-align: center;
+}
+
+.settlement-console-v2 .deficit-route-action:hover,
+.settlement-console-v2 .deficit-route-action:focus-visible {
+  background: color-mix(in srgb, var(--world-accent) 16%, #08151a);
+  box-shadow: inset 0 -3px 0 var(--world-accent);
+}
+
 .settlement-console-v2.is-continuity-works .world-progress-actions {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;

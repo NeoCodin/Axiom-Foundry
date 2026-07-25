@@ -449,6 +449,11 @@ export default function Home() {
     useState<FoundryConsoleTab>("chain");
   const [researchEntry, setResearchEntry] = useState<{
     view: ResearchView;
+    projectId?: ResearchProjectId;
+    nonce: number;
+  } | null>(null);
+  const [expeditionEntry, setExpeditionEntry] = useState<{
+    siteId: ExpeditionSiteId;
     nonce: number;
   } | null>(null);
   const [clockNow, setClockNow] = useState(0);
@@ -2441,6 +2446,38 @@ export default function Home() {
   const foundryConsoleTabIds = foundryConsoleTabs
     .map((tab) => tab.id)
     .join("|");
+  const autonomyTiers = GENERATORS.map((generator, index) => {
+    const unlocked = isTierUnlocked(game, index);
+    const authorized = unlocked && Boolean(game.settings.autoTiers[index]);
+    const cost = getTierCost(game, index, 1);
+    return {
+      generator,
+      index,
+      unlocked,
+      authorized,
+      affordable: authorized && game.flux >= cost,
+      cost,
+      owned: game.tiers[index]?.amount ?? 0,
+    };
+  });
+  const autonomyAuthorized = autonomyTiers.filter((tier) => tier.authorized);
+  const autonomyAffordable = autonomyAuthorized.filter((tier) => tier.affordable);
+  const autonomyCycleSpend = autonomyAffordable.reduce(
+    (total, tier) => total + tier.cost,
+    0,
+  );
+  const autonomyNextTier =
+    autonomyAffordable[0] ??
+    autonomyAuthorized.slice().sort((left, right) => left.cost - right.cost)[0] ??
+    null;
+  const compiledProtocolMarks = game.runUpgrades.reduce(
+    (total, level) => total + level,
+    0,
+  );
+  const blueprintProtocolMarks = game.settings.protocolBlueprint.reduce(
+    (total, level) => total + level,
+    0,
+  );
   useEffect(() => {
     if (foundryConsoleTabIds.split("|").includes(foundryConsoleTab)) return;
     setFoundryConsoleTab("chain");
@@ -3033,7 +3070,7 @@ export default function Home() {
         />
       ) : primaryView === "research" ? (
         <ResearchLattice
-          key={`research-${researchEntry?.view ?? "default"}-${researchEntry?.nonce ?? 0}`}
+          key={`research-${researchEntry?.view ?? "default"}-${researchEntry?.projectId ?? "none"}-${researchEntry?.nonce ?? 0}`}
           state={game.research}
           resources={game.researchStock}
           availableCrew={researchCrewAvailable}
@@ -3047,6 +3084,7 @@ export default function Home() {
           leadResearcher={researchLead}
           fieldValidation={researchFieldValidation}
           initialView={researchEntry?.view}
+          initialProjectId={researchEntry?.projectId}
           now={clockNow || game.lastSaved}
           autoTransfer={getAutoTransferStatus(game)}
           onStateChange={handleResearchStateChange}
@@ -3090,6 +3128,7 @@ export default function Home() {
         />
       ) : primaryView === "expeditions" ? (
         <ExpeditionConsole
+          key={`expeditions-${expeditionEntry?.siteId ?? "default"}-${expeditionEntry?.nonce ?? 0}`}
           survivors={game.survivors}
           expeditions={game.expeditions}
           currentWorldName={campaignWorld.name}
@@ -3104,6 +3143,7 @@ export default function Home() {
             completed: game.worldProgress.surveysCompleted,
             required: campaignWorld.surveysRequired,
           }}
+          initialSiteId={expeditionEntry?.siteId}
           getExpeditionPreview={(siteId, crewIds) => {
             const quote = getExpeditionLaunchQuote(game, siteId, crewIds);
             return {
@@ -3278,6 +3318,29 @@ export default function Home() {
           onChooseFinalDoctrine={handleDoctrineChoice}
           onOpenPopulation={populationUnlocked ? () => setPrimaryView("population") : undefined}
           onOpenResearch={researchUnlocked ? () => setPrimaryView("research") : undefined}
+          onOpenDeficit={(deficit) => {
+            if (deficit.kind === "research") {
+              setResearchEntry((current) => ({
+                view: "technology",
+                projectId: deficit.id as ResearchProjectId,
+                nonce: (current?.nonce ?? 0) + 1,
+              }));
+              setPrimaryView("research");
+              return;
+            }
+            if (deficit.kind === "survey" || deficit.kind === "operation") {
+              const siteId = deficit.kind === "survey"
+                ? expeditionSites.find((site) => site.countsAsSurvey)?.id
+                : expeditionSites.find((site) => site.id === deficit.id)?.id;
+              if (siteId) {
+                setExpeditionEntry((current) => ({
+                  siteId,
+                  nonce: (current?.nonce ?? 0) + 1,
+                }));
+              }
+              setPrimaryView("expeditions");
+            }
+          }}
           onOpenHelp={setManualTopic}
           onBack={() => setPrimaryView("deck")}
         />
@@ -3626,7 +3689,7 @@ export default function Home() {
           )}
 
           {autonomyUnlocked && foundryConsoleTab === "autonomy" && (
-          <section className="panel automation-panel" data-guide-target="foundry-automation">
+          <section className="panel automation-panel autonomy-console" data-guide-target="foundry-automation">
             <div className="panel-heading">
               <div>
                 <p className="section-kicker">Cycle control</p>
@@ -3641,22 +3704,56 @@ export default function Home() {
               </div>
             ) : (
               <>
+                <div className="autonomy-status-grid" aria-label="Autonomy status">
+                  <article>
+                    <span>Fabrication order</span>
+                    <strong>{game.settings.autoEnabled ? "AUTONOMY ONLINE" : "MANUAL CONTROL"}</strong>
+                    <small>{game.settings.autoEnabled ? "One purchase pass each second" : "No Flux will be spent automatically"}</small>
+                  </article>
+                  <article>
+                    <span>Authorized tiers</span>
+                    <strong>{autonomyAuthorized.length} / {autonomyTiers.filter((tier) => tier.unlocked).length}</strong>
+                    <small>{autonomyAffordable.length} affordable on the next pass</small>
+                  </article>
+                  <article>
+                    <span>Next pass</span>
+                    <strong>{autonomyNextTier ? autonomyNextTier.generator.name : "NO ORDER"}</strong>
+                    <small>{autonomyNextTier
+                      ? autonomyNextTier.affordable
+                        ? `${formatNumber(autonomyCycleSpend)} Flux scheduled this pass`
+                        : `Needs ${formatNumber(autonomyNextTier.cost)} Flux`
+                      : "Authorize at least one unlocked tier"}</small>
+                  </article>
+                </div>
                 <label className="toggle-row">
                   <span><strong>Autonomous fabrication</strong><small>Off by default. When enabled, AXIOM buys one affordable unit from each selected tier every second.</small></span>
                   <input type="checkbox" checked={game.settings.autoEnabled} onChange={(event) => setGame((current) => setAutoEnabled(current, event.target.checked))} />
                 </label>
-                <div className="tier-toggles" aria-label="Automatic machine tiers">
-                  {GENERATORS.map((generator, index) => (
-                    <label key={generator.name}>
-                      <input type="checkbox" checked={game.settings.autoTiers[index]} onChange={(event) => setGame((current) => setAutoTier(current, index, event.target.checked))} />
-                      <span>T{index + 1}</span>
+                <div className="autonomy-tier-grid" aria-label="Automatic machine tiers">
+                  {autonomyTiers.map((tier) => (
+                    <label className={`${tier.authorized ? "is-authorized" : ""} ${!tier.unlocked ? "is-locked" : ""}`} key={tier.generator.name}>
+                      <input type="checkbox" disabled={!tier.unlocked} checked={tier.authorized} onChange={(event) => setGame((current) => setAutoTier(current, tier.index, event.target.checked))} />
+                      <span className="autonomy-tier-switch" aria-hidden="true" />
+                      <span>
+                        <small>TIER {tier.index + 1}</small>
+                        <strong>{tier.generator.name}</strong>
+                        <em>{tier.unlocked ? `${formatNumber(tier.owned)} owned · ${formatNumber(tier.cost)} Flux next` : "Blueprint unavailable"}</em>
+                      </span>
                     </label>
                   ))}
                 </div>
-                <label className={`toggle-row ${game.lifetimeAxioms < 3 ? "disabled" : ""}`}>
-                  <span><strong>Protocol routing</strong><small>{game.lifetimeAxioms < 3 ? "Unlocks at 3 lifetime Axioms." : "Rebuilds only the Marks stored in your Core Protocol blueprint."}</small></span>
-                  <input type="checkbox" disabled={game.lifetimeAxioms < 3} checked={game.settings.autoUpgrades} onChange={(event) => setGame((current) => setAutoUpgrades(current, event.target.checked))} />
-                </label>
+                <section className="autonomy-protocol-console">
+                  <div>
+                    <span>Protocol blueprint</span>
+                    <strong>{compiledProtocolMarks} compiled / {blueprintProtocolMarks} saved Marks</strong>
+                    <small>The blueprint survives Recalibration. Routing rebuilds only those saved Marks when their Flux costs become affordable.</small>
+                  </div>
+                  <label className={`${game.lifetimeAxioms < 3 ? "disabled" : ""}`}>
+                    <span>{game.settings.autoUpgrades ? "ROUTING ONLINE" : "ROUTING IDLE"}</span>
+                    <input type="checkbox" disabled={game.lifetimeAxioms < 3} checked={game.settings.autoUpgrades} onChange={(event) => setGame((current) => setAutoUpgrades(current, event.target.checked))} />
+                  </label>
+                  {game.lifetimeAxioms < 3 && <p>Protocol routing unlocks at 3 lifetime Axioms.</p>}
+                </section>
               </>
             )}
           </section>

@@ -113,6 +113,7 @@ export type SettlementConsoleProps = {
   onChooseFinalDoctrine?: (doctrineId: DoctrineId) => void;
   onOpenPopulation?: () => void;
   onOpenResearch?: () => void;
+  onOpenDeficit?: (deficit: ViabilityForecast["deficits"][number]) => void;
   onOpenHelp: (topicId: ManualTopicId) => void;
   onBack: () => void;
 };
@@ -218,6 +219,7 @@ function SettlementConsole({
   onChooseFinalDoctrine,
   onOpenPopulation,
   onOpenResearch,
+  onOpenDeficit,
   onOpenHelp,
   onBack,
 }: SettlementConsoleProps) {
@@ -236,6 +238,50 @@ function SettlementConsole({
   const legacyUnlocked = colonies.length > 0 || planetaryDefenseActive;
   const selectedNetworkColony =
     colonies.find((colony) => colony.worldId === selectedNetworkWorldId) ?? colonies[0] ?? null;
+  const openDeficitDestination = (
+    deficit: ViabilityForecast["deficits"][number],
+    candidates: DeficitCandidate[] | null,
+  ) => {
+    if (
+      deficit.kind === "infrastructure" ||
+      deficit.kind === "supplies" ||
+      deficit.kind === "crisis"
+    ) {
+      setActiveSection("works");
+      return;
+    }
+    if (
+      deficit.kind === "community" ||
+      deficit.kind === "expertise" ||
+      deficit.kind === "profile"
+    ) {
+      if (candidates && candidates.length > 0) {
+        setActiveSection("founders");
+      } else {
+        onOpenPopulation?.();
+      }
+      return;
+    }
+    if (deficit.kind === "research" && !onOpenDeficit) {
+      onOpenResearch?.();
+      return;
+    }
+    onOpenDeficit?.(deficit);
+  };
+  const deficitActionLabel = (
+    deficit: ViabilityForecast["deficits"][number],
+    candidates: DeficitCandidate[] | null,
+  ) => {
+    if (deficit.kind === "infrastructure") return "OPEN PLANETARY WORKS";
+    if (deficit.kind === "supplies") return "OPEN SUPPLY FABRICATION";
+    if (deficit.kind === "crisis") return "OPEN CRISIS CHECKLIST";
+    if (deficit.kind === "research") return `OPEN ${deficit.label.toUpperCase()} RESEARCH`;
+    if (deficit.kind === "survey") return "OPEN PLANETARY SURVEY";
+    if (deficit.kind === "operation") return `OPEN ${deficit.label.toUpperCase()}`;
+    return candidates && candidates.length > 0
+      ? "REVIEW FOUNDING COMMUNITY"
+      : "OPEN CREW TRAINING";
+  };
 
   return (
     <section className={`continuity-console settlement-console settlement-console-v2 is-continuity-${activeSection}`} aria-labelledby="settlement-console-title">
@@ -425,18 +471,19 @@ function SettlementConsole({
                         <span className="deficit-candidates-empty">No unselected crew can cover this yet — rescue, train, or fabricate equipment.</span>
                       )
                     )}
+                    <button
+                      className="deficit-route-action"
+                      type="button"
+                      onClick={() => openDeficitDestination(deficit, candidates)}
+                    >
+                      {deficitActionLabel(deficit, candidates)}
+                    </button>
                   </li>
                 );
               })}
             </ul>
           ) : (
             <div className="continuity-empty-state"><strong>{world.name} can continue independently.</strong><p>Review the founders and make the departure decision when you are ready.</p></div>
-          )}
-          {(onOpenPopulation || onOpenResearch) && (
-            <div className="crew-actions-grid">
-              {onOpenPopulation && <button className="forecast-action" type="button" onClick={onOpenPopulation}>Recruit or train crew</button>}
-              {onOpenResearch && <button className="forecast-action" type="button" onClick={onOpenResearch}>Open Research Lattice</button>}
-            </div>
           )}
         </section>
       </div>

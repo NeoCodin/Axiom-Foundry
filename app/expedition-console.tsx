@@ -86,6 +86,7 @@ export type ExpeditionConsoleProps = {
   recon: SurfaceReconView;
   expeditionAccess: Readonly<Partial<Record<ExpeditionSiteId, ExpeditionAccessView>>>;
   surveyStatus: { completed: number; required: number };
+  initialSiteId?: ExpeditionSiteId;
   getExpeditionPreview: (
     siteId: ExpeditionSiteId,
     crewIds: readonly string[],
@@ -106,6 +107,7 @@ function ExpeditionConsole({
   recon,
   expeditionAccess,
   surveyStatus,
+  initialSiteId,
   getExpeditionPreview,
   onLaunchExpedition,
   getRescuePreview,
@@ -114,7 +116,9 @@ function ExpeditionConsole({
   onOpenHelp,
   onBack,
 }: ExpeditionConsoleProps) {
-  const [expeditionSiteId, setExpeditionSiteId] = useState<ExpeditionSiteId | null>(null);
+  const [expeditionSiteId, setExpeditionSiteId] = useState<ExpeditionSiteId | null>(
+    initialSiteId ?? null,
+  );
   const [expeditionCrewIds, setExpeditionCrewIds] = useState<string[]>([]);
   const [confirmingSetback, setConfirmingSetback] = useState(false);
   const [rescueCrewIds, setRescueCrewIds] = useState<string[]>([]);

@@ -56,10 +56,8 @@ export function TransitConsole({
   const destinationVisual =
     WORLD_VISUALS.find((visual) => visual.slug === journey.destinationWorldId) ??
     WORLD_VISUALS.at(-1)!;
-  const routeAngle = journey.progress * Math.PI;
   const arkPosition = {
-    left: `${9 + journey.progress * 82}%`,
-    top: `${72 - Math.sin(routeAngle) * 43}%`,
+    left: `${8 + journey.progress * 84}%`,
   };
   const transitStyle = {
     "--transit-origin-accent": originVisual.accent,
@@ -84,9 +82,9 @@ export function TransitConsole({
           <p>CONTINUITY CORRIDOR · FRONTIER TRANSIT</p>
           <h2 id="transit-title">{journey.originName} → {journey.destinationName}</h2>
           <span>
-            These worlds orbit different stars. The Ark is crossing a folded
-            Axiom corridor between their anchor systems while every onboard
-            operation continues online and offline.
+            These worlds orbit different stars. This display tracks the Ark
+            through a folded Axiom corridor; every onboard operation continues
+            online and offline.
           </span>
         </div>
         <button type="button" onClick={onBack}>Return to Ark Deck</button>
@@ -94,11 +92,8 @@ export function TransitConsole({
 
       <section className="transit-vista" aria-label={`${progressPercent}% of route completed`}>
         <div className="transit-stars" aria-hidden="true"><i /><i /><i /><i /><i /><i /></div>
-        <div className="transit-fold-field" aria-hidden="true">
-          {Array.from({ length: 7 }, (_, index) => <i key={index} />)}
-        </div>
-        <div className="transit-corridor-arc" aria-hidden="true">
-          <i className="transit-corridor-progress" />
+        <div className="transit-route-line" aria-hidden="true">
+          <i className="transit-route-progress" />
         </div>
         <div className="transit-origin-anchor" aria-hidden="true">
           <i /><span>ORIGIN ANCHOR</span><b>{journey.originName}</b>
@@ -110,7 +105,7 @@ export function TransitConsole({
           <i /><b>ARK</b>
         </div>
         <div className="transit-progress-copy">
-          <span>FOLDED CORRIDOR · NOT TO SCALE</span>
+          <span>ROUTE PROGRESS · NOT TO SCALE</span>
           <strong>{progressPercent}%</strong>
           <p>{duration(journey.remainingSeconds)} until automatic orbital arrival</p>
         </div>
