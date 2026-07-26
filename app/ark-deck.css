@@ -3118,6 +3118,112 @@
   }
 }
 
+/* Phone-width compartment list: an alternative to the illustrated theater
+   scene above, not a resized copy of it. Hidden by default; swapped in for
+   the diorama at phone widths below. See app/ark-deck.tsx for the markup —
+   same rooms, same unlock/commissioning logic, same onOpenView target. */
+.ark-compartment-list {
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.ark-compartment-card {
+  position: relative;
+  display: grid;
+  width: 100%;
+  min-height: 60px;
+  padding: 10px 14px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 2px;
+  border: 1px solid var(--ark-line);
+  background: var(--ark-panel);
+  color: var(--ark-muted, #90a3af);
+  text-align: left;
+}
+
+.ark-compartment-card-status {
+  grid-row: 1 / 3;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #3c535d;
+}
+
+.ark-compartment-card.is-online .ark-compartment-card-status {
+  background: var(--world-accent, var(--ark-cyan));
+  box-shadow: 0 0 8px var(--world-accent, var(--ark-cyan));
+}
+
+.ark-compartment-card-code {
+  grid-column: 2;
+  color: var(--ark-cyan);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Consolas, monospace);
+  font-size: 11px;
+  font-weight: 760;
+  letter-spacing: 0.14em;
+}
+
+.ark-compartment-card strong {
+  grid-column: 2;
+  color: #eef5f8;
+  font-size: 15px;
+}
+
+.ark-compartment-card small {
+  grid-column: 2;
+  color: var(--ark-muted, #90a3af);
+  font-size: 12px;
+}
+
+.ark-compartment-card .ark-room-mark,
+.ark-compartment-card .ark-room-commissioning-label {
+  grid-column: 3;
+  grid-row: 1 / 3;
+  padding: 3px 6px;
+  color: var(--ark-cyan);
+  border: 1px solid rgb(var(--world-accent-rgb, 88 229 244) / 0.42);
+  font-size: 11px;
+  font-style: normal;
+  white-space: nowrap;
+}
+
+.ark-compartment-card:disabled {
+  color: #526471;
+  cursor: not-allowed;
+}
+
+.ark-compartment-card.is-commissioning {
+  border-color: var(--world-accent, var(--ark-cyan));
+  background: rgb(var(--world-accent-rgb, 88 229 244) / 0.06);
+}
+
+.ark-compartment-card-meter {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  overflow: hidden;
+  background: #0a1319;
+}
+
+.ark-compartment-card-meter i {
+  display: block;
+  width: calc(var(--room-progress, 0) * 100%);
+  height: 100%;
+  background: var(--world-accent, var(--ark-cyan));
+}
+
+@media (max-width: 767px) {
+  /* The desktop diorama gives way to the plain list above this width. */
+  .ark-visual-stage { display: none; }
+  .ark-compartment-list { display: flex; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ark-command-deck-v2 .ark-void-particles i {
     opacity: 0.22;

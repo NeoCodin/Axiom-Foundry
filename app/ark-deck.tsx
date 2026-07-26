@@ -550,6 +550,67 @@ function ArkDeck({
         <p className="ark-screen-reader-status" aria-live="polite" />
       </section>
 
+      {/* Phone-width alternative to the illustrated theater scene above: the
+          same rooms, same unlock/commissioning logic, same onOpenView target,
+          just presented as a plain tappable list instead of a diorama. Both
+          trees render; a CSS media query (ark-deck.css) shows exactly one. */}
+      <section className="ark-compartment-list" aria-label={`${onlineRoomCount} of ${totalRoomCount} Ark rooms online`}>
+        {rooms.map((room) => {
+          const commissioningRoom = coldWakeCommissioning?.active === true && (
+            (!coldWakeCommissioning.navigationRestored && room.kind === "bridge") ||
+            (coldWakeCommissioning.navigationRestored && !coldWakeCommissioning.lifeSupportRestored && room.kind === "support")
+          );
+          const roomAccessible = room.online && isRoomAccessible(room);
+          const roomInteractive = commissioningRoom
+            ? Boolean(onCommission) && coldWakeCommissioning.canAct
+            : roomAccessible;
+          const roomState = room.online || commissioningRoom ? "is-online" : "is-dormant";
+          const roomProgress =
+            room.kind === "fabrication" ? coreEnergy :
+            room.kind === "support" ? roomRatio :
+            room.kind === "habitation" ? clamp(population / Math.max(1, berthCapacity)) :
+            room.kind === "research" ? normalizedResearchProgress :
+            room.kind === "education" ? clamp(crew.filter((member) => member.training).length / Math.max(1, crew.length)) :
+            normalizedSettlement / 100;
+          return (
+            <button
+              className={`ark-compartment-card ark-room-${room.kind} ${roomState} ${commissioningRoom ? "is-commissioning" : ""}`}
+              data-room={room.id}
+              data-kind={room.kind}
+              key={`list-${room.code}-${room.label}`}
+              type="button"
+              onClick={() => {
+                if (commissioningRoom) {
+                  onCommission?.();
+                  return;
+                }
+                if (room.id !== "core" && roomAccessible) onOpenView(room.id);
+              }}
+              disabled={!roomInteractive}
+              aria-label={commissioningRoom
+                ? coldWakeCommissioning.canAct
+                  ? `${coldWakeCommissioning.actionLabel} into ${room.label}`
+                  : `${room.label} is awaiting available Flux`
+                : roomAccessible
+                  ? `Open ${room.label}`
+                  : `${room.label} is not yet available`}
+            >
+              <span className="ark-compartment-card-status" aria-hidden="true" />
+              <span className="ark-compartment-card-code">DECK {room.code}</span>
+              <strong>{room.label}</strong>
+              <small>{commissioningRoom
+                ? coldWakeCommissioning.canAct
+                  ? coldWakeCommissioning.actionLabel
+                  : "Produce Flux in the Foundry"
+                : room.online ? room.sublabel : "Dormant outline"}</small>
+              {room.reinforcementLevel > 0 && <em className="ark-room-mark">MARK {room.reinforcementLevel}</em>}
+              {commissioningRoom && <em className="ark-room-commissioning-label">COMMISSION</em>}
+              <span className="ark-compartment-card-meter" aria-hidden="true" style={{ "--room-progress": roomProgress } as CSSProperties}><i /></span>
+            </button>
+          );
+        })}
+      </section>
+
       {(fullBeaconPanel || compactBeaconPanel) ? (
         <div className="ark-operations-dock">
           {fullBeaconPanel && (
