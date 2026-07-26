@@ -224,12 +224,13 @@ import {
 } from "./causal-archive-engine.ts";
 
 export const SAVE_VERSION = 19;
-export const SAVE_KEY = "axiom-foundry-save-v5";
+export const SAVE_KEY = "axiom-foundry-save-v6";
 export const RETIRED_SAVE_KEYS = [
   "axiom-foundry-save-v1",
   "axiom-foundry-save-v2",
   "axiom-foundry-save-v3",
   "axiom-foundry-save-v4",
+  "axiom-foundry-save-v5",
 ] as const;
 export const MAX_VALUE = 1e280;
 

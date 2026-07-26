@@ -181,12 +181,13 @@ function testCrewMember(
 }
 
 test("the campaign reset retires every previous public save key", () => {
-  assert.equal(SAVE_KEY, "axiom-foundry-save-v5");
+  assert.equal(SAVE_KEY, "axiom-foundry-save-v6");
   assert.deepEqual(RETIRED_SAVE_KEYS, [
     "axiom-foundry-save-v1",
     "axiom-foundry-save-v2",
     "axiom-foundry-save-v3",
     "axiom-foundry-save-v4",
+    "axiom-foundry-save-v5",
   ]);
   assert.equal(
     (RETIRED_SAVE_KEYS as readonly string[]).includes(SAVE_KEY),

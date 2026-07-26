@@ -412,7 +412,7 @@ At the current handoff baseline, 180 automated tests pass.
 Current identifiers at the handoff baseline:
 
 - `SAVE_VERSION = 12`
-- `SAVE_KEY = "axiom-foundry-save-v5"`
+- `SAVE_KEY = "axiom-foundry-save-v6"`
 
 Rules for all assistants:
 
