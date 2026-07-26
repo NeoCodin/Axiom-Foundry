@@ -345,7 +345,7 @@ function PopulationConsole({
       </div>
 
       <nav className="personnel-console-tabs" data-guide-target="personnel-tabs" aria-label="Personnel console sections">
-        {systemsUnlocked && <button className={consoleView === "systems" ? "is-active" : ""} type="button" aria-pressed={consoleView === "systems"} onClick={() => setConsoleView("systems")}>
+        {systemsUnlocked && <button data-guide-target="personnel-support-tab" className={consoleView === "systems" ? "is-active" : ""} type="button" aria-pressed={consoleView === "systems"} onClick={() => setConsoleView("systems")}>
           <span className="personnel-tab-sprite sprite-signal" aria-hidden="true"><i /></span>
           <strong>Rescue & Support</strong><small>Beacon, living space, life support</small>
         </button>}
@@ -353,7 +353,7 @@ function PopulationConsole({
           <span className="personnel-tab-sprite sprite-roster" aria-hidden="true"><i /></span>
           <strong>Crew Roster</strong><small>{state.survivors.length} people aboard</small>
         </button>
-        {commandUnlocked && <button className={consoleView === "command" ? "is-active" : ""} type="button" aria-pressed={consoleView === "command"} onClick={() => setConsoleView("command")}>
+        {commandUnlocked && <button data-guide-target="personnel-command-tab" className={consoleView === "command" ? "is-active" : ""} type="button" aria-pressed={consoleView === "command"} onClick={() => setConsoleView("command")}>
           <span className="personnel-tab-sprite sprite-command" aria-hidden="true"><i /></span>
           <strong>Command</strong><small>Staffing, Team Alpha, doctrine</small>
         </button>}

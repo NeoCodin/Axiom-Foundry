@@ -45,6 +45,12 @@ const WORLD_RESEARCH_ERA = [-1, -1, -1, 0, 1, 2] as const;
 const WORLD_OPENING_AXIOMS = [0, 3, 5, 8, 12, 17] as const;
 const WORLD_OPENING_CREW = [0, 0, 16, 19, 22, 25] as const;
 const ALL_CONTEXT_GUIDE_IDS = Object.keys(CONTEXT_GUIDES);
+const COLD_WAKE_GUIDE_IDS = ALL_CONTEXT_GUIDE_IDS.filter((id) =>
+  id.startsWith("cold-wake-")
+);
+const PELAGOS_GUIDE_IDS = ALL_CONTEXT_GUIDE_IDS.filter((id) =>
+  id.startsWith("pelagos-")
+);
 const RESEARCH_INPUT_IDS = [
   "calibration-data",
   "engineering-models",
@@ -125,13 +131,25 @@ function completedColonies(worldIndex: number, now: number) {
 }
 
 function openingGuideIds(worldIndex: number) {
+  if (worldIndex === 0) return [...ALL_CONTEXT_GUIDE_IDS];
   if (worldIndex === 1) {
-    return ALL_CONTEXT_GUIDE_IDS.filter(
-      (id) => !id.startsWith("pelagos-") && id !== "viridia-research",
-    );
+    return [...COLD_WAKE_GUIDE_IDS];
   }
   if (worldIndex === 2) {
-    return ALL_CONTEXT_GUIDE_IDS.filter((id) => id !== "viridia-research");
+    return [...COLD_WAKE_GUIDE_IDS, ...PELAGOS_GUIDE_IDS, "transit-defense"];
+  }
+  if (worldIndex === 3) {
+    return [
+      ...COLD_WAKE_GUIDE_IDS,
+      ...PELAGOS_GUIDE_IDS,
+      "viridia-research",
+      "transit-defense",
+    ];
+  }
+  if (worldIndex === 4) {
+    return ALL_CONTEXT_GUIDE_IDS.filter(
+      (id) => id !== "frontier-armory" && id !== "synthesis-drones",
+    );
   }
   return [...ALL_CONTEXT_GUIDE_IDS];
 }
@@ -304,9 +322,7 @@ export function createQaPelagosOnboardingCheckpoint(now = Date.now()): GameState
       ...base.settings,
       personnelIntroduced: false,
       researchIntroduced: false,
-      completedGuideIds: ALL_CONTEXT_GUIDE_IDS.filter(
-        (id) => !id.startsWith("pelagos-"),
-      ),
+      completedGuideIds: [...COLD_WAKE_GUIDE_IDS],
     },
   }, now);
 }
@@ -320,7 +336,11 @@ export function createQaResearchIntroductionCheckpoint(now = Date.now()): GameSt
     settings: {
       ...base.settings,
       researchIntroduced: false,
-      completedGuideIds: ALL_CONTEXT_GUIDE_IDS.filter((id) => id !== "viridia-research"),
+      completedGuideIds: [
+        ...COLD_WAKE_GUIDE_IDS,
+        ...PELAGOS_GUIDE_IDS,
+        "transit-defense",
+      ],
     },
   }, now);
 }

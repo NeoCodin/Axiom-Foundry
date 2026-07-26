@@ -470,7 +470,13 @@ function ArkDeck({
                     className={`ark-vessel-room ark-room-${room.kind} ${roomState} mark-${Math.min(5, room.reinforcementLevel)} ${commissioningRoom ? "is-commissioning" : ""}`}
                     data-room={room.id}
                     data-kind={room.kind}
-                    data-guide-target={commissioningRoom ? "ark-commissioning-room" : undefined}
+                    data-guide-target={
+                      commissioningRoom
+                        ? "ark-commissioning-room"
+                        : room.kind === "support"
+                          ? "ark-room-support"
+                          : undefined
+                    }
                     key={`${room.code}-${room.label}`}
                     type="button"
                     style={roomStyle}

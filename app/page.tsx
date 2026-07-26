@@ -24,8 +24,6 @@ import {
   PELAGOS_SIGNAL_STAGE,
   PELAGOS_FIRST_RESCUE_STAGE,
   PELAGOS_FERRY_STAGE,
-  PELAGOS_PROTOCOL_STAGE,
-  PELAGOS_TOW_STAGE,
   PROTOCOL_MARK_LABELS,
   RETIRED_SAVE_KEYS,
   RUN_UPGRADES,
@@ -149,7 +147,6 @@ import {
   setTutorialComplete,
   simulateGame,
   type GameState,
-  type InterfaceIntroductionId,
   type PurchaseMode,
 } from "./game-engine";
 import { WORLD_VISUALS } from "./world-visuals";
@@ -285,6 +282,11 @@ import {
 } from "./story-content";
 import { LoreArchive, type ArchiveWorldEntry } from "./lore-archive";
 import { getProgressiveDisclosure } from "./progressive-disclosure";
+import {
+  getDestinationIntroduction,
+  getPendingContextGuideId,
+  type DestinationIntroduction,
+} from "./tutorial-engine";
 import { PixelTooltipLayer } from "./pixel-tooltip-layer";
 import { ContextualGuide } from "./contextual-guide";
 import { QaSandbox } from "./qa-sandbox";
@@ -325,16 +327,6 @@ const AUTOMATION_PROGRAM_COLORS: Record<AutomationProgramId, string> = {
   "construction-machines": "#ff8c58",
   "interceptor-control": "#86baff",
   "personnel-logistics": "#fff0b5",
-};
-
-type DestinationIntroduction = {
-  id: InterfaceIntroductionId;
-  view: PrimaryView;
-  eyebrow: string;
-  title: string;
-  description: string;
-  note: string;
-  buttonLabel: string;
 };
 
 const TOOLTIP_PREFERENCE_KEY = "axiom-foundry-context-hints";
@@ -710,106 +702,14 @@ export default function Home() {
   const destinationIntroduction: DestinationIntroduction | null =
     !ready || !game.settings.tutorialComplete || tourStep !== null || contextGuide !== null
       ? null
-      : disclosure.settlement && !game.settings.continuityIntroduced
-        ? {
-            id: "continuity",
-            view: "settlement",
-            eyebrow: "NEW DESTINATION · CONTINUITY",
-            title: "The Planet forecast is online",
-            description: "Continuity does not mean the Ark can leave yet. This forecast shows what the ship must restore before Pelagos approach is safe.",
-            note: "Review the forecast first. It will introduce the Foundry only after you authorize the next restoration step.",
-            buttonLabel: "OPEN PLANET · FORECAST",
-          }
-        : disclosure.engineering && !game.settings.foundryIntroduced
-          ? {
-              id: "foundry",
-              view: "engineering",
-              eyebrow: "NEW DESTINATION · FOUNDRY",
-              title: "The Foundry Deck is awake",
-              description: "The Law-Heart proved repetition. This separate deck now turns that law into ship-wide fabrication.",
-              note: "Only one mechanism is available. Build the highlighted Vacuum Taps before any larger system appears.",
-              buttonLabel: "ENTER THE FOUNDRY",
-            }
-          : coldWakeStatus.arkOverviewAvailable && !game.settings.arkOverviewIntroduced
-            ? {
-                id: "ark-overview",
-                view: "deck",
-                eyebrow: "ARK VIEW · COMMAND",
-                title: "AXIOM can see the whole Ark",
-                description: "The Law-Heart is no longer the entire interface. Navigation, life support, and the Continuity Bridge are visible as physical rooms aboard the ship.",
-                note: "Dormant rooms are previews, not new chores. Follow the single active directive on Ark Command.",
-                buttonLabel: "OPEN ARK COMMAND",
-              }
-            : coldWakeStatus.active &&
-                game.missions.stageIndex >= COLD_WAKE_DEPARTURE_STAGE &&
-                !game.settings.departureIntroduced
-              ? {
-                  id: "departure",
-                  view: "settlement",
-                  eyebrow: "FINAL COLD WAKE STEP · APPROACH",
-                  title: "Pelagos approach is ready to fund",
-                  description: "Navigation and the empty life-support reserve are stable. The remaining task is a saved, partial Flux commitment for orbital insertion.",
-                  note: "Open Planet again. Commit what you have over time; no timer is running and no partial payment is lost.",
-                  buttonLabel: "OPEN PELAGOS APPROACH",
-                }
-              : disclosure.population && !game.settings.personnelIntroduced
-                ? {
-                    id: "personnel",
-                    view: "population",
-                    eyebrow: "NEW DESTINATION · PERSONNEL",
-                    title: "The Ark has people, not statistics",
-                    description: "Personnel opens only now because the first rescued witnesses are aboard. This is where you learn their names, professions, levels, and assignments.",
-                    note: "Start with the roster. Medical, training, equipment, and advanced management reveal only when they become relevant.",
-                    buttonLabel: "MEET THE CREW",
-                  }
-                : campaignWorldIndex === 1 && disclosure.expeditions &&
-                    !game.settings.completedGuideIds.includes("interface-expeditions")
-                  ? {
-                      id: "expeditions",
-                      view: "expeditions",
-                      eyebrow: "NEW ARK FACILITY · EXPEDITION BAY",
-                      title: "Pelagos field work is finally authorized",
-                      description: "The first crew is established and the gravity operation has reached its final phase. Continuity can now request a deliberate planetary survey.",
-                      note: "The Bay did not open when the first witnesses arrived. It opens now because the current world has created a specific field assignment.",
-                      buttonLabel: "OPEN EXPEDITION BAY",
-                    }
-                : disclosure.research && !game.settings.researchIntroduced
-                  ? {
-                      id: "research",
-                      view: "research",
-                      eyebrow: "VIRIDIA DESTINATION · RESEARCH",
-                      title: "The Analysis Core can finally open",
-                      description: "Pelagos supplied witnesses and settlement records. Viridia presents a living problem fabrication cannot solve, so AXIOM can now turn those records into deliberate Research.",
-                      note: "You already know crew and expeditions. Research will now connect their expertise and field evidence one program at a time.",
-                      buttonLabel: "OPEN RESEARCH",
-                    }
-                  : null;
-  const pendingContextGuideId: ContextGuideId | null = (() => {
-    if (!ready || !game.settings.tutorialComplete || destinationIntroduction || contextGuide) return null;
-    const completed = new Set(game.settings.completedGuideIds);
-    const worldId = game.settlement.currentWorldId;
-    const coldWake = worldId === "cold-wake";
-    if (coldWake && primaryView === "deck" && game.manualPulses >= 6 && !completed.has("cold-wake-automation")) return "cold-wake-automation";
-    if (coldWake && primaryView === "deck" && game.missions.stageIndex >= 3 && !completed.has("cold-wake-recalibration")) return "cold-wake-recalibration";
-    if (coldWake && primaryView === "settlement" && game.settings.continuityIntroduced && !completed.has("cold-wake-continuity")) return "cold-wake-continuity";
-    if (coldWake && primaryView === "engineering" && game.settings.foundryIntroduced && !completed.has("cold-wake-foundry")) return "cold-wake-foundry";
-    if (coldWake && primaryView === "deck" && game.settings.arkOverviewIntroduced && !completed.has("cold-wake-ark")) return "cold-wake-ark";
-    if (coldWake && primaryView === "settlement" && game.settings.departureIntroduced && !completed.has("cold-wake-departure")) return "cold-wake-departure";
-    if (worldId === "pelagos" && primaryView === "deck" && !completed.has("pelagos-arrival")) return "pelagos-arrival";
-    if (worldId === "pelagos" && primaryView === "settlement" && game.missions.stageIndex < PELAGOS_FERRY_STAGE && !completed.has("pelagos-sos")) return "pelagos-sos";
-    if (worldId === "pelagos" && primaryView === "engineering" && game.missions.stageIndex < PELAGOS_PROTOCOL_STAGE && !completed.has("pelagos-foundry-expansion")) return "pelagos-foundry-expansion";
-    if (worldId === "pelagos" && primaryView === "population" && game.settings.personnelIntroduced && !completed.has("pelagos-personnel")) return "pelagos-personnel";
-    if (worldId === "pelagos" && primaryView === "population" && completed.has("pelagos-personnel") && !completed.has("pelagos-support")) return "pelagos-support";
-    if (worldId === "pelagos" && primaryView === "population" && game.survivors.completedTrainings > 0 && game.survivors.signalsResolved >= 3 && !completed.has("pelagos-command")) return "pelagos-command";
-    if (worldId === "pelagos" && primaryView === "medical" && !completed.has("pelagos-medical")) return "pelagos-medical";
-    if (worldId === "pelagos" && primaryView === "expeditions" && !completed.has("pelagos-expeditions")) return "pelagos-expeditions";
-    if (worldId === "pelagos" && primaryView === "engineering" && game.missions.stageIndex >= PELAGOS_FERRY_STAGE && !completed.has("pelagos-gravity-ferry")) return "pelagos-gravity-ferry";
-    if (worldId === "pelagos" && primaryView === "engineering" && game.missions.stageIndex >= PELAGOS_PROTOCOL_STAGE && !completed.has("pelagos-protocols")) return "pelagos-protocols";
-    if (worldId === "pelagos" && primaryView === "engineering" && game.missions.stageIndex >= PELAGOS_TOW_STAGE && !completed.has("pelagos-recalibration")) return "pelagos-recalibration";
-    if (worldId === "pelagos" && primaryView === "engineering" && isAutonomyUnlocked(game) && !completed.has("pelagos-automation")) return "pelagos-automation";
-    if (worldId === "viridia" && primaryView === "research" && game.settings.researchIntroduced && !completed.has("viridia-research")) return "viridia-research";
-    return null;
-  })();
+      : getDestinationIntroduction(game);
+  const pendingContextGuideId: ContextGuideId | null =
+    !ready ||
+    !game.settings.tutorialComplete ||
+    destinationIntroduction !== null ||
+    contextGuide !== null
+      ? null
+      : getPendingContextGuideId(game, primaryView);
 
   useEffect(() => {
     if (!pendingContextGuideId) return;
@@ -825,6 +725,8 @@ export default function Home() {
       setFoundryConsoleTab("recalibration");
     } else if (pendingContextGuideId === "pelagos-automation") {
       setFoundryConsoleTab("autonomy");
+    } else if (pendingContextGuideId === "synthesis-drones") {
+      setFoundryConsoleTab("drones");
     }
     if (pendingContextGuideId === "viridia-research") {
       setResearchEntry((current) => ({
@@ -2350,6 +2252,8 @@ export default function Home() {
           view,
           nonce: (current?.nonce ?? 0) + 1,
         }));
+      } else if (contextGuide.id === "pelagos-automation" && nextStep === 1) {
+        setFoundryConsoleTab("legacy");
       }
       setContextGuide({ ...contextGuide, step: nextStep });
     }
@@ -2368,6 +2272,8 @@ export default function Home() {
         view,
         nonce: (current?.nonce ?? 0) + 1,
       }));
+    } else if (contextGuide.id === "pelagos-automation") {
+      setFoundryConsoleTab("autonomy");
     }
     setContextGuide({ ...contextGuide, step: nextStep });
   };
@@ -3827,7 +3733,7 @@ export default function Home() {
           )}
 
           {legacyUnlocked && foundryConsoleTab === "legacy" && (
-          <section className="panel legacy-panel">
+          <section className="panel legacy-panel" data-guide-target="foundry-legacy">
             <div className="panel-heading">
               <div>
                 <p className="section-kicker violet">Across all cycles</p>

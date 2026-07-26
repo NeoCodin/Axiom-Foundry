@@ -128,7 +128,7 @@ function DefenseConsole({
   const installationMarks = INSTALLATION_IDS.reduce((sum, id) => sum + installationQuotes[id].mark, 0);
 
   return (
-    <section className="continuity-console defense-console defense-console-v2" aria-labelledby="defense-console-title">
+    <section className="continuity-console defense-console defense-console-v2" data-guide-target="defense-console" aria-labelledby="defense-console-title">
       <header className="continuity-console-header defense-command-header">
         <div>
           <p>THREAT OPERATIONS · {currentLocationName.toUpperCase()}</p>
@@ -141,7 +141,7 @@ function DefenseConsole({
         </div>
       </header>
 
-      <nav className="defense-workspace-tabs" aria-label="Defense Grid stations">
+      <nav className="defense-workspace-tabs" data-guide-target="defense-tabs" aria-label="Defense Grid stations">
         <button type="button" className={activeTab === "monitor" ? "is-active" : ""} aria-pressed={activeTab === "monitor"} onClick={() => setActiveTab("monitor")}>
           <span>1</span><strong>Threat Monitor</strong><small>{forecast ? "CONTACT TRACKED" : condition.label}</small>
         </button>

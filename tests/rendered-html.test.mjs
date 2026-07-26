@@ -50,9 +50,10 @@ test("server-renders the Axiom Foundry game surface", async () => {
 });
 
 test("removes all temporary starter-preview wiring", async () => {
-  const [page, arkDeck, arkPixelWorld, lawHeart, foundryLawHeart, lawPress, loreArchive, layout, pagesEntry, packageJson, css, arkCss, arkCommandCss, continuityCss, researchCss, manualCss, awakeningCss, pixelCss, lawHeartCss, loreArchiveCss, story, manual, survivorEngine, populationConsole, settlementConsole, continuityExpertise, campaignContent, researchEngine] =
+  const [page, tutorialEngine, arkDeck, arkPixelWorld, lawHeart, foundryLawHeart, lawPress, loreArchive, layout, pagesEntry, packageJson, css, arkCss, arkCommandCss, continuityCss, researchCss, manualCss, awakeningCss, pixelCss, lawHeartCss, loreArchiveCss, story, manual, survivorEngine, populationConsole, settlementConsole, continuityExpertise, campaignContent, researchEngine] =
     await Promise.all([
       readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/tutorial-engine.ts", import.meta.url), "utf8"),
       readFile(new URL("../app/ark-deck.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/ark-pixel-world.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/axiom-law-heart.tsx", import.meta.url), "utf8"),
@@ -85,11 +86,11 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(page, /from "\.\/game-engine"/);
   assert.match(page, /getCommandPriorities/);
   assert.match(page, /GameNavigation/);
-  assert.match(page, /The Planet forecast is online/);
+  assert.match(tutorialEngine, /The Planet forecast is online/);
   assert.match(page, /destinationIntroduction\?\.view/);
   assert.match(page, /setInterfaceIntroduction/);
   assert.match(page, /Commission the Foundry Deck/);
-  assert.match(page, /The Ark has people, not statistics/);
+  assert.match(tutorialEngine, /The Ark has people, not statistics/);
   assert.match(page, /createQaPlanetIntroductionCheckpoint/);
   assert.doesNotMatch(arkDeck, /onTuneCore|Tune the Core/);
   assert.match(arkDeck, /Law-Heart power bus/);

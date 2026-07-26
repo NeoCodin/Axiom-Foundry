@@ -96,7 +96,7 @@ export default function ArmoryConsole({
   };
 
   return (
-    <section className="continuity-console armory-console armory-console-v2" aria-labelledby="armory-console-title">
+    <section className="continuity-console armory-console armory-console-v2" data-guide-target="armory-console" aria-labelledby="armory-console-title">
       <header className="continuity-console-header">
         <div>
           <p>PERSONNEL · ARMORY · {currentWorldName.toUpperCase()}</p>
@@ -109,7 +109,7 @@ export default function ArmoryConsole({
         </div>
       </header>
 
-      <nav className="armory-workspace-tabs" aria-label="Armory stations">
+      <nav className="armory-workspace-tabs" data-guide-target="armory-tabs" aria-label="Armory stations">
         <button type="button" className={activeTab === "inventory" ? "is-active" : ""} aria-pressed={activeTab === "inventory"} onClick={() => setActiveTab("inventory")}><span>1</span><strong>Inventory</strong><small>{totalReady} FRAMES READY</small></button>
         <button type="button" className={activeTab === "development" ? "is-active" : ""} aria-pressed={activeTab === "development"} onClick={() => setActiveTab("development")}><span>2</span><strong>Development</strong><small>{activeProject ? "PROJECT ACTIVE" : "FORGE IDLE"}</small></button>
         <button type="button" className={activeTab === "laws" ? "is-active" : ""} aria-pressed={activeTab === "laws"} onClick={() => setActiveTab("laws")}><span>3</span><strong>Permanent Laws</strong><small>{completedLaws} LEVELS PROVEN</small></button>
