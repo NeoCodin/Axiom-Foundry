@@ -311,7 +311,15 @@ function SettlementConsole({
       </section>
 
       {coldWakeSequence && (
-        <section className="continuity-panel cold-wake-commissioning" data-guide-target="planet-current-step" aria-labelledby="cold-wake-commissioning-title">
+        <section
+          className="continuity-panel cold-wake-commissioning"
+          data-guide-target={
+            coldWakeSequence.stepNumber === coldWakeSequence.stepCount
+              ? "planet-departure"
+              : "planet-current-step"
+          }
+          aria-labelledby="cold-wake-commissioning-title"
+        >
           <header>
             <div>
               <span>COLD WAKE · STAGED COMMISSIONING</span>
@@ -329,6 +337,17 @@ function SettlementConsole({
             {coldWakeSequence.actionLabel && onColdWakeAction && (
               <button className="forecast-action" type="button" disabled={coldWakeSequence.actionDisabled} onClick={onColdWakeAction}>{coldWakeSequence.actionLabel}</button>
             )}
+            {coldWakeSequence.stepNumber === coldWakeSequence.stepCount &&
+              forecast.canDepart &&
+              !departureHold && (
+                <button
+                  className="forecast-action cold-wake-departure-action"
+                  type="button"
+                  onClick={() => onDepart("")}
+                >
+                  Commit Pelagos orbital insertion
+                </button>
+              )}
           </div>
           <p className="crew-rarity-note">Nothing else on this page needs attention yet. Finished systems collapse into the requirement ledger; the next destination appears only when this step is secure.</p>
         </section>

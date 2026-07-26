@@ -213,6 +213,10 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(populationConsole, /PROFESSION XP/);
   assert.match(populationConsole, /CONTINUITY CONTRIBUTION/);
   assert.match(settlementConsole, /How this is counted/);
+  assert.match(
+    settlementConsole,
+    /coldWakeSequence\.stepNumber === coldWakeSequence\.stepCount[\s\S]*data-guide-target=[\s\S]*"planet-departure"[\s\S]*Commit Pelagos orbital insertion/,
+  );
   assert.doesNotMatch(settlementConsole, /\.slice\(0,\s*6\)/);
   assert.match(continuityExpertise, /70% of Soldier level/);
   assert.match(continuityExpertise, /Researcher level \+ a 50% Null Dreamer bonus/);

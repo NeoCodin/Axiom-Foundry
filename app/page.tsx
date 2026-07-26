@@ -3188,7 +3188,7 @@ export default function Home() {
               !game.settings.coldWakeForecastReviewed
               ? "The three portable laws are proven. Confirm the forecast before AXIOM wakes another deck."
               : game.missions.awaitingAcknowledgement
-                ? "Every staged restoration is secure. Departure is now a deliberate choice at the bottom of this page."
+                ? "Every staged restoration is secure. Use the illuminated control below to enter Pelagos orbit."
                 : activeStage?.instruction ?? campaignWorld.arrivalBrief,
             progress: game.missions.stageIndex === COLD_WAKE_FOUNDRY_STAGE &&
               !game.settings.coldWakeForecastReviewed
