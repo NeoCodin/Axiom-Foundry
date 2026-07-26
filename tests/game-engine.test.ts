@@ -79,6 +79,7 @@ import {
   setTutorialComplete,
   simulateGame,
 } from "../app/game-engine.ts";
+import { createColdWakeStepFiveRecoveryState } from "../app/public-recovery.ts";
 import { CAMPAIGN_WORLDS } from "../app/campaign-content.ts";
 import {
   addResearchInputs,
@@ -900,6 +901,26 @@ test("Cold Wake proves its approach systems and three laws before revealing the 
   assert.equal(waiting.missions.currentIndex, 0);
   assert.equal(waiting.missions.worldsSaved, 0);
   assert.equal(getCampaignWorldIndex(waiting), 0);
+});
+
+test("one-time public recovery restores only completed Cold Wake commissioning", () => {
+  const recovered = createColdWakeStepFiveRecoveryState(12_345);
+  const forecast = getCurrentViabilityForecast(recovered);
+
+  assert.equal(recovered.missions.currentIndex, 0);
+  assert.equal(recovered.missions.stageIndex, COLD_WAKE_DEPARTURE_STAGE);
+  assert.equal(recovered.missions.awaitingAcknowledgement, true);
+  assert.equal(recovered.missions.statuses[0], "locked");
+  assert.equal(recovered.settlement.currentWorldId, "cold-wake");
+  assert.equal(forecast?.canDepart, true);
+
+  assert.equal(recovered.axioms, 3);
+  assert.equal(recovered.lifetimeAxioms, 3);
+  assert.equal(recovered.flux, 0);
+  assert.equal(recovered.survivors.survivors.length, 0);
+  assert.deepEqual(recovered.settlement.completedWorldIds, []);
+  assert.equal(recovered.transit.active, null);
+  assert.deepEqual(recovered.research.completedProjectIds, []);
 });
 
 test("Cold Wake cannot fabricate before strike twelve or prove multiple laws in one Recalibration", () => {

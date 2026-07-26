@@ -171,6 +171,10 @@ import {
 import { CommandBriefing } from "./command-briefing";
 import { getCommandPriorities, type CommandPriority } from "./command-priorities";
 import { GameCommandBar } from "./game-command-bar";
+import {
+  PUBLIC_COLD_WAKE_RECOVERY_KEY,
+  createColdWakeStepFiveRecoveryState,
+} from "./public-recovery";
 import PopulationConsole from "./population-console";
 import DefenseConsole from "./defense-console";
 import ArmoryConsole, { type ArmoryItemQuoteView } from "./armory-console";
@@ -473,6 +477,7 @@ export default function Home() {
   const [manualTopic, setManualTopic] = useState<ManualTopicId | null>(null);
   const [tooltipsEnabled, setTooltipsEnabled] = useState(true);
   const [qaMode, setQaMode] = useState(false);
+  const [publicRecoveryHandled, setPublicRecoveryHandled] = useState(true);
   const [qaCollapsed, setQaCollapsed] = useState(false);
   const [qaLawHeartOverride, setQaLawHeartOverride] =
     useState<LawHeartQaOverride>(DEFAULT_LAW_HEART_QA_OVERRIDE);
@@ -510,6 +515,10 @@ export default function Home() {
 
     try {
       setTooltipsEnabled(window.localStorage.getItem(TOOLTIP_PREFERENCE_KEY) !== "off");
+      setPublicRecoveryHandled(
+        qaEnabled ||
+          window.localStorage.getItem(PUBLIC_COLD_WAKE_RECOVERY_KEY) !== null,
+      );
       if (!qaEnabled) {
         for (const retiredKey of RETIRED_SAVE_KEYS) {
           window.localStorage.removeItem(retiredKey);
@@ -2163,6 +2172,31 @@ export default function Home() {
     return true;
   };
 
+  const finishPublicRecoveryPrompt = (result: "recovered" | "dismissed") => {
+    try {
+      window.localStorage.setItem(PUBLIC_COLD_WAKE_RECOVERY_KEY, result);
+    } catch {
+      // The prompt can still close for this session when storage is unavailable.
+    }
+    setPublicRecoveryHandled(true);
+  };
+
+  const handleColdWakeRecovery = () => {
+    if (qaMode) return;
+    const next = createColdWakeStepFiveRecoveryState(Date.now());
+    gameRef.current = next;
+    setGame(next);
+    setPrimaryView("settlement");
+    setFoundryConsoleTab("chain");
+    setContextGuide(null);
+    setTourStep(null);
+    setAnnouncement(
+      "Cold Wake commissioning recovered. Authorize Pelagos orbital insertion when ready.",
+    );
+    finishPublicRecoveryPrompt("recovered");
+    window.setTimeout(() => persistGame("Recovered progress saved"), 0);
+  };
+
   const handleUpgradeLivingRoom = (roomId: RoomId) => {
     const definition = ROOM_DEFINITIONS.find((candidate) => candidate.id === roomId);
     if (!definition) return;
@@ -2609,6 +2643,39 @@ export default function Home() {
         tooltipsEnabled={tooltipsEnabled}
         onToggleTooltips={handleToggleTooltips}
       />
+
+      {!qaMode &&
+        ready &&
+        !publicRecoveryHandled &&
+        game.missions.currentIndex === 0 &&
+        !game.missions.awaitingAcknowledgement && (
+          <section
+            className="public-save-recovery"
+            aria-label="Cold Wake save recovery"
+          >
+            <div>
+              <span>ONE-TIME SAVE RECOVERY</span>
+              <strong>Did the public reset erase your Cold Wake run?</strong>
+              <small>
+                Restore completed commissioning and stop at Step 5, immediately
+                before Pelagos departure. No later-world progress or bonus
+                resources are granted.
+              </small>
+            </div>
+            <div className="public-save-recovery-actions">
+              <button type="button" onClick={handleColdWakeRecovery}>
+                Recover Cold Wake Step 5
+              </button>
+              <button
+                type="button"
+                className="quiet-button"
+                onClick={() => finishPublicRecoveryPrompt("dismissed")}
+              >
+                Dismiss
+              </button>
+            </div>
+          </section>
+        )}
 
       {qaMode && (
         <QaSandbox
