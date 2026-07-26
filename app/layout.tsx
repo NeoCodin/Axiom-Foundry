@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import "./globals.css";
 import "./ark-deck.css";
@@ -11,6 +11,15 @@ import "./axiom-law-heart.css";
 import "./lore-archive.css";
 import "./ark-command-v3.css";
 import "./operations-console.css";
+
+// viewportFit is inert until vinext's ViewportHead shim adds support (currently
+// only renders width/initialScale/etc.) — kept so it activates automatically
+// once that lands, rather than being silently forgotten.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
