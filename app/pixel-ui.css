@@ -1805,9 +1805,23 @@ img.pixelated,
   .brand-mark { flex-basis: 36px; width: 36px; height: 36px; }
   .resource-readout { min-height: 58px; }
   .resource-readout strong { font-size: 34px; }
-  .living-foundry-nav.primary-destinations { overflow-x: auto; }
+  /* Five destinations fit one screen width on a phone, so the primary rail
+     becomes a persistent bottom tab bar instead of a horizontal-scroll strip. */
+  .living-foundry-nav.primary-destinations {
+    position: fixed;
+    z-index: 60;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    margin: 0;
+    padding: 4px 4px calc(4px + env(safe-area-inset-bottom));
+    border-width: 2px 0 0;
+    overflow-x: visible;
+  }
   .living-foundry-nav.primary-destinations::before { flex-basis: 54px; }
-  .living-foundry-nav.primary-destinations > button { min-width: 150px; flex: 0 0 150px; }
+  .living-foundry-nav.primary-destinations > button { min-width: 0; flex: 1 1 0; }
   .facility-navigation { overflow-x: auto; }
   .facility-navigation-label { flex: 0 0 118px; }
   .facility-navigation button { min-width: 132px; flex: 1 0 132px; }
@@ -1854,7 +1868,8 @@ img.pixelated,
   .game-shell { width: 100%; }
   .brand-lockup h1 { display: none; }
   .brand-lockup .eyebrow { max-width: 145px; }
-  .living-foundry-nav.primary-destinations > button { min-width: 132px; flex-basis: 132px; grid-template-columns: 32px minmax(0, 1fr); }
+  .living-foundry-nav.primary-destinations > button { grid-template-columns: 32px minmax(0, 1fr); padding-inline: 6px; }
+  .nav-destination-copy small { display: none; }
   .nav-sprite { width: 30px; height: 30px; transform: scale(0.84); transform-origin: left center; }
   .foundry-vista-caption small { display: none; }
   .ark-visual-stage { min-height: 1180px; }
@@ -2205,6 +2220,15 @@ html body .game-shell :where(button:not(:disabled), a, summary, select, [role="b
 
 html body .game-shell :where(button:disabled, [aria-disabled="true"]) {
   cursor: var(--cursor-pixel) !important;
+}
+
+/* Touch/coarse-pointer devices have no hovering cursor to skin — restore the
+   native default rather than pinning a decorative pointer image on screen. */
+@media (hover: none), (pointer: coarse) {
+  :root {
+    --cursor-pixel: auto;
+    --cursor-pixel-active: auto;
+  }
 }
 
 /* Foundry progression reads as one factory floor with compact console bays below it. */

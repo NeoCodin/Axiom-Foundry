@@ -143,6 +143,10 @@ const TOOLTIP_RULES: TooltipRule[] = [
   { selector: ".research-archive-reader", copy: "Focused Research record. Proven capabilities are permanent; contradictions are preserved as evidence rather than accepted as truth." },
 ];
 
+function isActionableTooltipTarget(target: HTMLElement): boolean {
+  return target.matches("button, a, select, [role='button']");
+}
+
 function resolveTooltip(start: Element | null): ActiveTooltip | null {
   let element = start;
   while (element && element instanceof HTMLElement && !element.matches("body")) {
@@ -285,9 +289,29 @@ export function PixelTooltipLayer() {
     const onEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") clearActive();
     };
+    // Touch has no persistent hover state, so pointerover/pointerout alone
+    // cannot show or dismiss a tooltip reliably. Resolve taps explicitly:
+    // non-actionable status readouts show their tooltip on tap and dismiss
+    // on the next tap elsewhere; actionable controls (buttons, links) are
+    // left untouched so a single tap still acts immediately, matching desktop.
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.pointerType !== "touch") return;
+      const target = event.target instanceof Element ? event.target : null;
+      const resolved = resolveTooltip(target);
+      const current = activeRef.current;
+
+      if (resolved && isActionableTooltipTarget(resolved.target)) {
+        if (current) clearActive();
+        return;
+      }
+
+      if (current && (!resolved || resolved.target !== current.target)) clearActive();
+      if (resolved) showActive(resolved);
+    };
 
     document.addEventListener("pointerover", onPointerOver, true);
     document.addEventListener("pointerout", onPointerOut, true);
+    document.addEventListener("pointerdown", onPointerDown, true);
     document.addEventListener("focusin", onFocusIn, true);
     document.addEventListener("focusout", onFocusOut, true);
     window.addEventListener("resize", onViewportChange);
@@ -296,6 +320,7 @@ export function PixelTooltipLayer() {
     return () => {
       document.removeEventListener("pointerover", onPointerOver, true);
       document.removeEventListener("pointerout", onPointerOut, true);
+      document.removeEventListener("pointerdown", onPointerDown, true);
       document.removeEventListener("focusin", onFocusIn, true);
       document.removeEventListener("focusout", onFocusOut, true);
       window.removeEventListener("resize", onViewportChange);
