@@ -19,6 +19,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  themeColor: "#030506",
 };
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -58,6 +59,19 @@ export async function generateMetadata(): Promise<Metadata> {
       description,
       images: ["/og-cold-wake.png"],
     },
+    manifest: "/manifest.webmanifest",
+    icons: {
+      icon: [
+        { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+        { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+      ],
+      apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    },
+    appleWebApp: {
+      capable: true,
+      title: "Axiom Foundry",
+      statusBarStyle: "black-translucent",
+    },
   };
 }
 
@@ -68,6 +82,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      {/* Older iOS Safari versions specifically look for this exact legacy
+          name; vinext's appleWebApp metadata field covers the modern tags
+          but not this one, so it's authored directly rather than duplicated. */}
+      <meta name="apple-mobile-web-app-capable" content="yes" />
       <body>{children}</body>
     </html>
   );
