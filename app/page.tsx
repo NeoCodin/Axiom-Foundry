@@ -165,9 +165,11 @@ import {
 } from "./game-manual";
 import {
   GameNavigation,
+  PRIMARY_DESTINATION_VIEWS,
   type NavigationUnlocks,
   type PrimaryView,
 } from "./game-navigation";
+import { useSwipeNavigation } from "./use-swipe-navigation";
 import { CommandBriefing } from "./command-briefing";
 import { getCommandPriorities, type CommandPriority } from "./command-priorities";
 import { GameCommandBar } from "./game-command-bar";
@@ -448,6 +450,7 @@ export default function Home() {
   const [game, setGame] = useState<GameState>(() => createInitialState(0));
   const [ready, setReady] = useState(false);
   const [primaryView, setPrimaryView] = useState<PrimaryView>("deck");
+  const destinationViewportRef = useRef<HTMLDivElement>(null);
   const [foundryConsoleTab, setFoundryConsoleTab] =
     useState<FoundryConsoleTab>("chain");
   const [researchEntry, setResearchEntry] = useState<{
@@ -2352,6 +2355,23 @@ export default function Home() {
     setPrimaryView(view);
   };
 
+  const navigateRelativeDestination = (direction: 1 | -1) => {
+    const ordered = PRIMARY_DESTINATION_VIEWS.filter(
+      (view) => view === "deck" || navigationUnlocks[view as keyof NavigationUnlocks],
+    );
+    const index = ordered.indexOf(primaryView);
+    if (index === -1) return;
+    const next = ordered[index + direction];
+    if (next) handlePrimaryNavigation(next);
+  };
+
+  useSwipeNavigation({
+    containerRef: destinationViewportRef,
+    excludeSelector: ".facility-navigation, .research-evidence-tube-bank, .foundry-console-tabs",
+    onSwipeLeft: () => navigateRelativeDestination(1),
+    onSwipeRight: () => navigateRelativeDestination(-1),
+  });
+
   const updateMode = (mode: PurchaseMode) => {
     setGame((current) => setBuyMode(current, mode));
   };
@@ -2827,6 +2847,8 @@ export default function Home() {
         </section>
       )}
 
+      <div className="destination-viewport" ref={destinationViewportRef}>
+      <div key={primaryView} className="destination-viewport-inner">
       {primaryView === "deck" ? (
         campaignWorldIndex === 0 && !coldWakeStatus.arkOverviewAvailable ? (
           <AxiomLawHeart
@@ -3917,6 +3939,8 @@ export default function Home() {
       </div>
       </section>
       )}
+      </div>
+      </div>
 
       {currentTour && tourStep !== null && (
         <ContextualGuide

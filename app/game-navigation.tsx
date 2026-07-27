@@ -22,6 +22,12 @@ type GameNavigationProps = {
   onNavigate: (view: PrimaryView) => void;
 };
 
+// The 5 primary destinations, in fixed left-to-right order. Shared with the
+// swipe-navigation hook so both stay in sync without duplicating the list.
+export const PRIMARY_DESTINATION_VIEWS: PrimaryView[] = [
+  "deck", "engineering", "population", "research", "settlement",
+];
+
 type NavigationGroup = "ark" | "foundry" | "personnel" | "research" | "planet";
 
 function groupForView(view: PrimaryView): NavigationGroup {

@@ -2231,6 +2231,30 @@ html body .game-shell :where(button:disabled, [aria-disabled="true"]) {
   }
 }
 
+/* Swipe-to-navigate between primary destinations: the outer element is the
+   stable gesture target (never remounts), the inner one restarts its arrival
+   animation on every destination change via its React key. */
+.destination-viewport {
+  touch-action: pan-y;
+}
+
+.destination-viewport-inner {
+  animation: destination-arrive 220ms ease-out;
+}
+
+@keyframes destination-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .destination-viewport-inner {
+    animation: none;
+  }
+}
+
 /* Foundry progression reads as one factory floor with compact console bays below it. */
 .game-shell .foundry-grid {
   grid-template-columns: minmax(0, 1fr) !important;
