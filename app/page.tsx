@@ -489,6 +489,8 @@ export default function Home() {
     useState<CoreEchoPreviewId | null>(null);
   const [loreOpen, setLoreOpen] = useState(false);
   const [manualTopic, setManualTopic] = useState<ManualTopicId | null>(null);
+  const [manualContextTopic, setManualContextTopic] =
+    useState<ManualTopicId | null>(null);
   const [tooltipsEnabled, setTooltipsEnabled] = useState(true);
   const [qaMode, setQaMode] = useState(false);
   const [publicRecoveryHandled, setPublicRecoveryHandled] = useState(true);
@@ -508,14 +510,24 @@ export default function Home() {
     gameRef.current = game;
   }, [game]);
 
+  const openManual = useCallback((topic: ManualTopicId) => {
+    setManualContextTopic(topic);
+    setManualTopic(topic);
+  }, []);
+
+  const closeManual = useCallback(() => {
+    setManualTopic(null);
+    setManualContextTopic(null);
+  }, []);
+
   useEffect(() => {
     if (!manualTopic) return;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setManualTopic(null);
+      if (event.key === "Escape") closeManual();
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [manualTopic]);
+  }, [closeManual, manualTopic]);
 
   useEffect(() => {
     if (loadStarted.current) return;
@@ -2700,7 +2712,7 @@ export default function Home() {
           progress: objective.progress,
           directiveLabel: activeMission && game.settings.tutorialComplete && !game.missions.awaitingAcknowledgement ? activeMission.world : null,
         }}
-        onOpenHelp={() => setManualTopic(primaryView)}
+        onOpenHelp={() => openManual(primaryView)}
         onOpenLore={() => setLoreOpen(true)}
         onSave={() => persistGame("Saved")}
         onOpenDirective={() => {
@@ -2788,14 +2800,14 @@ export default function Home() {
           }}
           onPreviewGuide={(guideId) => {
             setLoreOpen(false);
-            setManualTopic(null);
+            closeManual();
             setQaCoreEchoPreview(null);
             setQaCollapsed(true);
             setQaGuidePreview({ id: guideId, step: 0 });
           }}
           onPreviewCoreEcho={(previewId) => {
             setLoreOpen(false);
-            setManualTopic(null);
+            closeManual();
             setQaGuidePreview(null);
             setQaCollapsed(true);
             setQaCoreEchoPreview(previewId);
@@ -3134,7 +3146,7 @@ export default function Home() {
             };
           }}
           onStartBioadaptation={handleStartBioadaptation}
-          onOpenHelp={setManualTopic}
+          onOpenHelp={openManual}
           onBack={() => setPrimaryView("deck")}
         />
       ) : primaryView === "medical" ? (
@@ -3172,7 +3184,7 @@ export default function Home() {
           onProstheticSurgery={handleProstheticSurgery}
           onAdmit={handleAdmitToMedBay}
           onDischarge={handleDischargeFromMedBay}
-          onOpenHelp={setManualTopic}
+          onOpenHelp={openManual}
           onBack={() => setPrimaryView("deck")}
         />
       ) : primaryView === "research" ? (
@@ -3197,7 +3209,7 @@ export default function Home() {
           onStateChange={handleResearchStateChange}
           onTransferInput={handleTransferResearchInput}
           onAssignedCrewChange={handleResearchCrewChange}
-          onOpenHelp={setManualTopic}
+          onOpenHelp={openManual}
           onClose={() => setPrimaryView("deck")}
         />
       ) : primaryView === "defense" ? (
@@ -3216,7 +3228,7 @@ export default function Home() {
           onReinforceRoom={handleUpgradeLivingRoom}
           onChooseContactDoctrine={handleChooseDefenseDoctrine}
           onChooseEnvironmentalDoctrine={handleChooseEnvironmentalDefenseDoctrine}
-          onOpenHelp={setManualTopic}
+          onOpenHelp={openManual}
           onBack={() => setPrimaryView("deck")}
         />
       ) : primaryView === "armory" ? (
@@ -3230,7 +3242,7 @@ export default function Home() {
           onUpgrade={handleUpgradeArmoryItem}
           onModification={handleArmoryModification}
           onBuyLaw={handleBuyArmoryLaw}
-          onOpenHelp={setManualTopic}
+          onOpenHelp={openManual}
           onBack={() => setPrimaryView("population")}
         />
       ) : primaryView === "expeditions" ? (
@@ -3284,7 +3296,7 @@ export default function Home() {
           }}
           onLaunchRescue={handleLaunchRescue}
           onAbandonStranded={handleAbandonStranded}
-          onOpenHelp={setManualTopic}
+          onOpenHelp={openManual}
           onBack={() => setPrimaryView("deck")}
         />
       ) : primaryView === "settlement" && activeTransit ? (
@@ -3448,7 +3460,7 @@ export default function Home() {
               setPrimaryView("expeditions");
             }
           }}
-          onOpenHelp={setManualTopic}
+          onOpenHelp={openManual}
           onBack={() => setPrimaryView("deck")}
         />
         </>
@@ -3627,7 +3639,7 @@ export default function Home() {
               onBuildFrame={handleBuildAutomationFrame}
               onAllocation={handleAutomationAllocation}
               onPolicy={handleAutomationPolicy}
-              onOpenHelp={setManualTopic}
+              onOpenHelp={openManual}
             />
             </div>
           )}
@@ -4088,12 +4100,12 @@ export default function Home() {
       {manualTopic && (
         <GameManualDialog
           topicId={manualTopic}
-          currentPageId={primaryView}
+          currentTopicId={manualContextTopic ?? primaryView}
           availablePages={availableManualPages}
           priorities={commandPriorities}
           onSelectTopic={setManualTopic}
           onNavigate={handleCommandPriorityNavigate}
-          onClose={() => setManualTopic(null)}
+          onClose={closeManual}
         />
       )}
 

@@ -449,7 +449,7 @@ export function HelpTrigger({
 
 export function GameManualDialog({
   topicId,
-  currentPageId,
+  currentTopicId,
   availablePages,
   priorities,
   onSelectTopic,
@@ -457,7 +457,7 @@ export function GameManualDialog({
   onClose,
 }: {
   topicId: ManualTopicId;
-  currentPageId: ManualPageId;
+  currentTopicId: ManualTopicId;
   availablePages: readonly ManualPageId[];
   priorities: readonly CommandPriority[];
   onSelectTopic: (topicId: ManualTopicId) => void;
@@ -465,7 +465,7 @@ export function GameManualDialog({
   onClose: () => void;
 }) {
   const topic = MANUAL_TOPICS[topicId];
-  const currentPageTopic = MANUAL_TOPICS[currentPageId];
+  const currentPageTopic = MANUAL_TOPICS[currentTopicId];
   const researchAvailable = availablePages.includes("research");
   const [section, setSection] = useState<"next" | "page" | "manual">("next");
   const [query, setQuery] = useState("");
@@ -522,8 +522,8 @@ export function GameManualDialog({
   const nextActions = priorities.slice(0, 3);
 
   useEffect(() => {
-    if (section === "page" && topicId !== currentPageId) onSelectTopic(currentPageId);
-  }, [currentPageId, onSelectTopic, section, topicId]);
+    if (section === "page" && topicId !== currentTopicId) onSelectTopic(currentTopicId);
+  }, [currentTopicId, onSelectTopic, section, topicId]);
 
   return (
     <div className="manual-layer">
@@ -540,7 +540,7 @@ export function GameManualDialog({
 
         <nav className="game-manual-sections" aria-label="Guide sections">
           <button className={section === "next" ? "is-active" : ""} type="button" onClick={() => setSection("next")}><strong>Do this next</strong><small>{nextActions.length} useful actions</small></button>
-          <button className={`${section === "page" ? "is-active" : ""} is-page-context`} type="button" onClick={() => { onSelectTopic(currentPageId); setSection("page"); }}><strong>Current page <i>THIS SCREEN</i></strong><small>{currentPageTopic.label}</small></button>
+          <button className={`${section === "page" ? "is-active" : ""} is-page-context`} type="button" onClick={() => { onSelectTopic(currentTopicId); setSection("page"); }}><strong>Current page <i>THIS SCREEN</i></strong><small>{currentPageTopic.label}</small></button>
           <button className={section === "manual" ? "is-active" : ""} type="button" onClick={() => setSection("manual")}><strong>Field manual</strong><small>Search unlocked systems</small></button>
         </nav>
 
@@ -597,7 +597,7 @@ export function GameManualDialog({
               </section>
             )}
 
-            {currentPageId === "population" && (
+            {currentTopicId === "population" && (
               <section className="game-manual-rarity" aria-label="Profile rarity legend">
                 <h3>Profile rarity colors</h3>
                 <div>
@@ -611,7 +611,7 @@ export function GameManualDialog({
               </section>
             )}
 
-            {currentPageId === "settlement" && (
+            {currentTopicId === "settlement" && (
               <section className="game-manual-formulas" aria-label="Continuity expertise formulas">
                 <h3>Exact Expertise formulas</h3>
                 <div>
@@ -643,9 +643,9 @@ export function GameManualDialog({
                   {availableCategories.map((category) => <section className="manual-topic-category" key={category.id}>
                     <header><strong>{category.label}</strong><small>{category.description}</small></header>
                     <div>{category.topics.map((id) => (
-                      <button className={`${topicId === id ? "is-active" : ""} ${currentPageId === id ? "is-current-page" : ""}`} type="button" key={id} onClick={() => onSelectTopic(id)}>
+                      <button className={`${topicId === id ? "is-active" : ""} ${currentTopicId === id ? "is-current-page" : ""}`} type="button" key={id} onClick={() => onSelectTopic(id)}>
                         <strong>{MANUAL_TOPICS[id].label}</strong>
-                        {currentPageId === id ? <span>THIS PAGE</span> : null}
+                        {currentTopicId === id ? <span>THIS PAGE</span> : null}
                       </button>
                     ))}</div>
                   </section>)}

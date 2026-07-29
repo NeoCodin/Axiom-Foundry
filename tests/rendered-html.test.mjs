@@ -191,6 +191,8 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(manual, /Suggested results/);
   assert.match(manual, /THIS PAGE/);
   assert.match(manual, /Ark & Foundry/);
+  assert.match(page, /manualContextTopic/);
+  assert.match(manual, /currentTopicId/);
   assert.match(manualCss, /\.manual-action-grid\.count-1/);
   assert.match(awakeningCss, /\.living-foundry-nav\s*\{[^}]*position:\s*fixed/s);
   assert.match(pixelCss, /Share Tech Mono/);
