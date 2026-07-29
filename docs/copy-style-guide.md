@@ -29,6 +29,15 @@ Each screen should answer these questions in order:
 - **The Returned:** concise, unsettling, and capable of compassion.
 - **Core Echoes:** language appropriate to the era being reconstructed.
 
+## Player viewpoint
+
+- AXIOM is physically inside the world. Its central process runs in the Ark's Caretaker Core.
+- The Ark is AXIOM's body. Sensors provide perception; rooms and automated systems provide action.
+- Utility drones are temporary extensions of AXIOM's reach.
+- Crew members retain independent judgment. Player commands represent requests, assignments, standing policy, and ship-system control.
+- Core Echoes route part of AXIOM's awareness through the Analysis Core into causal residue held by the Law-Heart.
+- Echoes reconstruct recorded senses. AXIOM does not physically enter the past, and the Ark continues operating.
+
 ## Patterns to avoid
 
 - Repeated corrective contrast: “This is not X. It is Y.”
@@ -62,4 +71,3 @@ After: “Meet the first people aboard.”
 Before: “Axioms are not fuel for space travel.”
 
 After: “Axioms preserve proven laws during travel.”
-

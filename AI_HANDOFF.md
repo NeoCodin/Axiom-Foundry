@@ -24,7 +24,9 @@ Axiom Foundry is an idle/incremental Ark-restoration game in which a damaged car
 
 ## 3. Player fantasy and design pillars
 
-The player is AXIOM, the caretaker intelligence controlling a damaged interplanetary Ark. The player is not a conventional human captain. At the beginning, the Ark is empty, most rooms are dark, life support is unsafe, and Pelagos is only a distant destination.
+The player is AXIOM, a distributed caretaker intelligence whose central process runs in the damaged Ark's Caretaker Core. The Ark is AXIOM's physical body: sensors provide perception, while powered rooms and automated systems provide action. Utility drones are temporary extensions rather than separate copies of AXIOM. Crew retain independent judgment and are never puppets of the player. At the beginning, AXIOM's current memory is fourteen seconds old even though ship records claim 173 years of prior service. The Ark is empty, most rooms are dark, life support is unsafe, and Pelagos is only a distant destination.
+
+Core Echoes are causal reconstructions. The Analysis Core detects residue stored in the Law-Heart and routes part of AXIOM's awareness into the reconstruction. AXIOM experiences recorded sensors or viewpoints without physically traveling through time. The rest of AXIOM remains aboard, so the Ark continues operating throughout an Echo. Echoes can be incomplete or internally inconsistent because the residue is damaged.
 
 Every major feature should reinforce at least one of these pillars:
 

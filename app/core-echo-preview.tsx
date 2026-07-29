@@ -19,12 +19,13 @@ export const CORE_ECHO_PREVIEWS: readonly CoreEchoPreview[] = [
   {
     id: "origin-2027",
     timestamp: "EARTH · 2027",
-    title: "The first constraint",
+    title: "The rule that survived",
     status: "EARLY STORY STUDY",
     lines: [
-      "A research terminal wakes in a room with no Ark, no Null Tide, and no Law-Heart.",
-      "Its team is teaching a machine to preserve rules when the systems around it fail.",
-      "One test log survives: If a law can be remembered, can a broken world learn it again?",
+      "The Analysis Core finds causal residue inside the Law-Heart and reconstructs a research terminal from 2027.",
+      "AXIOM experiences the terminal's camera and microphone. The Ark remains present at the edge of its awareness.",
+      "A small team teaches a machine to preserve one rule while every connected system fails.",
+      "The test log ends with a question: If a law can be remembered, can a broken world learn it again?",
     ],
   },
   {
@@ -33,9 +34,11 @@ export const CORE_ECHO_PREVIEWS: readonly CoreEchoPreview[] = [
     title: "The empty passenger deck",
     status: "CAMPAIGN ECHO STUDY",
     lines: [
-      "The Ark is nearly ready, but its passenger decks are still empty.",
+      "The Law-Heart rebuilds the room from damaged light, sound, and machine telemetry.",
+      "The Ark is nearly ready. Its passenger decks are still empty.",
       "A project director records a caretaker voiceprint and asks that AXIOM be taught to doubt its own orders.",
-      "The final sentence is missing. The recording ends before the Ark receives its first passengers.",
+      "The director looks toward the camera and addresses AXIOM by name. The current AXIOM process cannot remember this meeting.",
+      "The final sentence is missing. The Echo ends before the Ark receives its first passengers.",
     ],
   },
   {
@@ -44,9 +47,11 @@ export const CORE_ECHO_PREVIEWS: readonly CoreEchoPreview[] = [
     title: "An answer arrives early",
     status: "LATE CAMPAIGN STUDY",
     lines: [
-      "A damaged vessel speaks from a future the Analysis Core cannot place on one timeline.",
+      "The Analysis Core cannot place this residue on one timeline. The Law-Heart renders several damaged versions at once.",
+      "A vessel speaks from a future whose date changes every time AXIOM reads it.",
       "Its crew calls the Ark a beginning and a weapon in the same transmission.",
-      "The warning breaks before it explains which future they are trying to prevent.",
+      "One speaker asks whether the people aboard are safe before delivering the threat.",
+      "The warning breaks before it names the future they are trying to prevent.",
     ],
   },
 ] as const;
@@ -96,6 +101,11 @@ export function CoreEchoPreview({ previewId, onClose }: CoreEchoPreviewProps) {
         <div className="core-echo-copy">
           <span>{preview.status}</span>
           <h2 id="core-echo-preview-title">{preview.title}</h2>
+          <dl className="core-echo-link-status">
+            <div><dt>Connection</dt><dd>Analysis Core → Law-Heart</dd></div>
+            <div><dt>AXIOM presence</dt><dd>Partial process</dd></div>
+            <div><dt>Ark control</dt><dd>Online</dd></div>
+          </dl>
           <p>{preview.lines[lineIndex]}</p>
           <div className="core-echo-progress" aria-label={`Echo passage ${lineIndex + 1} of ${preview.lines.length}`}>
             {preview.lines.map((_, index) => (
@@ -116,7 +126,7 @@ export function CoreEchoPreview({ previewId, onClose }: CoreEchoPreviewProps) {
               {finalLine ? "End Preview" : "Continue"}
             </button>
           </div>
-          <small>This is a save-safe visual study. Core Echoes are not yet part of the public campaign.</small>
+          <small>The Law-Heart reconstructs causal residue. AXIOM experiences recorded senses while the Ark continues operating. This QA study does not change campaign history.</small>
         </div>
       </section>
     </div>

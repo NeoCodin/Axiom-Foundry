@@ -2161,6 +2161,30 @@ img.pixelated,
   font-size: clamp(28px, 3vw, 46px);
   font-weight: 400;
 }
+.core-echo-link-status {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  border: 2px solid #392e49;
+}
+.core-echo-link-status div {
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+  border-right: 1px solid #392e49;
+}
+.core-echo-link-status div:last-child { border-right: 0; }
+.core-echo-link-status dt {
+  color: #7f718f;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.core-echo-link-status dd {
+  margin: 0;
+  color: #c9b7df;
+  font-size: 11px;
+}
 .core-echo-copy p {
   min-height: 150px;
   margin: 0;
@@ -2199,6 +2223,9 @@ img.pixelated,
   .core-echo-preview > header { position: sticky; z-index: 2; top: 0; }
   .core-echo-visual { min-height: 280px; border-right: 0; border-bottom: 2px solid #392e49; }
   .core-echo-copy { padding: 20px; }
+  .core-echo-link-status { grid-template-columns: 1fr; }
+  .core-echo-link-status div { border-right: 0; border-bottom: 1px solid #392e49; }
+  .core-echo-link-status div:last-child { border-bottom: 0; }
   .core-echo-copy p { min-height: 110px; font-size: 14px; }
 }
 
