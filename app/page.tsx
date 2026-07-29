@@ -284,7 +284,11 @@ import {
   TOUR_STEPS,
   type ContextGuideId,
 } from "./story-content";
-import { LoreArchive, type ArchiveWorldEntry } from "./lore-archive";
+import {
+  LoreArchive,
+  type ArchiveLawEntry,
+  type ArchiveWorldEntry,
+} from "./lore-archive";
 import { getProgressiveDisclosure } from "./progressive-disclosure";
 import {
   getDestinationIntroduction,
@@ -860,6 +864,59 @@ export default function Home() {
     }),
     [game.missions.currentIndex, game.missions.statuses],
   );
+  const archiveLaws = useMemo<ArchiveLawEntry[]>(() => {
+    const laws: ArchiveLawEntry[] = [];
+    if (game.lifetimeAxioms >= 1) laws.push({
+      id: "containment",
+      name: "The Law of Containment",
+      shortName: "Containment",
+      meaning: "A sealed hull, a living body, and a remembered name remain themselves under pressure.",
+      consequence: "Containment lets the Ark hold a stable interior even when the space around it is losing coherence.",
+      source: "Proven during Cold Wake",
+    });
+    if (game.lifetimeAxioms >= 2) laws.push({
+      id: "conservation",
+      name: "The Law of Conservation",
+      shortName: "Conservation",
+      meaning: "What enters a closed system must still be accounted for when nobody is watching.",
+      consequence: "Conservation prevents the Null from quietly rewriting the Ark's stores, energy, and physical records.",
+      source: "Proven during Cold Wake",
+    });
+    if (game.lifetimeAxioms >= 3) laws.push({
+      id: "transit",
+      name: "The Law of Transit",
+      shortName: "Transit",
+      meaning: "Departure, passage, and arrival belong to one continuous history.",
+      consequence: "Transit allows the Ark to carry people and matter through unstable corridors without losing their connection to where they began.",
+      source: "Proven during Cold Wake",
+    });
+    const completed = new Set(game.research.completedProjectIds);
+    if (completed.has("resonance-stabilization")) laws.push({
+      id: "resonance",
+      name: "Resonant Coexistence",
+      shortName: "Resonance",
+      meaning: "Several portable laws can remain true inside one shared core without erasing each other.",
+      consequence: "This proof expands the Law-Heart beyond Cold Wake's three basic laws and begins its stellar evolution.",
+      source: "Research: Resonance Stabilization",
+    });
+    if (completed.has("axiomatic-stellarization")) laws.push({
+      id: "stellarization",
+      name: "Axiomatic Stellarization",
+      shortName: "Stellarization",
+      meaning: "A dense network of portable laws can sustain a luminous, self-reinforcing physical core.",
+      consequence: "The Law-Heart becomes a small artificial law-star capable of supporting a much wider stable field.",
+      source: "Research: Axiomatic Stellarization",
+    });
+    if (completed.has("convergence-envelope")) laws.push({
+      id: "convergence",
+      name: "The Convergence Envelope",
+      shortName: "Convergence",
+      meaning: "Physical laws that disagree can remain locally valid when their boundaries are deliberately maintained.",
+      consequence: "The Ark can carry contradictory environments without forcing one reality to overwrite the other.",
+      source: "Research: Convergence Envelope",
+    });
+    return laws;
+  }, [game.lifetimeAxioms, game.research.completedProjectIds]);
   const doctrineAvailability = useMemo(
     () =>
       getDoctrineAvailability(
@@ -4020,6 +4077,7 @@ export default function Home() {
           nextFragment={nextArchiveDiscovery}
           causalArchive={causalArchive}
           worlds={archiveWorlds}
+          laws={archiveLaws}
           worldsSaved={game.missions.worldsSaved}
           onCrossIndex={handleArchiveInvestigation}
           onReplayOrientation={replayTour}
@@ -4030,6 +4088,7 @@ export default function Home() {
       {manualTopic && (
         <GameManualDialog
           topicId={manualTopic}
+          currentPageId={primaryView}
           availablePages={availableManualPages}
           priorities={commandPriorities}
           onSelectTopic={setManualTopic}

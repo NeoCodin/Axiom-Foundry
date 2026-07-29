@@ -147,6 +147,8 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(loreArchive, /archive-category-tabs/);
   assert.match(loreArchive, /archive-reader-page/);
   assert.match(loreArchive, /Story So Far/);
+  assert.match(loreArchive, /A law is a promise reality keeps/);
+  assert.match(loreArchive, /buildLawPages/);
   assert.match(loreArchive, /People & Places/);
   assert.match(loreArchive, /Recovered Records/);
   assert.match(loreArchive, /Open Questions/);
@@ -186,6 +188,10 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(continuityCss, /\.crew-continuity-contribution\s*\{/);
   assert.match(researchCss, /\.research-lattice-analysis-core\s*\{/);
   assert.match(manualCss, /\.game-manual\s*\{/);
+  assert.match(manual, /Suggested results/);
+  assert.match(manual, /THIS PAGE/);
+  assert.match(manual, /Ark & Foundry/);
+  assert.match(manualCss, /\.manual-action-grid\.count-1/);
   assert.match(awakeningCss, /\.living-foundry-nav\s*\{[^}]*position:\s*fixed/s);
   assert.match(pixelCss, /Share Tech Mono/);
   assert.match(pixelCss, /VT323/);

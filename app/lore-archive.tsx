@@ -21,6 +21,15 @@ export type ArchiveWorldEntry = {
   record: string;
 };
 
+export type ArchiveLawEntry = {
+  id: string;
+  name: string;
+  shortName: string;
+  meaning: string;
+  consequence: string;
+  source: string;
+};
+
 type LoreArchiveProps = {
   memoryEntries: readonly ArchiveMemoryEntry[];
   encryptedMemoryCount: number;
@@ -28,13 +37,14 @@ type LoreArchiveProps = {
   nextFragment: DiscoveryFragment | null;
   causalArchive: CausalArchiveView;
   worlds: readonly ArchiveWorldEntry[];
+  laws: readonly ArchiveLawEntry[];
   worldsSaved: number;
   onCrossIndex: () => void;
   onReplayOrientation: () => void;
   onClose: () => void;
 };
 
-type ArchiveCategoryId = "story" | "people" | "records" | "questions";
+type ArchiveCategoryId = "story" | "laws" | "people" | "records" | "questions";
 type ArchiveConfidence = "confirmed" | "suspected" | "contradictory" | "unknown";
 
 type ArchiveFact = {
@@ -59,10 +69,45 @@ type ArchivePage = {
 
 const CATEGORY_COPY: Record<ArchiveCategoryId, { label: string; description: string }> = {
   story: { label: "Story So Far", description: "A short recap of what AXIOM currently understands." },
+  laws: { label: "Laws", description: "The physical promises the Law-Heart has proven and can carry." },
   people: { label: "People & Places", description: "The Ark, AXIOM, and every world reached so far." },
   records: { label: "Recovered Records", description: "Logs, transmissions, evidence, and contradictions already discovered." },
   questions: { label: "Open Questions", description: "Mysteries the evidence has not answered yet." },
 };
+
+function buildLawPages(laws: readonly ArchiveLawEntry[]): ArchivePage[] {
+  const overview: ArchivePage = {
+    id: "laws-overview",
+    category: "laws",
+    tabLabel: "What is a law?",
+    title: "A law is a promise reality keeps",
+    source: "Law-Heart operating model",
+    confidence: laws.length > 0 ? "confirmed" : "unknown",
+    paragraphs: laws.length > 0
+      ? [
+          "The Null damaged more than places. It damaged the rules that let matter, motion, memory, and living bodies remain consistent.",
+          `The Law-Heart has proven ${laws.length} ${laws.length === 1 ? "law" : "laws"} so far. A proven law can be carried by the Ark and used to keep unstable space coherent.`,
+        ]
+      : [
+          "The Law-Heart appears able to hold broken physical rules in place, but AXIOM has not proven a portable law yet.",
+          "New entries will appear here only after the Ark proves or researches them.",
+        ],
+    facts: [{ label: "Proven laws", value: String(laws.length), state: laws.length > 0 ? "stable" : "locked" }],
+  };
+  return [
+    overview,
+    ...laws.map((law): ArchivePage => ({
+      id: `law-${law.id}`,
+      category: "laws",
+      tabLabel: law.shortName,
+      title: law.name,
+      source: law.source,
+      confidence: "confirmed",
+      paragraphs: [law.meaning, law.consequence],
+      facts: [{ label: "Status", value: "Proven and portable", state: "stable" }],
+    })),
+  ];
+}
 
 function buildStoryPages(
   memoryEntries: readonly ArchiveMemoryEntry[],
@@ -252,6 +297,7 @@ export function LoreArchive({
   nextFragment,
   causalArchive,
   worlds,
+  laws,
   worldsSaved,
   onCrossIndex,
   onReplayOrientation,
@@ -259,10 +305,11 @@ export function LoreArchive({
 }: LoreArchiveProps) {
   const pagesByCategory = useMemo(() => ({
     story: buildStoryPages(memoryEntries, fragments, causalArchive, worlds, worldsSaved),
+    laws: buildLawPages(laws),
     people: buildPeoplePages(worlds),
     records: buildRecordPages(memoryEntries, fragments, causalArchive, nextFragment, onCrossIndex),
     questions: buildQuestionPages(fragments, causalArchive, worlds),
-  }), [causalArchive, fragments, memoryEntries, nextFragment, onCrossIndex, worlds, worldsSaved]);
+  }), [causalArchive, fragments, laws, memoryEntries, nextFragment, onCrossIndex, worlds, worldsSaved]);
   const categories = Object.keys(CATEGORY_COPY) as ArchiveCategoryId[];
   const [activeCategory, setActiveCategory] = useState<ArchiveCategoryId>("story");
   const [selectedPageIds, setSelectedPageIds] = useState<Partial<Record<ArchiveCategoryId, string>>>({});

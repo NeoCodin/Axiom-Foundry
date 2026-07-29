@@ -411,6 +411,19 @@ const RESOURCE_TOPIC_IDS: readonly ManualTopicId[] = [
   "axiom-proofs",
 ];
 
+const MANUAL_CATEGORIES: readonly {
+  id: string;
+  label: string;
+  description: string;
+  topics: readonly ManualTopicId[];
+}[] = [
+  { id: "ship", label: "Ark & Foundry", description: "Power, production, and ship systems", topics: ["deck", "engineering"] },
+  { id: "crew", label: "Crew & Operations", description: "People, care, missions, and equipment", topics: ["population", "medical", "expeditions", "defense", "armory"] },
+  { id: "research", label: "Research", description: "Projects, evidence, and the Analysis Core", topics: ["research"] },
+  { id: "continuity", label: "Continuity", description: "World restoration and settlement", topics: ["settlement"] },
+  { id: "resources", label: "Resources", description: "Where important materials come from", topics: RESOURCE_TOPIC_IDS },
+];
+
 export function HelpTrigger({
   label,
   onClick,
@@ -436,6 +449,7 @@ export function HelpTrigger({
 
 export function GameManualDialog({
   topicId,
+  currentPageId,
   availablePages,
   priorities,
   onSelectTopic,
@@ -443,6 +457,7 @@ export function GameManualDialog({
   onClose,
 }: {
   topicId: ManualTopicId;
+  currentPageId: ManualPageId;
   availablePages: readonly ManualPageId[];
   priorities: readonly CommandPriority[];
   onSelectTopic: (topicId: ManualTopicId) => void;
@@ -450,6 +465,7 @@ export function GameManualDialog({
   onClose: () => void;
 }) {
   const topic = MANUAL_TOPICS[topicId];
+  const currentPageTopic = MANUAL_TOPICS[currentPageId];
   const researchAvailable = availablePages.includes("research");
   const [section, setSection] = useState<"next" | "page" | "manual">("next");
   const [query, setQuery] = useState("");
@@ -471,6 +487,19 @@ export function GameManualDialog({
       ].some((value) => value.toLowerCase().includes(normalized));
     });
   }, [availableTopicIds, query]);
+  const availableCategories = useMemo(() => MANUAL_CATEGORIES.map((category) => ({
+    ...category,
+    topics: category.topics.filter((id) => availableTopicIds.includes(id)),
+  })).filter((category) => category.topics.length > 0), [availableTopicIds]);
+  const suggestions = query.trim() ? searchResults.slice(0, 6) : [];
+  const pageStepGroups = useMemo(() => {
+    const steps = currentPageTopic.steps;
+    return [
+      { id: "start", title: "Start here", description: "The first things worth knowing on this screen.", steps: steps.slice(0, 3) },
+      { id: "systems", title: "How this page works", description: "The systems and choices you will use after the basics.", steps: steps.slice(3, 7) },
+      { id: "later", title: "Later systems", description: "Details that matter after more of the Ark wakes.", steps: steps.slice(7) },
+    ].filter((group) => group.steps.length > 0);
+  }, [currentPageTopic]);
   const nextActions = priorities.slice(0, 3);
 
   return (
@@ -488,7 +517,7 @@ export function GameManualDialog({
 
         <nav className="game-manual-sections" aria-label="Guide sections">
           <button className={section === "next" ? "is-active" : ""} type="button" onClick={() => setSection("next")}><strong>Do this next</strong><small>{nextActions.length} useful actions</small></button>
-          <button className={section === "page" ? "is-active" : ""} type="button" onClick={() => setSection("page")}><strong>Current page</strong><small>{topic.label}</small></button>
+          <button className={`${section === "page" ? "is-active" : ""} is-page-context`} type="button" onClick={() => { onSelectTopic(currentPageId); setSection("page"); }}><strong>Current page <i>THIS SCREEN</i></strong><small>{currentPageTopic.label}</small></button>
           <button className={section === "manual" ? "is-active" : ""} type="button" onClick={() => setSection("manual")}><strong>Field manual</strong><small>Search unlocked systems</small></button>
         </nav>
 
@@ -496,7 +525,7 @@ export function GameManualDialog({
           {section === "next" && (
             <section className="manual-next-actions" aria-label="Next useful actions">
               <header><span>DO THIS NEXT</span><h3>The Ark only needs one decision at a time</h3><p>Choose any card below. The Guide will take you to the exact screen.</p></header>
-              <div>
+              <div className={`manual-action-grid count-${Math.min(3, nextActions.length)}`}>
                 {nextActions.map((priority) => (
                   <article className={`manual-action-card is-${priority.cadence}`} key={priority.id}>
                     <span>{priority.cadence === "offline" ? "SAFE TO WAIT" : priority.cadence === "automatic" ? "AUTOMATIC" : "ACTION"}</span>
@@ -512,23 +541,30 @@ export function GameManualDialog({
           )}
 
           {section === "page" && <article className="game-manual-topic">
-            <p className="game-manual-category">{topic.category}</p>
-            <h3>{topic.title}</h3>
-            <p className="game-manual-summary">{topic.summary}</p>
-            <ol className="game-manual-steps">
-              {topic.steps.map((step, index) => (
-                <li key={step.title}>
-                  <span>{index + 1}</span>
-                  <div><strong>{step.title}</strong><p>{step.detail}</p></div>
-                </li>
+            <header className="manual-current-page-hero">
+              <div><span>YOU ARE VIEWING</span><strong>{currentPageTopic.label}</strong></div>
+              <p className="game-manual-category">{currentPageTopic.category}</p>
+              <h3>{currentPageTopic.title}</h3>
+              <p className="game-manual-summary">{currentPageTopic.summary}</p>
+            </header>
+            <div className="manual-page-groups">
+              {pageStepGroups.map((group) => (
+                <section key={group.id}>
+                  <header><h4>{group.title}</h4><p>{group.description}</p></header>
+                  <div>
+                    {group.steps.map((step) => (
+                      <article key={step.title}><strong>{step.title}</strong><p>{step.detail}</p></article>
+                    ))}
+                  </div>
+                </section>
               ))}
-            </ol>
+            </div>
 
-            {topic.sources && (
+            {currentPageTopic.sources && (
               <section className="game-manual-sources" aria-label="Related concepts">
                 <h3>What the readouts mean</h3>
                 <div>
-                  {topic.sources.map((source) => (
+                  {currentPageTopic.sources.map((source) => (
                     <article key={source.label}>
                       <strong>{source.label}</strong>
                       <p>{source.detail}</p>
@@ -538,7 +574,7 @@ export function GameManualDialog({
               </section>
             )}
 
-            {topicId === "population" && (
+            {currentPageId === "population" && (
               <section className="game-manual-rarity" aria-label="Profile rarity legend">
                 <h3>Profile rarity colors</h3>
                 <div>
@@ -552,7 +588,7 @@ export function GameManualDialog({
               </section>
             )}
 
-            {topicId === "settlement" && (
+            {currentPageId === "settlement" && (
               <section className="game-manual-formulas" aria-label="Continuity expertise formulas">
                 <h3>Exact Expertise formulas</h3>
                 <div>
@@ -563,7 +599,7 @@ export function GameManualDialog({
               </section>
             )}
 
-            {topic.tip && <aside className="game-manual-tip"><span>AXIOM NOTE</span><p>{topic.tip}</p></aside>}
+            {currentPageTopic.tip && <aside className="game-manual-tip"><span>AXIOM NOTE</span><p>{currentPageTopic.tip}</p></aside>}
           </article>}
 
           {section === "manual" && (
@@ -571,16 +607,24 @@ export function GameManualDialog({
               <label>
                 <span>Search the Field Manual</span>
                 <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Try “Salvage”, “Research”, or “Crew levels”" />
+                {suggestions.length > 0 && <div className="manual-search-suggestions" role="listbox" aria-label="Suggested manual results">
+                  <small>Suggested results</small>
+                  {suggestions.map((id) => <button type="button" role="option" aria-selected={topicId === id} key={id} onClick={() => { onSelectTopic(id); setQuery(""); }}>
+                    <strong>{MANUAL_TOPICS[id].label}</strong><span>{MANUAL_TOPICS[id].category}</span>
+                  </button>)}
+                </div>}
               </label>
               <div className="manual-library-layout">
-                <nav aria-label="Manual topics">
-                  {searchResults.map((id) => (
-                    <button className={topicId === id ? "is-active" : ""} type="button" key={id} onClick={() => onSelectTopic(id)}>
-                      <strong>{MANUAL_TOPICS[id].label}</strong>
-                      <small>{MANUAL_TOPICS[id].summary}</small>
-                    </button>
-                  ))}
-                  {searchResults.length === 0 && <p>No unlocked guide matches that search.</p>}
+                <nav aria-label="Manual categories and topics">
+                  {availableCategories.map((category) => <section className="manual-topic-category" key={category.id}>
+                    <header><strong>{category.label}</strong><small>{category.description}</small></header>
+                    <div>{category.topics.map((id) => (
+                      <button className={`${topicId === id ? "is-active" : ""} ${currentPageId === id ? "is-current-page" : ""}`} type="button" key={id} onClick={() => onSelectTopic(id)}>
+                        <strong>{MANUAL_TOPICS[id].label}</strong>
+                        {currentPageId === id ? <span>THIS PAGE</span> : null}
+                      </button>
+                    ))}</div>
+                  </section>)}
                 </nav>
                 <article>
                   <span>{topic.category}</span>
