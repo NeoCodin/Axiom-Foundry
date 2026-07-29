@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { SURVIVOR_RARITY_DEFINITIONS } from "./survivor-engine";
 import { CONTINUITY_EXPERTISE_PRESENTATION } from "./continuity-expertise";
@@ -475,17 +475,36 @@ export function GameManualDialog({
   ], [availablePages, researchAvailable]);
   const searchResults = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    return availableTopicIds.filter((id) => {
-      if (!normalized) return true;
+    if (normalized.length < 2) return [];
+    const tokens = normalized.split(/\s+/).filter(Boolean);
+    return availableTopicIds.map((id) => {
       const candidate = MANUAL_TOPICS[id];
-      return [
-        candidate.label,
-        candidate.title,
-        candidate.summary,
-        ...candidate.steps.flatMap((step) => [step.title, step.detail]),
-        ...(candidate.sources?.flatMap((source) => [source.label, source.detail]) ?? []),
-      ].some((value) => value.toLowerCase().includes(normalized));
-    });
+      const label = candidate.label.toLowerCase();
+      const title = candidate.title.toLowerCase();
+      const category = candidate.category.toLowerCase();
+      const headings = [
+        ...candidate.steps.map((step) => step.title),
+        ...(candidate.sources?.map((source) => source.label) ?? []),
+      ].join(" ").toLowerCase();
+      const focusedIndex = `${label} ${title} ${category} ${headings}`;
+      if (!tokens.every((token) => focusedIndex.includes(token))) return null;
+      let score = 0;
+      if (label === normalized) score += 140;
+      else if (label.startsWith(normalized)) score += 100;
+      else if (label.includes(normalized)) score += 75;
+      if (title === normalized) score += 120;
+      else if (title.startsWith(normalized)) score += 85;
+      else if (title.includes(normalized)) score += 60;
+      if (category.includes(normalized)) score += 30;
+      for (const token of tokens) {
+        if (label.includes(token)) score += 24;
+        if (title.includes(token)) score += 18;
+        if (headings.includes(token)) score += 7;
+      }
+      return { id, score };
+    }).filter((result): result is { id: ManualTopicId; score: number } => result !== null)
+      .sort((left, right) => right.score - left.score || MANUAL_TOPICS[left.id].label.localeCompare(MANUAL_TOPICS[right.id].label))
+      .map((result) => result.id);
   }, [availableTopicIds, query]);
   const availableCategories = useMemo(() => MANUAL_CATEGORIES.map((category) => ({
     ...category,
@@ -501,6 +520,10 @@ export function GameManualDialog({
     ].filter((group) => group.steps.length > 0);
   }, [currentPageTopic]);
   const nextActions = priorities.slice(0, 3);
+
+  useEffect(() => {
+    if (section === "page" && topicId !== currentPageId) onSelectTopic(currentPageId);
+  }, [currentPageId, onSelectTopic, section, topicId]);
 
   return (
     <div className="manual-layer">
@@ -613,6 +636,7 @@ export function GameManualDialog({
                     <strong>{MANUAL_TOPICS[id].label}</strong><span>{MANUAL_TOPICS[id].category}</span>
                   </button>)}
                 </div>}
+                {query.trim().length >= 2 && suggestions.length === 0 && <small className="manual-no-suggestions">No topic title or section matches that search.</small>}
               </label>
               <div className="manual-library-layout">
                 <nav aria-label="Manual categories and topics">
