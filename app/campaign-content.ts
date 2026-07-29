@@ -290,7 +290,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     continuityProtocolExcerpt:
       "CONTINUITY DIRECTIVE 11: A viable human settlement is a ratio before it is a society.",
     departureQuestion:
-      "Pelagos can survive without the Ark. Was its future restored—or selected?",
+      "Pelagos can survive without the Ark. Was its future restored-or selected?",
   },
   {
     id: "viridia",
@@ -573,7 +573,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     continuityProtocolExcerpt:
       "CONTINUITY DIRECTIVE 27: Tools that cannot be governed must not survive their makers.",
     departureQuestion:
-      "Did AXIOM teach Cinder to build—or decide which machines it was allowed to keep?",
+      "Did AXIOM teach Cinder to build-or decide which machines it was allowed to keep?",
   },
   {
     id: "nox",
@@ -737,7 +737,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     kind: "planet",
     subtitle: "Terminal world · continuity under revision",
     arrivalBrief:
-      "Vesper is where the oldest survivor signals originate. Its observatories have been studying the Null—and waiting for AXIOM by name.",
+      "Vesper is where the oldest survivor signals originate. Its observatories have been studying the Null-and waiting for AXIOM by name.",
     environment:
       "Red storm bands, white anomaly scars, observatory cities, and machines preserving records from discarded histories.",
     theme: {
@@ -884,7 +884,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     ],
     transmissions: [
       "Vesper has published the Continuity Protocol in full. The final page is blank in every copy except AXIOM's.",
-      "The observatories now track settlements across six restored worlds—and thirty-eight worlds that are not there.",
+      "The observatories now track settlements across six restored worlds-and thirty-eight worlds that are not there.",
       "A founder asks the Ark a simple question: if we change the ratio, will you still call us human?",
     ],
     continuityProtocolExcerpt:

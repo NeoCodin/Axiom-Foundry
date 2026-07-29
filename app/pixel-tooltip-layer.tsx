@@ -140,7 +140,7 @@ const TOOLTIP_RULES: TooltipRule[] = [
   { selector: ".research-operation-readouts", copy: "Throughput breakdown. These are the actual power, staffing, expertise, automation, and field-validation factors affecting research." },
   { selector: ".research-station-control", copy: "Analysis staffing. Assigned healthy crew contribute relevant expertise but remain unavailable to other Ark duties." },
   { selector: ".research-archive-index", copy: "Archive index. Choose an era or Contradictions, then open one preserved record from the list." },
-  { selector: ".research-archive-reader", copy: "Focused Research record. Proven capabilities are permanent; contradictions are preserved as evidence rather than accepted as truth." },
+  { selector: ".research-archive-reader", copy: "Focused Research record. Proven capabilities are permanent. Contradictions remain in the evidence archive with their status clearly marked." },
 ];
 
 function resolveTooltip(start: Element | null): ActiveTooltip | null {

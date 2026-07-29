@@ -61,13 +61,13 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
     steps: [
       { title: "Strike the Law Press", detail: "The opening machine is completely still. Each click drives one clamp strike; earned Vacuum Taps install visible banks, carry Flux packets, and gradually synchronize the mechanism." },
       { title: "Teach the first repetition", detail: "Vacuum Taps reveal after a few manual alignments. They repeat the smallest Core motion while the game is open or closed." },
-      { title: "Read the first Continuity forecast", detail: "After three portable laws, Planet appears as a forecast—not an immediate exit. Review it to authorize the next single restoration step." },
+      { title: "Read the first Continuity forecast", detail: "After three portable laws, Planet appears as a forecast-not an immediate exit. Review it to authorize the next single restoration step." },
       { title: "Forge three laws", detail: "Cold Wake introduces Recalibration directly on the Core Deck. Containment keeps the hull intact, Conservation protects its reserves, and Transit keeps departure connected to arrival." },
       { title: "Commission the Ark in stages", detail: "Wake one Foundry machine line, then restore navigation and the empty life-support reserve from Ark Command. Only after those steps does the saved Pelagos approach reserve appear." },
       { title: "Follow the active directive", detail: "The strip above the Ark always names the next useful action and shows its progress. Nothing in Cold Wake has a deadline." },
       { title: "Enter awakened destinations", detail: "Foundry arrives during Cold Wake. Pelagos begins with the familiar Ark, Foundry, and Planet views; Personnel opens after the first rescue. Research waits for Viridia, where Pelagos records and a living biosphere give the Analysis Core a clear purpose." },
       { title: "Read AXIOM's priorities", detail: "The command briefing names up to three useful actions, shows exactly what is missing, names the one action to take, and opens the correct page and sub-panel." },
-      { title: "Travel without babysitting", detail: "Each destination orbits a different star. After Pelagos, departure folds an Axiom corridor across interstellar distance instead of instantly changing worlds. Open Continuity to see route progress and ETA; production, research, training, construction, repair, and Defense all continue online or offline." },
+      { title: "Travel between stars", detail: "Each destination orbits a different star. After Pelagos, the Ark crosses a folded Axiom corridor. Continuity shows route progress and arrival time. Ark systems keep working during travel and while the game is closed." },
     ],
     sources: [
       { label: "Flux", detail: "Core tunes and Foundry machines create the energy used by almost every early action." },
@@ -85,10 +85,10 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
       "The Foundry keeps the interactive Law-Heart on the left and every unlocked fabrication system in one tabbed console on the right. Continuity owns every planetary directive and departure requirement.",
     steps: [
       { title: "Strike the Law-Heart", detail: "The Foundry is the only page where the Law-Heart produces manual Flux. The Ark's Axiom Chamber is a read-only status monitor." },
-      { title: "Buy the first mechanism", detail: "Every machine produces Flux directly—each tier simply produces far more per unit. Your Flux/sec only changes when you build or improve something; nothing grows on its own." },
+      { title: "Buy the first mechanism", detail: "Every machine produces Flux directly-each tier simply produces far more per unit. Your Flux/sec only changes when you build or improve something; nothing grows on its own." },
       { title: "Keep adjacent tiers balanced", detail: "Groups of 15 across neighboring tiers create Resonance and improve the whole chain." },
       { title: "Follow Continuity separately", detail: "When a world needs engineering work, Continuity names the requirement and sends you here. The Foundry does not repeat the planetary plan." },
-      { title: "Allocate utility drones", detail: "After Automated Personnel Logistics, fabricate up to eight permanent support frames. Assign them to researched programs; each active frame diverts 1.25% production and multiplies people instead of replacing them." },
+      { title: "Allocate utility drones", detail: "After Automated Personnel Logistics, fabricate up to eight support frames. Assign them to researched programs. Each active frame diverts 1.25% of production and improves qualified crew work." },
       { title: "Compile a Core Protocol", detail: "Protocols are temporary cycle configurations with three meaningful Marks. Pulse Geometry favors active strikes, Flow Compression improves the whole idle stream, Harmonic Gearing specializes upper tiers, and Resonant Mesh rewards balanced links." },
       { title: "Save an automation blueprint", detail: "Each Protocol card stores an optional target Mark. After Recalibration, Protocol routing buys only those remembered Marks; it never chooses an arbitrary build for you." },
       { title: "Recalibrate when worthwhile", detail: "Recalibration resets the current assembly but awards permanent Axioms and preserves people, research, and restored worlds. Every additional Axiom forged on the same world requires five times the previous proof threshold." },
@@ -111,7 +111,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
     category: "Page guide · analysis core",
     title: "Choose one question and make its evidence move",
     summary:
-      "The Active Project screen is not a resource generator: it visualizes the one practical question loaded into the Analysis Core. Evidence first collects in Ark Supply, moves into Lattice reservoirs, and then carries that project through Theory, Prototype, Field Validation, and Final Synthesis.",
+      "The Active Project screen shows the question loaded into the Analysis Core. Gather evidence through Ark activity, load it into Lattice reservoirs, and route it through four research stages.",
     steps: [
       { title: "Choose the Ark's question", detail: "Open the Technology Map, inspect one available program, then begin it. Later eras reveal only when completed prerequisites create a real path to them." },
       { title: "Read Active Project", detail: "The center visual appears only while a program is loaded. It answers what is being studied, whether evidence is moving, and what exact condition is holding progress." },
@@ -122,7 +122,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
       { title: "Validate against the real Ark", detail: "Field Validation gains up to +25% speed from branch-specific evidence such as expeditions, clinical work, defense events, infrastructure, children and elders, and independent colonies. This is a bonus, never a gate." },
       { title: "Build the Robotics branch", detail: "Integration unlocks logistics and medical support. Synthesis adds research routing, expedition support, repair swarms, and planetary construction. Convergence adds interceptor control." },
       { title: "Authorize Bioadaptation carefully", detail: "The Synthesis-era Voluntary Adaptation Charter opens an elective clinic in each adult's Personnel File. Six protocols branch through Medicine, Continuity, planetary work, and Null studies; each protocol has its own research program before anyone may volunteer." },
-      { title: "Cross-index the contacts", detail: "Retrograde Material Analysis, Temporal Signal Analysis, Causal Cartography, Causal Threat Projection, and the Returned Origin Hypothesis turn Defense, expedition, and colony evidence into provisional classifications rather than a premature answer." },
+      { title: "Cross-index the contacts", detail: "Late Null Studies combines evidence from Defense, expeditions, and colonies. Each project improves the Ark's working classification while leaving the final origin unresolved." },
       { title: "Develop a research lead", detail: "Integration requires an on-duty level-3 Researcher, Synthesis level 5, and Convergence a level-9 Exceptional Researcher. Levels cap at 10 and demand progressively more XP." },
     ],
     sources: [
@@ -152,17 +152,17 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
       { title: "Study a profession", detail: "Adults with an open profession slot can study new work. Standard profiles learn at ×1.00, Notable ×1.25, Exceptional ×1.60, and Anomalous ×2.00." },
     ],
     sources: [
-      { label: "Profile rarity", detail: "Colors describe how scarce a recruit's aptitude, adaptability, trait, and archive combination is—not their human worth. Rarity accelerates training and job XP and sets profession capacity (Standard 1, Notable 2, Exceptional 3, Anomalous unlimited)." },
+      { label: "Profile rarity", detail: "Colors describe how scarce a recruit's aptitude, adaptability, trait, and archive combination is-not their human worth. Rarity accelerates training and job XP and sets profession capacity (Standard 1, Notable 2, Exceptional 3, Anomalous unlimited)." },
       { label: "Profession levels", detail: "Levels come from XP and create Continuity expertise. Rarity never multiplies that expertise directly." },
-      { label: "Operational expertise", detail: "Levels also affect work a healthy, assigned specialist is doing now: research stages, engineering construction, salvage recovery, medicine, defense, and Armory development. A Team Alpha lean trains future specialists; only on-duty expertise produces the craft bonus." },
+      { label: "Operational expertise", detail: "Healthy, assigned specialists improve relevant Ark work. Higher profession levels provide a larger bonus. Team Alpha doctrine trains future specialists, while current assignments produce the active bonus." },
       { label: "Profile elevation", detail: "Research can permanently recognize a mastered favorite: Standard to Notable requires level 3, Notable to Exceptional level 6, and Exceptional to Anomalous level 9. Axioms and research evidence pay for it; identity and XP are preserved." },
-      { label: "Voluntary Bioadaptation", detail: "After the Voluntary Adaptation Charter, an adult may freely choose up to two permanent protocols in their Personnel File. The clinic commits Flux, Axioms, and research evidence, runs offline, and temporarily takes the volunteer off duty. Adaptations support expeditions, research, or defense but never change rarity, count toward Continuity, become a settlement requirement, or make refusal a penalty." },
+      { label: "Voluntary Bioadaptation", detail: "The Voluntary Adaptation Charter lets an adult choose up to two permanent protocols. Treatment uses Flux, Axioms, and research evidence, and runs offline. Participation is optional and has no effect on rarity, Continuity, or settlement eligibility." },
       { label: "Training slots", detail: "One program can run per slot. Slots grow with population (+1 per 20 people) and the Adaptive Instruction and Clinical Commons research projects, up to 12." },
       { label: "Civilians", detail: "Highly adaptable recruits who can be trained around the exact needs of a future settlement." },
       { label: "Specialists", detail: "Arrive ready for a profession and improve through assigned work. Notable-or-better specialists can cross-train additional professions." },
-      { label: "Children and elders", detail: "Rescued family groups may include children and elders. Children attend school, never work or enter missions, and grow into adults after two planetary chapters. Elders may work, but AXIOM automatically places them only in medicine, research, navigation, or education." },
+      { label: "Children and elders", detail: "Rescued families may include children and elders. Children attend school and become adults after two planetary chapters. Elders may work in medicine, research, navigation, or education." },
       { label: "Ark protection", detail: "Use Protect for the Ark on a personnel file to keep a favorite or essential specialist off every planetary selection list until you remove the protection." },
-      { label: "Expeditions & health", detail: "The Expedition Bay always projects the outcome before launch. Setbacks send crew home wounded (below 40 health = RECOVERING); a projected DISTRESS would strand them at the site. Stranded crews are stable forever - send a rescue party (it can never strand itself) or, only by explicit choice, abandon them to the memorial wall. Nothing in the game kills crew automatically." },
+      { label: "Expeditions & health", detail: "The Bay projects each outcome before launch. A setback wounds the crew. Distress strands them safely at the site until you send a rescue party or choose a memorial outcome. Automatic events cannot kill crew." },
       { label: "Team Alpha", detail: "Appoint a crew leader plus up to three adult officers. Their combined Continuity Expertise becomes a Command Rating that boosts crew-wide study and job XP. A Training Doctrine fills empty study slots from Ark Reserve without pulling anyone off a station." },
     ],
     tip: "Roster order stays chronological. Color and visible labels identify rare profiles without hiding anyone or changing rescue priority.",
@@ -173,7 +173,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
     category: "Page guide · threat operations",
     title: "Prepare the Ark, then let it defend itself",
     summary:
-      "Travel hazards begin on the first interplanetary corridor, Cinder orbit teaches ash defense, and Nox reveals retrograde contacts. Installations, crew, equipment, research, drones, and two independent standing doctrines resolve every incident automatically online or offline.",
+      "Travel introduces environmental hazards. Cinder teaches orbital defense, and Nox reveals retrograde contacts. Prepare the Ark and choose standing orders; incidents then resolve automatically online or offline.",
     steps: [
       { title: "Build installation Marks", detail: "Shield Arrays carry readiness and reduce injuries; Repair Swarms speed recovery; the Early-Warning Relay extends forecasts; Point-Defense contests debris and hostile craft. Each installation advances from Mark I to IV through one offline project at a time." },
       { title: "Assign defenders", detail: "On-duty Soldier levels raise readiness and interception, Engineer levels add readiness and repair speed, and Navigator levels extend forecast lead time. Experience matters more than headcount." },
@@ -183,14 +183,14 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
       { title: "Prepare actual people", detail: "Nox contacts may injure eligible on-duty adult defenders. Ready armor reduces wound damage. Wounded crew are removed from duty and protected from further exposure; automatic events never kill them." },
       { title: "Purge targeted compromises", detail: "A failed defense can temporarily siphon Flux, quarantine research, seize one drone program, spoof the beacon, desynchronize the Core, or contaminate the Archive. Purges complete automatically offline and never delete state." },
       { title: "Read the incident report", detail: "Every resolution records its target, margin, injuries, compromise, rewards, and recovery time, so offline results remain explainable." },
-      { title: "Build the Causal Archive", detail: "Identified Ark contacts, attacks on restored worlds, Research, expeditions, and colony history are indexed together. The classifications advance from Unknown Contacts to Retrograde Vessels, Causal Interdictors, and provisionally The Returned; each stage grants a small visible readiness, identification, or forecast benefit." },
+      { title: "Build the Causal Archive", detail: "The Archive combines contact reports with research and colony evidence. New evidence changes the working classification and grants a small operational benefit." },
     ],
     sources: [
       { label: "Location-specific hazards", detail: "Transit produces asteroid, debris, ion, drive, and later Null hazards. Cinder produces ash storms; Nox produces Null shear and ion storms; Vesper produces Null shear and debris fronts. An old forecast is discarded when the Ark changes environment." },
       { label: "Mark economy", detail: "Higher Marks cost sharply more Flux, Salvage, Engineering Models, Schematics, and eventually Null Traces. Mark II-IV also require Defensive Forecasting, Autonomous Repair Swarms, and Causal Threat Projection respectively." },
       { label: "Worst case", detail: "A battered outcome temporarily reduces production by at most 25% while repairs run (six hours maximum, faster with drones and engineers). Damage never stacks deeper." },
       { label: "Null Traces", detail: "The Observe doctrine is the active way to gather Null Traces from Cinder onward." },
-      { label: "Causal Fragments", detail: "Identified contacts reveal evidence that they originate from damaged futures and may be trying to prevent something the Ark eventually causes. Some contacts protect civilians or preserve testimony. The Causal Archive calls its final current category The Returned, but the current campaign never proves who they are, whether their future is inevitable, or whether the Ark is the enemy." },
+      { label: "Causal Fragments", detail: "Fragments suggest that the contacts come from damaged futures and fear something the Ark may cause. Their actions sometimes protect civilians. The current campaign leaves their identity and the Ark's guilt unresolved." },
     ],
     tip: "The first corridor hazard waits 45 minutes. A fresh Defense ledger's first orbital hazard waits two hours; later environmental gaps are four to eight hours. First contact waits 90 minutes after hostile operations become possible.",
   },
@@ -200,15 +200,15 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
     category: "Page guide · medical bay",
     title: "Admit the hurt, staff the doctors, pay the power",
     summary:
-      "Everyone heals slowly on their own — that never stops and costs nothing. The Medical Bay is the fast lane: admitted patients do nothing but heal at a rate driven by Doctor levels. Research can improve recovery and lower the power diverted by each occupied bed.",
+      "Everyone recovers slowly at no cost. The Medical Bay speeds recovery using on-duty Doctor levels. Research can improve care and reduce the power used by occupied beds.",
     steps: [
-      { title: "Admit from the ward", detail: "Anyone below their health cap can be admitted. Admission clears their station: no work, no training, no missions, no founding, no Team Alpha contribution — just healing. Discharge anytime." },
-      { title: "Staff the bay with levels", detail: "The care pool is the summed doctor level of on-duty Doctors — one level-6 doctor tends like six level-1s. Care divides across patients, so a crowded bay heals each patient slower." },
-      { title: "Mind the diversion", detail: "Each occupied bed diverts 5% of ALL Flux production (capped at 40%). Healing is never about affording a fee — it is about how much of the ship you are willing to power down. People should aim to not get hurt." },
+      { title: "Admit from the ward", detail: "Anyone below their health cap can be admitted. A patient leaves all duties while healing and can be discharged at any time." },
+      { title: "Staff the bay with levels", detail: "Add the levels of all on-duty Doctors to get the care pool. Care divides across patients, so crowded wards heal each person more slowly." },
+      { title: "Mind the diversion", detail: "Each occupied bed diverts 5% of total Flux production, capped at 40%. The cost is reduced ship output during treatment." },
       { title: "Apply medical research", detail: "Clinical Commons, Planetary Epidemiology, and Synthetic Ecosystem Design each improve admitted recovery. The later two also lower the per-patient Flux diversion; the live summary always shows the exact rate." },
       { title: "Perform prosthetic surgery here", detail: "Permanent injuries are repaired only on ADMITTED patients: Prosthetic Fabrication research, a level-5 Doctor on duty, spare medical capacity, and Flux + Models + Bio Samples." },
     ],
-    tip: "An overloaded medical life-support envelope halves every healing rate — expand medical capacity before a big expedition push.",
+    tip: "An overloaded medical life-support envelope halves healing rates. Expand medical capacity before a difficult expedition.",
   },
   expeditions: {
     id: "expeditions",
@@ -219,7 +219,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
       "Every inhabited world has its own operation board. Crews of 2-4 run surveys, one-time story operations, difficult Continuity work, and repeatable resource routes. Future-world operations stay hidden, and every launch projects its result first.",
     steps: [
       { title: "Read the current-world board", detail: "The Bay shows only the planet currently below the Ark. Survey routes certify terrain; story operations reveal local history; resource routes can be repeated; orange Critical operations are required for Continuity." },
-      { title: "Prepare before selecting strength", detail: "Required checks are hard deployment conditions: research, weapons, armor, a qualified specialist, a prior operation, automation, or a voluntary adaptation. Checks with several options accept any listed solution. Recommended checks improve safety but never block launch." },
+      { title: "Prepare the mission", detail: "Required checks must be complete before launch. A check may ask for research, equipment, a specialist, prior field work, automation, or an adaptation. Recommended checks improve the projected result." },
       { title: "Build the crew", detail: "Each member adds their best profession level. Security specialists level 3+ add +2 strength, Researchers +1, Navigators 3+ shorten the trip. Gear from the Armory auto-equips." },
       { title: "Use research support", detail: "Surface Reconnaissance improves recovered resources. Defensive Forecasting and Specialized Field Loadouts add bounded strength, while the loadout program also improves returns. The projection shows both bonuses before launch." },
       { title: "Respect the projection", detail: "SUCCESS and LEAN are safe. SETBACK sends everyone home wounded. DISTRESS strands the party at the site - launching into either warning takes an extra confirm." },
@@ -229,13 +229,13 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
       { label: "Outcome bands", detail: "Success at strength >= difficulty; lean within 8 below; setback within 16; distress beyond that. Weapons add strength, armor absorbs wound damage." },
       { label: "XP", detail: "Members earn (60 + 6 x difficulty) XP to their profession, x1.5 when it matches the site's focus, scaled by outcome." },
     ],
-    tip: "Missions resolve fully offline. Later planets ask for more kinds of preparation, not merely larger numbers.",
+    tip: "Missions resolve fully offline. Later planets introduce new kinds of preparation alongside higher difficulty.",
   },
   armory: {
     id: "armory",
     label: "Armory",
     category: "Personnel guide · equipment development",
-    title: "Improve six trusted frames instead of collecting clutter",
+    title: "Improve six trusted equipment frames",
     summary:
       "The Armory belongs to Personnel because equipment exists to support people. The Ark maintains three weapon frames and three armor frames; Research unlocks them, the forge stocks them, and long-running Mark projects improve every copy of a frame at once.",
     steps: [
@@ -247,7 +247,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
       { title: "Prove and rewrite Armory laws", detail: "Research first proves Pattern Architecture, Recursive Manufacturing, Resonant Weapon Dynamics, and Impossible Material Synthesis. Axioms then make each law permanent." },
     ],
     sources: [
-      { label: "Weapons", detail: "Marks add bounded strength rather than exponential damage. A qualified crew and good team composition remain essential." },
+      { label: "Weapons", detail: "Marks add a bounded amount of strength. Crew expertise and team composition remain essential." },
       { label: "Armor", detail: "Marks improve mitigation and durability, but cannot remove expedition risk or replace medical preparation." },
       { label: "Health", detail: "Wounded crew (below 40 health) recover at +2/hour, faster with assigned Doctors. Expedition setbacks and Nox-class defense incidents can deal visible, bounded damage." },
     ],
@@ -299,7 +299,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
     ],
     sources: [
       { label: "Passive recovery", detail: "Always active, even with no crew aboard." },
-      { label: "Crew recovery", detail: "Added by working assignments, not merely by owning a specialist." },
+      { label: "Crew recovery", detail: "Generated by specialists actively working in relevant assignments." },
       { label: "Campaign caches", detail: "Awarded when Planetfall work advances and when a world is secured." },
     ],
     tip: "Early on, save enough Salvage to expand every life-support category and still pay the rescue signal's shuttle cost.",
@@ -333,7 +333,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
     label: "Biological Samples",
     category: "Research input · BIO",
     title: "Biological evidence begins with rescued life",
-    summary: "Biological Samples begin with rescued life, then grow through clinical and ecological work rather than raw headcount.",
+    summary: "Biological Samples begin with rescued life. Clinical and ecological work produce the continuing supply.",
     steps: [
       { title: "Rescue survivors", detail: "Each rescued person immediately adds 18 Biological Samples to Ark Supply." },
       { title: "Staff living sciences", detail: "On-duty Doctor and Farmer levels generate the strongest passive flow. A small baseline continues offline even when stations change." },
@@ -358,15 +358,15 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
     id: "schematics",
     label: "Schematics",
     category: "Research input · SCH",
-    title: "Designs the Ark cannot invent — only recover",
+    title: "Designs the Ark can only recover",
     summary:
       "Recovered Schematics fuel the Threat Operations research branch (weapons and armor tiers). Nothing aboard generates them: they arrive only with people and expeditions, which makes them one of the scarcest reservoirs in the game.",
     steps: [
-      { title: "Answer SOS signals", detail: "Every rescued group carries schematics in its cargo manifest — richer on later worlds." },
+      { title: "Answer SOS signals", detail: "Every rescued group carries schematics in its cargo manifest. Later worlds provide more." },
       { title: "Fly expeditions", detail: "Every site pays schematics on return, scaled by the outcome. Surveys are the steady repeatable source." },
       { title: "Spend them on Threat Operations", detail: "Weapon and armor research tiers are priced mostly in schematics. Transfer them into the Lattice like any evidence reservoir." },
     ],
-    tip: "Both sources are time-locked — scan cadence and mission clocks — so schematics can't be farmed by idling. Plan the branch around your rescue and expedition rhythm.",
+    tip: "Schematics arrive through timed rescue scans and expedition returns. Plan research around that cadence.",
   },
   "null-traces": {
     id: "null-traces",

@@ -521,7 +521,7 @@ function PopulationConsole({
               </span>
             ))}
           </div>
-          <small className="crew-rarity-note">Color measures how scarce a profile&apos;s aptitudes and traits are—never the worth of a person. Rarity speeds training and job XP and sets profession capacity (Standard 1 · Notable 2 · Exceptional 3 · Anomalous unlimited); it never multiplies Continuity expertise directly.</small>
+          <small className="crew-rarity-note">Color shows how unusual a crew profile is. Rarity speeds learning and sets profession capacity: Standard 1, Notable 2, Exceptional 3, Anomalous unlimited. Continuity expertise comes from profession levels.</small>
         </section>
         )}
       </div>
@@ -663,14 +663,14 @@ function PopulationConsole({
                 disabled={!teamAlpha.leaderId}
                 onChange={(event) => onSetDoctrine(event.target.value ? (event.target.value as ProfessionalRole) : null)}
               >
-                <option value="">{teamAlpha.leaderId ? "Off — train manually" : "Requires a crew leader"}</option>
+                <option value="">{teamAlpha.leaderId ? "Off: train manually" : "Requires a crew leader"}</option>
                 {PROFESSIONAL_ROLES.map((role) => (
                   <option key={role} value={role}>Lean {titleCase(role)}</option>
                 ))}
               </select>
             </label>
           </div>
-          <small className="crew-rarity-note">The doctrine fills empty study slots with the best eligible adult in Ark Reserve — it never cancels manual programs or pulls anyone off a station. The command bonus counts on-duty team members only; wounded or deployed officers pause their contribution.</small>
+          <small className="crew-rarity-note">The doctrine fills empty study slots with eligible adults in Ark Reserve. Manual programs and station assignments remain protected. Only on-duty team members provide the command bonus.</small>
         </section>
       )}
 
@@ -804,7 +804,7 @@ function PopulationConsole({
                   <small className="crew-rarity-note">A permanent {selectedCrew.injury} injury caps health at {getSurvivorHealthCap(selectedCrew)}. Founding a colony requires {FOUNDER_HEALTH_THRESHOLD}+ health.</small>
                 ) : null}
                 {selectedCrew.injury && (
-                  <small className="crew-rarity-note">Prosthetic surgery is performed in the Medical Bay — admit them there to repair this injury.</small>
+                  <small className="crew-rarity-note">Prosthetic surgery is performed in the Medical Bay. Admit this crew member there to repair the injury.</small>
                 )}
               </section>
               <div className="team-alpha-actions">
@@ -1030,7 +1030,7 @@ function PopulationConsole({
                 </div>
               ) : isSurvivorWounded(selectedCrew) ? (
                 <div className="crew-actions-grid">
-                  <label>Working assignment<select disabled value=""><option value="">{`Recovering — available again at ${WOUNDED_HEALTH_THRESHOLD} health`}</option></select></label>
+                  <label>Working assignment<select disabled value=""><option value="">{`Recovering: available again at ${WOUNDED_HEALTH_THRESHOLD} health`}</option></select></label>
                   <label>Training program<select disabled value=""><option value="">Recovering crew cannot train</option></select></label>
                 </div>
               ) : (
@@ -1039,7 +1039,7 @@ function PopulationConsole({
                   <label>Study a profession{getSurvivorProfessionCount(selectedCrew) >= getSurvivorProfessionCapacity(selectedCrew) ? (
                     <select disabled value=""><option value="">{`Profession capacity reached (${getSurvivorProfessionCapacity(selectedCrew)})`}</option></select>
                   ) : state.training.length >= state.trainingSlots ? (
-                    <select disabled value=""><option value="">{`All ${state.trainingSlots} training slots busy — more at +20 population or via research`}</option></select>
+                    <select disabled value=""><option value="">{`All ${state.trainingSlots} training slots busy. Gain more at +20 population or through Research.`}</option></select>
                   ) : (
                     <select defaultValue="" onChange={(event) => { if (event.target.value) onStartTraining(selectedCrew.id, event.target.value as ProfessionalRole); event.target.value = ""; }}><option value="">Choose profession…</option>{PROFESSIONAL_ROLES.filter((role) => canSurvivorLearnProfession(selectedCrew, role)).map((role) => { const quote = getTrainingQuote(selectedCrew, role); return <option key={role} value={role}>{titleCase(role)} · {formatTime(quote.durationSeconds / crewGrowthMultiplier)}</option>; })}</select>
                   )}</label>

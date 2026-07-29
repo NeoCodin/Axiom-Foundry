@@ -487,7 +487,7 @@ function SettlementConsole({
                           ))}
                         </div>
                       ) : (
-                        <span className="deficit-candidates-empty">No unselected crew can cover this yet — rescue, train, or fabricate equipment.</span>
+                        <span className="deficit-candidates-empty">No unselected crew can cover this yet. Rescue, train, or fabricate equipment.</span>
                       )
                     )}
                     <button

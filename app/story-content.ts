@@ -12,7 +12,7 @@ export const TOUR_STEPS = [
     target: "law-heart-core",
     eyebrow: "EMERGENCY POWER · LAW-HEART",
     title: "One machine still answers you",
-    body: "The Law-Heart is a damaged physics press. Strike its center to produce Flux—the temporary energy the Ark needs to wake rooms, build machines, and prepare for Pelagos.",
+    body: "The Law-Heart is a damaged physics press. Strike its center to produce Flux. The Ark uses Flux to wake rooms and build machines.",
     note: "The large central control is the only action you need right now.",
   },
   {
@@ -21,7 +21,7 @@ export const TOUR_STEPS = [
     eyebrow: "CURRENT ORDER · ONE STEP ONLY",
     title: "The active directive tells you what to do next",
     body: "Start by striking the Law-Heart twelve times. New controls reveal only after you have used the current one, and each newly awakened destination receives its own guided introduction.",
-    note: "Nothing expires. The Ark continues producing while the game is closed, and no hidden timer can erase progress.",
+    note: "Your progress is safe. Once automation begins, the Ark keeps producing while the game is closed.",
   },
 ] as const;
 
@@ -67,26 +67,26 @@ export const CONTEXT_GUIDES: Record<ContextGuideId, readonly ContextGuideStep[]>
     { target: "command-objective", eyebrow: "PROOF TRACKING · ACTIVE LAW", title: "Only the current law counts", body: "The objective strip and directive show which proof is charging. When the required run Flux is reached, prepare Recalibration from the Law-Heart.", note: "Proven Axioms survive every later cycle and eventually purchase permanent upgrades." },
   ],
   "cold-wake-continuity": [
-    { target: "planet-world", eyebrow: "PLANET · WORLD SIGNAL", title: "Pelagos is a destination, not a completed rescue", body: "This forecast describes the world ahead and estimates whether the Ark can safely approach it. The percentage is readiness, not a countdown.", note: "Cold Wake contains no settlers. You are restoring the empty Ark before it meets anyone." },
+    { target: "planet-world", eyebrow: "PLANET · WORLD SIGNAL", title: "Read the Pelagos approach forecast", body: "This forecast describes the world ahead and measures the Ark's approach readiness. The percentage shows completed preparation.", note: "The Ark is empty. Restore it before making contact with Pelagos." },
     { target: "planet-current-step", eyebrow: "PLANET · CURRENT RESTORATION", title: "One commissioning step remains active", body: "This panel names the only new action that matters now. Complete it before looking for another system.", note: "When a step is secured, the next destination or Ark room will introduce itself." },
-    { target: "planet-requirements", eyebrow: "PLANET · REQUIREMENT LEDGER", title: "The ledger records what is already secure", body: "Secured items collapse into a summary. Remaining items stay visible so you never have to guess why departure is locked.", note: "Later worlds expand this ledger with people, expertise, supplies, expeditions, and crises." },
+    { target: "planet-requirements", eyebrow: "PLANET · REQUIREMENT LEDGER", title: "See what is ready and what remains", body: "Completed items collapse into a summary. Unfinished items stay visible and explain what blocks departure.", note: "Later worlds add new kinds of requirements as you learn their systems." },
     { target: "planet-deficits", eyebrow: "PLANET · EXACT NEXT ACTION", title: "Deficits translate the ledger into instructions", body: "This box lists only unfinished requirements and points toward the precise action that resolves each one.", note: "Authorize the Foundry wake-up from the staged commissioning panel when this tour closes." },
   ],
   "cold-wake-foundry": [
     { target: "foundry-heading", eyebrow: "FOUNDRY · FABRICATION DECK", title: "The Foundry turns one law into an industry", body: "The Law-Heart proved that the motion works. This deck repeats that motion across a larger fabrication bus.", note: "Cold Wake exposes only one machine line here. Later mechanisms remain hidden." },
     { target: "foundry-law-heart", eyebrow: "FOUNDRY · LAW-HEART TRANSFER", title: "The star you woke remains the center", body: "The same Law-Heart from the opening deck is now mounted inside the commissioned Foundry. It remains clickable, keeps every earned Axiom, and continues visualizing the production you have built.", note: "Ark Command shows the ship. Manual Flux production always remains here beside the fabrication chain." },
-    { target: "foundry-chain", eyebrow: "FOUNDRY · NESTED MECHANISMS", title: "Machines create the idle economy", body: "Build the highlighted Vacuum Taps until the commissioning directive is complete. Purchase modes change quantity, not the underlying price curve.", note: "The next Ark view will appear only after this single task is secure." },
+    { target: "foundry-chain", eyebrow: "FOUNDRY · NESTED MECHANISMS", title: "Machines produce Flux while you are away", body: "Build the highlighted Vacuum Taps until commissioning is complete. Purchase modes change how many you buy at once. Unit prices follow the same curve.", note: "Finish this task to reveal the Ark view." },
   ],
   "cold-wake-ark": [
-    { target: "ark-visual", eyebrow: "ARK · COMMAND OVERVIEW", title: "The Law-Heart belongs to a much larger ship", body: "This cutaway shows the Ark as physical rooms. Lit rooms are usable; dark rooms are previews, not new responsibilities.", note: "The Axiom Chamber is a status monitor here. Manual Flux production belongs to the Foundry." },
-    { target: "ark-commissioning-room", eyebrow: "ARK · RESTORATION ORDER", title: "The highlighted room is the work itself", body: "Route available Flux directly into the room awaiting commissioning. Partial contributions are saved permanently, so you never need the entire reserve at once.", note: "Navigation wakes first. The Ark will highlight Life Support next." },
+    { target: "ark-visual", eyebrow: "ARK · COMMAND OVERVIEW", title: "See the ship around the Law-Heart", body: "This cutaway shows the Ark's rooms. Lit rooms are ready. Dark rooms show what the Ark may recover later.", note: "Command monitors the ship. Use the Foundry to produce Flux by hand." },
+    { target: "ark-commissioning-room", eyebrow: "ARK · RESTORATION ORDER", title: "Restore the highlighted room", body: "Route available Flux into the room awaiting commissioning. Each contribution is saved, so you can fund it in several payments.", note: "Navigation wakes first. Life Support follows." },
     { target: "ark-room-support", eyebrow: "ARK · HUMAN-SAFE RESERVE", title: "The empty ship must become habitable", body: "After navigation, this room warms the atmosphere, water, nutrition, and medical loops needed before Pelagos first contact.", note: "Personnel remains hidden because there are no people aboard yet." },
   ],
   "cold-wake-departure": [
     { target: "planet-departure", eyebrow: "COLD WAKE · DEPARTURE AUTHORITY", title: "Approach is now a deliberate choice", body: "The three laws, navigation, and life-support reserve are ready. Commit the final approach Flux over any number of payments, then authorize Pelagos orbit here.", note: "Departure has no timer and no partial contribution can be lost." },
   ],
   "pelagos-arrival": [
-    { target: "ark-visual", eyebrow: "PELAGOS ORBIT · ARK OVERVIEW", title: "The Ark is now a ship, not a production button", body: "Command shows the Ark's rooms, population systems, destination, and physical condition. Its Axiom Chamber reports Foundry output but no longer produces Flux when clicked.", note: "The interactive Law-Heart now lives on the Foundry page beside the machines it powers." },
+    { target: "ark-visual", eyebrow: "PELAGOS ORBIT · ARK OVERVIEW", title: "Command now monitors the whole Ark", body: "This view tracks the Ark's rooms, population systems, destination, and physical condition. The chamber display reports Foundry output.", note: "Open the Foundry whenever you want to strike the Law-Heart." },
     { target: "ark-sos-array", eyebrow: "PELAGOS · FIRST CONTACT", title: "The SOS Array holds every receiving-deck check", body: "Power the receiver with Vacuum Taps in the Foundry, then return to Continuity as each first-contact operation becomes ready.", note: "Personnel will remain hidden until actual witnesses are safely aboard." },
   ],
   "pelagos-sos": [
@@ -95,10 +95,10 @@ export const CONTEXT_GUIDES: Record<ContextGuideId, readonly ContextGuideStep[]>
   ],
   "pelagos-foundry-expansion": [
     { target: "foundry-law-heart", eyebrow: "PELAGOS FOUNDRY · LAW-HEART", title: "Production has one visible center", body: "Strike the Law-Heart for manual Flux. Every mechanism below repeats or strengthens the same motion, so the clicker and factory now share one page.", note: "Planetary plans and departure requirements remain in Continuity." },
-    { target: "foundry-chain", eyebrow: "PELAGOS FOUNDRY · EXPANDED FLOOR", title: "The chain explains what the Law-Heart is automating", body: "Build the receiver's highlighted Vacuum Taps here. Later machine tiers extend the same visible chain rather than appearing as unrelated boxes.", note: "Protocols, Recalibration, and Autonomy remain sealed until a named production milestone introduces them." },
+    { target: "foundry-chain", eyebrow: "PELAGOS FOUNDRY · EXPANDED FLOOR", title: "Watch automation grow around the Law-Heart", body: "Build the highlighted Vacuum Taps to power the receiver. Later machine tiers extend this chain and increase automatic production.", note: "New Foundry controls open when their production milestone appears." },
   ],
   "pelagos-personnel": [
-    { target: "personnel-summary", eyebrow: "PERSONNEL · ARK POPULATION", title: "These are people, not production units", body: "The summary tracks capacity, community size, available study slots, answered signals, and Salvage without hiding the limits behind a submenu.", note: "Rarity describes how unusual a person's aptitude profile is; it never measures human worth." },
+    { target: "personnel-summary", eyebrow: "PERSONNEL · ARK POPULATION", title: "Meet the first people aboard", body: "The summary tracks living-space capacity, community size, study slots, answered signals, and Salvage.", note: "Rarity shows how unusual an aptitude profile is. Every crew member has equal standing aboard the Ark." },
     { target: "personnel-tabs", eyebrow: "PERSONNEL · ONE WORKSPACE", title: "Start with the people themselves", body: "Only Crew Roster is available during this handoff. Rescue support, command doctrine, medicine, and equipment reveal later when the community creates a real need for them.", note: "Select a name before learning another Personnel system." },
     { target: "personnel-roster", eyebrow: "PERSONNEL · CREW ROSTER", title: "Select a name to open the complete file", body: "Each row shows role, health, assignment, and rarity. The personnel file makes profession level, experience, callsign, and Continuity contribution explicit.", note: "AXIOM can automate routine placement, but manual assignments remain protected." },
   ],
@@ -106,16 +106,16 @@ export const CONTEXT_GUIDES: Record<ContextGuideId, readonly ContextGuideStep[]>
     { target: "personnel-support-tab", eyebrow: "PERSONNEL · RESCUE & SUPPORT", title: "The roster has unlocked its first operational workspace", body: "Rescue & Support now holds continuing signals, living-space construction, and life-support capacity. These controls moved here after the first rescue so they have human context.", note: "The Ark keeps the SOS status; Personnel performs all continuing support work." },
   ],
   "pelagos-medical": [
-    { target: "medical-console", eyebrow: "PERSONNEL FACILITY · MEDICAL", title: "Medical opens when care becomes real work", body: "The Medical Bay treats wounded crew and supports planetary crises. It did not appear with the first healthy witnesses because an empty clinic was not yet a responsibility.", note: "Care continues offline. Nobody dies because the page was closed." },
+    { target: "medical-console", eyebrow: "PERSONNEL FACILITY · MEDICAL", title: "The Medical Bay is ready", body: "Treat wounded crew here and prepare medical support for planetary crises.", note: "Care continues while the game is closed. Closing the page cannot kill a patient." },
   ],
   "pelagos-command": [
-    { target: "personnel-command-tab", eyebrow: "PERSONNEL · COMMAND", title: "A larger crew now needs standing policy", body: "Command manages Team Alpha, automated assignments, and training doctrine only after the Ark has enough trained people for those choices to matter.", note: "Automation never overwrites a manual assignment you protected." },
+    { target: "personnel-command-tab", eyebrow: "PERSONNEL · COMMAND", title: "Set policy for a growing crew", body: "Command manages Team Alpha, routine assignments, and training doctrine.", note: "Protected manual assignments stay under your control." },
   ],
   "pelagos-expeditions": [
     { target: "expedition-console", eyebrow: "ARK FACILITY · EXPEDITION BAY", title: "Field work begins after the Ark has a real crew", body: "Every Pelagos operation shows its difficulty, preparations, projected outcome, and whether it is repeatable. Crews return automatically, including while the game is closed.", note: "The first critical operations also feed Continuity; later expeditions provide resources and story evidence." },
   ],
   "pelagos-gravity-ferry": [
-    { target: "foundry-chain", eyebrow: "PELAGOS FOUNDRY · SECOND MECHANISM", title: "First contact has given fabrication a new purpose", body: "The Phase Coil appears only now because the gravity-ferry directive requires it. Coils do not replace Vacuum Taps; they form the next nested layer of the same production chain.", note: "Build 10 new Phase Coils. Their visible output, cost, and milestone bar all belong to this cycle." },
+    { target: "foundry-chain", eyebrow: "PELAGOS FOUNDRY · SECOND MECHANISM", title: "Add Phase Coils to the chain", body: "The gravity ferry needs a stronger mechanism. Phase Coils form the next layer above Vacuum Taps.", note: "Build 10 Phase Coils. Their output and milestone progress last for this cycle." },
   ],
   "pelagos-protocols": [
     { target: "foundry-protocols", eyebrow: "FOUNDRY CONSOLE · CORE PROTOCOLS", title: "Compile a temporary law for this cycle", body: "Core Protocols improve the current fabrication cycle. Each has three substantial Marks, and each card previews exactly what the next Mark changes.", note: "Marks reset during Recalibration. A blueprint can remember the configuration for AXIOM to rebuild later." },
@@ -125,25 +125,25 @@ export const CONTEXT_GUIDES: Record<ContextGuideId, readonly ContextGuideStep[]>
   ],
   "pelagos-automation": [
     { target: "foundry-automation", eyebrow: "FOUNDRY CONSOLE · AUTONOMY", title: "The first Pelagos law can operate the factory", body: "After the first normal Recalibration, Autonomy and the Legacy Matrix open together. Autonomy begins offline: enable Autonomous fabrication yourself when you want AXIOM to spend Flux on machines.", note: "Tier switches choose what it may buy. Protocol routing rebuilds only the Marks stored in your blueprint." },
-    { target: "foundry-legacy", eyebrow: "FOUNDRY CONSOLE · LEGACY MATRIX", title: "Lifetime milestones create permanent capacity", body: "The Matrix does not spend your Axioms. Lifetime Axiom milestones reveal capacity that you assign across three bounded permanent branches.", note: "Assignments can be revised after Recalibration, so this is a long-term configuration rather than another resource purchase." },
+    { target: "foundry-legacy", eyebrow: "FOUNDRY CONSOLE · LEGACY MATRIX", title: "Assign permanent capacity", body: "Lifetime Axiom milestones unlock Matrix capacity. Assign those points across its permanent branches. Your Axiom total remains unchanged.", note: "You can revise assignments after Recalibration." },
   ],
   "viridia-research": [
     { target: "research-header", eyebrow: "VIRIDIA · ANALYSIS CORE", title: "Pelagos created evidence; Viridia creates Research", body: "The Analysis Core opens now because the Ark has a crew, a restored settlement to study, and a living biosphere that cannot be repaired by fabrication alone.", note: "Research was intentionally absent from Pelagos so its people and Continuity systems could be learned first." },
-    { target: "research-programs", eyebrow: "RESEARCH · CHOOSE A PROGRAM", title: "Work on one deliberate capability at a time", body: "Programs begin in the Technology Map. Prerequisites reveal a path instead of exposing the entire tree at once.", note: "Auxiliary Power Routing is the first available project and is built from Pelagos field records." },
-    { target: "research-evidence", eyebrow: "RESEARCH · EVIDENCE STORES", title: "Projects consume evidence, not Flux alone", body: "Calibration Data, Engineering Models, Biological Samples, and Cultural Records accumulate through Ark activity. Transfer only the inputs the active program needs.", note: "The source of every evidence type is written directly beneath its store." },
+    { target: "research-programs", eyebrow: "RESEARCH · CHOOSE A PROGRAM", title: "Choose one program", body: "Open the Technology Map to select a project. Completing prerequisites reveals the next part of each branch.", note: "Begin with Auxiliary Power Routing, built from Pelagos field records." },
+    { target: "research-evidence", eyebrow: "RESEARCH · EVIDENCE STORES", title: "Load the evidence your project needs", body: "Ark activity produces several kinds of evidence. Transfer the types listed by the active program.", note: "Each evidence store explains where its supply comes from." },
     { target: "research-network", eyebrow: "RESEARCH · EVIDENCE FLOW", title: "Evidence must pass through the Analysis Core", body: "Routes turn stored evidence into theory, prototypes, field validation, and synthesis. AXIOM provides a safe layout; staffing and later automation improve throughput.", note: "Research continues offline and field validation accelerates work without becoming a hard gate." },
     { target: "research-crew", eyebrow: "RESEARCH · CREW EXPERTISE", title: "Researchers and specialists materially change the result", body: "Healthy assigned crew contribute the expertise required by the current stage. A qualified Research lead and relevant field activity provide bounded, visible improvements.", note: "By the time Cinder introduces Defense, every foundational destination has now been taught." },
   ],
   "transit-defense": [
-    { target: "defense-console", eyebrow: "ARK FACILITY · DEFENSE GRID", title: "Route hazards resolve through standing preparation", body: "The Grid forecasts environmental danger and, later, unknown contacts. Events resolve automatically online or offline; you set policy and readiness instead of fighting a reflex battle.", note: "Early routes teach environmental defense. Hostile contacts remain hidden until the campaign has evidence they exist." },
-    { target: "defense-tabs", eyebrow: "DEFENSE GRID · FOUR STATIONS", title: "Forecast, policy, construction, and reports stay separate", body: "Threat Monitor shows the next event and likely result. Standing Orders set automatic behavior, Fortifications improve readiness, and After Action preserves what occurred.", note: "A poor result causes injuries, repairs, or temporary setbacks—never deleted progress or an offline colony death." },
+    { target: "defense-console", eyebrow: "ARK FACILITY · DEFENSE GRID", title: "Prepare for route hazards", body: "The Grid forecasts environmental danger and later tracks unknown contacts. Set a standing order and build readiness. Events then resolve automatically, online or offline.", note: "Early routes begin with environmental hazards." },
+    { target: "defense-tabs", eyebrow: "DEFENSE GRID · FOUR STATIONS", title: "Move from forecast to report", body: "Threat Monitor previews the next event. Standing Orders set the response. Fortifications improve readiness. After Action records the result.", note: "Poor results cause injuries, repairs, or temporary setbacks. Progress and restored colonies remain safe." },
   ],
   "frontier-armory": [
-    { target: "armory-console", eyebrow: "PERSONNEL FACILITY · ARMORY", title: "Equipment supports people; it does not replace them", body: "The Ark keeps three weapon patterns and three armor patterns. Research unlocks them, Salvage and Flux build them, and crew carry the finished frames into expeditions and defense.", note: "You do not need to manage a pile of disposable weapon types." },
+    { target: "armory-console", eyebrow: "PERSONNEL FACILITY · ARMORY", title: "Equip crews for difficult operations", body: "The Ark keeps three weapon patterns and three armor patterns. Research unlocks them. Flux and Salvage build them. Crew carry finished equipment into expeditions and defense.", note: "Improve these six trusted patterns as the campaign grows harder." },
     { target: "armory-tabs", eyebrow: "ARMORY · THREE STATIONS", title: "Inventory, development, and laws answer different questions", body: "Inventory shows what is ready. Development forges, repairs, and improves a selected frame. Permanent Laws use difficult late-game proofs to strengthen every matching pattern.", note: "Locked frames name the exact Research program that reveals them." },
   ],
   "synthesis-drones": [
-    { target: "foundry-drones", eyebrow: "FOUNDRY SYSTEM · UTILITY DRONES", title: "Automation now supports trained crew", body: "Research has unlocked reusable drone frames. Allocate each frame to maintenance, medicine, Research, expeditions, construction, defense, or personnel logistics.", note: "Drones multiply or support human expertise; they never replace the qualified person a system requires." },
+    { target: "foundry-drones", eyebrow: "FOUNDRY SYSTEM · UTILITY DRONES", title: "Assign drones to support the crew", body: "Research has unlocked reusable drone frames. Assign each frame to one support program.", note: "A drone improves qualified crew work. Systems that require a specialist still need that person." },
   ],
 };
 
@@ -177,7 +177,7 @@ export const LORE_ENTRIES = [
     title: "A vessel for unfinished worlds",
     tag: "The Ark",
     paragraphs: [
-      "The Axiom Foundry is an interplanetary ark, factory, school, and observatory. It does not evacuate a dying planet and abandon it; it restores a population capable of remaining behind.",
+      "The Axiom Foundry carries the tools needed to restart a world. Its mission ends when a local population can remain and govern itself.",
       "Its present manifest contains no living passengers. Pelagos is the first reachable survivor signal.",
     ],
   },
@@ -200,7 +200,7 @@ export const LORE_ENTRIES = [
     tag: "Axioms",
     paragraphs: [
       "The Foundry repeats an operation until local space can no longer contradict it, then condenses that proof into an Axiom kernel.",
-      "Axioms are not fuel for space travel. They make travel possible by insisting that mass attracts mass, cause precedes effect, and a hull remains one hull.",
+      "Axioms preserve laws the Ark has proven. During travel, they keep gravity, causality, and the hull itself consistent.",
     ],
   },
   {
@@ -222,7 +222,7 @@ export const LORE_ENTRIES = [
     tag: "Planetary settlement",
     paragraphs: [
       "A world is stable only when infrastructure, supplies, research, population, and required expertise can continue without the Ark. The caretaker selects founders; the forecast identifies every remaining deficit.",
-      "Founders are never erased from the roster. Their colony continues to transmit, trade, grow, and occasionally disagree with AXIOM's approved plan.",
+      "Founders move into the colony record after departure. Their settlements keep transmitting and developing, sometimes beyond AXIOM's plan.",
     ],
   },
 ] as const;

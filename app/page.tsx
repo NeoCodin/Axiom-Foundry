@@ -373,7 +373,7 @@ function getNextObjective(state: GameState) {
       };
     }
     return {
-      label: "Engineering directive complete — continuity review required",
+      label: "Engineering directive complete. Continuity review required.",
       threshold: 1,
       current: 1,
       progress: 1,

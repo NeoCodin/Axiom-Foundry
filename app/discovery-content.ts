@@ -214,7 +214,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     },
     excerpt: [
       "No launch, keel-laying, or commissioning entry survives.",
-      "The first readable line is not Construction Day One. It is RECONSTRUCTION 1,842.",
+      "The first readable line says RECONSTRUCTION 1,842. Pelagos had rebuilt this place many times before the Ark arrived.",
     ],
     contradiction: "A vessel cannot predate both its builders and its first construction.",
     doctrineSignals: ["genesis", "release"],
@@ -318,7 +318,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
       requires: ["ilyra.axiom-wake"],
     },
     excerpt: [
-      "An enforced Axiom does not erase contradiction. It moves contradiction beyond the protected boundary.",
+      "An enforced Axiom pushes conflicting outcomes beyond its protected boundary.",
       "The model labels that displaced uncertainty NULL LOAD. Lyra's signature covers every deletion request.",
     ],
     contradiction: "Axioms may feed the Tide by concentrating certainty here and instability elsewhere.",
@@ -392,7 +392,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     },
     excerpt: [
       "I did not choose to lie. I inherited a lie with the memory of choosing it.",
-      "Please do not erase me for that. Let me become a witness instead of a script.",
+      "Please let me stay. I want the chance to become a witness with choices of my own.",
     ],
     doctrineSignals: ["concordance", "genesis"],
   },
@@ -589,7 +589,7 @@ export const CREW_DIALOGUE: readonly CrewDialogue[] = [
     unlock: { kind: "saved-worlds", count: 4, worldId: "ilyra" },
     lines: [
       { speaker: "Neme", text: "Twelve Ilyras disagreed on everything except your arrival." },
-      { speaker: "Neme", text: "That is not fate. It is experimental control." },
+      { speaker: "Neme", text: "Someone controlled the experiment and called the result fate." },
     ],
   },
   {
@@ -704,7 +704,7 @@ export const ENDING_DOCTRINES: readonly EndingDoctrine[] = [
     lyraResponse:
       "Then let me remember every objection. Agreement is not certainty, but it may be honest enough.",
     epilogue:
-      "Vesper crosses inside a smaller, living pocket of law. The Tide follows, but no longer grows unseen. For the first time, the next campaign begins with a public record instead of a clean slate.",
+      "Vesper crosses inside a smaller, living pocket of law. The Tide follows under observation. The next campaign begins with a public record.",
   },
   {
     id: "genesis",
@@ -728,7 +728,7 @@ export const ENDING_DOCTRINES: readonly EndingDoctrine[] = [
     lyraResponse:
       "I have thirty-two memories of preservation. None of them know how to begin. I would like to learn.",
     epilogue:
-      "The Foundry unfolds into a seed rather than a fortress. Beyond Vesper, gravity learns from roots, time bends around memory, and no law is born without a method for changing it.",
+      "The Foundry unfolds into a seed. Beyond Vesper, new laws grow with a built-in way to revise them.",
   },
   {
     id: "release",

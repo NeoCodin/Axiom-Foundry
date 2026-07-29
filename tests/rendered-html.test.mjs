@@ -90,7 +90,7 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(page, /destinationIntroduction\?\.view/);
   assert.match(page, /setInterfaceIntroduction/);
   assert.match(page, /Commission the Foundry Deck/);
-  assert.match(tutorialEngine, /The Ark has people, not statistics/);
+  assert.match(tutorialEngine, /Meet the first people aboard/);
   assert.match(page, /createQaPlanetIntroductionCheckpoint/);
   assert.doesNotMatch(arkDeck, /onTuneCore|Tune the Core/);
   assert.match(arkDeck, /Law-Heart power bus/);
@@ -170,7 +170,7 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.doesNotMatch(page, /className=.*tune-button/);
   assert.match(page, /Fabrication Chain/);
   assert.match(settlementConsole, /Nothing expires/);
-  assert.match(layout, /Axiom Foundry — Restore Worlds\. Question Your Orders\./);
+  assert.match(layout, /Axiom Foundry\. Restore Worlds\. Question Your Orders\./);
   assert.doesNotMatch(page, /SkeletonPreview|codex-preview/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.match(css, /\.machine-panel\s*\{[^}]*overflow:\s*clip/s);
@@ -200,7 +200,7 @@ test("removes all temporary starter-preview wiring", async () => {
     assert.match(layout, new RegExp(`import "\\./${stylesheet}\\.css"`));
     assert.match(pagesEntry, new RegExp(`import "\\.\\./app/${stylesheet}\\.css"`));
   }
-  assert.match(story, /Axioms are not fuel for space travel/);
+  assert.match(story, /Axioms preserve laws the Ark has proven/);
   assert.match(story, /When the Ark may leave/);
   for (const topic of ["Ark", "Foundry", "Research", "Crew", "Continuity", "Biological Samples", "Cultural Records", "Ark Supply", "Salvage"]) {
     assert.match(manual, new RegExp(topic));

@@ -585,7 +585,7 @@ export const MISSIONS = [
         target: 1,
         label: "Prove the law of Transit",
         instruction: "Charge one final cycle, then Recalibrate so the Ark arrives as the same vessel that departed.",
-        lore: "Transit is not speed. It is proof that departure, passage, and arrival belong to the same history.",
+        lore: "Transit proves that departure, passage, and arrival belong to one continuous history.",
       },
       {
         kind: "tierPurchaseDelta",
@@ -747,7 +747,7 @@ export const MISSIONS = [
         target: 250_000_000,
         label: "Seed the planetary clinic network",
         instruction: "Divert 250 million Flux into Viridia's clinic and seed network.",
-        lore: "The final charge gives every enclave tools to treat the forest as a neighbor rather than an enemy.",
+        lore: "The final charge gives every enclave tools to live safely beside the forest.",
       },
     ],
     landingFlux: 50_000,
@@ -850,7 +850,7 @@ export const MISSIONS = [
     landingFlux: 100_000_000,
     rewardLabel: "Open Record + colony relay + 100-million-Flux transit cache",
     success:
-      "Nox does not agree on one past. It agrees that no machine should be allowed to choose one in secret.",
+      "Nox preserves several accounts of its past. Its people agree that no machine may choose the official version in secret.",
   },
   {
     world: "Vesper",
