@@ -67,7 +67,7 @@
 .archive-category-tabs button {
   position: relative;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: 1fr auto;
   align-items: center;
   min-height: 52px;
   padding: 8px 12px;
@@ -79,15 +79,9 @@
   text-align: left;
 }
 
-.archive-category-tabs button > span,
 .archive-category-tabs button > small {
   font-family: var(--font-number);
   font-size: 12px;
-}
-
-.archive-category-tabs button > span {
-  margin-right: 10px;
-  color: #4e6d75;
 }
 
 .archive-category-tabs button > strong {
@@ -115,7 +109,6 @@
   color: #e4fffc;
 }
 
-.archive-category-tabs button.active > span,
 .archive-category-tabs button.active > small {
   color: var(--flux);
 }
@@ -125,6 +118,10 @@
   grid-template-columns: minmax(220px, 0.32fr) minmax(0, 1fr);
   min-height: 0;
   overflow: hidden;
+}
+
+.archive-tablet-body.has-single-page {
+  grid-template-columns: 1fr;
 }
 
 .archive-entry-index {
@@ -167,7 +164,7 @@
 
 .archive-entry-index > div > button {
   display: grid;
-  grid-template-columns: 34px 1fr;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   min-height: 48px;
   padding: 8px;
@@ -179,12 +176,6 @@
   text-align: left;
 }
 
-.archive-entry-index > div > button > span {
-  color: #48646b;
-  font-family: var(--font-number);
-  font-size: 12px;
-}
-
 .archive-entry-index > div > button > strong {
   overflow: hidden;
   font-family: var(--font-display);
@@ -192,6 +183,13 @@
   letter-spacing: 0.025em;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.archive-entry-index > div > button > small {
+  color: #607b82;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .archive-entry-index > div > button:hover,
@@ -205,10 +203,6 @@
   background: #0d252d;
   box-shadow: inset 4px 0 0 var(--flux);
   color: #e4fffc;
-}
-
-.archive-entry-index > div > button.active > span {
-  color: var(--flux);
 }
 
 .archive-entry-index > small {
@@ -253,6 +247,20 @@
   font-size: 12px;
   letter-spacing: 0.1em;
 }
+
+.archive-reader-page > header .archive-confidence {
+  display: inline-flex;
+  width: max-content;
+  padding: 4px 7px;
+  border: 1px solid currentColor;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.archive-confidence.is-confirmed { color: #76dca0; }
+.archive-confidence.is-suspected { color: #e6bd63; }
+.archive-confidence.is-contradictory { color: #ff7a82; }
+.archive-confidence.is-unknown { color: #8da4ad; }
 
 .archive-reader-page > header small {
   color: #6d8a90;
@@ -435,7 +443,6 @@
     padding: 6px 8px;
   }
 
-  .archive-category-tabs button > span,
   .archive-category-tabs button > small {
     display: none;
   }
@@ -473,10 +480,6 @@
     grid-template-columns: auto;
     min-width: 120px;
     min-height: 42px;
-  }
-
-  .archive-entry-index > div > button > span {
-    display: none;
   }
 
   .archive-reader-copy {

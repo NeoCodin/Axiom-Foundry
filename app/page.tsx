@@ -4031,7 +4031,9 @@ export default function Home() {
         <GameManualDialog
           topicId={manualTopic}
           availablePages={availableManualPages}
+          priorities={commandPriorities}
           onSelectTopic={setManualTopic}
+          onNavigate={handleCommandPriorityNavigate}
           onClose={() => setManualTopic(null)}
         />
       )}

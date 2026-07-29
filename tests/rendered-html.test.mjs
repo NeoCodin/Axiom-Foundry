@@ -146,8 +146,11 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.doesNotMatch(page, /className="lore-grid"|className="ledger-worlds"/);
   assert.match(loreArchive, /archive-category-tabs/);
   assert.match(loreArchive, /archive-reader-page/);
-  assert.match(loreArchive, /Previous record/);
-  assert.match(loreArchive, /unknown records remain unnamed/i);
+  assert.match(loreArchive, /Story So Far/);
+  assert.match(loreArchive, /People & Places/);
+  assert.match(loreArchive, /Recovered Records/);
+  assert.match(loreArchive, /Open Questions/);
+  assert.match(loreArchive, /only discovered information appears here/i);
   assert.doesNotMatch(loreArchive, /lore-grid|ledger-worlds/);
   assert.match(page, /!game\.missions\.awaitingAcknowledgement/);
   assert.match(page, /The Foundry Floor/);
