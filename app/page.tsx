@@ -489,8 +489,6 @@ export default function Home() {
     useState<CoreEchoPreviewId | null>(null);
   const [loreOpen, setLoreOpen] = useState(false);
   const [manualTopic, setManualTopic] = useState<ManualTopicId | null>(null);
-  const [manualContextTopic, setManualContextTopic] =
-    useState<ManualTopicId | null>(null);
   const [tooltipsEnabled, setTooltipsEnabled] = useState(true);
   const [qaMode, setQaMode] = useState(false);
   const [publicRecoveryHandled, setPublicRecoveryHandled] = useState(true);
@@ -511,13 +509,11 @@ export default function Home() {
   }, [game]);
 
   const openManual = useCallback((topic: ManualTopicId) => {
-    setManualContextTopic(topic);
     setManualTopic(topic);
   }, []);
 
   const closeManual = useCallback(() => {
     setManualTopic(null);
-    setManualContextTopic(null);
   }, []);
 
   useEffect(() => {
@@ -4099,11 +4095,9 @@ export default function Home() {
 
       {manualTopic && (
         <GameManualDialog
-          topicId={manualTopic}
-          currentTopicId={manualContextTopic ?? primaryView}
+          currentTopicId={manualTopic}
           availablePages={availableManualPages}
           priorities={commandPriorities}
-          onSelectTopic={setManualTopic}
           onNavigate={handleCommandPriorityNavigate}
           onClose={closeManual}
         />

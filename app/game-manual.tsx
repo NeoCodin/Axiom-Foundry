@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { SURVIVOR_RARITY_DEFINITIONS } from "./survivor-engine";
 import { CONTINUITY_EXPERTISE_PRESENTATION } from "./continuity-expertise";
@@ -448,27 +448,26 @@ export function HelpTrigger({
 }
 
 export function GameManualDialog({
-  topicId,
   currentTopicId,
   availablePages,
   priorities,
-  onSelectTopic,
   onNavigate,
   onClose,
 }: {
-  topicId: ManualTopicId;
   currentTopicId: ManualTopicId;
   availablePages: readonly ManualPageId[];
   priorities: readonly CommandPriority[];
-  onSelectTopic: (topicId: ManualTopicId) => void;
   onNavigate: (priority: CommandPriority) => void;
   onClose: () => void;
 }) {
-  const topic = MANUAL_TOPICS[topicId];
   const currentPageTopic = MANUAL_TOPICS[currentTopicId];
   const researchAvailable = availablePages.includes("research");
   const [section, setSection] = useState<"next" | "page" | "manual">("next");
   const [query, setQuery] = useState("");
+  const [manualTopicId, setManualTopicId] = useState<ManualTopicId>(
+    availablePages[0] ?? "deck",
+  );
+  const manualTopic = MANUAL_TOPICS[manualTopicId];
   const availableTopicIds = useMemo(() => [
     ...availablePages,
     ...RESOURCE_TOPIC_IDS.filter((resourceId) => resourceId === "salvage" || researchAvailable),
@@ -521,10 +520,6 @@ export function GameManualDialog({
   }, [currentPageTopic]);
   const nextActions = priorities.slice(0, 3);
 
-  useEffect(() => {
-    if (section === "page" && topicId !== currentTopicId) onSelectTopic(currentTopicId);
-  }, [currentTopicId, onSelectTopic, section, topicId]);
-
   return (
     <div className="manual-layer">
       <button className="modal-backdrop" type="button" aria-label="Close field manual" onClick={onClose} />
@@ -540,7 +535,7 @@ export function GameManualDialog({
 
         <nav className="game-manual-sections" aria-label="Guide sections">
           <button className={section === "next" ? "is-active" : ""} type="button" onClick={() => setSection("next")}><strong>Do this next</strong><small>{nextActions.length} useful actions</small></button>
-          <button className={`${section === "page" ? "is-active" : ""} is-page-context`} type="button" onClick={() => { onSelectTopic(currentTopicId); setSection("page"); }}><strong>Current page <i>THIS SCREEN</i></strong><small>{currentPageTopic.label}</small></button>
+          <button className={`${section === "page" ? "is-active" : ""} is-page-context`} type="button" onClick={() => setSection("page")}><strong>Current page <i>THIS SCREEN</i></strong><small>{currentPageTopic.label}</small></button>
           <button className={section === "manual" ? "is-active" : ""} type="button" onClick={() => setSection("manual")}><strong>Field manual</strong><small>Search unlocked systems</small></button>
         </nav>
 
@@ -632,7 +627,7 @@ export function GameManualDialog({
                 <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Try “Salvage”, “Research”, or “Crew levels”" />
                 {suggestions.length > 0 && <div className="manual-search-suggestions" role="listbox" aria-label="Suggested manual results">
                   <small>Suggested results</small>
-                  {suggestions.map((id) => <button type="button" role="option" aria-selected={topicId === id} key={id} onClick={() => { onSelectTopic(id); setQuery(""); }}>
+                  {suggestions.map((id) => <button type="button" role="option" aria-selected={manualTopicId === id} key={id} onClick={() => { setManualTopicId(id); setQuery(""); }}>
                     <strong>{MANUAL_TOPICS[id].label}</strong><span>{MANUAL_TOPICS[id].category}</span>
                   </button>)}
                 </div>}
@@ -643,20 +638,19 @@ export function GameManualDialog({
                   {availableCategories.map((category) => <section className="manual-topic-category" key={category.id}>
                     <header><strong>{category.label}</strong><small>{category.description}</small></header>
                     <div>{category.topics.map((id) => (
-                      <button className={`${topicId === id ? "is-active" : ""} ${currentTopicId === id ? "is-current-page" : ""}`} type="button" key={id} onClick={() => onSelectTopic(id)}>
+                      <button className={manualTopicId === id ? "is-active" : ""} type="button" key={id} onClick={() => setManualTopicId(id)}>
                         <strong>{MANUAL_TOPICS[id].label}</strong>
-                        {currentTopicId === id ? <span>THIS PAGE</span> : null}
                       </button>
                     ))}</div>
                   </section>)}
                 </nav>
                 <article>
-                  <span>{topic.category}</span>
-                  <h3>{topic.label}</h3>
-                  <p>{topic.summary}</p>
+                  <span>{manualTopic.category}</span>
+                  <h3>{manualTopic.label}</h3>
+                  <p>{manualTopic.summary}</p>
                   <dl>
-                    {topic.steps.map((step) => <div key={step.title}><dt>{step.title}</dt><dd>{step.detail}</dd></div>)}
-                    {topic.sources?.map((source) => <div key={source.label}><dt>{source.label}</dt><dd>{source.detail}</dd></div>)}
+                    {manualTopic.steps.map((step) => <div key={step.title}><dt>{step.title}</dt><dd>{step.detail}</dd></div>)}
+                    {manualTopic.sources?.map((source) => <div key={source.label}><dt>{source.label}</dt><dd>{source.detail}</dd></div>)}
                   </dl>
                 </article>
               </div>

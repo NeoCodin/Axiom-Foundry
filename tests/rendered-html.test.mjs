@@ -189,10 +189,11 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(researchCss, /\.research-lattice-analysis-core\s*\{/);
   assert.match(manualCss, /\.game-manual\s*\{/);
   assert.match(manual, /Suggested results/);
-  assert.match(manual, /THIS PAGE/);
+  assert.doesNotMatch(manual, /THIS PAGE/);
   assert.match(manual, /Ark & Foundry/);
-  assert.match(page, /manualContextTopic/);
+  assert.doesNotMatch(page, /manualContextTopic/);
   assert.match(manual, /currentTopicId/);
+  assert.match(manual, /manualTopicId/);
   assert.match(manualCss, /\.manual-action-grid\.count-1/);
   assert.match(awakeningCss, /\.living-foundry-nav\s*\{[^}]*position:\s*fixed/s);
   assert.match(pixelCss, /Share Tech Mono/);
