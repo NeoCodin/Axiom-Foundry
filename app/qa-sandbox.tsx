@@ -4,12 +4,33 @@ import { useState, type FormEvent } from "react";
 
 import { CAMPAIGN_WORLD_IDS, getCampaignWorld } from "./campaign-content";
 import {
+  CORE_ECHO_PREVIEWS,
+  type CoreEchoPreviewId,
+} from "./core-echo-preview";
+import {
   DEFAULT_LAW_HEART_QA_OVERRIDE,
   LAW_HEART_SPECTRA,
   type LawHeartQaEventKind,
   type LawHeartQaOverride,
   type LawPressState,
 } from "./law-heart-particle-field";
+import { CONTEXT_GUIDES, type ContextGuideId } from "./story-content";
+
+export type QaGuidePreviewId = "orientation" | ContextGuideId;
+
+const QA_GUIDE_OPTIONS: readonly {
+  id: QaGuidePreviewId;
+  label: string;
+}[] = [
+  { id: "orientation", label: "Cold Wake · Opening orientation" },
+  ...Object.keys(CONTEXT_GUIDES).map((id) => ({
+    id: id as ContextGuideId,
+    label: id
+      .split("-")
+      .map((word) => word[0]?.toUpperCase() + word.slice(1))
+      .join(" "),
+  })),
+];
 
 type QaSandboxProps = {
   collapsed: boolean;
@@ -20,6 +41,8 @@ type QaSandboxProps = {
   onReplayPlanetIntroduction: () => void;
   onReplayPelagosIntroduction: () => void;
   onReplayResearchIntroduction: () => void;
+  onPreviewGuide: (guideId: QaGuidePreviewId) => void;
+  onPreviewCoreEcho: (previewId: CoreEchoPreviewId) => void;
   onGrantResources: () => void;
   onAddFlux: (amount: number) => void;
   onSetAxioms: (amount: number) => void;
@@ -47,6 +70,8 @@ export function QaSandbox({
   onReplayPlanetIntroduction,
   onReplayPelagosIntroduction,
   onReplayResearchIntroduction,
+  onPreviewGuide,
+  onPreviewCoreEcho,
   onGrantResources,
   onAddFlux,
   onSetAxioms,
@@ -68,6 +93,10 @@ export function QaSandbox({
   const [customFluxError, setCustomFluxError] = useState("");
   const [customAxioms, setCustomAxioms] = useState("24");
   const [customAxiomError, setCustomAxiomError] = useState("");
+  const [selectedGuideId, setSelectedGuideId] =
+    useState<QaGuidePreviewId>("orientation");
+  const [selectedEchoId, setSelectedEchoId] =
+    useState<CoreEchoPreviewId>(CORE_ECHO_PREVIEWS[0].id);
 
   const updateLawHeart = (patch: Partial<LawHeartQaOverride>) => {
     onLawHeartOverrideChange({ ...lawHeartOverride, ...patch });
@@ -146,6 +175,46 @@ export function QaSandbox({
               <button type="button" onClick={onReplayResearchIntroduction}>Viridia Research handoff</button>
             </div>
             <small className="qa-section-help">These run the same blocking guides and unlock presentation as the public game.</small>
+          </section>
+          <section className="qa-preview-library">
+            <span>GUIDE LIBRARY</span>
+            <label>
+              <small>Choose any public guide</small>
+              <select
+                value={selectedGuideId}
+                onChange={(event) => setSelectedGuideId(event.target.value as QaGuidePreviewId)}
+              >
+                {QA_GUIDE_OPTIONS.map((guide) => (
+                  <option key={guide.id} value={guide.id}>{guide.label}</option>
+                ))}
+              </select>
+            </label>
+            <button type="button" onClick={() => onPreviewGuide(selectedGuideId)}>
+              Preview selected guide
+            </button>
+            <small className="qa-section-help">
+              Opens the real guide copy without changing unlocks, completion flags, or either save.
+            </small>
+          </section>
+          <section className="qa-preview-library">
+            <span>CORE ECHO LAB</span>
+            <label>
+              <small>Choose a flashback study</small>
+              <select
+                value={selectedEchoId}
+                onChange={(event) => setSelectedEchoId(event.target.value as CoreEchoPreviewId)}
+              >
+                {CORE_ECHO_PREVIEWS.map((echo) => (
+                  <option key={echo.id} value={echo.id}>{echo.timestamp} · {echo.title}</option>
+                ))}
+              </select>
+            </label>
+            <button type="button" onClick={() => onPreviewCoreEcho(selectedEchoId)}>
+              Enter selected Echo
+            </button>
+            <small className="qa-section-help">
+              Draft visual previews only. They never move the Ark, spend resources, or write progress.
+            </small>
           </section>
           <section>
             <span>TEST OVERRIDES</span>

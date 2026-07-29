@@ -293,7 +293,11 @@ import {
 } from "./tutorial-engine";
 import { PixelTooltipLayer } from "./pixel-tooltip-layer";
 import { ContextualGuide } from "./contextual-guide";
-import { QaSandbox } from "./qa-sandbox";
+import { QaSandbox, type QaGuidePreviewId } from "./qa-sandbox";
+import {
+  CoreEchoPreview,
+  type CoreEchoPreviewId,
+} from "./core-echo-preview";
 import {
   QA_QUERY_PARAMETER,
   QA_SAVE_KEY,
@@ -473,6 +477,12 @@ export default function Home() {
     id: ContextGuideId;
     step: number;
   } | null>(null);
+  const [qaGuidePreview, setQaGuidePreview] = useState<{
+    id: QaGuidePreviewId;
+    step: number;
+  } | null>(null);
+  const [qaCoreEchoPreview, setQaCoreEchoPreview] =
+    useState<CoreEchoPreviewId | null>(null);
   const [loreOpen, setLoreOpen] = useState(false);
   const [manualTopic, setManualTopic] = useState<ManualTopicId | null>(null);
   const [tooltipsEnabled, setTooltipsEnabled] = useState(true);
@@ -2719,6 +2729,20 @@ export default function Home() {
             setTourStep(null);
             setContextGuide(null);
           }}
+          onPreviewGuide={(guideId) => {
+            setLoreOpen(false);
+            setManualTopic(null);
+            setQaCoreEchoPreview(null);
+            setQaCollapsed(true);
+            setQaGuidePreview({ id: guideId, step: 0 });
+          }}
+          onPreviewCoreEcho={(previewId) => {
+            setLoreOpen(false);
+            setManualTopic(null);
+            setQaGuidePreview(null);
+            setQaCollapsed(true);
+            setQaCoreEchoPreview(previewId);
+          }}
           onGrantResources={() => applyQaState(grantQaResources(gameRef.current), "QA resources stocked.")}
           onAddFlux={(amount) => {
             const next = addQaFlux(gameRef.current, amount);
@@ -3941,6 +3965,50 @@ export default function Home() {
           onBack={retreatContextGuide}
           onNext={advanceContextGuide}
           onSkip={finishContextGuide}
+        />
+      )}
+
+      {qaMode && qaGuidePreview && (
+        <ContextualGuide
+          label={
+            qaGuidePreview.id === "orientation"
+              ? "QA preview · Cold Wake orientation"
+              : `QA preview · ${qaGuidePreview.id.replaceAll("-", " ")}`
+          }
+          steps={
+            qaGuidePreview.id === "orientation"
+              ? TOUR_STEPS
+              : CONTEXT_GUIDES[qaGuidePreview.id]
+          }
+          stepIndex={qaGuidePreview.step}
+          finalLabel="Close preview"
+          onBack={() =>
+            setQaGuidePreview((current) =>
+              current
+                ? { ...current, step: Math.max(0, current.step - 1) }
+                : null,
+            )
+          }
+          onNext={() =>
+            setQaGuidePreview((current) => {
+              if (!current) return null;
+              const steps =
+                current.id === "orientation"
+                  ? TOUR_STEPS
+                  : CONTEXT_GUIDES[current.id];
+              return current.step >= steps.length - 1
+                ? null
+                : { ...current, step: current.step + 1 };
+            })
+          }
+          onSkip={() => setQaGuidePreview(null)}
+        />
+      )}
+
+      {qaMode && qaCoreEchoPreview && (
+        <CoreEchoPreview
+          previewId={qaCoreEchoPreview}
+          onClose={() => setQaCoreEchoPreview(null)}
         />
       )}
 
