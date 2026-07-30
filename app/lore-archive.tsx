@@ -69,24 +69,29 @@ type ArchivePage = {
 
 const CATEGORY_COPY: Record<ArchiveCategoryId, { label: string; description: string }> = {
   story: { label: "Story So Far", description: "A short recap of what AXIOM currently understands." },
-  laws: { label: "Laws", description: "The physical promises the Law-Heart has proven and can carry." },
+  laws: { label: "Law Book", description: "Proven laws and the physical ideas AXIOM has learned enough to explain." },
   people: { label: "People & Places", description: "The Ark, AXIOM, and every world reached so far." },
   records: { label: "Recovered Records", description: "Logs, transmissions, evidence, and contradictions already discovered." },
   questions: { label: "Open Questions", description: "Mysteries the evidence has not answered yet." },
 };
 
-function buildLawPages(laws: readonly ArchiveLawEntry[]): ArchivePage[] {
+function buildLawPages(
+  laws: readonly ArchiveLawEntry[],
+  worldsSaved: number,
+  fragmentCount: number,
+  causalScore: number,
+): ArchivePage[] {
   const overview: ArchivePage = {
     id: "laws-overview",
     category: "laws",
-    tabLabel: "What is a law?",
-    title: "A law is a promise reality keeps",
+    tabLabel: "Read this first",
+    title: "What the Law Book records",
     source: "Law-Heart operating model",
     confidence: laws.length > 0 ? "confirmed" : "unknown",
     paragraphs: laws.length > 0
       ? [
-          "The Null damaged more than places. It damaged the rules that let matter, motion, memory, and living bodies remain consistent.",
-          `The Law-Heart has proven ${laws.length} ${laws.length === 1 ? "law" : "laws"} so far. A proven law can be carried by the Ark and used to keep unstable space coherent.`,
+          "A physical law describes an outcome reality normally keeps consistent. A Law-Heart can prove one of those outcomes, hold it locally, and carry that proof through damaged space.",
+          `AXIOM has proven ${laws.length} ${laws.length === 1 ? "law" : "laws"} and recorded the related ideas it can currently support with evidence. Later discoveries may revise these explanations.`,
         ]
       : [
           "The Law-Heart appears able to hold broken physical rules in place, but AXIOM has not proven a portable law yet.",
@@ -94,7 +99,7 @@ function buildLawPages(laws: readonly ArchiveLawEntry[]): ArchivePage[] {
         ],
     facts: [{ label: "Proven laws", value: String(laws.length), state: laws.length > 0 ? "stable" : "locked" }],
   };
-  return [
+  const pages: ArchivePage[] = [
     overview,
     ...laws.map((law): ArchivePage => ({
       id: `law-${law.id}`,
@@ -107,6 +112,88 @@ function buildLawPages(laws: readonly ArchiveLawEntry[]): ArchivePage[] {
       facts: [{ label: "Status", value: "Proven and portable", state: "stable" }],
     })),
   ];
+  if (laws.length > 0) {
+    pages.push({
+      id: "lawbook-flux",
+      category: "laws",
+      tabLabel: "Flux",
+      title: "Flux",
+      source: "Law-Heart energy telemetry",
+      confidence: "confirmed",
+      paragraphs: [
+        "Flux is usable energy released while local reality settles into a rule imposed by the Law-Heart.",
+        "Machines consume Flux because holding, repeating, and extending a law requires continuous work. Flux is an effect of law enforcement, not matter created from nothing.",
+      ],
+      facts: [
+        { label: "Seen in play", value: "Production, construction, and active operations", state: "stable" },
+        { label: "Current limit", value: "AXIOM cannot yet account for every displaced outcome", state: "warning" },
+      ],
+    }, {
+      id: "lawbook-axiom",
+      category: "laws",
+      tabLabel: "Axioms",
+      title: "Axioms",
+      source: "Recalibration record",
+      confidence: "confirmed",
+      paragraphs: [
+        "An Axiom is a repeatable proof that reality will continue accepting a specific rule after the machinery that discovered it has been rebuilt.",
+        "Recalibration discards temporary Flux and machines while preserving these proven laws. That is why Axioms survive between Foundry cycles.",
+      ],
+      facts: [{ label: "Seen in play", value: "Permanent progression through Recalibration", state: "stable" }],
+    });
+  }
+  if (worldsSaved >= 1) {
+    pages.push({
+      id: "lawbook-null",
+      category: "laws",
+      tabLabel: "The Null",
+      title: "The Null",
+      source: "Planetary restoration evidence",
+      confidence: causalScore > 0 ? "suspected" : "unknown",
+      paragraphs: [
+        "The Null is not empty space. It is a causal medium in which rejected possibilities and incompatible histories leave measurable pressure.",
+        "A Law-Heart strengthens one permitted outcome locally. AXIOM now suspects that the outcomes it rejects do not simply vanish.",
+      ],
+      contradiction: causalScore > 0
+        ? "Some recovered signals cross distances that ordinary space cannot explain."
+        : "The Ark can measure Null damage but cannot yet explain where the displaced possibilities go.",
+    });
+  }
+  if (worldsSaved >= 2 || fragmentCount >= 3 || causalScore > 0) {
+    pages.push({
+      id: "lawbook-causal-distance",
+      category: "laws",
+      tabLabel: "Causal distance",
+      title: "Causal distance",
+      source: "Cross-world and anomalous-signal comparison",
+      confidence: "suspected",
+      paragraphs: [
+        "Universes are not separated by an ordinary number of kilometers. Causal distance measures how difficult it is for information, pressure, or matter to cross between realities.",
+        "The distance between universes is decided by the difference in the laws and histories that govern them. Realities with compatible constants, events, identities, and Law-Heart signatures are causally closer even when no spatial route connects them.",
+      ],
+      facts: [
+        { label: "Seen in play", value: "Related signals can cross through the Null", state: "warning" },
+        { label: "Current theory", value: "Similarity creates a usable causal route", state: "warning" },
+      ],
+      contradiction: "A small number of signals appear to come from realities that should be too different to reach.",
+    });
+  }
+  if (causalScore >= 2 || fragmentCount >= 8) {
+    pages.push({
+      id: "lawbook-nexus",
+      category: "laws",
+      tabLabel: "Nexus Events",
+      title: "Nexus Events",
+      source: "Causal contact evidence",
+      confidence: "suspected",
+      paragraphs: [
+        "A Nexus Event is a temporary region where multiple histories become similar enough to share a causal route.",
+        "Such a route may carry information or limited matter, but it requires a surviving signal and a destination whose laws can support arrival.",
+      ],
+      facts: [{ label: "Current danger", value: "A coherent Law-Heart pulse may act as an arrival anchor", state: "warning" }],
+    });
+  }
+  return pages;
 }
 
 function buildStoryPages(
@@ -305,7 +392,7 @@ export function LoreArchive({
 }: LoreArchiveProps) {
   const pagesByCategory = useMemo(() => ({
     story: buildStoryPages(memoryEntries, fragments, causalArchive, worlds, worldsSaved),
-    laws: buildLawPages(laws),
+    laws: buildLawPages(laws, worldsSaved, fragments.length, causalArchive.score),
     people: buildPeoplePages(worlds),
     records: buildRecordPages(memoryEntries, fragments, causalArchive, nextFragment, onCrossIndex),
     questions: buildQuestionPages(fragments, causalArchive, worlds),
