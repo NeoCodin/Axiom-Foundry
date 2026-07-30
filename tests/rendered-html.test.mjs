@@ -147,7 +147,8 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(loreArchive, /archive-category-tabs/);
   assert.match(loreArchive, /archive-reader-page/);
   assert.match(loreArchive, /Story So Far/);
-  assert.match(loreArchive, /A law is a promise reality keeps/);
+  assert.match(loreArchive, /What the Law Book records/);
+  assert.match(loreArchive, /Causal distance/);
   assert.match(loreArchive, /buildLawPages/);
   assert.match(loreArchive, /People & Places/);
   assert.match(loreArchive, /Recovered Records/);
