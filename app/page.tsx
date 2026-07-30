@@ -2475,7 +2475,7 @@ export default function Home() {
   if (autonomyUnlocked) {
     foundryConsoleTabs.push({
       id: "autonomy",
-      label: "AXIOM Autonomy",
+      label: "Foundry Autonomy",
       shortLabel: "Autonomy",
     });
   }
@@ -2816,7 +2816,7 @@ export default function Home() {
           onSetAxioms={(amount) =>
             applyQaState(
               setQaAxioms(gameRef.current, amount),
-              `QA profile set to ${formatNumber(amount)} spendable and lifetime Axioms.`,
+              `QA profile set to ${formatNumber(amount)} spendable and proven Axioms.`,
             )
           }
           lawHeartOverride={qaLawHeartOverride}
@@ -3781,7 +3781,7 @@ export default function Home() {
                 </button>
               </div>
             )}
-            <p className="axiom-definition">Axioms are permanent laws that keep ships, time, and matter consistent inside the Null Tide.</p>
+            <p className="axiom-definition">An Axiom is a portable proof that one compatible law can survive the collapse and rebuilding of its Foundry configuration.</p>
             {!confirmPrestige ? (
               <button
                 className="prestige-button"
@@ -3809,7 +3809,7 @@ export default function Home() {
             <div className="panel-heading">
               <div>
                 <p className="section-kicker">Cycle control</p>
-                <h2>AXIOM Autonomy</h2>
+                <h2>Foundry Autonomy</h2>
               </div>
               <span className={`status-chip ${game.settings.autoEnabled ? "online" : ""}`}>{game.settings.autoEnabled ? "ACTIVE" : "OFF"}</span>
             </div>
@@ -3881,7 +3881,7 @@ export default function Home() {
                       onChange={(event) => setGame((current) => setAutoUpgrades(current, event.target.checked))}
                     />
                   </label>
-                  {game.lifetimeAxioms < 3 && <p>Protocol routing unlocks at 3 lifetime Axioms.</p>}
+                  {game.lifetimeAxioms < 3 && <p>Protocol routing unlocks at 3 proven Axioms.</p>}
                 </section>
               </>
             )}
@@ -3900,7 +3900,7 @@ export default function Home() {
               </span>
             </div>
             <p className="panel-copy legacy-intro">
-              Lifetime Axiom milestones reveal permanent Matrix Capacity. Assign that capacity across three bounded branches; spendable Axioms are never consumed here.
+              Proven Axiom milestones reveal permanent Matrix Capacity. The Matrix records safe relationships among those proofs; assigning capacity never consumes spendable Axioms.
             </p>
             <div className="legacy-capacity-readout">
               <div>
@@ -3912,7 +3912,7 @@ export default function Home() {
                 <strong>
                   {legacyMatrixStatus.nextMilestone === null
                     ? "MATRIX COMPLETE"
-                    : `${legacyMatrixStatus.nextMilestone} LIFETIME AXIOMS`}
+                    : `${legacyMatrixStatus.nextMilestone} PROVEN AXIOMS`}
                 </strong>
               </div>
               <div>

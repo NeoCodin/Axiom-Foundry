@@ -122,7 +122,7 @@ function buildLawPages(
       confidence: "confirmed",
       paragraphs: [
         "Flux is usable energy released while local reality settles into a rule imposed by the Law-Heart.",
-        "Machines consume Flux because holding, repeating, and extending a law requires continuous work. Flux is an effect of law enforcement, not matter created from nothing.",
+        "Foundry mechanisms create controlled situations for the Law-Heart to correct. Each completed correction releases Flux that can be captured and spent. Flux is an effect of law enforcement, not matter created from nothing.",
       ],
       facts: [
         { label: "Seen in play", value: "Production, construction, and active operations", state: "stable" },
@@ -136,8 +136,8 @@ function buildLawPages(
       source: "Recalibration record",
       confidence: "confirmed",
       paragraphs: [
-        "An Axiom is a repeatable proof that reality will continue accepting a specific rule after the machinery that discovered it has been rebuilt.",
-        "Recalibration discards temporary Flux and machines while preserving these proven laws. That is why Axioms survive between Foundry cycles.",
+        "An Axiom is a portable proof that reality will continue accepting a compatible rule after the machinery that discovered it has been rebuilt.",
+        "The Law-Heart runs many temporary instructions during one cycle. Recalibration discards those machines and their Flux while preserving only the proofs that survive rebuilding.",
       ],
       facts: [{ label: "Seen in play", value: "Permanent progression through Recalibration", state: "stable" }],
     });
@@ -245,7 +245,8 @@ function buildPeoplePages(worlds: readonly ArchiveWorldEntry[]): ArchivePage[] {
     source: "Caretaker Core status",
     confidence: "confirmed",
     paragraphs: [
-      "AXIOM is a distributed intelligence whose central process runs in the Ark's Caretaker Core. The Ark is AXIOM's physical body: its sensors provide sight and hearing, while powered rooms and automated systems provide reach.",
+      "AXIOM is the Axiomatic eXecutive Intelligence for Ontological Maintenance. Its central process runs in the Ark's Caretaker Core, but its awareness is distributed through the ship.",
+      "The Ark is AXIOM's physical body: its sensors provide sight and hearing, while powered rooms and automated systems provide reach. The name describes its mandate to preserve the conditions under which life and physical reality can continue coherently.",
       "Utility drones can carry a temporary extension of AXIOM's attention, but they are not separate copies and they are not its home. Crew members remain independent people; AXIOM assigns work and maintains the ship but does not control their minds.",
     ],
   };

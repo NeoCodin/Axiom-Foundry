@@ -103,7 +103,7 @@ export function FoundryLawHeart({
             <em>STRIKE LAW +{manualGainLabel}</em>
           </span>
           <span className="foundry-law-heart-rate"><small>FIELD VELOCITY</small><strong>{fluxPerSecondLabel}/sec</strong></span>
-          <span className="foundry-law-heart-axiom-count"><strong>{lifetimeAxiomsLabel}</strong><small> LIFETIME AXIOMS</small></span>
+          <span className="foundry-law-heart-axiom-count"><strong>{lifetimeAxiomsLabel}</strong><small> PROVEN AXIOMS</small></span>
           {pulseSerial > 0 && <span className="foundry-law-heart-gain" key={`foundry-law-gain-${pulseSerial}`} aria-hidden="true">+{manualGainLabel}</span>}
         </button>
       </div>

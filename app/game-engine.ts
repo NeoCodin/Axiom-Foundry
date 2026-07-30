@@ -385,7 +385,7 @@ export const GENERATORS = [
     unlockAt: 1_000_000,
   },
   {
-    name: "Axiom Engine",
+    name: "Constraint Engine",
     shortName: "Engine",
     description: "Runs a proven law of motion in a loop and taxes it every cycle.",
     produces: "Flux",
@@ -828,7 +828,7 @@ export const MISSIONS = [
         tierIndex: 4,
         target: 1,
         label: "Build the public archive relay",
-        instruction: "Build 1 new Axiom Engine.",
+        instruction: "Build 1 new Constraint Engine.",
         lore: "The Engine signs every public record so no hidden authority can replace it without leaving evidence.",
       },
       {
@@ -2177,7 +2177,7 @@ export function getResearchFieldValidation(
       add("expeditions", "Deep-field routes", `${expeditions} current-world expeditions triangulate local signals.`, expeditions);
       break;
     case "axiom-theory":
-      add("axioms", "Proven Axioms", `${state.lifetimeAxioms} lifetime Axioms survived recalibration.`, state.lifetimeAxioms * 0.5);
+      add("axioms", "Proven Axioms", `${state.lifetimeAxioms} proven Axioms survived Recalibration.`, state.lifetimeAxioms * 0.5);
       add("cycles", "Recalibration cycles", `${Math.max(0, state.cycle - 1)} rebuilt assemblies provide causal comparisons.`, Math.max(0, state.cycle - 1));
       add("laws", "Armory laws", `${Object.values(state.armory.laws).reduce((sum, level) => sum + level, 0)} permanent manufacturing laws are active.`, Object.values(state.armory.laws).reduce((sum, level) => sum + level, 0));
       break;
