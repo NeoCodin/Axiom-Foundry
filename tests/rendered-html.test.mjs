@@ -222,8 +222,11 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(survivorEngine, /anomalous/);
   assert.match(survivorEngine, /QUALITY_PITY_LIMIT/);
   assert.match(survivorEngine, /learningMultiplier: 2/);
-  assert.match(populationConsole, /CURRENT PROFESSION/);
-  assert.match(populationConsole, /PROFESSION XP/);
+  assert.match(populationConsole, /CURRENT JOB/);
+  assert.match(populationConsole, /Nickname/);
+  assert.match(populationConsole, /HEALTH/);
+  assert.match(populationConsole, /EXPERIENCE/);
+  assert.match(populationConsole, /Unavailable while recovering/);
   assert.match(populationConsole, /CONTINUITY CONTRIBUTION/);
   assert.match(settlementConsole, /How this is counted/);
   assert.match(

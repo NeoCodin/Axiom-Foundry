@@ -733,7 +733,7 @@ function PopulationConsole({
                           ? titleCase(survivor.assignedRole)
                           : "Reserve";
                 return (
-                  <button className={`crew-rarity-${rarity.id} ${selectedCrew?.id === survivor.id ? "is-selected" : ""} ${reserve ? "is-idle" : ""}`} type="button" key={survivor.id} onClick={() => setSelectedCrewId(survivor.id)}>
+                  <button className={`crew-rarity-${rarity.id} ${selectedCrew?.id === survivor.id ? "is-selected" : ""} ${reserve ? "is-idle" : ""} ${wounded ? "is-recovering" : ""}`} type="button" key={survivor.id} onClick={() => setSelectedCrewId(survivor.id)}>
                     <CrewToken id={survivor.id} name={survivor.name} role={survivor.assignedRole ?? survivor.role} rarity={rarity.id} status={wounded ? "wounded" : training ? "training" : "ready"} />
                     <span><strong>{survivor.callsign ? `“${survivor.callsign}” ${survivor.name}` : survivor.name}</strong><small>{titleCase(survivor.ageGroup)} · {titleCase(survivor.gender ?? "unspecified")} · {adapting ? "Bioadaptation procedure" : training ? `Studying ${titleCase(training.targetRole)} · ${Math.round((training.progressSeconds / training.durationSeconds) * 100)}%` : survivor.role === "civilian" ? titleCase(survivor.assignedRole ?? "Ark Reserve") : `${titleCase(survivor.role)} · Level ${getSurvivorSkillLevel(survivor, survivor.role)} · ${titleCase(survivor.assignedRole ?? "Ark Reserve")}`}</small>{(wounded || survivor.injury || survivor.health < MAX_SURVIVOR_HEALTH) && <HealthBar survivor={survivor} />}</span>
                     <span className="crew-roster-status">
@@ -757,23 +757,30 @@ function PopulationConsole({
         <section className={`continuity-panel crew-detail-panel ${selectedRarity ? `crew-rarity-${selectedRarity.id}` : ""}`}>
           {selectedCrew ? (
             <>
-              <header><div><span>PERSONNEL FILE</span><h3>{selectedCrew.name}</h3></div><div className="crew-file-classification"><em className="crew-rarity-badge" title={selectedRarity?.description}>{selectedRarity?.label}</em><small>{titleCase(selectedCrew.ageGroup)} · {titleCase(selectedCrew.gender ?? "Unspecified")} · {selectedCrew.storyHookId ? "Archive discrepancy attached" : `Joined from ${titleCase(selectedCrew.origin)}`}</small></div></header>
+              <header><div><span>PERSONNEL FILE</span><h3>{selectedCrew.name}</h3></div><div className="crew-file-classification"><em className="crew-rarity-badge" title={selectedRarity?.description}>{selectedRarity?.label}</em></div></header>
+              <form className="crew-callsign-form crew-nickname-form" onSubmit={submitCallsign}><label htmlFor="crew-callsign">Nickname</label><input id="crew-callsign" name="callsign" maxLength={18} defaultValue={selectedCrew.callsign} placeholder="Optional nickname" /><button type="submit">Save</button></form>
               <div className="crew-detail-identity">
                 <CrewToken id={selectedCrew.id} name={selectedCrew.name} role={selectedCrew.assignedRole ?? selectedCrew.role} rarity={selectedRarity?.id} status={isSurvivorWounded(selectedCrew) ? "wounded" : "ready"} large />
-                <div>
+                <div className="crew-identity-copy">
                   <strong>{selectedCrew.ageGroup === "child" ? "Child · Education program" : selectedProfessionalRole && selectedSkillProgress ? `${titleCase(selectedProfessionalRole)} · Level ${selectedSkillProgress.level}` : "Civilian · Ready to learn"}</strong>
                   <small>{BACKGROUND_DEFINITIONS.find((item) => item.id === selectedCrew.backgroundId)?.summary ?? titleCase(selectedCrew.backgroundId)}</small>
+                  <small className="crew-identity-meta">{titleCase(selectedCrew.ageGroup)} · {titleCase(selectedCrew.gender ?? "Unspecified")} · {selectedCrew.storyHookId ? "Special archive record" : `Rescued from ${titleCase(selectedCrew.origin)}`}</small>
                 </div>
+                <section className={`crew-health-summary ${isSurvivorWounded(selectedCrew) ? "is-recovering" : ""}`} aria-label="Health">
+                  <div><span>HEALTH</span><strong>{Math.round(selectedCrew.health)} / {getSurvivorHealthCap(selectedCrew)}</strong></div>
+                  <HealthBar survivor={selectedCrew} />
+                  {isSurvivorWounded(selectedCrew) ? <small>RECOVERING · Returns to duty at {WOUNDED_HEALTH_THRESHOLD} health</small> : selectedCrew.injury ? <small>{titleCase(selectedCrew.injury)} injury · Medical Bay treatment available</small> : <small>Ready for duty</small>}
+                </section>
               </div>
               <section className="crew-career-summary" aria-label="Profession and experience summary">
                 <div className="crew-career-heading">
                   <div>
-                    <span>CURRENT PROFESSION</span>
+                    <span>CURRENT JOB</span>
                     <strong>{selectedCrew.ageGroup === "child" ? "EDUCATION · PROTECTED" : selectedProfessionalRole && selectedSkillProgress ? `${titleCase(selectedProfessionalRole)} · LEVEL ${selectedSkillProgress.level}` : "CIVILIAN · READY TO STUDY"}</strong>
                     <small>{selectedCrew.ageGroup === "child" ? `Becomes an adult after ${Math.max(0, 2 - selectedCrew.ageProgress)} more planetary chapter${2 - selectedCrew.ageProgress === 1 ? "" : "s"}.` : selectedJobRole ? `${getSurvivorOnJobXpPerHour(selectedCrew, selectedJobRole, crewGrowthMultiplier).toFixed(1)} XP/hour while assigned as ${titleCase(selectedJobRole)}` : "Ark Reserve covers absences and performs light maintenance."}</small>
                   </div>
                   <div className="crew-learning-rate">
-                    <span>PERSONAL LEARNING</span>
+                    <span>LEARNING SPEED</span>
                     <strong>×{getSurvivorLearningMultiplier(selectedCrew).toFixed(2)}</strong>
                     <small>Ark instruction ×{crewGrowthMultiplier.toFixed(2)}</small>
                     <small>
@@ -784,29 +791,12 @@ function PopulationConsole({
                 </div>
                 {selectedSkillProgress && (
                   <div className="crew-xp-readout">
-                    <div><span>PROFESSION XP</span><strong>{selectedSkillProgress.isMaxLevel ? `${Math.floor(selectedSkillProgress.xp).toLocaleString()} · MAX LEVEL` : `${Math.floor(selectedSkillProgress.xp).toLocaleString()} / ${selectedSkillProgress.nextLevelXp?.toLocaleString()} XP`}</strong></div>
+                    <div><span>EXPERIENCE</span><strong>{selectedSkillProgress.isMaxLevel ? `${Math.floor(selectedSkillProgress.xp).toLocaleString()} · MAX LEVEL` : `${Math.floor(selectedSkillProgress.xp).toLocaleString()} / ${selectedSkillProgress.nextLevelXp?.toLocaleString()} XP`}</strong></div>
                     <div className="crew-xp-track" role="progressbar" aria-label={`${titleCase(selectedProfessionalRole!)} experience`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(selectedSkillProgress.progress * 100)}><i style={{ width: `${selectedSkillProgress.progress * 100}%` }} /></div>
                   </div>
                 )}
               </section>
-              <section className="crew-xp-readout" aria-label="Biometrics">
-                <div>
-                  <span>BIOMETRICS</span>
-                  <strong>
-                    {Math.round(selectedCrew.health)}/{getSurvivorHealthCap(selectedCrew)} HEALTH
-                    {isSurvivorWounded(selectedCrew) ? " · RECOVERING" : selectedCrew.injury ? ` · ${selectedCrew.injury.toUpperCase()} INJURY` : ""}
-                  </strong>
-                </div>
-                <HealthBar survivor={selectedCrew} />
-                {isSurvivorWounded(selectedCrew) ? (
-                  <small className="crew-rarity-note">Recovering: no work, training, expeditions, or founding until health passes {WOUNDED_HEALTH_THRESHOLD}. Recovery runs even while the game is closed; assigned Doctors speed it up.</small>
-                ) : selectedCrew.injury ? (
-                  <small className="crew-rarity-note">A permanent {selectedCrew.injury} injury caps health at {getSurvivorHealthCap(selectedCrew)}. Founding a colony requires {FOUNDER_HEALTH_THRESHOLD}+ health.</small>
-                ) : null}
-                {selectedCrew.injury && (
-                  <small className="crew-rarity-note">Prosthetic surgery is performed in the Medical Bay. Admit this crew member there to repair the injury.</small>
-                )}
-              </section>
+              {isSurvivorWounded(selectedCrew) && <aside className="crew-recovery-notice"><strong>RECOVERING</strong><span>No work, study, expeditions, or settlement duty. Recovery continues while the game is closed; Doctors make it faster.</span></aside>}
               <div className="team-alpha-actions">
                 {teamAlpha.leaderId === selectedCrew.id ? (
                   <button type="button" onClick={() => onAppointLeader(null)}>Stand down as Crew Leader</button>
@@ -827,7 +817,6 @@ function PopulationConsole({
                   )
                 )}
               </div>
-              <form className="crew-callsign-form" onSubmit={submitCallsign}><label htmlFor="crew-callsign">Callsign</label><input id="crew-callsign" name="callsign" maxLength={18} defaultValue={selectedCrew.callsign} placeholder="Optional" /><button type="submit">Save</button></form>
               <details className="crew-advanced-record">
                 <summary>
                   <span>ADVANCED PROFILE SYSTEMS</span>
@@ -1029,9 +1018,9 @@ function PopulationConsole({
                   <label>Training program<select disabled value=""><option value="">Clinical procedure continues offline</option></select></label>
                 </div>
               ) : isSurvivorWounded(selectedCrew) ? (
-                <div className="crew-actions-grid">
-                  <label>Working assignment<select disabled value=""><option value="">{`Recovering: available again at ${WOUNDED_HEALTH_THRESHOLD} health`}</option></select></label>
-                  <label>Training program<select disabled value=""><option value="">Recovering crew cannot train</option></select></label>
+                <div className="crew-actions-grid is-unavailable">
+                  <label><s>Work assignment</s><select disabled value=""><option value="">Unavailable while recovering</option></select></label>
+                  <label><s>Training program</s><select disabled value=""><option value="">Unavailable while recovering</option></select></label>
                 </div>
               ) : (
                 <div className="crew-actions-grid">
