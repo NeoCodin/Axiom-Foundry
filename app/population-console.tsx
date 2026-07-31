@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { HelpTrigger, type ManualTopicId } from "./game-manual";
 import {
   BeaconReadinessList,
@@ -213,6 +213,7 @@ function PopulationConsole({
   );
   const [rosterFilter, setRosterFilter] = useState<CrewRosterFilter>("all");
   const [rosterQuery, setRosterQuery] = useState("");
+  const [nicknameDraft, setNicknameDraft] = useState("");
   const [consoleView, setConsoleView] = useState<"systems" | "roster" | "command">(
     state.survivors.length > 0 ? "roster" : "systems",
   );
@@ -222,6 +223,7 @@ function PopulationConsole({
   );
   const roleCounts = useMemo(() => getPopulationRoleCounts(state), [state]);
   const selectedCrew = state.survivors.find((survivor) => survivor.id === selectedCrewId) ?? state.survivors[0] ?? null;
+  useEffect(() => setNicknameDraft(""), [selectedCrew?.id]);
   const selectedRarity = selectedCrew ? getSurvivorRarity(selectedCrew) : null;
   const selectedTraining = selectedCrew
     ? state.training.find((program) => program.survivorId === selectedCrew.id) ?? null
@@ -320,8 +322,8 @@ function PopulationConsole({
   const submitCallsign = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!selectedCrew) return;
-    const form = new FormData(event.currentTarget);
-    onRenameCallsign(selectedCrew.id, String(form.get("callsign") ?? ""));
+    onRenameCallsign(selectedCrew.id, nicknameDraft);
+    setNicknameDraft("");
   };
 
   return (
@@ -757,8 +759,8 @@ function PopulationConsole({
         <section className={`continuity-panel crew-detail-panel ${selectedRarity ? `crew-rarity-${selectedRarity.id}` : ""}`}>
           {selectedCrew ? (
             <>
-              <header><div><span>PERSONNEL FILE</span><h3>{selectedCrew.name}</h3></div><div className="crew-file-classification"><em className="crew-rarity-badge" title={selectedRarity?.description}>{selectedRarity?.label}</em></div></header>
-              <form className="crew-callsign-form crew-nickname-form" onSubmit={submitCallsign}><label htmlFor="crew-callsign">Nickname</label><input id="crew-callsign" name="callsign" maxLength={18} defaultValue={selectedCrew.callsign} placeholder="Optional nickname" /><button type="submit">Save</button></form>
+              <header><div><span>PERSONNEL FILE</span><h3>{selectedCrew.callsign ? `${selectedCrew.callsign} · ${selectedCrew.name}` : selectedCrew.name}</h3></div><div className="crew-file-classification"><em className="crew-rarity-badge" title={selectedRarity?.description}>{selectedRarity?.label}</em></div></header>
+              <form className="crew-callsign-form crew-nickname-form" onSubmit={submitCallsign}><label htmlFor="crew-callsign">Nickname</label><input id="crew-callsign" name="callsign" maxLength={18} value={nicknameDraft} onChange={(event) => setNicknameDraft(event.target.value)} placeholder={selectedCrew.callsign ? `Current: ${selectedCrew.callsign}` : "Add an optional nickname"} /><button type="submit">Save nickname</button></form>
               <div className="crew-detail-identity">
                 <CrewToken id={selectedCrew.id} name={selectedCrew.name} role={selectedCrew.assignedRole ?? selectedCrew.role} rarity={selectedRarity?.id} status={isSurvivorWounded(selectedCrew) ? "wounded" : "ready"} large />
                 <div className="crew-identity-copy">
