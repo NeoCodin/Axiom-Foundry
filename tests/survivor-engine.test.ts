@@ -226,6 +226,11 @@ test("procedural groups are reproducible and contain readable survivor detail", 
   assert.equal(signal.survivors[0]?.role, "engineer");
   for (const survivor of signal.survivors) {
     assert.match(survivor.name, /^\S.+\s\S/);
+    assert.ok(
+      survivor.gender === "woman" ||
+        survivor.gender === "man" ||
+        survivor.gender === "nonbinary",
+    );
     assert.ok(survivor.backgroundId);
     assert.ok(survivor.traits.length >= 1);
     assert.ok(
@@ -235,6 +240,16 @@ test("procedural groups are reproducible and contain readable survivor detail", 
       ),
     );
   }
+});
+
+test("crew gender is stable and old saves receive an identity without changing the person", () => {
+  const original = stateWithCivilian().survivors[0]!;
+  const migrated = sanitizeSurvivorSystemState({ survivors: [original] });
+  const reloaded = sanitizeSurvivorSystemState(migrated);
+
+  assert.equal(migrated.survivors[0]?.name, original.name);
+  assert.ok(migrated.survivors[0]?.gender);
+  assert.equal(reloaded.survivors[0]?.gender, migrated.survivors[0]?.gender);
 });
 
 test("each campaign world uses its exact SOS group-size range", () => {

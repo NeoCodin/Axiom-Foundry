@@ -18,6 +18,7 @@ export const PROFESSIONAL_ROLES = [
 export type ProfessionalRole = (typeof PROFESSIONAL_ROLES)[number];
 export type SurvivorRole = ProfessionalRole | "civilian";
 export type SurvivorAgeGroup = "child" | "adult" | "elder";
+export type SurvivorGender = "woman" | "man" | "nonbinary";
 export type SurvivorOrigin =
   | "pelagos"
   | "viridia"
@@ -76,6 +77,8 @@ export type Survivor = {
   /** Explicit player protection from planetary founder selection. */
   settlementProtected: boolean;
   ageGroup: SurvivorAgeGroup;
+  /** Personal identity shown in the Personnel file. */
+  gender?: SurvivorGender;
   /** Children become adults after two completed planetary chapters aboard. */
   ageProgress: number;
   serviceSeconds: number;
@@ -437,6 +440,7 @@ export type RareSurvivorHook = {
   role: ProfessionalRole;
   backgroundId: string;
   trait: SurvivorTraitId;
+  gender: SurvivorGender;
 };
 
 export const RARE_SURVIVOR_HOOKS = [
@@ -448,6 +452,7 @@ export const RARE_SURVIVOR_HOOKS = [
     role: "navigator",
     backgroundId: "storm-pilot",
     trait: "tidal-memory",
+    gender: "woman",
   },
   {
     id: "axiom-voiceprint",
@@ -457,6 +462,7 @@ export const RARE_SURVIVOR_HOOKS = [
     role: "researcher",
     backgroundId: "reef-archive",
     trait: "signal-ear",
+    gender: "man",
   },
   {
     id: "impossible-forgemark",
@@ -466,6 +472,7 @@ export const RARE_SURVIVOR_HOOKS = [
     role: "fabricator",
     backgroundId: "pressure-forge",
     trait: "resourceful",
+    gender: "woman",
   },
   {
     id: "forty-third-foreman",
@@ -475,6 +482,7 @@ export const RARE_SURVIVOR_HOOKS = [
     role: "engineer",
     backgroundId: "tidal-grid",
     trait: "systems-thinker",
+    gender: "man",
   },
   {
     id: "null-lullaby",
@@ -484,6 +492,7 @@ export const RARE_SURVIVOR_HOOKS = [
     role: "teacher",
     backgroundId: "shelter-teacher",
     trait: "null-dreamer",
+    gender: "woman",
   },
 ] as const satisfies readonly RareSurvivorHook[];
 
@@ -501,7 +510,7 @@ export const TRAINING_DURATIONS_SECONDS: Record<ProfessionalRole, number> = {
   security: 25 * 60,
 };
 
-export const SURVIVOR_SCHEMA = 7;
+export const SURVIVOR_SCHEMA = 8;
 export const SOS_WORLD_ID = "pelagos";
 export const SOS_WORLD_IDS = [
   "pelagos",
@@ -1055,6 +1064,15 @@ export function startBerthSectionConstruction(
 
 const NAME_REROLL_ATTEMPTS = 24;
 
+function genderFromIdentity(id: string, name: string): SurvivorGender {
+  const hash = [...`${id}:${name}`].reduce(
+    (total, character) => (total * 31 + character.charCodeAt(0)) >>> 0,
+    2166136261,
+  );
+  const band = hash % 20;
+  return band < 9 ? "woman" : band < 18 ? "man" : "nonbinary";
+}
+
 function generateUniqueName(
   state: SurvivorSystemState,
   usedNames: ReadonlySet<string>,
@@ -1113,9 +1131,11 @@ function createProceduralSurvivor(
   const skillXp = makeSkillMap();
   if (role !== "civilian") skillXp[role] = STARTING_PROFESSIONAL_XP;
   const serial = state.nextSurvivorSerial++;
+  const id = `survivor-${serial}`;
+  const name = generateUniqueName(state, usedNames);
   return {
-    id: `survivor-${serial}`,
-    name: generateUniqueName(state, usedNames),
+    id,
+    name,
     callsign: "",
     origin: state.beaconWorldId ?? "unknown",
     originSignalId: signalId,
@@ -1130,6 +1150,7 @@ function createProceduralSurvivor(
     preferredRole: null,
     settlementProtected: false,
     ageGroup: "adult",
+    gender: genderFromIdentity(id, name),
     ageProgress: 0,
     serviceSeconds: 0,
     joinedAt: 0,
@@ -1152,6 +1173,7 @@ function createRareSurvivor(
   survivor.name = hook.name;
   survivor.backgroundId = hook.backgroundId;
   survivor.storyHookId = hook.id;
+  survivor.gender = hook.gender;
   survivor.traits = [
     hook.trait,
     ...survivor.traits.filter((trait) => trait !== hook.trait),
@@ -2498,6 +2520,16 @@ function sanitizeSurvivor(
       value.ageGroup === "child" || value.ageGroup === "elder"
         ? value.ageGroup
         : "adult",
+    gender:
+      value.gender === "woman" ||
+      value.gender === "man" ||
+      value.gender === "nonbinary"
+        ? value.gender
+        : hook?.gender ??
+          genderFromIdentity(
+            id,
+            hook ? hook.name : textValue(value.name, "Unknown Survivor", 36),
+          ),
     ageProgress: whole(value.ageProgress, 0, 1),
     serviceSeconds: finite(value.serviceSeconds, 0, MAX_OPERATIONAL_SECONDS),
     joinedAt: finite(value.joinedAt, joinedFallback, MAX_OPERATIONAL_SECONDS),

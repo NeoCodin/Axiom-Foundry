@@ -424,7 +424,7 @@ function PopulationConsole({
                       <CrewToken id={survivor.id} name={survivor.name} role={survivor.role} rarity={rarity.id} status={isSurvivorWounded(survivor) ? "wounded" : "ready"} />
                       <div>
                         <strong>{survivor.name}</strong>
-                        <small>{titleCase(survivor.ageGroup)} · {titleCase(survivor.role)}{professionLevel > 1 ? ` · Level ${professionLevel}` : ""} · {BACKGROUND_DEFINITIONS.find((item) => item.id === survivor.backgroundId)?.name ?? titleCase(survivor.backgroundId)}</small>
+                        <small>{titleCase(survivor.ageGroup)} · {titleCase(survivor.gender ?? "unspecified")} · {titleCase(survivor.role)}{professionLevel > 1 ? ` · Level ${professionLevel}` : ""} · {BACKGROUND_DEFINITIONS.find((item) => item.id === survivor.backgroundId)?.name ?? titleCase(survivor.backgroundId)}</small>
                         {(isSurvivorWounded(survivor) || survivor.injury || survivor.health < MAX_SURVIVOR_HEALTH) && <HealthBar survivor={survivor} />}
                       </div>
                       <span className="crew-roster-status">
@@ -735,7 +735,7 @@ function PopulationConsole({
                 return (
                   <button className={`crew-rarity-${rarity.id} ${selectedCrew?.id === survivor.id ? "is-selected" : ""} ${reserve ? "is-idle" : ""}`} type="button" key={survivor.id} onClick={() => setSelectedCrewId(survivor.id)}>
                     <CrewToken id={survivor.id} name={survivor.name} role={survivor.assignedRole ?? survivor.role} rarity={rarity.id} status={wounded ? "wounded" : training ? "training" : "ready"} />
-                    <span><strong>{survivor.callsign ? `“${survivor.callsign}” ${survivor.name}` : survivor.name}</strong><small>{titleCase(survivor.ageGroup)} · {adapting ? "Bioadaptation procedure" : training ? `Studying ${titleCase(training.targetRole)} · ${Math.round((training.progressSeconds / training.durationSeconds) * 100)}%` : survivor.role === "civilian" ? titleCase(survivor.assignedRole ?? "Ark Reserve") : `${titleCase(survivor.role)} · Level ${getSurvivorSkillLevel(survivor, survivor.role)} · ${titleCase(survivor.assignedRole ?? "Ark Reserve")}`}</small>{(wounded || survivor.injury || survivor.health < MAX_SURVIVOR_HEALTH) && <HealthBar survivor={survivor} />}</span>
+                    <span><strong>{survivor.callsign ? `“${survivor.callsign}” ${survivor.name}` : survivor.name}</strong><small>{titleCase(survivor.ageGroup)} · {titleCase(survivor.gender ?? "unspecified")} · {adapting ? "Bioadaptation procedure" : training ? `Studying ${titleCase(training.targetRole)} · ${Math.round((training.progressSeconds / training.durationSeconds) * 100)}%` : survivor.role === "civilian" ? titleCase(survivor.assignedRole ?? "Ark Reserve") : `${titleCase(survivor.role)} · Level ${getSurvivorSkillLevel(survivor, survivor.role)} · ${titleCase(survivor.assignedRole ?? "Ark Reserve")}`}</small>{(wounded || survivor.injury || survivor.health < MAX_SURVIVOR_HEALTH) && <HealthBar survivor={survivor} />}</span>
                     <span className="crew-roster-status">
                       <em className="crew-rarity-badge" title={rarity.description}>{rarity.label}</em>
                       <em className={`crew-duty-badge is-${dutyStatus}`}>{dutyLabel}</em>
@@ -757,7 +757,7 @@ function PopulationConsole({
         <section className={`continuity-panel crew-detail-panel ${selectedRarity ? `crew-rarity-${selectedRarity.id}` : ""}`}>
           {selectedCrew ? (
             <>
-              <header><div><span>PERSONNEL FILE</span><h3>{selectedCrew.name}</h3></div><div className="crew-file-classification"><em className="crew-rarity-badge" title={selectedRarity?.description}>{selectedRarity?.label}</em><small>{titleCase(selectedCrew.ageGroup)} · {selectedCrew.storyHookId ? "Archive discrepancy attached" : `Joined from ${titleCase(selectedCrew.origin)}`}</small></div></header>
+              <header><div><span>PERSONNEL FILE</span><h3>{selectedCrew.name}</h3></div><div className="crew-file-classification"><em className="crew-rarity-badge" title={selectedRarity?.description}>{selectedRarity?.label}</em><small>{titleCase(selectedCrew.ageGroup)} · {titleCase(selectedCrew.gender ?? "Unspecified")} · {selectedCrew.storyHookId ? "Archive discrepancy attached" : `Joined from ${titleCase(selectedCrew.origin)}`}</small></div></header>
               <div className="crew-detail-identity">
                 <CrewToken id={selectedCrew.id} name={selectedCrew.name} role={selectedCrew.assignedRole ?? selectedCrew.role} rarity={selectedRarity?.id} status={isSurvivorWounded(selectedCrew) ? "wounded" : "ready"} large />
                 <div>
