@@ -18,7 +18,7 @@ export type ManualPageId =
   | "armory"
   | "settlement";
 
-export type ManualTopicId = ManualPageId | "salvage" | ResearchInputId;
+export type ManualTopicId = ManualPageId | "salvage" | "null-saturation" | ResearchInputId;
 
 type ManualStep = {
   title: string;
@@ -54,6 +54,20 @@ export const MANUAL_PAGE_LABELS: Record<ManualPageId, string> = {
 };
 
 export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
+  "null-saturation": {
+    id: "null-saturation",
+    label: "Null Saturation",
+    category: "Environment · law stability",
+    title: "Read how uncertain local physical law has become",
+    summary: "Null Saturation is an environmental condition from 0 to 100. It is not radiation and it is not a resource you collect.",
+    steps: [
+      { title: "Read the progressive name", detail: "Cold Wake calls the signal Unknown Interference. Pelagos records Law Variance. Viridia and Cinder call it Causal Contamination. Nox finally proves the name Null Saturation." },
+      { title: "Compare ambient and effective pressure", detail: "Ambient saturation belongs to the region. The Ark's effective reading is lower when a stable Lawheart, completed Research, and local infrastructure protect it." },
+      { title: "Expect bounded effects", detail: "Elevated pressure can slow Research and recovery slightly, make expeditions harder, and disturb recalibration. It never deletes progress, destroys a colony, or kills crew while you are away." },
+      { title: "Do not confuse Traces with saturation", detail: "Null Traces are evidence used by Research. Saturation describes the local environment. A dangerous region may produce more useful evidence without becoming a currency." },
+    ],
+    tip: "A stronger Lawheart is not always a safer one. The red Convergent Star has enormous force but remains less stable than a synchronized white Lawheart.",
+  },
   deck: {
     id: "deck",
     label: "Ark",
@@ -401,6 +415,7 @@ export const MANUAL_TOPICS: Record<ManualTopicId, ManualTopic> = {
 };
 
 const RESOURCE_TOPIC_IDS: readonly ManualTopicId[] = [
+  "null-saturation",
   "salvage",
   "calibration-data",
   "engineering-models",

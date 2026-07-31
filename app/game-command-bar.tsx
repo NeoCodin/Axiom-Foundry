@@ -1,6 +1,7 @@
 "use client";
 
 import { HelpTrigger } from "./game-manual";
+import type { NullSaturationView } from "./null-saturation-engine";
 
 type HeaderObjective = {
   label: string;
@@ -20,6 +21,7 @@ type GameCommandBarProps = {
   axiomsLabel: string;
   resonanceLabel: string;
   operationalLoadLabel: string;
+  nullSaturation: NullSaturationView;
   showAxioms: boolean;
   showResonance: boolean;
   showOperations: boolean;
@@ -39,6 +41,7 @@ type GameCommandBarProps = {
 export function GameCommandBar({
   worldName, cycle, arrival, fluxLabel, fluxExact, fluxPerSecondLabel,
   axiomsLabel, resonanceLabel, operationalLoadLabel, saveStatus, ready, focusWelcome, focusFlux,
+  nullSaturation,
   showAxioms, showResonance, showOperations,
   objective, onOpenHelp, onOpenLore, onSave, onOpenDirective,
   tooltipsEnabled, onToggleTooltips,
@@ -46,7 +49,8 @@ export function GameCommandBar({
   const cycleTooltip = `${worldName} is the Ark's current chapter. Cycle ${cycle} counts this Recalibration run; the line below describes AXIOM's present situation.`;
   const fluxTooltip = `${fluxExact} Local Flux is available. Flux powers fabrication, Ark projects, research support, and planetary work during this cycle.`;
   const objectiveTooltip = "This strip tracks the current planetary objective. Click it to open the relevant destination once that system is awake. It never expires; progress is saved whether the game is open or closed.";
-  const metricCount = [showAxioms, showResonance, showOperations].filter(Boolean).length;
+  const metricCount = [showAxioms, showResonance, showOperations, true].filter(Boolean).length;
+  const nullTooltip = `${nullSaturation.label} measures how uncertain local physical law has become. Ambient ${nullSaturation.ambient}; the Ark experiences ${nullSaturation.effective} after Lawheart, Research, and local protection. It is a condition, not a resource.`;
 
   return (
     <header className={`command-bar metric-count-${metricCount} ${focusWelcome || focusFlux ? "tour-focus" : ""}`}>
@@ -58,6 +62,7 @@ export function GameCommandBar({
         <span className="resource-label">Local Flux</span><strong>{fluxLabel}</strong><span className="rate">+{fluxPerSecondLabel} / sec</span>
       </div>
       {metricCount > 0 && <div className="header-metrics">
+        <div className={`null-readout is-${nullSaturation.classification}`} data-pixel-tooltip={nullTooltip} tabIndex={0} aria-label={nullTooltip}><span>{nullSaturation.label}</span><strong>{nullSaturation.effective}</strong></div>
         {showAxioms && <div data-pixel-tooltip="Proven Axioms are portable proofs preserved by Recalibration. They survive new cycles and support lasting upgrades." tabIndex={0} aria-label="Proven Axioms are portable proofs preserved by Recalibration. They survive new cycles and support lasting upgrades."><span>Proven Axioms</span><strong>{axiomsLabel}</strong></div>}
         {showResonance && <div data-pixel-tooltip="Resonance multiplies the whole fabrication chain. Balance adjacent machine tiers in groups of 15 to create stronger links." tabIndex={0} aria-label="Resonance multiplies the whole fabrication chain. Balance adjacent machine tiers in groups of 15 to create stronger links."><span>Resonance</span><strong>×{resonanceLabel}</strong></div>}
         {showOperations && <div data-pixel-tooltip="Operational Load is the share of Foundry output diverted to medical care, automation, restored-world defenses, and temporary hostile interference." tabIndex={0} aria-label="Operational Load is the share of Foundry output diverted to medical care, automation, restored-world defenses, and temporary hostile interference."><span>Operations</span><strong>{operationalLoadLabel}</strong></div>}

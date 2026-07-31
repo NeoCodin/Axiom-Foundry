@@ -296,6 +296,11 @@ import {
   type DestinationIntroduction,
 } from "./tutorial-engine";
 import { PixelTooltipLayer } from "./pixel-tooltip-layer";
+import {
+  calculateNullSaturation,
+  DEFAULT_NULL_SATURATION_OVERRIDE,
+  type NullSaturationOverride,
+} from "./null-saturation-engine";
 import { ContextualGuide } from "./contextual-guide";
 import { QaSandbox, type QaGuidePreviewId } from "./qa-sandbox";
 import {
@@ -495,6 +500,8 @@ export default function Home() {
   const [qaCollapsed, setQaCollapsed] = useState(false);
   const [qaLawHeartOverride, setQaLawHeartOverride] =
     useState<LawHeartQaOverride>(DEFAULT_LAW_HEART_QA_OVERRIDE);
+  const [qaNullOverride, setQaNullOverride] =
+    useState<NullSaturationOverride>(DEFAULT_NULL_SATURATION_OVERRIDE);
   const loadStarted = useRef(false);
   const activeSaveKeyRef = useRef(SAVE_KEY);
   const gameRef = useRef(game);
@@ -1150,6 +1157,17 @@ export default function Home() {
       };
     },
     [game.lifetimeAxioms, game.research.completedProjectIds, game.settlement.currentWorldId, game.worldProgress],
+  );
+  const nullSaturation = useMemo(
+    () => calculateNullSaturation({
+      worldId: campaignWorld.id,
+      worldIndex: campaignWorldIndex,
+      lifetimeAxioms: game.lifetimeAxioms,
+      completedResearchIds: game.research.completedProjectIds,
+      completedInfrastructure: currentWorldProgress.completedInfrastructureIds.length,
+      override: qaMode ? qaNullOverride : null,
+    }),
+    [campaignWorld.id, campaignWorldIndex, currentWorldProgress.completedInfrastructureIds.length, game.lifetimeAxioms, game.research.completedProjectIds, qaMode, qaNullOverride],
   );
   const infrastructureQuotes = Object.fromEntries(
     campaignWorld.infrastructure.map((objective, index) => {
@@ -2666,10 +2684,11 @@ export default function Home() {
 
   return (
     <main
-      className={`game-shell world-theme-${worldVisual.slug}`}
+      className={`game-shell world-theme-${worldVisual.slug} null-${nullSaturation.classification}`}
       data-world={worldVisual.slug}
       data-world-index={campaignWorldIndex}
       data-view={primaryView}
+      data-null-intensity={nullSaturation.visualIntensity.toFixed(2)}
       style={shellStyle}
     >
       {tooltipsEnabled && <PixelTooltipLayer />}
@@ -2688,6 +2707,7 @@ export default function Home() {
         axiomsLabel={formatNumber(game.axioms)}
         resonanceLabel={formatNumber(production.resonance.multiplier)}
         operationalLoadLabel={`${Math.round(operationalLoad.total * 10_000) / 100}%`}
+        nullSaturation={nullSaturation}
         showAxioms={game.lifetimeAxioms > 0 || game.maxFlux >= 10_000}
         showResonance={campaignWorldIndex >= 1 && game.tiers[1].bought > 0}
         showOperations={campaignWorldIndex >= 2 || operationalLoad.total > 0.001}
@@ -2821,6 +2841,8 @@ export default function Home() {
           }
           lawHeartOverride={qaLawHeartOverride}
           onLawHeartOverrideChange={setQaLawHeartOverride}
+          nullOverride={qaNullOverride}
+          onNullOverrideChange={setQaNullOverride}
           onTriggerLawHeartEvent={(kind) =>
             setQaLawHeartOverride((current) => ({
               ...current,

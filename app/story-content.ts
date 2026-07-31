@@ -155,8 +155,10 @@ export const LORE_ENTRIES = [
     title: "What the Null does",
     tag: "The Null Tide",
     paragraphs: [
-      "The Null is a spreading failure of physical agreement. Gravity forgets direction, light arrives without leaving, and records remember incompatible outcomes.",
-      "The official model calls it a natural collapse. The Ark's oldest receiver classifies the same pattern as language.",
+      "The Null is not radiation. It is a measurable loss of agreement between local laws: gravity changes its answer, matter keeps the wrong shape, and records preserve events in the wrong order.",
+      "Ark instruments report that pressure as saturation from zero to one hundred. Even a low reading can harm living systems because life depends on many laws remaining true at once.",
+      "The instrument name changes as AXIOM learns. Unknown Interference becomes Law Variance, then Causal Contamination, and finally Null Saturation. The changing label records knowledge, not a changing phenomenon.",
+      "A stable Lawheart pushes back by restating local law. Research and restored infrastructure add smaller protections, but none of them make exposure harmless.",
     ],
   },
   {

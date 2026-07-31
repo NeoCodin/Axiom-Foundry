@@ -257,8 +257,8 @@ test("each campaign world uses its exact SOS group-size range", () => {
     ["pelagos", [2, 3, 4]],
     ["viridia", [3, 4, 5]],
     ["cinder", [4, 5, 6]],
-    ["nox", [5, 6, 7]],
-    ["vesper", [6, 7, 8]],
+    ["nox", [3, 4, 5]],
+    ["vesper", [1, 2, 3]],
   ] as const;
   const seeds = [2_654_435_761, 1_013_904_226, 3_668_339_987] as const;
 
@@ -1654,6 +1654,20 @@ test("the Medical Bay admits only the hurt, stands them down, and divides care",
     medBayIds: [...bay.medBayIds, "ghost"],
   });
   assert.deepEqual(reloaded.medBayIds, bay.medBayIds);
+});
+
+test("Vesper's first surviving signal contains an Altered witness", () => {
+  let state = createSurvivorSystemState(2_654_435_761);
+  state = setSosBeaconOnline(state, true, "vesper");
+  state = advanceSurvivorSystem(state, 2_400);
+
+  assert.ok(state.activeSignal);
+  assert.ok(state.activeSignal.survivors.some((survivor) => survivor.alterationId));
+  assert.ok(
+    state.activeSignal.survivors.every(
+      (survivor) => survivor.alterationId === null || survivor.origin === "vesper",
+    ),
+  );
 });
 
 test("the Ark has a 48-person structural limit that research cannot bypass", () => {

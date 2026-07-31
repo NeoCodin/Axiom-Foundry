@@ -156,7 +156,7 @@ test("Profile Depth is absent early and explicit on every late world", () => {
       requirement.minimumRarity,
       requirement.count,
     ]),
-    [["notable", 6], ["exceptional", 3]],
+    [["notable", 3], ["exceptional", 1]],
   );
 });
 

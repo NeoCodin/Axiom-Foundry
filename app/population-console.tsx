@@ -32,6 +32,7 @@ import {
   getRescueReadiness,
   getPopulationRoleCounts,
   getSurvivorHealthCap,
+  getSurvivorAlteration,
   getSurvivorProfessionCapacity,
   getSurvivorProfessionCount,
   getSurvivorRarity,
@@ -774,6 +775,23 @@ function PopulationConsole({
                   {isSurvivorWounded(selectedCrew) ? <small>RECOVERING · Returns to duty at {WOUNDED_HEALTH_THRESHOLD} health</small> : selectedCrew.injury ? <small>{titleCase(selectedCrew.injury)} injury · Medical Bay treatment available</small> : <small>Ready for duty</small>}
                 </section>
               </div>
+              {selectedCrew.alterationId && (() => {
+                const alteration = getSurvivorAlteration(selectedCrew.alterationId);
+                if (!alteration) return null;
+                return (
+                  <section className="crew-alteration-record" aria-label="Null-touched personnel accommodation">
+                    <header><div><span>ALTERED PERSONNEL RECORD</span><strong>{alteration.name}</strong></div><em>NULL-TOUCHED · NOT AN INJURY</em></header>
+                    <p>{alteration.description}</p>
+                    <div className="crew-alteration-grid">
+                      <div><span>ACCOMMODATION</span><strong>{alteration.need}</strong></div>
+                      <div><span>CAPABILITY</span><strong>{alteration.benefit}</strong></div>
+                      <div><span>LIMIT</span><strong>{alteration.drawback}</strong></div>
+                    </div>
+                    <blockquote>{alteration.perspective}</blockquote>
+                    <small>Alteration does not change rarity, profession, identity, settlement rights, or the right to refuse voluntary Bioadaptation.</small>
+                  </section>
+                );
+              })()}
               <section className="crew-career-summary" aria-label="Profession and experience summary">
                 <div className="crew-career-heading">
                   <div>

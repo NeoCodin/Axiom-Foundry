@@ -182,6 +182,7 @@ import {
   type ResearchLatticeState,
   type ResearchProjectId,
 } from "./research-engine.ts";
+import { calculateNullSaturation } from "./null-saturation-engine.ts";
 import {
   cloneSettlementState,
   createSettlementState,
@@ -1521,6 +1522,16 @@ export function getCampaignWorldIndex(state: GameState) {
     MISSIONS.length - 1,
     Math.max(0, Number.isFinite(rawIndex) ? Math.floor(rawIndex) : 0),
   );
+}
+
+export function getNullSaturationForState(state: GameState) {
+  return calculateNullSaturation({
+    worldId: state.settlement.currentWorldId ?? "cold-wake",
+    worldIndex: getCampaignWorldIndex(state),
+    lifetimeAxioms: state.lifetimeAxioms,
+    completedResearchIds: state.research.completedProjectIds,
+    completedInfrastructure: state.worldProgress.completedInfrastructureIds.length,
+  });
 }
 
 export function getColdWakeOnboardingStatus(state: GameState) {
@@ -3136,6 +3147,8 @@ export function getExpeditionLaunchQuote(
   crewIds: readonly string[],
 ): ExpeditionLaunchQuote {
   const site = getExpeditionSite(siteId);
+  const effectiveDifficulty =
+    site.difficulty + getNullSaturationForState(state).expeditionDifficultyBonus;
   const fluxCost = bounded(
     site.fluxCostBase *
       getWorldOperationEconomy(state, site.worldId).expeditionScale,
@@ -3151,7 +3164,7 @@ export function getExpeditionLaunchQuote(
     researchRewardMultiplier: researchSupport.rewardMultiplier,
     bioadaptationStrengthBonus: 0,
     bioadaptationDurationMultiplier: 1,
-    difficulty: site.difficulty,
+    difficulty: effectiveDifficulty,
     projectedOutcome: null,
     loadout: [],
     preparations: site.preparations.map((preparation) => ({
@@ -3219,7 +3232,7 @@ export function getExpeditionLaunchQuote(
       researchRewardMultiplier: researchSupport.rewardMultiplier,
       bioadaptationStrengthBonus: bioadaptationSupport.strengthBonus,
       bioadaptationDurationMultiplier: bioadaptationSupport.durationMultiplier,
-      projectedOutcome: getProjectedExpeditionOutcome(strength, site.difficulty),
+      projectedOutcome: getProjectedExpeditionOutcome(strength, effectiveDifficulty),
       loadout: plan.loadout,
       preparations,
     };
@@ -3233,7 +3246,7 @@ export function getExpeditionLaunchQuote(
       researchRewardMultiplier: researchSupport.rewardMultiplier,
       bioadaptationStrengthBonus: bioadaptationSupport.strengthBonus,
       bioadaptationDurationMultiplier: bioadaptationSupport.durationMultiplier,
-      projectedOutcome: getProjectedExpeditionOutcome(strength, site.difficulty),
+      projectedOutcome: getProjectedExpeditionOutcome(strength, effectiveDifficulty),
       loadout: plan.loadout,
       preparations,
     };
@@ -3248,8 +3261,8 @@ export function getExpeditionLaunchQuote(
     researchRewardMultiplier: researchSupport.rewardMultiplier,
     bioadaptationStrengthBonus: bioadaptationSupport.strengthBonus,
     bioadaptationDurationMultiplier: bioadaptationSupport.durationMultiplier,
-    difficulty: site.difficulty,
-    projectedOutcome: getProjectedExpeditionOutcome(strength, site.difficulty),
+    difficulty: effectiveDifficulty,
+    projectedOutcome: getProjectedExpeditionOutcome(strength, effectiveDifficulty),
     loadout: plan.loadout,
     preparations,
   };
@@ -3270,9 +3283,14 @@ export function startExpedition(
   const plan = planExpeditionLoadout(state.armory, crew);
   const researchSupport = getExpeditionResearchSupport(state);
   const bioadaptationSupport = getExpeditionBioadaptationSupport(crew);
+  const site = getExpeditionSite(siteId);
+  const expeditionSite = {
+    ...site,
+    difficulty: quote.difficulty,
+  };
   const expeditions = launchExpedition(
     state.expeditions,
-    getExpeditionSite(siteId),
+    expeditionSite,
     crew,
     state.settlement.currentWorldId,
     plan.loadout,
@@ -5557,6 +5575,7 @@ export function simulateGame(
   const survivorBonuses = getResearchBonuses(next.research);
   const colonyBonuses = getColonyLegacyEffects(next);
   const automationEffects = getActiveAutomationEffects(next);
+  const nullSaturation = getNullSaturationForState(next);
   next.survivors = setTrainingSlots(
     next.survivors,
     Math.min(
@@ -5599,7 +5618,8 @@ export function simulateGame(
       getMedicalResearchEffects(next).recoveryMultiplier *
       (getMedBayCarePool(next.survivors) > 0
         ? automationEffects.medicalRecoveryMultiplier
-        : 1),
+        : 1) *
+      nullSaturation.medicalRecoveryMultiplier,
     // Stranded crew shelter off-ship: health frozen, never decaying.
     recoveryExemptIds: next.expeditions.stranded?.crewIds ?? [],
     scanDurationMultiplier: getSurfaceRecon(next).multiplier,
@@ -5615,7 +5635,9 @@ export function simulateGame(
   const researchAdvance = advanceResearch(next.research, seconds, {
     powerAvailable: getResearchPowerAvailable(next),
     crewAvailable: getResearchCrewAvailable(next),
-    externalSpeedMultiplier: colonyBonuses.researchSpeedMultiplier,
+    externalSpeedMultiplier:
+      colonyBonuses.researchSpeedMultiplier *
+      nullSaturation.researchThroughputMultiplier,
     costMultiplier: getResearchCostMultiplier(next),
     fieldValidationMultiplier: fieldValidation.multiplier,
     automationMultiplier: automationEffects.researchRoutingMultiplier,

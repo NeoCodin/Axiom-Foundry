@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { calculateNullSaturation } from "../app/null-saturation-engine.ts";
 import {
   MISSIONS,
   COLD_WAKE_APPROACH_RESERVE,
@@ -1415,7 +1416,13 @@ test("simulateGame applies completed-project research speed exactly once", () =>
   const expected = advanceResearch(research, elapsedSeconds, {
     powerAvailable: getResearchPowerAvailable(state),
     crewAvailable: getResearchCrewAvailable(state),
-    externalSpeedMultiplier: 1,
+    externalSpeedMultiplier: calculateNullSaturation({
+      worldId: "cold-wake",
+      worldIndex: 0,
+      lifetimeAxioms: state.lifetimeAxioms,
+      completedResearchIds: research.completedProjectIds,
+      completedInfrastructure: 0,
+    }).researchThroughputMultiplier,
   });
   const simulated = simulateGame(state, elapsedSeconds, 1, false);
 

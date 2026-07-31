@@ -271,6 +271,16 @@
 .crew-health-summary.is-recovering { border: 1px solid rgb(255 92 108 / .52); background: rgb(255 92 108 / .08); }
 .crew-health-summary.is-recovering strong,
 .crew-health-summary.is-recovering small { color: #ff8d98; }
+.crew-alteration-record { margin: 10px 0; padding: 14px; border: 1px solid rgb(184 124 255 / .58); border-left: 4px solid #b87cff; background: rgb(64 25 83 / .18); }
+.crew-alteration-record > header { display: flex; align-items: start; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
+.crew-alteration-record > header span, .crew-alteration-grid span { display: block; color: #b87cff; font-size: 12px; letter-spacing: .12em; }
+.crew-alteration-record > header strong { display: block; margin-top: 4px; font-size: 20px; }
+.crew-alteration-record > header em { color: #f2bc55; font-style: normal; }
+.crew-alteration-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0; }
+.crew-alteration-grid > div { padding: 10px; border: 1px solid #29404d; background: rgb(0 0 0 / .2); }
+.crew-alteration-grid strong { display: block; margin-top: 6px; color: #c9d8dc; font-weight: 400; line-height: 1.5; }
+.crew-alteration-record blockquote { margin: 10px 0; padding: 9px 12px; border-left: 2px solid #b87cff; color: #d8c8ef; }
+@media (max-width: 900px) { .crew-alteration-grid { grid-template-columns: 1fr; } }
 .crew-recovery-notice { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; margin-top: 10px; padding: 10px 12px; color: #d8a4aa; border: 1px solid rgb(255 92 108 / .56); background: rgb(255 92 108 / .09); }
 .crew-recovery-notice strong { color: #ff7180; letter-spacing: .1em; }
 .crew-recovery-notice span { font-size: 13px; line-height: 1.5; }

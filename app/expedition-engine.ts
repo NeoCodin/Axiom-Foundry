@@ -1073,6 +1073,8 @@ export function getExpeditionGroupStrength(crew: readonly Survivor[]) {
     strength += Math.max(1, bestLevel);
     if (getSurvivorSkillLevel(survivor, "security") >= 3) strength += 2;
     if (getSurvivorSkillLevel(survivor, "researcher") >= 3) strength += 1;
+    if (survivor.alterationId === "braced-strength") strength += 3;
+    if (survivor.alterationId === "motion-bound") strength -= 1;
   }
   return strength;
 }

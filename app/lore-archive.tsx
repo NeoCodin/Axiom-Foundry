@@ -158,6 +158,24 @@ function buildLawPages(
         ? "Some recovered signals cross distances that ordinary space cannot explain."
         : "The Ark can measure Null damage but cannot yet explain where the displaced possibilities go.",
     });
+    pages.push({
+      id: "lawbook-null-saturation",
+      category: "laws",
+      tabLabel: "Saturation",
+      title: "Null Saturation",
+      source: "Ark environmental telemetry",
+      confidence: worldsSaved >= 4 ? "confirmed" : "suspected",
+      paragraphs: [
+        "Null Saturation measures how uncertain local physical law has become. It behaves like an environmental exposure reading, but it is not radiation: it measures disagreement in cause, identity, motion, and matter.",
+        "The Ark records ambient pressure and subtracts the protection supplied by its Lawheart, proven Research, and restored infrastructure. Life reacts first because a living body depends on many laws agreeing at once.",
+      ],
+      facts: [
+        { label: "Scale", value: "0–100 environmental condition", state: "stable" },
+        { label: "Current campaign range", value: "6–34 ambient", state: "warning" },
+        { label: "Not the same as", value: "Null Traces or ionizing radiation", state: "stable" },
+      ],
+      contradiction: "A powerful red Lawheart can resist more pressure than an early star while remaining harder to synchronize safely.",
+    });
   }
   if (worldsSaved >= 2 || fragmentCount >= 3 || causalScore > 0) {
     pages.push({

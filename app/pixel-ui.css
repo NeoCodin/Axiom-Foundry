@@ -392,6 +392,17 @@ img.pixelated,
 }
 .header-metrics span { font-size: 12px; }
 .header-metrics strong { font-size: 25px; }
+.header-metrics .null-readout { position: relative; min-width: 112px; }
+.header-metrics .null-readout strong { color: #64e6ec; }
+.header-metrics .null-readout.is-elevated strong { color: #f2bc55; }
+.header-metrics .null-readout.is-severe strong { color: #ff695c; }
+.game-shell.null-elevated .ambient-grid { opacity: .72; }
+.game-shell.null-severe .ambient-grid { opacity: .88; filter: contrast(1.16) hue-rotate(-8deg); }
+.game-shell.null-severe::after {
+  content: ""; position: fixed; inset: 0; z-index: 20; pointer-events: none;
+  background: repeating-linear-gradient(90deg, transparent 0 117px, rgb(255 80 92 / .018) 118px 119px, transparent 120px 251px);
+  mix-blend-mode: screen;
+}
 
 .header-actions {
   border-left: 2px solid #30454f;
