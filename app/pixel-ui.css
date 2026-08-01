@@ -1854,12 +1854,49 @@ img.pixelated,
     overflow-x: visible;
   }
   .living-foundry-nav.primary-destinations::before { flex-basis: 54px; }
-  .living-foundry-nav.primary-destinations > button { min-width: 0; flex: 1 1 0; }
+  /* Icon-above-label, not icon-beside-label: five tabs across a phone width
+     leaves ~70-80px per tab, which a horizontal icon+text pair can't hold
+     without clipping or overflowing (the old side-by-side layout did both,
+     inconsistently, depending on word length). Stacking is the standard
+     mobile tab-bar pattern and actually fits this width. */
+  .living-foundry-nav.primary-destinations > button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    flex: 1 1 0;
+    gap: 3px;
+    padding: 6px 2px;
+  }
+  .nav-destination-copy {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .nav-destination-copy small { display: none; }
   .facility-navigation { overflow-x: auto; }
   .facility-navigation-label { flex: 0 0 118px; }
   .facility-navigation button { min-width: 132px; flex: 1 0 132px; }
   .nav-awakening-status { display: none; }
-  .nav-destination-copy strong { font-size: 22px; }
+  .nav-destination-copy strong {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    line-height: 1.15;
+    max-width: 100%;
+    overflow: hidden;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .living-foundry-nav.primary-destinations .nav-sprite {
+    width: 24px;
+    height: 24px;
+    transform: none;
+  }
   .command-briefing-heading { align-items: flex-start; }
   .command-briefing-heading p { display: none; }
   .command-priority { grid-template-columns: 1fr; }
@@ -1901,9 +1938,8 @@ img.pixelated,
   .game-shell { width: 100%; }
   .brand-lockup h1 { display: none; }
   .brand-lockup .eyebrow { max-width: 145px; }
-  .living-foundry-nav.primary-destinations > button { grid-template-columns: 32px minmax(0, 1fr); padding-inline: 6px; }
-  .nav-destination-copy small { display: none; }
-  .nav-sprite { width: 30px; height: 30px; transform: scale(0.84); transform-origin: left center; }
+  .living-foundry-nav.primary-destinations .nav-sprite { width: 22px; height: 22px; }
+  .nav-destination-copy strong { font-size: 10px; }
   .foundry-vista-caption small { display: none; }
   .ark-visual-stage { min-height: 1180px; }
   .ark-theater-caption { width: calc(100% - 92px); }
