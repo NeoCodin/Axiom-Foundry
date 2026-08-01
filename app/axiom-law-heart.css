@@ -841,6 +841,17 @@
   .foundry-law-heart-axiom-count { right: 10px; }
   .foundry-chain-sidebar .machine-row { grid-template-columns: 30px minmax(0, 1fr); }
   .foundry-chain-sidebar .buy-button { grid-column: 1 / -1; }
+  /* Density-filled mode divides a fixed sidebar height equally among tier
+     rows. That height comes from the tall desktop column; in the phone's
+     single-column flow it crushes every card below its content size and the
+     text overlaps. Let rows grow naturally instead of splitting a height. */
+  .foundry-chain-sidebar .machine-list.is-density-filled { height: auto; }
+  .foundry-chain-sidebar .machine-list.is-density-filled > .machine-block,
+  .foundry-chain-sidebar .machine-list.is-density-filled > .machine-row,
+  .foundry-chain-sidebar .machine-list.is-density-filled .machine-row:not(.locked) {
+    min-height: 0;
+    flex: 0 0 auto;
+  }
   .foundry-console-tabs {
     display: flex;
     overflow-x: auto;

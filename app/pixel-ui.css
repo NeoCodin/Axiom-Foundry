@@ -1833,11 +1833,14 @@ img.pixelated,
   body { font-size: 14px; }
   body::after { display: none; }
   .game-shell { padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
-  .command-bar { grid-template-columns: 1fr minmax(112px, 0.42fr); }
+  /* The Flux readout is a number, so it must never ellipsize ("101..." is
+     meaningless) - size the column and font so the longest formatted value
+     (e.g. "999.99M") always fits whole. */
+  .command-bar { grid-template-columns: 1fr minmax(128px, 0.46fr); }
   .brand-lockup { min-height: 58px; }
   .brand-mark { flex-basis: 36px; width: 36px; height: 36px; }
   .resource-readout { min-height: 58px; }
-  .resource-readout strong { font-size: 34px; }
+  .resource-readout strong { font-size: 27px; }
   /* Five destinations fit one screen width on a phone, so the primary rail
      becomes a persistent bottom tab bar instead of a horizontal-scroll strip. */
   .living-foundry-nav.primary-destinations {
@@ -1931,7 +1934,14 @@ img.pixelated,
 
 @media (max-width: 520px) {
   .qa-sandbox { top: auto; right: 6px; bottom: calc(82px + env(safe-area-inset-bottom)); width: calc(100vw - 12px); max-height: 68dvh; overflow: hidden; }
-  .qa-sandbox.is-collapsed { width: auto; }
+  /* Collapsed, the toggle floats over live game content, so it should read
+     as a small deliberate dock chip - not a stray full-size dialog bar. */
+  .qa-sandbox.is-collapsed { width: auto; border-width: 2px; opacity: 0.88; }
+  .qa-sandbox.is-collapsed .qa-sandbox-toggle {
+    min-height: 0;
+    padding: 5px 9px;
+    font-size: 13px;
+  }
 }
 
 @media (max-width: 480px) {
