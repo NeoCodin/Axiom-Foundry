@@ -385,11 +385,56 @@
     overflow-y: visible;
   }
 
-  /* Roster rows on the shared card recipe. */
+  /* Roster tools: search plus a single row of filter chips (was a 207px
+     2x3 grid of full-size buttons). */
+  .game-shell .crew-roster-tools { gap: 6px; padding: 6px; }
+  .game-shell .crew-roster-tools nav {
+    display: flex;
+    gap: 4px;
+  }
+  .game-shell .crew-roster-tools nav button {
+    display: flex;
+    min-width: 0;
+    min-height: 34px;
+    flex: 1 1 0;
+    flex-direction: column;
+    gap: 0;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 2px;
+    font-size: 10px;
+    line-height: 1.1;
+  }
+  .game-shell .crew-roster-tools nav button strong { font-size: 12px; }
+
+  /* Roster rows: the NAME is the row. Rarity already speaks through the
+     row's colored rail and token, so its text badge is desktop redundancy;
+     the duty badge stays, compact. */
   .game-shell .crew-roster-list > button {
+    min-height: 56px;
     border-width: 1px;
     border-color: #1c2a33;
   }
+  .game-shell .crew-roster-list > button strong { font-size: 14px; }
+  .game-shell .crew-roster-list > button small { font-size: 11px; color: #6b8380; }
+  .game-shell .crew-roster-list .crew-rarity-badge { display: none; }
+  .game-shell .crew-roster-list .crew-duty-badge {
+    padding: 2px 6px;
+    font-size: 10px;
+  }
+
+  /* Personnel file: compact the fattest sections. */
+  .game-shell .crew-detail-identity { gap: 8px; }
+  .game-shell .crew-detail-identity .crew-avatar.large { width: 44px; height: 44px; font-size: 16px; }
+  .game-shell .crew-health-summary { gap: 6px; padding: 8px; }
+  .game-shell .crew-career-summary { padding: 10px; }
+  .game-shell .crew-alteration-record { padding: 10px; }
+  .game-shell .crew-alteration-record p { font-size: 11px; line-height: 1.45; }
+  .game-shell .crew-alteration-grid { gap: 6px; }
+  .game-shell .crew-alteration-grid > div { padding: 7px 9px; }
+
+  /* Summary-band meters read at half height. */
+  .game-shell .continuity-summary-band > div > div { height: 3px; }
 
   /* ---- 7 · Type ramp ---------------------------------------------------- */
   /* Collapse the ~11 sizes in play at phone width toward a deliberate ramp:
