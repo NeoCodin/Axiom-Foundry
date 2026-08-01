@@ -183,6 +183,82 @@
     border-color: #1c2a33;
   }
 
+  /* ---- 5 · Facility nav as a chips row ---------------------------------- */
+  /* The label block ate up to 118px of a 390px strip and forced horizontal
+     scrolling. Chips fit all three facilities on one screen. Class names
+     stay intact: .facility-navigation is the swipe-exclusion selector and
+     appears in test assertions. */
+  .game-shell .facility-navigation {
+    margin: 0 0 8px;
+    padding: 4px 8px;
+    gap: 6px;
+    border-width: 0 0 1px;
+    border-color: #1c2a33;
+    background: transparent;
+    box-shadow: none;
+  }
+  .game-shell .facility-navigation-label { display: none; }
+  .game-shell .facility-navigation button {
+    min-width: 0;
+    min-height: 38px;
+    flex: 1 1 0;
+    padding: 6px 8px;
+    border-width: 1px;
+    border-color: #253843;
+    background: #0a141b;
+    font-size: 11px;
+    box-shadow: none !important;
+  }
+  .game-shell .facility-navigation button.active {
+    border-color: var(--world-accent, var(--flux));
+    background: #102128;
+    box-shadow: inset 0 -3px 0 var(--world-accent, var(--flux)) !important;
+  }
+  .game-shell .facility-navigation button::after { display: none; }
+
+  /* ---- 6 · Bottom nav polish -------------------------------------------- */
+  /* The bar itself is the container: one top hairline, no per-button
+     frames. The active tab is the only accented element. */
+  .game-shell .living-foundry-nav.primary-destinations {
+    border-width: 1px 0 0;
+    border-color: #1c2a33;
+    box-shadow: none;
+    gap: 0;
+    padding-top: 2px;
+  }
+  .game-shell .living-foundry-nav.primary-destinations > button {
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .game-shell .living-foundry-nav.primary-destinations > button.active {
+    border: 0;
+    background: linear-gradient(180deg, rgb(var(--world-accent-rgb, 85 214 232) / 0.14), transparent 70%);
+    box-shadow: inset 0 2px 0 var(--world-accent, var(--flux)) !important;
+  }
+  .game-shell .living-foundry-nav.primary-destinations > button::after { display: none; }
+  .game-shell .living-foundry-nav.primary-destinations .nav-sprite {
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  /* ---- 8 · Card idiom --------------------------------------------------- */
+  /* One shared recipe: background shift, hairline, left accent rail when
+     the card is stateful. Applied to the Ark compartment list here; the
+     Foundry tier rows already follow it via their own accent rails. */
+  /* The compartment cards are <button>s, so this must outrank the global
+     .game-shell button:not(.ark-core-engine) border rule. */
+  .game-shell button.ark-compartment-card {
+    border: 1px solid #1c2a33;
+    border-left: 3px solid #26343d;
+    background: #0a141b;
+    box-shadow: none;
+  }
+  .game-shell button.ark-compartment-card.is-online {
+    border-left-color: var(--world-accent, var(--ark-cyan, #55e6e8));
+  }
+
   /* ---- 7 · Type ramp ---------------------------------------------------- */
   /* Collapse the ~11 sizes in play at phone width toward a deliberate ramp:
      11px labels · 12-13px body (already dominant) · 17px/20px headings.
