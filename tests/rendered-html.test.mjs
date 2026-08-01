@@ -209,7 +209,7 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(loreArchiveCss, /\.archive-reader-page\s*\{/);
   assert.match(loreArchiveCss, /@media \(max-width: 800px\)/);
   assert.match(pixelCss, /\.personnel-console-tabs\s*\{/);
-  for (const stylesheet of ["ark-deck", "continuity-console", "research-lattice", "game-manual", "awakening", "pixel-ui", "axiom-law-heart", "lore-archive", "operations-console"]) {
+  for (const stylesheet of ["ark-deck", "continuity-console", "research-lattice", "game-manual", "awakening", "pixel-ui", "axiom-law-heart", "lore-archive", "operations-console", "mobile-chrome"]) {
     assert.match(layout, new RegExp(`import "\\./${stylesheet}\\.css"`));
     assert.match(pagesEntry, new RegExp(`import "\\.\\./app/${stylesheet}\\.css"`));
   }

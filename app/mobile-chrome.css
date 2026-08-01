@@ -1,0 +1,98 @@
+/* AXIOM FOUNDRY // MOBILE CHROME
+   The phone-width (max-width: 767px) visual language. Desktop keeps the
+   ornamental pixel-console skin; phones get the same identity (palette,
+   type, accent glow) with the ornament stripped: full-bleed sections,
+   one decoration per container, accent reserved for state.
+
+   This file intentionally loads last in BOTH build entries so its rules
+   win equal-specificity cascade battles by source order. It must
+   contribute nothing at widths above 767px. */
+
+@media (max-width: 767px) {
+  /* ---- 1 · Full-bleed shell -------------------------------------------- */
+  /* The app owns the screen: no side gutter, sections run edge to edge and
+     separate by spacing + background shifts instead of floating frames. */
+  .game-shell {
+    width: 100%;
+    padding-inline: 0;
+  }
+
+  /* ---- 2 · Flatten the box language ------------------------------------ */
+  /* Desktop's 9-patch idiom (2-4px border + offset shadow + inner ring) is
+     charm at 1200px and noise at 390px. In-flow containers keep exactly one
+     decoration: a top/bottom hairline. Floating layers (tooltips, dialogs,
+     guide cards, QA sandbox) deliberately keep their shadows - overlays
+     need separation from content; in-flow sections do not. */
+  .game-shell .panel,
+  .game-shell .continuity-panel,
+  .game-shell .continuity-console-header,
+  .game-shell .research-lattice-shell,
+  .game-shell .transit-console-header,
+  .game-shell .defense-command-header,
+  .game-shell .command-briefing,
+  .game-shell .ark-command-heading,
+  .game-shell .ark-command-deck-v3,
+  .game-shell .offline-banner,
+  .game-shell .foundry-telemetry,
+  .game-shell .personnel-console-tabs,
+  .game-shell .continuity-summary-band,
+  .game-shell .research-lattice-projects,
+  .game-shell .expedition-manifest,
+  .game-shell .machine-row {
+    border-width: 1px 0;
+    border-color: #1c2a33;
+    box-shadow: none;
+  }
+
+  .game-shell .command-bar {
+    border-width: 0 0 1px;
+    border-color: #1c2a33;
+    box-shadow: none;
+  }
+
+  /* The Law-Heart's 4px industrial frames become hairlines; its glow and
+     canvas identity carry the drama instead of the box around it. */
+  .game-shell .law-heart-deck,
+  .game-shell .foundry-law-heart {
+    border-width: 1px 0;
+    border-color: #1c2a33;
+    outline: none;
+    box-shadow: none;
+  }
+  .game-shell .law-heart-heading,
+  .game-shell .foundry-law-heart > header {
+    border-bottom: 1px solid #1c2a33;
+  }
+  .game-shell .law-heart-controls { border-top: 1px solid #1c2a33; }
+  .game-shell .law-heart-controls > section + section { border-left: 1px solid #1c2a33; }
+
+  /* Buttons keep their 2px border (a real touch affordance) and the press
+     feel, but resting offset shadows go - "sticker" depth reads as clutter
+     at this scale. Stateful shadows (active-tab underlines) still apply via
+     their own higher-specificity rules. */
+  .game-shell button:not(.ark-core-engine),
+  .game-shell input,
+  .game-shell select {
+    box-shadow: none;
+  }
+  .game-shell .brand-mark { box-shadow: none; }
+
+  /* ---- 3 · Accent discipline ------------------------------------------- */
+  /* World accent marks state (active tab, progress, primary action, alert),
+     not furniture. Panels lose their accent-tinted borders. */
+  .game-shell .panel,
+  .game-shell .continuity-panel {
+    border-color: #1c2a33;
+  }
+
+  /* ---- 7 · Type ramp ---------------------------------------------------- */
+  /* Collapse the ~11 sizes in play at phone width toward a deliberate ramp:
+     11px labels · 12-13px body (already dominant) · 17px/20px headings.
+     The Flux hero (26px+) lives in the command bar's own rules. */
+  .game-shell h2 { font-size: 20px; }
+  .game-shell h3,
+  .game-shell h4 { font-size: 17px; }
+  .game-shell :where(.eyebrow, .kicker, .machine-index, .resource-label) {
+    font-size: 11px;
+  }
+}

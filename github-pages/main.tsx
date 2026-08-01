@@ -12,6 +12,7 @@ import "../app/axiom-law-heart.css";
 import "../app/lore-archive.css";
 import "../app/ark-command-v3.css";
 import "../app/operations-console.css";
+import "../app/mobile-chrome.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

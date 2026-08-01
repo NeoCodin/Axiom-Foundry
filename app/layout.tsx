@@ -11,6 +11,7 @@ import "./axiom-law-heart.css";
 import "./lore-archive.css";
 import "./ark-command-v3.css";
 import "./operations-console.css";
+import "./mobile-chrome.css";
 
 // viewportFit is inert until vinext's ViewportHead shim adds support (currently
 // only renders width/initialScale/etc.) — kept so it activates automatically
