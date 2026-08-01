@@ -286,7 +286,11 @@ import {
   TOUR_STEPS,
   type ContextGuideId,
 } from "./story-content";
-import { LoreArchive, type ArchiveWorldEntry } from "./lore-archive";
+import {
+  LoreArchive,
+  type ArchiveLawEntry,
+  type ArchiveWorldEntry,
+} from "./lore-archive";
 import { getProgressiveDisclosure } from "./progressive-disclosure";
 import {
   getDestinationIntroduction,
@@ -294,8 +298,17 @@ import {
   type DestinationIntroduction,
 } from "./tutorial-engine";
 import { PixelTooltipLayer } from "./pixel-tooltip-layer";
+import {
+  calculateNullSaturation,
+  DEFAULT_NULL_SATURATION_OVERRIDE,
+  type NullSaturationOverride,
+} from "./null-saturation-engine";
 import { ContextualGuide } from "./contextual-guide";
-import { QaSandbox } from "./qa-sandbox";
+import { QaSandbox, type QaGuidePreviewId } from "./qa-sandbox";
+import {
+  CoreEchoPreview,
+  type CoreEchoPreviewId,
+} from "./core-echo-preview";
 import {
   QA_QUERY_PARAMETER,
   QA_SAVE_KEY,
@@ -375,7 +388,7 @@ function getNextObjective(state: GameState) {
       };
     }
     return {
-      label: "Engineering directive complete — continuity review required",
+      label: "Engineering directive complete. Continuity review required.",
       threshold: 1,
       current: 1,
       progress: 1,
@@ -476,6 +489,12 @@ export default function Home() {
     id: ContextGuideId;
     step: number;
   } | null>(null);
+  const [qaGuidePreview, setQaGuidePreview] = useState<{
+    id: QaGuidePreviewId;
+    step: number;
+  } | null>(null);
+  const [qaCoreEchoPreview, setQaCoreEchoPreview] =
+    useState<CoreEchoPreviewId | null>(null);
   const [loreOpen, setLoreOpen] = useState(false);
   const [manualTopic, setManualTopic] = useState<ManualTopicId | null>(null);
   const [tooltipsEnabled, setTooltipsEnabled] = useState(true);
@@ -484,6 +503,8 @@ export default function Home() {
   const [qaCollapsed, setQaCollapsed] = useState(false);
   const [qaLawHeartOverride, setQaLawHeartOverride] =
     useState<LawHeartQaOverride>(DEFAULT_LAW_HEART_QA_OVERRIDE);
+  const [qaNullOverride, setQaNullOverride] =
+    useState<NullSaturationOverride>(DEFAULT_NULL_SATURATION_OVERRIDE);
   const loadStarted = useRef(false);
   const activeSaveKeyRef = useRef(SAVE_KEY);
   const gameRef = useRef(game);
@@ -497,14 +518,22 @@ export default function Home() {
     gameRef.current = game;
   }, [game]);
 
+  const openManual = useCallback((topic: ManualTopicId) => {
+    setManualTopic(topic);
+  }, []);
+
+  const closeManual = useCallback(() => {
+    setManualTopic(null);
+  }, []);
+
   useEffect(() => {
     if (!manualTopic) return;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setManualTopic(null);
+      if (event.key === "Escape") closeManual();
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [manualTopic]);
+  }, [closeManual, manualTopic]);
 
   useEffect(() => {
     if (loadStarted.current) return;
@@ -853,6 +882,59 @@ export default function Home() {
     }),
     [game.missions.currentIndex, game.missions.statuses],
   );
+  const archiveLaws = useMemo<ArchiveLawEntry[]>(() => {
+    const laws: ArchiveLawEntry[] = [];
+    if (game.lifetimeAxioms >= 1) laws.push({
+      id: "containment",
+      name: "The Law of Containment",
+      shortName: "Containment",
+      meaning: "A sealed hull, a living body, and a remembered name remain themselves under pressure.",
+      consequence: "Containment lets the Ark hold a stable interior even when the space around it is losing coherence.",
+      source: "Proven during Cold Wake",
+    });
+    if (game.lifetimeAxioms >= 2) laws.push({
+      id: "conservation",
+      name: "The Law of Conservation",
+      shortName: "Conservation",
+      meaning: "What enters a closed system must still be accounted for when nobody is watching.",
+      consequence: "Conservation prevents the Null from quietly rewriting the Ark's stores, energy, and physical records.",
+      source: "Proven during Cold Wake",
+    });
+    if (game.lifetimeAxioms >= 3) laws.push({
+      id: "transit",
+      name: "The Law of Transit",
+      shortName: "Transit",
+      meaning: "Departure, passage, and arrival belong to one continuous history.",
+      consequence: "Transit allows the Ark to carry people and matter through unstable corridors without losing their connection to where they began.",
+      source: "Proven during Cold Wake",
+    });
+    const completed = new Set(game.research.completedProjectIds);
+    if (completed.has("resonance-stabilization")) laws.push({
+      id: "resonance",
+      name: "Resonant Coexistence",
+      shortName: "Resonance",
+      meaning: "Several portable laws can remain true inside one shared core without erasing each other.",
+      consequence: "This proof expands the Law-Heart beyond Cold Wake's three basic laws and begins its stellar evolution.",
+      source: "Research: Resonance Stabilization",
+    });
+    if (completed.has("axiomatic-stellarization")) laws.push({
+      id: "stellarization",
+      name: "Axiomatic Stellarization",
+      shortName: "Stellarization",
+      meaning: "A dense network of portable laws can sustain a luminous, self-reinforcing physical core.",
+      consequence: "The Law-Heart becomes a small artificial law-star capable of supporting a much wider stable field.",
+      source: "Research: Axiomatic Stellarization",
+    });
+    if (completed.has("convergence-envelope")) laws.push({
+      id: "convergence",
+      name: "The Convergence Envelope",
+      shortName: "Convergence",
+      meaning: "Physical laws that disagree can remain locally valid when their boundaries are deliberately maintained.",
+      consequence: "The Ark can carry contradictory environments without forcing one reality to overwrite the other.",
+      source: "Research: Convergence Envelope",
+    });
+    return laws;
+  }, [game.lifetimeAxioms, game.research.completedProjectIds]);
   const doctrineAvailability = useMemo(
     () =>
       getDoctrineAvailability(
@@ -1078,6 +1160,17 @@ export default function Home() {
       };
     },
     [game.lifetimeAxioms, game.research.completedProjectIds, game.settlement.currentWorldId, game.worldProgress],
+  );
+  const nullSaturation = useMemo(
+    () => calculateNullSaturation({
+      worldId: campaignWorld.id,
+      worldIndex: campaignWorldIndex,
+      lifetimeAxioms: game.lifetimeAxioms,
+      completedResearchIds: game.research.completedProjectIds,
+      completedInfrastructure: currentWorldProgress.completedInfrastructureIds.length,
+      override: qaMode ? qaNullOverride : null,
+    }),
+    [campaignWorld.id, campaignWorldIndex, currentWorldProgress.completedInfrastructureIds.length, game.lifetimeAxioms, game.research.completedProjectIds, qaMode, qaNullOverride],
   );
   const infrastructureQuotes = Object.fromEntries(
     campaignWorld.infrastructure.map((objective, index) => {
@@ -2420,7 +2513,7 @@ export default function Home() {
   if (autonomyUnlocked) {
     foundryConsoleTabs.push({
       id: "autonomy",
-      label: "AXIOM Autonomy",
+      label: "Foundry Autonomy",
       shortLabel: "Autonomy",
     });
   }
@@ -2611,10 +2704,11 @@ export default function Home() {
 
   return (
     <main
-      className={`game-shell world-theme-${worldVisual.slug}`}
+      className={`game-shell world-theme-${worldVisual.slug} null-${nullSaturation.classification}`}
       data-world={worldVisual.slug}
       data-world-index={campaignWorldIndex}
       data-view={primaryView}
+      data-null-intensity={nullSaturation.visualIntensity.toFixed(2)}
       style={shellStyle}
     >
       {tooltipsEnabled && <PixelTooltipLayer />}
@@ -2633,6 +2727,7 @@ export default function Home() {
         axiomsLabel={formatNumber(game.axioms)}
         resonanceLabel={formatNumber(production.resonance.multiplier)}
         operationalLoadLabel={`${Math.round(operationalLoad.total * 10_000) / 100}%`}
+        nullSaturation={nullSaturation}
         showAxioms={game.lifetimeAxioms > 0 || game.maxFlux >= 10_000}
         showResonance={campaignWorldIndex >= 1 && game.tiers[1].bought > 0}
         showOperations={campaignWorldIndex >= 2 || operationalLoad.total > 0.001}
@@ -2653,7 +2748,7 @@ export default function Home() {
           progress: objective.progress,
           directiveLabel: activeMission && game.settings.tutorialComplete && !game.missions.awaitingAcknowledgement ? activeMission.world : null,
         }}
-        onOpenHelp={() => setManualTopic(primaryView)}
+        onOpenHelp={() => openManual(primaryView)}
         onOpenLore={() => setLoreOpen(true)}
         onSave={() => persistGame("Saved")}
         onOpenDirective={() => {
@@ -2739,6 +2834,20 @@ export default function Home() {
             setTourStep(null);
             setContextGuide(null);
           }}
+          onPreviewGuide={(guideId) => {
+            setLoreOpen(false);
+            closeManual();
+            setQaCoreEchoPreview(null);
+            setQaCollapsed(true);
+            setQaGuidePreview({ id: guideId, step: 0 });
+          }}
+          onPreviewCoreEcho={(previewId) => {
+            setLoreOpen(false);
+            closeManual();
+            setQaGuidePreview(null);
+            setQaCollapsed(true);
+            setQaCoreEchoPreview(previewId);
+          }}
           onGrantResources={() => applyQaState(grantQaResources(gameRef.current), "QA resources stocked.")}
           onAddFlux={(amount) => {
             const next = addQaFlux(gameRef.current, amount);
@@ -2747,11 +2856,13 @@ export default function Home() {
           onSetAxioms={(amount) =>
             applyQaState(
               setQaAxioms(gameRef.current, amount),
-              `QA profile set to ${formatNumber(amount)} spendable and lifetime Axioms.`,
+              `QA profile set to ${formatNumber(amount)} spendable and proven Axioms.`,
             )
           }
           lawHeartOverride={qaLawHeartOverride}
           onLawHeartOverrideChange={setQaLawHeartOverride}
+          nullOverride={qaNullOverride}
+          onNullOverrideChange={setQaNullOverride}
           onTriggerLawHeartEvent={(kind) =>
             setQaLawHeartOverride((current) => ({
               ...current,
@@ -3075,7 +3186,7 @@ export default function Home() {
             };
           }}
           onStartBioadaptation={handleStartBioadaptation}
-          onOpenHelp={setManualTopic}
+          onOpenHelp={openManual}
           onBack={() => setPrimaryView("deck")}
         />
       ) : primaryView === "medical" ? (
@@ -3113,7 +3224,7 @@ export default function Home() {
           onProstheticSurgery={handleProstheticSurgery}
           onAdmit={handleAdmitToMedBay}
           onDischarge={handleDischargeFromMedBay}
-          onOpenHelp={setManualTopic}
+          onOpenHelp={openManual}
           onBack={() => setPrimaryView("deck")}
         />
       ) : primaryView === "research" ? (
@@ -3138,7 +3249,7 @@ export default function Home() {
           onStateChange={handleResearchStateChange}
           onTransferInput={handleTransferResearchInput}
           onAssignedCrewChange={handleResearchCrewChange}
-          onOpenHelp={setManualTopic}
+          onOpenHelp={openManual}
           onClose={() => setPrimaryView("deck")}
         />
       ) : primaryView === "defense" ? (
@@ -3157,7 +3268,7 @@ export default function Home() {
           onReinforceRoom={handleUpgradeLivingRoom}
           onChooseContactDoctrine={handleChooseDefenseDoctrine}
           onChooseEnvironmentalDoctrine={handleChooseEnvironmentalDefenseDoctrine}
-          onOpenHelp={setManualTopic}
+          onOpenHelp={openManual}
           onBack={() => setPrimaryView("deck")}
         />
       ) : primaryView === "armory" ? (
@@ -3171,7 +3282,7 @@ export default function Home() {
           onUpgrade={handleUpgradeArmoryItem}
           onModification={handleArmoryModification}
           onBuyLaw={handleBuyArmoryLaw}
-          onOpenHelp={setManualTopic}
+          onOpenHelp={openManual}
           onBack={() => setPrimaryView("population")}
         />
       ) : primaryView === "expeditions" ? (
@@ -3225,7 +3336,7 @@ export default function Home() {
           }}
           onLaunchRescue={handleLaunchRescue}
           onAbandonStranded={handleAbandonStranded}
-          onOpenHelp={setManualTopic}
+          onOpenHelp={openManual}
           onBack={() => setPrimaryView("deck")}
         />
       ) : primaryView === "settlement" && activeTransit ? (
@@ -3389,7 +3500,7 @@ export default function Home() {
               setPrimaryView("expeditions");
             }
           }}
-          onOpenHelp={setManualTopic}
+          onOpenHelp={openManual}
           onBack={() => setPrimaryView("deck")}
         />
         </>
@@ -3568,7 +3679,7 @@ export default function Home() {
               onBuildFrame={handleBuildAutomationFrame}
               onAllocation={handleAutomationAllocation}
               onPolicy={handleAutomationPolicy}
-              onOpenHelp={setManualTopic}
+              onOpenHelp={openManual}
             />
             </div>
           )}
@@ -3714,7 +3825,7 @@ export default function Home() {
                 </button>
               </div>
             )}
-            <p className="axiom-definition">Axioms are permanent laws that keep ships, time, and matter consistent inside the Null Tide.</p>
+            <p className="axiom-definition">An Axiom is a portable proof that one compatible law can survive the collapse and rebuilding of its Foundry configuration.</p>
             {!confirmPrestige ? (
               <button
                 className="prestige-button"
@@ -3742,7 +3853,7 @@ export default function Home() {
             <div className="panel-heading">
               <div>
                 <p className="section-kicker">Cycle control</p>
-                <h2>AXIOM Autonomy</h2>
+                <h2>Foundry Autonomy</h2>
               </div>
               <span className={`status-chip ${game.settings.autoEnabled ? "online" : ""}`}>{game.settings.autoEnabled ? "ACTIVE" : "OFF"}</span>
             </div>
@@ -3814,7 +3925,7 @@ export default function Home() {
                       onChange={(event) => setGame((current) => setAutoUpgrades(current, event.target.checked))}
                     />
                   </label>
-                  {game.lifetimeAxioms < 3 && <p>Protocol routing unlocks at 3 lifetime Axioms.</p>}
+                  {game.lifetimeAxioms < 3 && <p>Protocol routing unlocks at 3 proven Axioms.</p>}
                 </section>
               </>
             )}
@@ -3833,7 +3944,7 @@ export default function Home() {
               </span>
             </div>
             <p className="panel-copy legacy-intro">
-              Lifetime Axiom milestones reveal permanent Matrix Capacity. Assign that capacity across three bounded branches; spendable Axioms are never consumed here.
+              Proven Axiom milestones reveal permanent Matrix Capacity. The Matrix records safe relationships among those proofs; assigning capacity never consumes spendable Axioms.
             </p>
             <div className="legacy-capacity-readout">
               <div>
@@ -3845,7 +3956,7 @@ export default function Home() {
                 <strong>
                   {legacyMatrixStatus.nextMilestone === null
                     ? "MATRIX COMPLETE"
-                    : `${legacyMatrixStatus.nextMilestone} LIFETIME AXIOMS`}
+                    : `${legacyMatrixStatus.nextMilestone} PROVEN AXIOMS`}
                 </strong>
               </div>
               <div>
@@ -3968,6 +4079,50 @@ export default function Home() {
         />
       )}
 
+      {qaMode && qaGuidePreview && (
+        <ContextualGuide
+          label={
+            qaGuidePreview.id === "orientation"
+              ? "QA preview · Cold Wake orientation"
+              : `QA preview · ${qaGuidePreview.id.replaceAll("-", " ")}`
+          }
+          steps={
+            qaGuidePreview.id === "orientation"
+              ? TOUR_STEPS
+              : CONTEXT_GUIDES[qaGuidePreview.id]
+          }
+          stepIndex={qaGuidePreview.step}
+          finalLabel="Close preview"
+          onBack={() =>
+            setQaGuidePreview((current) =>
+              current
+                ? { ...current, step: Math.max(0, current.step - 1) }
+                : null,
+            )
+          }
+          onNext={() =>
+            setQaGuidePreview((current) => {
+              if (!current) return null;
+              const steps =
+                current.id === "orientation"
+                  ? TOUR_STEPS
+                  : CONTEXT_GUIDES[current.id];
+              return current.step >= steps.length - 1
+                ? null
+                : { ...current, step: current.step + 1 };
+            })
+          }
+          onSkip={() => setQaGuidePreview(null)}
+        />
+      )}
+
+      {qaMode && qaCoreEchoPreview && (
+        <CoreEchoPreview
+          previewId={qaCoreEchoPreview}
+          onClose={() => setQaCoreEchoPreview(null)}
+        />
+      )}
+
       {loreOpen && (
         <LoreArchive
           memoryEntries={availableLoreEntries}
@@ -3976,6 +4131,7 @@ export default function Home() {
           nextFragment={nextArchiveDiscovery}
           causalArchive={causalArchive}
           worlds={archiveWorlds}
+          laws={archiveLaws}
           worldsSaved={game.missions.worldsSaved}
           onCrossIndex={handleArchiveInvestigation}
           onReplayOrientation={replayTour}
@@ -3985,10 +4141,11 @@ export default function Home() {
 
       {manualTopic && (
         <GameManualDialog
-          topicId={manualTopic}
+          currentTopicId={manualTopic}
           availablePages={availableManualPages}
-          onSelectTopic={setManualTopic}
-          onClose={() => setManualTopic(null)}
+          priorities={commandPriorities}
+          onNavigate={handleCommandPriorityNavigate}
+          onClose={closeManual}
         />
       )}
 

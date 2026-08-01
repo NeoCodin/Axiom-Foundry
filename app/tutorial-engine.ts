@@ -42,7 +42,7 @@ export function getDestinationIntroduction(
       eyebrow: "NEW DESTINATION · CONTINUITY",
       title: "The Planet forecast is online",
       description:
-        "Continuity does not mean the Ark can leave yet. This forecast shows what the ship must restore before Pelagos approach is safe.",
+        "Continuity shows what the Ark must restore before it can approach Pelagos safely.",
       note:
         "Review the forecast first. It will introduce the Foundry only after you authorize the next restoration step.",
       buttonLabel: "OPEN PLANET · FORECAST",
@@ -73,7 +73,7 @@ export function getDestinationIntroduction(
       description:
         "The Law-Heart is no longer the entire interface. Navigation, life support, and the Continuity Bridge are visible as physical rooms aboard the ship.",
       note:
-        "Dormant rooms are previews, not new chores. Follow the single active directive on Ark Command.",
+        "Dormant rooms preview later systems. Follow the highlighted room on Ark Command.",
       buttonLabel: "OPEN ARK COMMAND",
     };
   }
@@ -99,7 +99,7 @@ export function getDestinationIntroduction(
       id: "personnel",
       view: "population",
       eyebrow: "NEW DESTINATION · PERSONNEL",
-      title: "The Ark has people, not statistics",
+      title: "Meet the first people aboard",
       description:
         "Personnel opens only now because the first rescued witnesses are aboard. This is where you learn their names, professions, levels, and assignments.",
       note:
@@ -120,7 +120,7 @@ export function getDestinationIntroduction(
       description:
         "The first crew is established and the gravity operation has reached its final phase. Continuity can now request a deliberate planetary survey.",
       note:
-        "The Bay did not open when the first witnesses arrived. It opens now because the current world has created a specific field assignment.",
+        "The current world now needs a field team. The Expedition Bay is ready for that assignment.",
       buttonLabel: "OPEN EXPEDITION BAY",
     };
   }

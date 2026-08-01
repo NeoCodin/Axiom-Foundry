@@ -162,9 +162,9 @@ const INPUT_SOURCE_COPY: Record<ResearchInputId, string> = {
   "engineering-models": "Machine purchases, Flux production, and infrastructure",
   "biological-samples": "Rescues, clinical work, Doctors, Farmers, and planetary crises",
   "cultural-records": "Rescues, Teachers, Researchers, community testimony, and settlements",
-  schematics: "ONLY from rescued survivors' cargo and expedition returns — nothing aboard generates them",
+  schematics: "Only rescued cargo and expedition returns provide Schematics.",
   "null-traces": "Later worlds, passive Null signals, and resolved crises",
-  "axiom-proofs": "Recalibration + diminishing passive generation from lifetime Axioms",
+  "axiom-proofs": "Recalibration + diminishing passive generation from Proven Axioms",
 };
 
 const formatNumber = (value: number) =>
@@ -175,7 +175,7 @@ const formatNumber = (value: number) =>
       : value.toLocaleString(undefined, { maximumFractionDigits: 1 });
 
 const formatDuration = (seconds: number) => {
-  if (!Number.isFinite(seconds) || seconds <= 0) return "—";
+  if (!Number.isFinite(seconds) || seconds <= 0) return "-";
   if (seconds < 60) return `${Math.ceil(seconds)} sec`;
   if (seconds < 3_600) return `${Math.ceil(seconds / 60)} min`;
   return `${(seconds / 3_600).toFixed(seconds < 36_000 ? 1 : 0)} hr`;
@@ -1207,8 +1207,8 @@ export function ResearchLattice({
                 <section>
                   <span>AXIOM NOTE</span>
                   <p>
-                    This result was not part of the authorized program. It is preserved because deleting it
-                    would conceal evidence; it is not treated as proven truth.
+                    This result appeared outside the authorized program. The
+                    Archive preserves it as unproven evidence.
                   </p>
                 </section>
                 <section>

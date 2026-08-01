@@ -18,6 +18,21 @@ export const PROFESSIONAL_ROLES = [
 export type ProfessionalRole = (typeof PROFESSIONAL_ROLES)[number];
 export type SurvivorRole = ProfessionalRole | "civilian";
 export type SurvivorAgeGroup = "child" | "adult" | "elder";
+export type SurvivorGender = "woman" | "man" | "nonbinary";
+export const SURVIVOR_ALTERATIONS = [
+  { id: "split-recall", name: "Split Recall", visibility: "subtle", description: "Remembers two incompatible versions of the same day.", need: "Stable written schedules and a trusted witness during major decisions.", benefit: "Notices contradictions other researchers discard.", drawback: "Unverified memories cannot be treated as orders.", perspective: "Both memories feel earned. Asking which one is real is the wrong question." },
+  { id: "echo-response", name: "Echo Response", visibility: "subtle", description: "Sometimes answers a question seconds before it is spoken.", need: "Conversation records that preserve cause and response in order.", benefit: "Reads unstable signals unusually quickly.", drawback: "Crowded rooms can become disorienting.", perspective: "The answer arrives first. Courtesy takes longer." },
+  { id: "light-fed-tissue", name: "Light-Fed Tissue", visibility: "visible", description: "Pigmented tissue converts intense light into part of the body’s energy supply.", need: "A full-spectrum light berth and ordinary food during low-light duty.", benefit: "Uses less Ark nutrition while properly lit.", drawback: "Dark deployments cause rapid fatigue.", perspective: "Sunlight is food now. It is still sunlight." },
+  { id: "glass-membrane", name: "Glass Membrane", visibility: "visible", description: "A clear protective membrane covers exposed tissue and replaces part of the skin barrier.", need: "Humidity control and nonabrasive clothing.", benefit: "Resists several Vesper contaminants.", drawback: "Dry air causes painful cracking.", perspective: "People stare at what keeps me alive." },
+  { id: "braced-strength", name: "Braced Strength", visibility: "visible", description: "Dense geometric muscle fibers produce extreme force around fragile joints.", need: "Daily braces and regular engineering inspection.", benefit: "Adds strength to difficult expeditions.", drawback: "Unbraced movement risks injury.", perspective: "Strength is not freedom when the hinge is the weak part." },
+  { id: "long-sleep-metabolism", name: "Long-Sleep Metabolism", visibility: "visible", description: "The body enters scheduled metabolic shutdown instead of ordinary sleep.", need: "Protected twelve-hour shutdown windows.", benefit: "Consumes fewer supplies during recovery.", drawback: "Cannot be awakened safely mid-cycle.", perspective: "I do not dream. I resume." },
+  { id: "chronology-loss", name: "Chronology Loss", visibility: "visible", description: "Expert knowledge remains intact, but new personal memories do not settle in sequence.", need: "A personal archive and patient continuity partner.", benefit: "Retains technical expertise with unusual precision.", drawback: "New relationships require deliberate records.", perspective: "I remember you. I cannot always remember becoming your friend." },
+  { id: "motion-bound", name: "Motion-Bound", visibility: "visible", description: "Voluntary movement fails outside a narrow stabilized field.", need: "A mobile law brace and accessible station.", benefit: "Perceives local law shifts before Ark instruments do.", drawback: "Cannot deploy without specialized support.", perspective: "Stillness is a condition of my body, not my mind." },
+] as const;
+export type SurvivorAlterationId = (typeof SURVIVOR_ALTERATIONS)[number]["id"];
+export function getSurvivorAlteration(id: SurvivorAlterationId | null | undefined) {
+  return SURVIVOR_ALTERATIONS.find((entry) => entry.id === id) ?? null;
+}
 export type SurvivorOrigin =
   | "pelagos"
   | "viridia"
@@ -76,6 +91,10 @@ export type Survivor = {
   /** Explicit player protection from planetary founder selection. */
   settlementProtected: boolean;
   ageGroup: SurvivorAgeGroup;
+  /** Personal identity shown in the Personnel file. */
+  gender?: SurvivorGender;
+  /** Involuntary Null-touched physiology or memory. Separate from rarity, injury, and elective adaptation. */
+  alterationId?: SurvivorAlterationId | null;
   /** Children become adults after two completed planetary chapters aboard. */
   ageProgress: number;
   serviceSeconds: number;
@@ -437,6 +456,7 @@ export type RareSurvivorHook = {
   role: ProfessionalRole;
   backgroundId: string;
   trait: SurvivorTraitId;
+  gender: SurvivorGender;
 };
 
 export const RARE_SURVIVOR_HOOKS = [
@@ -448,6 +468,7 @@ export const RARE_SURVIVOR_HOOKS = [
     role: "navigator",
     backgroundId: "storm-pilot",
     trait: "tidal-memory",
+    gender: "woman",
   },
   {
     id: "axiom-voiceprint",
@@ -457,6 +478,7 @@ export const RARE_SURVIVOR_HOOKS = [
     role: "researcher",
     backgroundId: "reef-archive",
     trait: "signal-ear",
+    gender: "man",
   },
   {
     id: "impossible-forgemark",
@@ -466,6 +488,7 @@ export const RARE_SURVIVOR_HOOKS = [
     role: "fabricator",
     backgroundId: "pressure-forge",
     trait: "resourceful",
+    gender: "woman",
   },
   {
     id: "forty-third-foreman",
@@ -475,6 +498,7 @@ export const RARE_SURVIVOR_HOOKS = [
     role: "engineer",
     backgroundId: "tidal-grid",
     trait: "systems-thinker",
+    gender: "man",
   },
   {
     id: "null-lullaby",
@@ -484,6 +508,7 @@ export const RARE_SURVIVOR_HOOKS = [
     role: "teacher",
     backgroundId: "shelter-teacher",
     trait: "null-dreamer",
+    gender: "woman",
   },
 ] as const satisfies readonly RareSurvivorHook[];
 
@@ -501,7 +526,7 @@ export const TRAINING_DURATIONS_SECONDS: Record<ProfessionalRole, number> = {
   security: 25 * 60,
 };
 
-export const SURVIVOR_SCHEMA = 7;
+export const SURVIVOR_SCHEMA = 9;
 export const SOS_WORLD_ID = "pelagos";
 export const SOS_WORLD_IDS = [
   "pelagos",
@@ -883,7 +908,10 @@ const supportDemandForSurvivors = (
   return {
     atmosphere: population,
     water: population,
-    nutrition: population,
+    nutrition: survivors.reduce(
+      (sum, survivor) => sum + (survivor.alterationId === "light-fed-tissue" ? 0.65 : survivor.alterationId === "long-sleep-metabolism" ? 0.8 : 1),
+      0,
+    ),
     medical: Math.round(medical * 100) / 100,
   };
 };
@@ -1055,6 +1083,15 @@ export function startBerthSectionConstruction(
 
 const NAME_REROLL_ATTEMPTS = 24;
 
+function genderFromIdentity(id: string, name: string): SurvivorGender {
+  const hash = [...`${id}:${name}`].reduce(
+    (total, character) => (total * 31 + character.charCodeAt(0)) >>> 0,
+    2166136261,
+  );
+  const band = hash % 20;
+  return band < 9 ? "woman" : band < 18 ? "man" : "nonbinary";
+}
+
 function generateUniqueName(
   state: SurvivorSystemState,
   usedNames: ReadonlySet<string>,
@@ -1113,9 +1150,11 @@ function createProceduralSurvivor(
   const skillXp = makeSkillMap();
   if (role !== "civilian") skillXp[role] = STARTING_PROFESSIONAL_XP;
   const serial = state.nextSurvivorSerial++;
+  const id = `survivor-${serial}`;
+  const name = generateUniqueName(state, usedNames);
   return {
-    id: `survivor-${serial}`,
-    name: generateUniqueName(state, usedNames),
+    id,
+    name,
     callsign: "",
     origin: state.beaconWorldId ?? "unknown",
     originSignalId: signalId,
@@ -1130,6 +1169,8 @@ function createProceduralSurvivor(
     preferredRole: null,
     settlementProtected: false,
     ageGroup: "adult",
+    gender: genderFromIdentity(id, name),
+    alterationId: null,
     ageProgress: 0,
     serviceSeconds: 0,
     joinedAt: 0,
@@ -1152,6 +1193,7 @@ function createRareSurvivor(
   survivor.name = hook.name;
   survivor.backgroundId = hook.backgroundId;
   survivor.storyHookId = hook.id;
+  survivor.gender = hook.gender;
   survivor.traits = [
     hook.trait,
     ...survivor.traits.filter((trait) => trait !== hook.trait),
@@ -1167,8 +1209,8 @@ const SOS_GROUP_SIZES: Record<
   pelagos: [2, 4],
   viridia: [3, 5],
   cinder: [4, 6],
-  nox: [5, 7],
-  vesper: [6, 8],
+  nox: [3, 5],
+  vesper: [1, 3],
 };
 
 function elevateSurvivorToExceptional(survivor: Survivor) {
@@ -1257,6 +1299,24 @@ function generateSurvivorSignalMutable(
       survivor.adaptability = 5;
     } else if (ageRoll < 0.22) {
       survivor.ageGroup = "elder";
+    }
+  }
+
+  // Nox makes the first contradictions personal. Vesper's remaining signals
+  // are smaller and contain people whose bodies learned to live under broken law.
+  const alterationPool = SURVIVOR_ALTERATIONS.map((entry) => entry.id);
+  const subtlePool = SURVIVOR_ALTERATIONS.filter(
+    (entry) => entry.visibility === "subtle",
+  ).map((entry) => entry.id);
+  for (const [index, survivor] of survivors.entries()) {
+    if (beaconWorldId === "nox" && nextRandom(state) < 0.24) {
+      survivor.alterationId = randomFrom(state, subtlePool);
+    }
+    if (
+      beaconWorldId === "vesper" &&
+      ((sequence === 1 && index === 0) || nextRandom(state) < 0.72)
+    ) {
+      survivor.alterationId = randomFrom(state, alterationPool);
     }
   }
 
@@ -1873,6 +1933,7 @@ export function autoAssignSurvivors(
     }
     survivor.assignedRole = getBestAutomaticAssignment(survivor);
   }
+
   return next;
 }
 
@@ -2498,6 +2559,19 @@ function sanitizeSurvivor(
       value.ageGroup === "child" || value.ageGroup === "elder"
         ? value.ageGroup
         : "adult",
+    gender:
+      value.gender === "woman" ||
+      value.gender === "man" ||
+      value.gender === "nonbinary"
+        ? value.gender
+        : hook?.gender ??
+          genderFromIdentity(
+            id,
+            hook ? hook.name : textValue(value.name, "Unknown Survivor", 36),
+          ),
+    alterationId: SURVIVOR_ALTERATIONS.some((entry) => entry.id === value.alterationId)
+      ? (value.alterationId as SurvivorAlterationId)
+      : null,
     ageProgress: whole(value.ageProgress, 0, 1),
     serviceSeconds: finite(value.serviceSeconds, 0, MAX_OPERATIONAL_SECONDS),
     joinedAt: finite(value.joinedAt, joinedFallback, MAX_OPERATIONAL_SECONDS),

@@ -4,12 +4,37 @@ import { useState, type FormEvent } from "react";
 
 import { CAMPAIGN_WORLD_IDS, getCampaignWorld } from "./campaign-content";
 import {
+  CORE_ECHO_PREVIEWS,
+  type CoreEchoPreviewId,
+} from "./core-echo-preview";
+import {
   DEFAULT_LAW_HEART_QA_OVERRIDE,
   LAW_HEART_SPECTRA,
   type LawHeartQaEventKind,
   type LawHeartQaOverride,
   type LawPressState,
 } from "./law-heart-particle-field";
+import { CONTEXT_GUIDES, type ContextGuideId } from "./story-content";
+import {
+  DEFAULT_NULL_SATURATION_OVERRIDE,
+  type NullSaturationOverride,
+} from "./null-saturation-engine";
+
+export type QaGuidePreviewId = "orientation" | ContextGuideId;
+
+const QA_GUIDE_OPTIONS: readonly {
+  id: QaGuidePreviewId;
+  label: string;
+}[] = [
+  { id: "orientation", label: "Cold Wake · Opening orientation" },
+  ...Object.keys(CONTEXT_GUIDES).map((id) => ({
+    id: id as ContextGuideId,
+    label: id
+      .split("-")
+      .map((word) => word[0]?.toUpperCase() + word.slice(1))
+      .join(" "),
+  })),
+];
 
 type QaSandboxProps = {
   collapsed: boolean;
@@ -20,11 +45,15 @@ type QaSandboxProps = {
   onReplayPlanetIntroduction: () => void;
   onReplayPelagosIntroduction: () => void;
   onReplayResearchIntroduction: () => void;
+  onPreviewGuide: (guideId: QaGuidePreviewId) => void;
+  onPreviewCoreEcho: (previewId: CoreEchoPreviewId) => void;
   onGrantResources: () => void;
   onAddFlux: (amount: number) => void;
   onSetAxioms: (amount: number) => void;
   lawHeartOverride: LawHeartQaOverride;
   onLawHeartOverrideChange: (override: LawHeartQaOverride) => void;
+  nullOverride: NullSaturationOverride;
+  onNullOverrideChange: (override: NullSaturationOverride) => void;
   onTriggerLawHeartEvent: (kind: LawHeartQaEventKind) => void;
   onOpenLawHeart: () => void;
   onResetResearch: () => void;
@@ -47,11 +76,15 @@ export function QaSandbox({
   onReplayPlanetIntroduction,
   onReplayPelagosIntroduction,
   onReplayResearchIntroduction,
+  onPreviewGuide,
+  onPreviewCoreEcho,
   onGrantResources,
   onAddFlux,
   onSetAxioms,
   lawHeartOverride,
   onLawHeartOverrideChange,
+  nullOverride,
+  onNullOverrideChange,
   onTriggerLawHeartEvent,
   onOpenLawHeart,
   onResetResearch,
@@ -68,9 +101,16 @@ export function QaSandbox({
   const [customFluxError, setCustomFluxError] = useState("");
   const [customAxioms, setCustomAxioms] = useState("24");
   const [customAxiomError, setCustomAxiomError] = useState("");
+  const [selectedGuideId, setSelectedGuideId] =
+    useState<QaGuidePreviewId>("orientation");
+  const [selectedEchoId, setSelectedEchoId] =
+    useState<CoreEchoPreviewId>(CORE_ECHO_PREVIEWS[0].id);
 
   const updateLawHeart = (patch: Partial<LawHeartQaOverride>) => {
     onLawHeartOverrideChange({ ...lawHeartOverride, ...patch });
+  };
+  const updateNull = (patch: Partial<NullSaturationOverride>) => {
+    onNullOverrideChange({ ...nullOverride, ...patch });
   };
 
   const updateTierCount = (index: number, amount: number) => {
@@ -147,6 +187,46 @@ export function QaSandbox({
             </div>
             <small className="qa-section-help">These run the same blocking guides and unlock presentation as the public game.</small>
           </section>
+          <section className="qa-preview-library">
+            <span>GUIDE LIBRARY</span>
+            <label>
+              <small>Choose any public guide</small>
+              <select
+                value={selectedGuideId}
+                onChange={(event) => setSelectedGuideId(event.target.value as QaGuidePreviewId)}
+              >
+                {QA_GUIDE_OPTIONS.map((guide) => (
+                  <option key={guide.id} value={guide.id}>{guide.label}</option>
+                ))}
+              </select>
+            </label>
+            <button type="button" onClick={() => onPreviewGuide(selectedGuideId)}>
+              Preview selected guide
+            </button>
+            <small className="qa-section-help">
+              Opens the real guide copy without changing unlocks, completion flags, or either save.
+            </small>
+          </section>
+          <section className="qa-preview-library">
+            <span>CORE ECHO LAB</span>
+            <label>
+              <small>Choose a flashback study</small>
+              <select
+                value={selectedEchoId}
+                onChange={(event) => setSelectedEchoId(event.target.value as CoreEchoPreviewId)}
+              >
+                {CORE_ECHO_PREVIEWS.map((echo) => (
+                  <option key={echo.id} value={echo.id}>{echo.timestamp} · {echo.title}</option>
+                ))}
+              </select>
+            </label>
+            <button type="button" onClick={() => onPreviewCoreEcho(selectedEchoId)}>
+              Enter selected Echo
+            </button>
+            <small className="qa-section-help">
+              Draft visual previews only. They never move the Ark, spend resources, or write progress.
+            </small>
+          </section>
           <section>
             <span>TEST OVERRIDES</span>
             <div className="qa-action-grid">
@@ -155,6 +235,29 @@ export function QaSandbox({
               <button type="button" onClick={onPrepareContinuity}>Prepare Continuity</button>
               <button type="button" onClick={onSimulateOfflineDay}>Simulate 24h</button>
             </div>
+          </section>
+          <section className="qa-null-lab">
+            <span>NULL ENVIRONMENT LAB</span>
+            <div className="qa-law-heart-master">
+              <button type="button" className={nullOverride.enabled ? "is-active" : ""} onClick={() => updateNull({ enabled: !nullOverride.enabled })}>
+                Environment override {nullOverride.enabled ? "ON" : "OFF"}
+              </button>
+              <button type="button" onClick={() => onNullOverrideChange(DEFAULT_NULL_SATURATION_OVERRIDE)}>Reset live reading</button>
+            </div>
+            <div className={`qa-law-heart-controls ${nullOverride.enabled ? "" : "is-disabled"}`}>
+              <label><span>Ambient saturation · {nullOverride.ambient}</span><input type="range" min={0} max={60} step={1} value={nullOverride.ambient} onChange={(event) => updateNull({ ambient: Number(event.target.value) })} /></label>
+              <label><span>Lawheart resistance · {nullOverride.lawHeartResistance}</span><input type="range" min={0} max={30} step={1} value={nullOverride.lawHeartResistance} onChange={(event) => updateNull({ lawHeartResistance: Number(event.target.value) })} /></label>
+              <label><span>Research protection · {nullOverride.researchProtection}</span><input type="range" min={0} max={20} step={1} value={nullOverride.researchProtection} onChange={(event) => updateNull({ researchProtection: Number(event.target.value) })} /></label>
+              <label><span>Local protection · {nullOverride.infrastructureProtection}</span><input type="range" min={0} max={12} step={1} value={nullOverride.infrastructureProtection} onChange={(event) => updateNull({ infrastructureProtection: Number(event.target.value) })} /></label>
+              <label><span>Visual distortion · {nullOverride.visualIntensity === null ? "AUTO" : nullOverride.visualIntensity.toFixed(2)}</span><input type="range" min={0} max={1} step={0.05} value={nullOverride.visualIntensity ?? 0} onChange={(event) => updateNull({ visualIntensity: Number(event.target.value) })} /></label>
+            </div>
+            <div className="qa-law-heart-presets">
+              <button type="button" onClick={() => updateNull({ enabled: true, ambient: 6, lawHeartResistance: 4, researchProtection: 0, infrastructureProtection: 0, visualIntensity: 0.05 })}>Stable</button>
+              <button type="button" onClick={() => updateNull({ enabled: true, ambient: 23, lawHeartResistance: 4, researchProtection: 0, infrastructureProtection: 0, visualIntensity: 0.45 })}>Nox</button>
+              <button type="button" onClick={() => updateNull({ enabled: true, ambient: 34, lawHeartResistance: 7, researchProtection: 2, infrastructureProtection: 0, visualIntensity: 0.75 })}>Vesper</button>
+              <button type="button" onClick={() => updateNull({ enabled: true, ambient: 52, lawHeartResistance: 5, researchProtection: 0, infrastructureProtection: 0, visualIntensity: 1 })}>Post-Vesper danger</button>
+            </div>
+            <small className="qa-section-help">Display and balance preview only. The public profile always derives this reading from its world, Lawheart, Research, and completed works.</small>
           </section>
           <section className="qa-law-heart-lab">
             <span>LAW-HEART VISUAL LAB</span>

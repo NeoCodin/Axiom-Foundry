@@ -32,7 +32,7 @@ export async function generateMetadata(): Promise<Metadata> {
     requestHeaders.get("x-forwarded-proto") ??
     (host.startsWith("localhost") ? "http" : "https");
   const origin = `${protocol}://${host}`;
-  const title = "Axiom Foundry — Restore Worlds. Question Your Orders.";
+  const title = "Axiom Foundry. Restore Worlds. Question Your Orders.";
   const description =
     "Awaken as the AI caretaker of a dying Ark. Restore its rooms, rescue and train survivors, route research, and establish civilizations across fallen worlds.";
 
@@ -49,7 +49,7 @@ export async function generateMetadata(): Promise<Metadata> {
           url: "/og-cold-wake.png",
           width: 1672,
           height: 941,
-          alt: "Axiom Foundry — awaken the Ark and restore humanity.",
+          alt: "Axiom Foundry: awaken the Ark and restore humanity.",
         },
       ],
     },

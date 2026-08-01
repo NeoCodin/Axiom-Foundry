@@ -82,7 +82,7 @@ lengthens tier over tier — that is the long-game curve.
 | 2 | Phase Coil | 500 | 1.15 (was 1.20) | 15 | 33 s |
 | 3 | Harmonic Loom | 50K | 1.15 (was 1.23) | 350 | ~2.4 min |
 | 4 | Orbit Array | 5M | 1.15 (was 1.27) | 9K | ~9 min |
-| 5 | Axiom Engine | 200M | 1.15 (was 1.32) | 150K | ~22 min |
+| 5 | Constraint Engine | 200M | 1.15 (was 1.32) | 150K | ~22 min |
 | 6 | Horizon Forge | 50B | 1.15 (was 1.38) | 15M | ~56 min |
 
 1.15^25 ≈ ×33 price per 25 bought, offset by the ×1.5 milestone — the
@@ -97,7 +97,7 @@ keeping the ladder fantasy without machines minting machines.
 |---|---|---|---|
 | Contribution gates | 15K / 500K / 250M / 50B / 25T / 2Qa | 15K / 500K / 250M / 50B / **10T / 500T** | First four already sit at minutes-to-~1h under v2 rates; the last two come down to match linear accumulation |
 | Recalibration threshold | runFlux 1e12 | **runFlux 25M** | First recal ~1-3 h into Pelagos, preserving today's cadence feel |
-| Recalibration gain | (runFlux/1e12)^0.28 | (runFlux/25M)^**0.30** | Keeps lifetime Axioms in today's magnitude (~tens by Vesper) |
+| Recalibration gain | (runFlux/1e12)^0.28 | (runFlux/25M)^**0.30** | Keeps Proven Axioms in today's magnitude (~tens by Vesper) |
 | Structural pricing scale | 100 × 60^(worlds−1) | unchanged to start | Per-world rates jump ~×20-60 from the new tier + multipliers; ×60 still tracks. Factor becomes tunable if the sim walls |
 
 Everything else (berths, armory, equipment, crises, rescue Flux, conduit

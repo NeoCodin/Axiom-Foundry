@@ -261,7 +261,7 @@ export const EXPEDITION_SITE_DEFINITIONS: readonly ExpeditionSiteDefinition[] = 
     worldId: "pelagos",
     category: "story",
     operationCode: "PLG-O02",
-    successReport: "The repeaters are not distress beacons. They are a census, maintained by families who expected the Ark.",
+    successReport: "The repeaters carry a census maintained by families who expected the Ark. No distress call was ever sent.",
     repeatable: false,
     countsAsSurvey: false,
     requiredForContinuity: false,
@@ -280,7 +280,7 @@ export const EXPEDITION_SITE_DEFINITIONS: readonly ExpeditionSiteDefinition[] = 
     worldId: "pelagos",
     category: "critical",
     operationCode: "PLG-C03",
-    successReport: "Pelagos now owns a complete public ledger and an independent medical route. Continuity can evaluate a real society instead of an estimate.",
+    successReport: "Pelagos now owns a public ledger and an independent medical route. Continuity can evaluate the society from current records.",
     repeatable: false,
     countsAsSurvey: false,
     requiredForContinuity: true,
@@ -648,7 +648,7 @@ export const EXPEDITION_SITE_DEFINITIONS: readonly ExpeditionSiteDefinition[] = 
     worldId: "vesper",
     category: "story",
     operationCode: "VSP-O02",
-    successReport: "The observatories agree to preserve contradictions instead of voting one history out of existence.",
+    successReport: "The observatories agree to preserve every conflicting history in the public record.",
     repeatable: false,
     countsAsSurvey: false,
     requiredForContinuity: false,
@@ -1073,6 +1073,8 @@ export function getExpeditionGroupStrength(crew: readonly Survivor[]) {
     strength += Math.max(1, bestLevel);
     if (getSurvivorSkillLevel(survivor, "security") >= 3) strength += 2;
     if (getSurvivorSkillLevel(survivor, "researcher") >= 3) strength += 1;
+    if (survivor.alterationId === "braced-strength") strength += 3;
+    if (survivor.alterationId === "motion-bound") strength -= 1;
   }
   return strength;
 }

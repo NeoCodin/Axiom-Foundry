@@ -144,8 +144,8 @@ function ExpeditionConsole({
 
       <div className="continuity-summary-band expedition-summary-band">
         <div><span>Status</span><strong>{expeditions.stranded ? "DISTRESS" : expeditions.active ? (expeditions.active.kind === "rescue" ? "Rescue underway" : "Mission underway") : "Bay ready"}</strong></div>
-        <div><span>Surveys certified</span><strong>{surveyStatus.required > 0 ? `${Math.min(surveyStatus.completed, surveyStatus.required)}/${surveyStatus.required}` : "—"}</strong></div>
-        <div><span>Critical operation</span><strong>{criticalSites.length > 0 ? `${criticalComplete}/${criticalSites.length}` : "—"}</strong></div>
+        <div><span>Surveys certified</span><strong>{surveyStatus.required > 0 ? `${Math.min(surveyStatus.completed, surveyStatus.required)}/${surveyStatus.required}` : "-"}</strong></div>
+        <div><span>Critical operation</span><strong>{criticalSites.length > 0 ? `${criticalComplete}/${criticalSites.length}` : "-"}</strong></div>
         <div title={`Every successful mission charts this world. SOS scans currently take ${recon.scanLabel}; recon can cut them to a third of the uncharted rate.`}>
           <span>Surface Recon</span>
           <strong>{recon.multiplier >= 1 ? "Uncharted" : `−${Math.round((1 - recon.multiplier) * 100)}% scan time`}</strong>
@@ -162,7 +162,7 @@ function ExpeditionConsole({
 
       {expeditions.stranded && (
         <section className="continuity-panel is-online">
-          <header><div><span>DISTRESS</span><h3>Party stranded — awaiting your decision</h3></div><small>They are stable indefinitely</small></header>
+          <header><div><span>DISTRESS</span><h3>Party stranded: awaiting your decision</h3></div><small>They are stable indefinitely</small></header>
           {(() => {
             const stranded = expeditions.stranded!;
             const site = getExpeditionSite(stranded.siteId);
@@ -223,8 +223,8 @@ function ExpeditionConsole({
                       <div className={`expedition-projection ${preview.projectedExtraction === "hard" ? "is-warning" : ""}`} aria-live="polite">
                         <strong>
                           {preview.projectedExtraction === "clean"
-                            ? `Projected: CLEAN EXTRACTION (strength ${preview.strength} vs ${preview.rescueDifficulty}) — everyone comes home unharmed`
-                            : `Projected: HARD EXTRACTION (strength ${preview.strength} vs ${preview.rescueDifficulty}) — everyone still comes home, but the rescuers will take wounds`}
+                            ? `Projected: CLEAN EXTRACTION (strength ${preview.strength} vs ${preview.rescueDifficulty}). Everyone comes home unharmed.`
+                            : `Projected: HARD EXTRACTION (strength ${preview.strength} vs ${preview.rescueDifficulty}). Everyone comes home, but the rescuers take wounds.`}
                         </strong>
                       </div>
                     )}
@@ -445,10 +445,10 @@ function ExpeditionConsole({
                       : preview.projectedOutcome === "success"
                       ? `Projected: SUCCESS (strength ${preview.strength} vs ${preview.difficulty})`
                       : preview.projectedOutcome === "lean"
-                        ? `Projected: LEAN RETURN (strength ${preview.strength} vs ${preview.difficulty}) — reduced rewards, nobody hurt`
+                        ? `Projected: LEAN RETURN (strength ${preview.strength} vs ${preview.difficulty}). Reduced rewards, nobody hurt.`
                         : preview.projectedOutcome === "setback"
-                          ? `Projected: SETBACK RISK (strength ${preview.strength} vs ${preview.difficulty}) — the crew will come home wounded`
-                          : `Projected: DISTRESS (strength ${preview.strength} vs ${preview.difficulty}) — the crew would be STRANDED and need a rescue mission`}
+                          ? `Projected: SETBACK RISK (strength ${preview.strength} vs ${preview.difficulty}). The crew will come home wounded.`
+                          : `Projected: DISTRESS (strength ${preview.strength} vs ${preview.difficulty}). The crew would be stranded and need a rescue mission.`}
                   </strong>
                   <br />
                   Auto-equip: {preview.weapons > 0 ? `${preview.weapons} weapon${preview.weapons === 1 ? "" : "s"} (+${preview.gearStrength} strength)` : "no weapons"} · {preview.armor > 0 ? `${preview.armor} armor` : "no armor"}. Forge more in the Armory.
@@ -486,7 +486,7 @@ function ExpeditionConsole({
                     ? `Needs ${access.fluxLabel}`
                     : needsConfirm
                       ? confirmingSetback
-                        ? "AXIOM objection logged — confirm launch"
+                        ? "AXIOM objection logged: confirm launch"
                         : `Launch anyway? Crew will be wounded · ${access.fluxLabel}`
                       : `Launch ${site.name} · ${access.fluxLabel}`}
               </button>
@@ -510,7 +510,7 @@ function ExpeditionConsole({
                 entry.outcome === "success" ? "SUCCESS"
                   : entry.outcome === "lean" ? "LEAN RETURN"
                     : entry.outcome === "setback" ? "SETBACK"
-                      : entry.outcome === "distress" ? "DISTRESS — CREW STRANDED"
+                      : entry.outcome === "distress" ? "DISTRESS. CREW STRANDED"
                         : "RESCUE MISSION";
               return (
                 <button type="button" className={index === Math.min(selectedLogIndex, reverseLogs.length - 1) ? "is-active" : ""} onClick={() => setSelectedLogIndex(index)} key={`${entry.resolvedAtSeconds}-${index}`}>

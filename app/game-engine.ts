@@ -182,6 +182,7 @@ import {
   type ResearchLatticeState,
   type ResearchProjectId,
 } from "./research-engine.ts";
+import { calculateNullSaturation } from "./null-saturation-engine.ts";
 import {
   cloneSettlementState,
   createSettlementState,
@@ -385,7 +386,7 @@ export const GENERATORS = [
     unlockAt: 1_000_000,
   },
   {
-    name: "Axiom Engine",
+    name: "Constraint Engine",
     shortName: "Engine",
     description: "Runs a proven law of motion in a loop and taxes it every cycle.",
     produces: "Flux",
@@ -585,7 +586,7 @@ export const MISSIONS = [
         target: 1,
         label: "Prove the law of Transit",
         instruction: "Charge one final cycle, then Recalibrate so the Ark arrives as the same vessel that departed.",
-        lore: "Transit is not speed. It is proof that departure, passage, and arrival belong to the same history.",
+        lore: "Transit proves that departure, passage, and arrival belong to one continuous history.",
       },
       {
         kind: "tierPurchaseDelta",
@@ -747,7 +748,7 @@ export const MISSIONS = [
         target: 250_000_000,
         label: "Seed the planetary clinic network",
         instruction: "Divert 250 million Flux into Viridia's clinic and seed network.",
-        lore: "The final charge gives every enclave tools to treat the forest as a neighbor rather than an enemy.",
+        lore: "The final charge gives every enclave tools to live safely beside the forest.",
       },
     ],
     landingFlux: 50_000,
@@ -828,7 +829,7 @@ export const MISSIONS = [
         tierIndex: 4,
         target: 1,
         label: "Build the public archive relay",
-        instruction: "Build 1 new Axiom Engine.",
+        instruction: "Build 1 new Constraint Engine.",
         lore: "The Engine signs every public record so no hidden authority can replace it without leaving evidence.",
       },
       {
@@ -850,7 +851,7 @@ export const MISSIONS = [
     landingFlux: 100_000_000,
     rewardLabel: "Open Record + colony relay + 100-million-Flux transit cache",
     success:
-      "Nox does not agree on one past. It agrees that no machine should be allowed to choose one in secret.",
+      "Nox preserves several accounts of its past. Its people agree that no machine may choose the official version in secret.",
   },
   {
     world: "Vesper",
@@ -1523,6 +1524,16 @@ export function getCampaignWorldIndex(state: GameState) {
   );
 }
 
+export function getNullSaturationForState(state: GameState) {
+  return calculateNullSaturation({
+    worldId: state.settlement.currentWorldId ?? "cold-wake",
+    worldIndex: getCampaignWorldIndex(state),
+    lifetimeAxioms: state.lifetimeAxioms,
+    completedResearchIds: state.research.completedProjectIds,
+    completedInfrastructure: state.worldProgress.completedInfrastructureIds.length,
+  });
+}
+
 export function getColdWakeOnboardingStatus(state: GameState) {
   const active = state.missions.currentIndex === 0;
   const stageIndex = state.missions.stageIndex;
@@ -2177,7 +2188,7 @@ export function getResearchFieldValidation(
       add("expeditions", "Deep-field routes", `${expeditions} current-world expeditions triangulate local signals.`, expeditions);
       break;
     case "axiom-theory":
-      add("axioms", "Proven Axioms", `${state.lifetimeAxioms} lifetime Axioms survived recalibration.`, state.lifetimeAxioms * 0.5);
+      add("axioms", "Proven Axioms", `${state.lifetimeAxioms} proven Axioms survived Recalibration.`, state.lifetimeAxioms * 0.5);
       add("cycles", "Recalibration cycles", `${Math.max(0, state.cycle - 1)} rebuilt assemblies provide causal comparisons.`, Math.max(0, state.cycle - 1));
       add("laws", "Armory laws", `${Object.values(state.armory.laws).reduce((sum, level) => sum + level, 0)} permanent manufacturing laws are active.`, Object.values(state.armory.laws).reduce((sum, level) => sum + level, 0));
       break;
@@ -3136,6 +3147,8 @@ export function getExpeditionLaunchQuote(
   crewIds: readonly string[],
 ): ExpeditionLaunchQuote {
   const site = getExpeditionSite(siteId);
+  const effectiveDifficulty =
+    site.difficulty + getNullSaturationForState(state).expeditionDifficultyBonus;
   const fluxCost = bounded(
     site.fluxCostBase *
       getWorldOperationEconomy(state, site.worldId).expeditionScale,
@@ -3151,7 +3164,7 @@ export function getExpeditionLaunchQuote(
     researchRewardMultiplier: researchSupport.rewardMultiplier,
     bioadaptationStrengthBonus: 0,
     bioadaptationDurationMultiplier: 1,
-    difficulty: site.difficulty,
+    difficulty: effectiveDifficulty,
     projectedOutcome: null,
     loadout: [],
     preparations: site.preparations.map((preparation) => ({
@@ -3219,7 +3232,7 @@ export function getExpeditionLaunchQuote(
       researchRewardMultiplier: researchSupport.rewardMultiplier,
       bioadaptationStrengthBonus: bioadaptationSupport.strengthBonus,
       bioadaptationDurationMultiplier: bioadaptationSupport.durationMultiplier,
-      projectedOutcome: getProjectedExpeditionOutcome(strength, site.difficulty),
+      projectedOutcome: getProjectedExpeditionOutcome(strength, effectiveDifficulty),
       loadout: plan.loadout,
       preparations,
     };
@@ -3233,7 +3246,7 @@ export function getExpeditionLaunchQuote(
       researchRewardMultiplier: researchSupport.rewardMultiplier,
       bioadaptationStrengthBonus: bioadaptationSupport.strengthBonus,
       bioadaptationDurationMultiplier: bioadaptationSupport.durationMultiplier,
-      projectedOutcome: getProjectedExpeditionOutcome(strength, site.difficulty),
+      projectedOutcome: getProjectedExpeditionOutcome(strength, effectiveDifficulty),
       loadout: plan.loadout,
       preparations,
     };
@@ -3248,8 +3261,8 @@ export function getExpeditionLaunchQuote(
     researchRewardMultiplier: researchSupport.rewardMultiplier,
     bioadaptationStrengthBonus: bioadaptationSupport.strengthBonus,
     bioadaptationDurationMultiplier: bioadaptationSupport.durationMultiplier,
-    difficulty: site.difficulty,
-    projectedOutcome: getProjectedExpeditionOutcome(strength, site.difficulty),
+    difficulty: effectiveDifficulty,
+    projectedOutcome: getProjectedExpeditionOutcome(strength, effectiveDifficulty),
     loadout: plan.loadout,
     preparations,
   };
@@ -3270,9 +3283,14 @@ export function startExpedition(
   const plan = planExpeditionLoadout(state.armory, crew);
   const researchSupport = getExpeditionResearchSupport(state);
   const bioadaptationSupport = getExpeditionBioadaptationSupport(crew);
+  const site = getExpeditionSite(siteId);
+  const expeditionSite = {
+    ...site,
+    difficulty: quote.difficulty,
+  };
   const expeditions = launchExpedition(
     state.expeditions,
-    getExpeditionSite(siteId),
+    expeditionSite,
     crew,
     state.settlement.currentWorldId,
     plan.loadout,
@@ -5557,6 +5575,7 @@ export function simulateGame(
   const survivorBonuses = getResearchBonuses(next.research);
   const colonyBonuses = getColonyLegacyEffects(next);
   const automationEffects = getActiveAutomationEffects(next);
+  const nullSaturation = getNullSaturationForState(next);
   next.survivors = setTrainingSlots(
     next.survivors,
     Math.min(
@@ -5599,7 +5618,8 @@ export function simulateGame(
       getMedicalResearchEffects(next).recoveryMultiplier *
       (getMedBayCarePool(next.survivors) > 0
         ? automationEffects.medicalRecoveryMultiplier
-        : 1),
+        : 1) *
+      nullSaturation.medicalRecoveryMultiplier,
     // Stranded crew shelter off-ship: health frozen, never decaying.
     recoveryExemptIds: next.expeditions.stranded?.crewIds ?? [],
     scanDurationMultiplier: getSurfaceRecon(next).multiplier,
@@ -5615,7 +5635,9 @@ export function simulateGame(
   const researchAdvance = advanceResearch(next.research, seconds, {
     powerAvailable: getResearchPowerAvailable(next),
     crewAvailable: getResearchCrewAvailable(next),
-    externalSpeedMultiplier: colonyBonuses.researchSpeedMultiplier,
+    externalSpeedMultiplier:
+      colonyBonuses.researchSpeedMultiplier *
+      nullSaturation.researchThroughputMultiplier,
     costMultiplier: getResearchCostMultiplier(next),
     fieldValidationMultiplier: fieldValidation.multiplier,
     automationMultiplier: automationEffects.researchRoutingMultiplier,

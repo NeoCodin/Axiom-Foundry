@@ -36,7 +36,7 @@ export type MedicalConsoleProps = {
 
 const formatEta = (deficit: number, ratePerHour: number) => {
   if (deficit <= 0) return "recovered";
-  if (ratePerHour <= 0) return "—";
+  if (ratePerHour <= 0) return "-";
   const hours = deficit / ratePerHour;
   if (hours < 1) return `${Math.ceil(hours * 60)} min`;
   return `${hours.toFixed(hours < 10 ? 1 : 0)} h`;
@@ -75,8 +75,8 @@ function MedicalConsole({
           <p>MEDICAL BAY · {currentWorldName.toUpperCase()}</p>
           <h2 id="medical-console-title">Admissions, recovery, and prosthetic surgery</h2>
           <span>
-            Admitted patients do nothing but heal — no work, no training, no
-            missions — and can be discharged at any moment. Everyone still
+            Admitted patients focus on healing. They leave work, training, and
+            missions, and can be discharged at any moment. Everyone still
             heals slowly on their own; the bay is the fast lane.
           </span>
         </div>
@@ -99,7 +99,7 @@ function MedicalConsole({
         </div>
         <div className="continuity-summary-help">
           <span>Manual <HelpTrigger label="Explain the Medical Bay" onClick={() => onOpenHelp("medical")} /></span>
-          <strong>{medBay.medicalOverCapacity ? "MEDICAL OVERLOADED — rates halved" : "Medical envelope stable"}</strong>
+          <strong>{medBay.medicalOverCapacity ? "MEDICAL OVERLOADED: RATES HALVED" : "Medical envelope stable"}</strong>
         </div>
       </div>
 

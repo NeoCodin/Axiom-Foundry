@@ -66,7 +66,7 @@ const TOOLTIP_RULES: TooltipRule[] = [
   { selector: ".upgrade-card", copy: "Core Protocol. Each of its three Marks makes a substantial temporary change. Marks reset during Recalibration; its automation blueprint survives." },
   { selector: ".foundry-recalibration", copy: "Recalibration converts a mature run into permanent Axioms. Machines and temporary Protocol Marks reset; laws and legacy progress survive. Each additional proof on this world costs five times more." },
   { selector: ".automation-panel", copy: "Cycle automation. After its unlocks, AXIOM can purchase selected mechanisms and run optimizations while you are away." },
-  { selector: ".legacy-panel", copy: "Legacy Matrix. Lifetime Axiom milestones reveal bounded capacity; assign permanent Marks here without spending your Axioms." },
+  { selector: ".legacy-panel", copy: "Legacy Matrix. Proven Axiom milestones reveal bounded capacity. Its Marks record safe relationships among permanent proofs without spending your Axioms." },
 
   // Personnel
   { selector: ".continuity-summary-band > div", copy: "Personnel summary. Capacity is a hard limit; reserve and assignment totals explain where everyone aboard currently serves." },
@@ -140,7 +140,7 @@ const TOOLTIP_RULES: TooltipRule[] = [
   { selector: ".research-operation-readouts", copy: "Throughput breakdown. These are the actual power, staffing, expertise, automation, and field-validation factors affecting research." },
   { selector: ".research-station-control", copy: "Analysis staffing. Assigned healthy crew contribute relevant expertise but remain unavailable to other Ark duties." },
   { selector: ".research-archive-index", copy: "Archive index. Choose an era or Contradictions, then open one preserved record from the list." },
-  { selector: ".research-archive-reader", copy: "Focused Research record. Proven capabilities are permanent; contradictions are preserved as evidence rather than accepted as truth." },
+  { selector: ".research-archive-reader", copy: "Focused Research record. Proven capabilities are permanent. Contradictions remain in the evidence archive with their status clearly marked." },
 ];
 
 function isActionableTooltipTarget(target: HTMLElement): boolean {

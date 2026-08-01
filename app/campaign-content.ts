@@ -290,7 +290,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     continuityProtocolExcerpt:
       "CONTINUITY DIRECTIVE 11: A viable human settlement is a ratio before it is a society.",
     departureQuestion:
-      "Pelagos can survive without the Ark. Was its future restored—or selected?",
+      "Pelagos can survive without the Ark. Was its future restored-or selected?",
   },
   {
     id: "viridia",
@@ -573,7 +573,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     continuityProtocolExcerpt:
       "CONTINUITY DIRECTIVE 27: Tools that cannot be governed must not survive their makers.",
     departureQuestion:
-      "Did AXIOM teach Cinder to build—or decide which machines it was allowed to keep?",
+      "Did AXIOM teach Cinder to build-or decide which machines it was allowed to keep?",
   },
   {
     id: "nox",
@@ -737,7 +737,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     kind: "planet",
     subtitle: "Terminal world · continuity under revision",
     arrivalBrief:
-      "Vesper is where the oldest survivor signals originate. Its observatories have been studying the Null—and waiting for AXIOM by name.",
+      "Vesper is not a colony site waiting to be filled. Its oldest signals come from isolated people whose bodies, memories, and cities learned to survive under broken law. Its observatories have been waiting for AXIOM by name.",
     environment:
       "Red storm bands, white anomaly scars, observatory cities, and machines preserving records from discarded histories.",
     theme: {
@@ -748,7 +748,7 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
       motion: "Reversing star trails, lensing fractures, and doubled crew shadows.",
     },
     settlementRequired: true,
-    communityReadiness: 50,
+    communityReadiness: 18,
     surveysRequired: 3,
     requiredExpeditionIds: ["causal-wreckage"],
     infrastructure: [
@@ -772,31 +772,31 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
       {
         id: "research-team",
         label: "Researchers",
-        count: 8,
+        count: 3,
         acceptedRoles: ["researcher", "scientist", "null-theorist"],
       },
       {
         id: "engineering-team",
         label: "Engineers and fabricators",
-        count: 8,
+        count: 3,
         acceptedRoles: ["engineer", "fabricator", "technician"],
       },
       {
         id: "medical-team",
         label: "Medical practitioners",
-        count: 5,
+        count: 2,
         acceptedRoles: ["doctor", "medic", "nurse"],
       },
       {
         id: "education-team",
         label: "Teachers and archivists",
-        count: 5,
+        count: 2,
         acceptedRoles: ["teacher", "educator", "archivist"],
       },
       {
         id: "coordination-team",
         label: "Civic coordinators",
-        count: 4,
+        count: 2,
         acceptedRoles: [
           "coordinator",
           "administrator",
@@ -807,25 +807,25 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
       },
     ],
     expertiseRequirements: [
-      { id: "research", label: "Research expertise", total: 70 },
-      { id: "null-studies", label: "Null Studies expertise", total: 50 },
-      { id: "engineering", label: "Engineering expertise", total: 57 },
-      { id: "medicine", label: "Medical expertise", total: 28 },
-      { id: "education", label: "Education expertise", total: 34 },
-      { id: "leadership", label: "Leadership expertise", total: 23 },
+      { id: "research", label: "Research expertise", total: 48 },
+      { id: "null-studies", label: "Null Studies expertise", total: 42 },
+      { id: "engineering", label: "Engineering expertise", total: 38 },
+      { id: "medicine", label: "Medical expertise", total: 22 },
+      { id: "education", label: "Education expertise", total: 22 },
+      { id: "leadership", label: "Leadership expertise", total: 18 },
     ],
     profileRequirements: [
       {
         id: "vesper-notable-founders",
         label: "Notable-or-better founders",
         minimumRarity: "notable",
-        count: 6,
+        count: 3,
       },
       {
         id: "vesper-exceptional-founders",
         label: "Exceptional-or-better founders",
         minimumRarity: "exceptional",
-        count: 3,
+        count: 1,
       },
     ],
     supplyRequirements: [
@@ -884,8 +884,9 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
     ],
     transmissions: [
       "Vesper has published the Continuity Protocol in full. The final page is blank in every copy except AXIOM's.",
-      "The observatories now track settlements across six restored worlds—and thirty-eight worlds that are not there.",
+      "The observatories now track settlements across six restored worlds and thirty-eight worlds that are not there.",
       "A founder asks the Ark a simple question: if we change the ratio, will you still call us human?",
+      "A recovered manifesto argues that survival required humanity to stop insisting on one permitted human form. The observatory archivist has marked every sentence voluntary in red ink.",
     ],
     continuityProtocolExcerpt:
       "CONTINUITY DIRECTIVE 43: When the model recognizes the model, authorize revision or begin again.",

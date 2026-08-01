@@ -90,7 +90,7 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(page, /destinationIntroduction\?\.view/);
   assert.match(page, /setInterfaceIntroduction/);
   assert.match(page, /Commission the Foundry Deck/);
-  assert.match(tutorialEngine, /The Ark has people, not statistics/);
+  assert.match(tutorialEngine, /Meet the first people aboard/);
   assert.match(page, /createQaPlanetIntroductionCheckpoint/);
   assert.doesNotMatch(arkDeck, /onTuneCore|Tune the Core/);
   assert.match(arkDeck, /Law-Heart power bus/);
@@ -146,8 +146,14 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.doesNotMatch(page, /className="lore-grid"|className="ledger-worlds"/);
   assert.match(loreArchive, /archive-category-tabs/);
   assert.match(loreArchive, /archive-reader-page/);
-  assert.match(loreArchive, /Previous record/);
-  assert.match(loreArchive, /unknown records remain unnamed/i);
+  assert.match(loreArchive, /Story So Far/);
+  assert.match(loreArchive, /What the Law Book records/);
+  assert.match(loreArchive, /Causal distance/);
+  assert.match(loreArchive, /buildLawPages/);
+  assert.match(loreArchive, /People & Places/);
+  assert.match(loreArchive, /Recovered Records/);
+  assert.match(loreArchive, /Open Questions/);
+  assert.match(loreArchive, /only discovered information appears here/i);
   assert.doesNotMatch(loreArchive, /lore-grid|ledger-worlds/);
   assert.match(page, /!game\.missions\.awaitingAcknowledgement/);
   assert.match(page, /The Foundry Floor/);
@@ -157,10 +163,10 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(page, /foundry-console-tabs/);
   assert.match(page, /Utility Drones/);
   assert.match(page, /Core Protocols/);
-  assert.match(page, /AXIOM Autonomy/);
+  assert.match(page, /Foundry Autonomy/);
   assert.match(page, /Legacy Matrix/);
   assert.doesNotMatch(page, /systems-column/);
-  assert.match(page, /spendable Axioms are never consumed here/);
+  assert.match(page, /assigning capacity never consumes spendable Axioms/);
   assert.doesNotMatch(foundryLawHeart, /A visible history of the fabrication chain|law-heart-spectrum/);
   assert.match(lawPress, /progressionAngularSpeed/);
   assert.match(page, /is-affordable/);
@@ -170,7 +176,7 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.doesNotMatch(page, /className=.*tune-button/);
   assert.match(page, /Fabrication Chain/);
   assert.match(settlementConsole, /Nothing expires/);
-  assert.match(layout, /Axiom Foundry — Restore Worlds\. Question Your Orders\./);
+  assert.match(layout, /Axiom Foundry\. Restore Worlds\. Question Your Orders\./);
   assert.doesNotMatch(page, /SkeletonPreview|codex-preview/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.match(css, /\.machine-panel\s*\{[^}]*overflow:\s*clip/s);
@@ -183,6 +189,13 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(continuityCss, /\.crew-continuity-contribution\s*\{/);
   assert.match(researchCss, /\.research-lattice-analysis-core\s*\{/);
   assert.match(manualCss, /\.game-manual\s*\{/);
+  assert.match(manual, /Suggested results/);
+  assert.doesNotMatch(manual, /THIS PAGE/);
+  assert.match(manual, /Ark & Foundry/);
+  assert.doesNotMatch(page, /manualContextTopic/);
+  assert.match(manual, /currentTopicId/);
+  assert.match(manual, /manualTopicId/);
+  assert.match(manualCss, /\.manual-action-grid\.count-1/);
   assert.match(awakeningCss, /\.living-foundry-nav\s*\{[^}]*position:\s*fixed/s);
   assert.match(pixelCss, /Share Tech Mono/);
   assert.match(pixelCss, /VT323/);
@@ -200,7 +213,7 @@ test("removes all temporary starter-preview wiring", async () => {
     assert.match(layout, new RegExp(`import "\\./${stylesheet}\\.css"`));
     assert.match(pagesEntry, new RegExp(`import "\\.\\./app/${stylesheet}\\.css"`));
   }
-  assert.match(story, /Axioms are not fuel for space travel/);
+  assert.match(story, /Axioms preserve laws the Ark has proven/);
   assert.match(story, /When the Ark may leave/);
   for (const topic of ["Ark", "Foundry", "Research", "Crew", "Continuity", "Biological Samples", "Cultural Records", "Ark Supply", "Salvage"]) {
     assert.match(manual, new RegExp(topic));
@@ -209,8 +222,13 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(survivorEngine, /anomalous/);
   assert.match(survivorEngine, /QUALITY_PITY_LIMIT/);
   assert.match(survivorEngine, /learningMultiplier: 2/);
-  assert.match(populationConsole, /CURRENT PROFESSION/);
-  assert.match(populationConsole, /PROFESSION XP/);
+  assert.match(populationConsole, /CURRENT JOB/);
+  assert.match(populationConsole, /Nickname/);
+  assert.match(populationConsole, /selectedCrew\.callsign[\s\S]*selectedCrew\.name/);
+  assert.match(populationConsole, /setNicknameDraft\(""\)/);
+  assert.match(populationConsole, /HEALTH/);
+  assert.match(populationConsole, /EXPERIENCE/);
+  assert.match(populationConsole, /Unavailable while recovering/);
   assert.match(populationConsole, /CONTINUITY CONTRIBUTION/);
   assert.match(settlementConsole, /How this is counted/);
   assert.match(

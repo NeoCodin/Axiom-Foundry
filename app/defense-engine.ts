@@ -219,7 +219,7 @@ export const DEFENSE_EVENT_DEFINITIONS: Readonly<
   "archive-intrusion": {
     label: "Archive Intrusion",
     hostile: true,
-    summary: "The contact attempts to contaminate recovered history rather than destroy it.",
+    summary: "The contact is contaminating recovered history while leaving the Archive intact.",
   },
   "core-interdiction": {
     label: "Core Interdiction",
