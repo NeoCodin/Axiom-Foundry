@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { HelpTrigger } from "./game-manual";
 import type { NullSaturationView } from "./null-saturation-engine";
 
@@ -46,6 +47,23 @@ export function GameCommandBar({
   objective, onOpenHelp, onOpenLore, onSave, onOpenDirective,
   tooltipsEnabled, onToggleTooltips,
 }: GameCommandBarProps) {
+  // Phone widths hide the desktop metrics/actions cells entirely, so their
+  // contents re-home into this sheet behind a compact menu button. Desktop
+  // never renders either (both carry the mobile-only class).
+  const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    window.addEventListener("keydown", onEscape);
+    return () => window.removeEventListener("keydown", onEscape);
+  }, [menuOpen]);
+  const closeMenuAnd = (action: () => void) => () => {
+    setMenuOpen(false);
+    action();
+  };
+
   const cycleTooltip = `${worldName} is the Ark's current chapter. Cycle ${cycle} counts this Recalibration run; the line below describes AXIOM's present situation.`;
   const fluxTooltip = `${fluxExact} Local Flux is available. Flux powers fabrication, Ark projects, research support, and planetary work during this cycle.`;
   const objectiveTooltip = "This strip tracks the current planetary objective. Click it to open the relevant destination once that system is awake. It never expires; progress is saved whether the game is open or closed.";
@@ -61,6 +79,40 @@ export function GameCommandBar({
       <div className={`resource-readout ${focusFlux ? "tour-focus" : ""}`} data-guide-target="command-flux" data-pixel-tooltip={fluxTooltip} tabIndex={0} aria-label={fluxTooltip}>
         <span className="resource-label">Local Flux</span><strong>{fluxLabel}</strong><span className="rate">+{fluxPerSecondLabel} / sec</span>
       </div>
+      <button
+        className="mobile-only mobile-menu-button"
+        type="button"
+        aria-expanded={menuOpen}
+        aria-label={menuOpen ? "Close the command menu" : "Open the command menu"}
+        onClick={() => setMenuOpen((open) => !open)}
+      >
+        ☰
+      </button>
+      {menuOpen && (
+        <>
+          <button
+            className="mobile-only mobile-menu-backdrop"
+            type="button"
+            aria-label="Close the command menu"
+            onClick={() => setMenuOpen(false)}
+          />
+          <div className="mobile-only mobile-menu-sheet" aria-label="Command menu">
+            <span className="mobile-menu-save-status">{ready ? saveStatus : "Restoring local cycle…"}</span>
+            <div className="mobile-menu-metrics">
+              <div className={`null-readout is-${nullSaturation.classification}`}><span>{nullSaturation.label}</span><strong>{nullSaturation.effective}</strong></div>
+              {showAxioms && <div><span>Proven Axioms</span><strong>{axiomsLabel}</strong></div>}
+              {showResonance && <div><span>Resonance</span><strong>×{resonanceLabel}</strong></div>}
+              {showOperations && <div><span>Operations</span><strong>{operationalLoadLabel}</strong></div>}
+            </div>
+            <div className="mobile-menu-actions">
+              <button className="quiet-button" type="button" onClick={closeMenuAnd(onOpenHelp)}>Guide</button>
+              <button className={`quiet-button tooltip-toggle ${tooltipsEnabled ? "is-on" : ""}`} type="button" aria-pressed={tooltipsEnabled} onClick={onToggleTooltips}>Hints {tooltipsEnabled ? "ON" : "OFF"}</button>
+              <button className="quiet-button" type="button" onClick={closeMenuAnd(onOpenLore)}>Lore archive</button>
+              <button className="quiet-button" type="button" onClick={closeMenuAnd(onSave)}>Save now</button>
+            </div>
+          </div>
+        </>
+      )}
       {metricCount > 0 && <div className="header-metrics">
         <div className={`null-readout is-${nullSaturation.classification}`} data-pixel-tooltip={nullTooltip} tabIndex={0} aria-label={nullTooltip}><span>{nullSaturation.label}</span><strong>{nullSaturation.effective}</strong></div>
         {showAxioms && <div data-pixel-tooltip="Proven Axioms are portable proofs preserved by Recalibration. They survive new cycles and support lasting upgrades." tabIndex={0} aria-label="Proven Axioms are portable proofs preserved by Recalibration. They survive new cycles and support lasting upgrades."><span>Proven Axioms</span><strong>{axiomsLabel}</strong></div>}
