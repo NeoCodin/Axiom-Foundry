@@ -1,0 +1,470 @@
+/* AXIOM FOUNDRY // MOBILE CHROME
+   The phone-width (max-width: 767px) visual language. Desktop keeps the
+   ornamental pixel-console skin; phones get the same identity (palette,
+   type, accent glow) with the ornament stripped: full-bleed sections,
+   one decoration per container, accent reserved for state.
+
+   This file intentionally loads last in BOTH build entries so its rules
+   win equal-specificity cascade battles by source order. It must
+   contribute nothing at widths above 767px. */
+
+/* Elements that exist only for the phone chrome (menu button, menu sheet).
+   This is the file's single rule outside the media query: it keeps those
+   elements out of the desktop render entirely. */
+.mobile-only { display: none; }
+
+@media (max-width: 767px) {
+  /* ---- 1 · Full-bleed shell -------------------------------------------- */
+  /* The app owns the screen: no side gutter, sections run edge to edge and
+     separate by spacing + background shifts instead of floating frames. */
+  .game-shell {
+    width: 100%;
+    padding-inline: 0;
+  }
+
+  /* ---- 1b · Space-void backdrop ----------------------------------------- */
+  /* The desktop pixel grid reads as "engineering paper" behind a phone UI.
+     Phones get the void instead: deep space, two repeating star layers at
+     different tile sizes for depth, and a faint world-accent nebula from the
+     shell's fixed backdrop. Matches the Foundry vista's identity. */
+  body {
+    background-color: #020308;
+    background-image:
+      radial-gradient(1px 1px at 22px 34px, rgb(223 252 255 / 0.9), transparent),
+      radial-gradient(1px 1px at 118px 76px, rgb(223 252 255 / 0.5), transparent),
+      radial-gradient(1.5px 1.5px at 201px 143px, rgb(255 255 255 / 0.8), transparent),
+      radial-gradient(1px 1px at 63px 187px, rgb(170 220 255 / 0.45), transparent),
+      radial-gradient(1px 1px at 244px 27px, rgb(223 252 255 / 0.6), transparent),
+      radial-gradient(1.5px 1.5px at 157px 231px, rgb(255 240 220 / 0.65), transparent),
+      radial-gradient(1px 1px at 331px 302px, rgb(223 252 255 / 0.5), transparent),
+      radial-gradient(2px 2px at 88px 411px, rgb(255 255 255 / 0.55), transparent),
+      radial-gradient(1px 1px at 419px 178px, rgb(170 220 255 / 0.4), transparent);
+    background-size:
+      280px 280px, 280px 280px, 280px 280px,
+      280px 280px, 280px 280px, 280px 280px,
+      460px 460px, 460px 460px, 460px 460px;
+  }
+  .game-shell::before {
+    background:
+      radial-gradient(120% 70% at 50% -20%, rgb(var(--world-accent-rgb, 85 214 232) / 0.09), transparent 62%),
+      radial-gradient(90% 60% at 88% 112%, rgb(var(--world-accent-rgb, 85 214 232) / 0.05), transparent 60%);
+  }
+  .game-shell .ambient-grid { display: none; }
+
+  /* ---- 1c · Adjacent-page swipe transitions ------------------------------ */
+  /* The five destinations are physically adjacent pages: while a swipe is in
+     progress the live screen follows the finger (inline transforms from
+     page.tsx), and on commit the incoming screen slides in from the side the
+     gesture implied. Taps set the same direction from tab order. */
+  .game-shell .destination-viewport { overflow-x: clip; }
+  .game-shell .destination-viewport-inner[data-nav-direction="1"] {
+    animation: destination-slide-from-right 240ms ease-out;
+  }
+  .game-shell .destination-viewport-inner[data-nav-direction="-1"] {
+    animation: destination-slide-from-left 240ms ease-out;
+  }
+
+  /* ---- 2 · Flatten the box language ------------------------------------ */
+  /* Desktop's 9-patch idiom (2-4px border + offset shadow + inner ring) is
+     charm at 1200px and noise at 390px. In-flow containers keep exactly one
+     decoration: a top/bottom hairline. Floating layers (tooltips, dialogs,
+     guide cards, QA sandbox) deliberately keep their shadows - overlays
+     need separation from content; in-flow sections do not. */
+  .game-shell .panel,
+  .game-shell .continuity-panel,
+  .game-shell .continuity-console-header,
+  .game-shell .research-lattice-shell,
+  .game-shell .transit-console-header,
+  .game-shell .defense-command-header,
+  .game-shell .command-briefing,
+  .game-shell .ark-command-heading,
+  .game-shell .ark-command-deck-v3,
+  .game-shell .offline-banner,
+  .game-shell .foundry-telemetry,
+  .game-shell .personnel-console-tabs,
+  .game-shell .continuity-summary-band,
+  .game-shell .research-lattice-projects,
+  .game-shell .expedition-manifest,
+  .game-shell .machine-row {
+    border-width: 1px 0;
+    border-color: #1c2a33;
+    box-shadow: none;
+  }
+
+  /* ---- 4 · Slim top chrome --------------------------------------------- */
+  /* One 48px status row - world context left, the Flux number centered as
+     the hero element, a menu button right - then the objective as a single
+     slim line. The desktop metrics/actions cells stay hidden (globals.css
+     already hides them at this width); their contents live in the sheet. */
+  .game-shell .command-bar {
+    display: grid;
+    grid-template-areas:
+      "brand flux menu"
+      "objective objective objective";
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    border-width: 0 0 1px;
+    border-color: #1c2a33;
+    box-shadow: none;
+  }
+  .game-shell .command-bar .brand-lockup {
+    grid-area: brand;
+    min-height: 48px;
+    padding: 6px 10px;
+  }
+  .game-shell .command-bar .resource-readout {
+    grid-area: flux;
+    display: grid;
+    justify-items: center;
+    min-height: 48px;
+    padding: 4px 10px;
+    border: 0;
+    background: transparent;
+    text-align: center;
+  }
+  .game-shell .command-bar .resource-readout strong { font-size: 26px; }
+  .game-shell .command-bar .resource-readout .rate { font-size: 11px; }
+  .game-shell .command-bar .objective-strip { grid-area: objective; }
+  .game-shell .command-bar .header-metrics,
+  .game-shell .command-bar .header-actions { display: none; }
+
+  .game-shell .mobile-menu-button {
+    grid-area: menu;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    justify-self: end;
+    width: 42px;
+    min-height: 42px;
+    margin-right: 8px;
+    padding: 0;
+    font-size: 18px;
+  }
+
+  .game-shell .mobile-menu-backdrop {
+    position: fixed;
+    z-index: 6500;
+    inset: 0;
+    display: block;
+    min-height: 0;
+    border: 0;
+    background: rgb(2 4 6 / 0.55);
+  }
+  .game-shell .mobile-menu-sheet {
+    position: fixed;
+    z-index: 6501;
+    top: 10px;
+    right: 8px;
+    left: 8px;
+    display: grid;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid #1c2a33;
+    background: #0a141b;
+  }
+  .game-shell .mobile-menu-save-status {
+    color: #718983;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .game-shell .mobile-menu-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .game-shell .mobile-menu-metrics > div {
+    display: grid;
+    gap: 2px;
+    padding: 8px 10px;
+    background: #071016;
+  }
+  .game-shell .mobile-menu-metrics span { color: #718983; font-size: 11px; text-transform: uppercase; }
+  .game-shell .mobile-menu-metrics strong { font-family: var(--font-number); font-size: 20px; }
+  .game-shell .mobile-menu-actions {
+    display: grid;
+    gap: 8px;
+  }
+  .game-shell .mobile-menu-actions button {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  /* The Law-Heart's 4px industrial frames become hairlines; its glow and
+     canvas identity carry the drama instead of the box around it. */
+  .game-shell .law-heart-deck,
+  .game-shell .foundry-law-heart {
+    border-width: 1px 0;
+    border-color: #1c2a33;
+    outline: none;
+    box-shadow: none;
+  }
+  .game-shell .law-heart-heading,
+  .game-shell .foundry-law-heart > header {
+    border-bottom: 1px solid #1c2a33;
+  }
+  .game-shell .law-heart-controls { border-top: 1px solid #1c2a33; }
+  .game-shell .law-heart-controls > section + section { border-left: 1px solid #1c2a33; }
+
+  /* Buttons keep their 2px border (a real touch affordance) and the press
+     feel, but resting offset shadows go - "sticker" depth reads as clutter
+     at this scale. Stateful shadows (active-tab underlines) still apply via
+     their own higher-specificity rules. */
+  .game-shell button:not(.ark-core-engine),
+  .game-shell input,
+  .game-shell select {
+    box-shadow: none;
+  }
+  .game-shell .brand-mark { box-shadow: none; }
+
+  /* ---- 3 · Accent discipline ------------------------------------------- */
+  /* World accent marks state (active tab, progress, primary action, alert),
+     not furniture. Panels lose their accent-tinted borders. */
+  .game-shell .panel,
+  .game-shell .continuity-panel {
+    border-color: #1c2a33;
+  }
+
+  /* ---- 5 · Facility nav as a chips row ---------------------------------- */
+  /* The label block ate up to 118px of a 390px strip and forced horizontal
+     scrolling. Chips fit all three facilities on one screen. Class names
+     stay intact: .facility-navigation is the swipe-exclusion selector and
+     appears in test assertions. */
+  .game-shell .facility-navigation {
+    margin: 0 0 8px;
+    padding: 4px 8px;
+    gap: 6px;
+    border-width: 0 0 1px;
+    border-color: #1c2a33;
+    background: transparent;
+    box-shadow: none;
+  }
+  .game-shell .facility-navigation-label { display: none; }
+  .game-shell .facility-navigation button {
+    min-width: 0;
+    min-height: 38px;
+    flex: 1 1 0;
+    padding: 6px 8px;
+    border-width: 1px;
+    border-color: #253843;
+    background: #0a141b;
+    font-size: 11px;
+    box-shadow: none !important;
+  }
+  .game-shell .facility-navigation button.active {
+    border-color: var(--world-accent, var(--flux));
+    background: #102128;
+    box-shadow: inset 0 -3px 0 var(--world-accent, var(--flux)) !important;
+  }
+  .game-shell .facility-navigation button::after { display: none; }
+
+  /* ---- 6 · Bottom nav polish -------------------------------------------- */
+  /* One continuous surface, zero boxes. Tabs are icon+label glyphs on the
+     bar itself; the active tab is simply lit in the world accent while the
+     rest rest dim. No frames, no fills, no lines per tab. */
+  .game-shell .living-foundry-nav.primary-destinations {
+    border-width: 1px 0 0;
+    border-color: #131f27;
+    background: rgb(4 8 13 / 0.97);
+    box-shadow: none;
+    gap: 0;
+    padding: 6px 0 calc(6px + env(safe-area-inset-bottom));
+  }
+  .game-shell .living-foundry-nav.primary-destinations > button {
+    border: 0;
+    background: transparent;
+    box-shadow: none !important;
+    color: #5e7773;
+    gap: 4px;
+    padding: 4px 0;
+  }
+  .game-shell .living-foundry-nav.primary-destinations > button.active {
+    border: 0;
+    background: transparent;
+    color: var(--world-accent, var(--flux));
+  }
+  .game-shell .living-foundry-nav.primary-destinations > button::after { display: none; }
+  .game-shell .living-foundry-nav.primary-destinations .nav-sprite {
+    width: 26px;
+    height: 26px;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    color: currentColor;
+    transform: none;
+  }
+  .game-shell .living-foundry-nav.primary-destinations .nav-destination-copy strong {
+    color: currentColor;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+  }
+
+  /* ---- 8 · Card idiom --------------------------------------------------- */
+  /* One shared recipe: background shift, hairline, left accent rail when
+     the card is stateful. Applied to the Ark compartment list here; the
+     Foundry tier rows already follow it via their own accent rails. */
+  /* The compartment cards are <button>s, so this must outrank the global
+     .game-shell button:not(.ark-core-engine) border rule. */
+  .game-shell button.ark-compartment-card {
+    border: 1px solid #1c2a33;
+    border-left: 3px solid #26343d;
+    background: #0a141b;
+    box-shadow: none;
+  }
+  .game-shell button.ark-compartment-card.is-online {
+    border-left-color: var(--world-accent, var(--ark-cyan, #55e6e8));
+  }
+
+  /* ---- 9 · Personnel destination ---------------------------------------- */
+  /* Audited at 390px: 907px of chrome (169px header + 325px summary band +
+     187px of vertically stacked tabs) rendered before the first crew member,
+     and the roster was a 720px inner-scroll box. Compress the chrome, put
+     the tabs back on one row, and let the page be the only scroller. */
+
+  /* Console header - shared by every console destination, so this slims
+     Continuity/Defense/Armory headers too. The explainer sentence is
+     desktop luxury; the title and return control carry the meaning. */
+  .game-shell .continuity-console-header {
+    gap: 8px;
+    margin-bottom: 8px;
+    padding: 10px 12px;
+  }
+  .game-shell .continuity-console-header > div > span { display: none; }
+  .game-shell .continuity-console-header > button {
+    min-height: 36px;
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+
+  /* Summary band: six stats as compact three-across chips. */
+  .game-shell .continuity-summary-band {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    padding: 6px;
+  }
+  .game-shell .continuity-summary-band > div {
+    min-width: 0;
+    padding: 6px 8px;
+  }
+  .game-shell .continuity-summary-band span { font-size: 10px; }
+  .game-shell .continuity-summary-band strong { font-size: 16px; }
+  .game-shell .continuity-summary-band small { font-size: 10px; }
+
+  /* Sub-view tabs: one 48px segmented row instead of a 187px stack. The
+     label is enough at this size; sprites and detail lines are desktop
+     ornament. Overrides the <=900px one-column rule by specificity. */
+  .game-shell .personnel-console-tabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2px;
+    padding: 2px;
+  }
+  .game-shell .personnel-console-tabs button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 4px 6px;
+  }
+  .game-shell .personnel-console-tabs .personnel-tab-sprite { display: none; }
+  .game-shell .personnel-console-tabs button small { display: none; }
+  .game-shell .personnel-console-tabs button strong {
+    font-size: 12px;
+    line-height: 1.1;
+    text-align: center;
+  }
+
+  /* The page is the scroll container: no scroll boxes inside scroll. */
+  .game-shell .crew-roster-list {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+  }
+  .game-shell .team-alpha-picker-grid {
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  /* Roster tools: search plus a single row of filter chips (was a 207px
+     2x3 grid of full-size buttons). */
+  .game-shell .crew-roster-tools { gap: 6px; padding: 6px; }
+  .game-shell .crew-roster-tools nav {
+    display: flex;
+    gap: 4px;
+  }
+  .game-shell .crew-roster-tools nav button {
+    display: flex;
+    min-width: 0;
+    min-height: 34px;
+    flex: 1 1 0;
+    flex-direction: column;
+    gap: 0;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 2px;
+    font-size: 10px;
+    line-height: 1.1;
+  }
+  .game-shell .crew-roster-tools nav button strong { font-size: 12px; }
+
+  /* Roster rows: the NAME is the row. Rarity already speaks through the
+     row's colored rail and token, so its text badge is desktop redundancy;
+     the duty badge stays, compact. */
+  .game-shell .crew-roster-list > button {
+    min-height: 56px;
+    border-width: 1px;
+    border-color: #1c2a33;
+  }
+  .game-shell .crew-roster-list > button strong { font-size: 14px; }
+  .game-shell .crew-roster-list > button small { font-size: 11px; color: #6b8380; }
+  .game-shell .crew-roster-list .crew-rarity-badge { display: none; }
+  .game-shell .crew-roster-list .crew-duty-badge {
+    padding: 2px 6px;
+    font-size: 10px;
+  }
+
+  /* Personnel file: compact the fattest sections. */
+  .game-shell .crew-detail-identity { gap: 8px; }
+  .game-shell .crew-detail-identity .crew-avatar.large { width: 44px; height: 44px; font-size: 16px; }
+  .game-shell .crew-health-summary { gap: 6px; padding: 8px; }
+  .game-shell .crew-career-summary { padding: 10px; }
+  .game-shell .crew-alteration-record { padding: 10px; }
+  .game-shell .crew-alteration-record p { font-size: 11px; line-height: 1.45; }
+  .game-shell .crew-alteration-grid { gap: 6px; }
+  .game-shell .crew-alteration-grid > div { padding: 7px 9px; }
+
+  /* Summary-band meters read at half height. */
+  .game-shell .continuity-summary-band > div > div { height: 3px; }
+
+  /* ---- 7 · Type ramp ---------------------------------------------------- */
+  /* Collapse the ~11 sizes in play at phone width toward a deliberate ramp:
+     11px labels · 12-13px body (already dominant) · 17px/20px headings.
+     The Flux hero (26px+) lives in the command bar's own rules. */
+  .game-shell h2 { font-size: 20px; }
+  .game-shell h3,
+  .game-shell h4 { font-size: 17px; }
+  .game-shell :where(.eyebrow, .kicker, .machine-index, .resource-label) {
+    font-size: 11px;
+  }
+}
+
+@keyframes destination-slide-from-right {
+  from {
+    opacity: 0.35;
+    transform: translateX(72px);
+  }
+}
+
+@keyframes destination-slide-from-left {
+  from {
+    opacity: 0.35;
+    transform: translateX(-72px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-shell .destination-viewport-inner[data-nav-direction="1"],
+  .game-shell .destination-viewport-inner[data-nav-direction="-1"] {
+    animation: none;
+  }
+}

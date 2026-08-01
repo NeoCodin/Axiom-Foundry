@@ -1,0 +1,112 @@
+.beacon-readiness-list {
+  display: grid;
+  width: 100%;
+  max-width: 620px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin: 12px 0 15px;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.beacon-readiness-list li {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 8px 9px;
+  border: 1px solid rgb(255 176 92 / 0.22);
+  border-radius: 4px;
+  background: rgb(255 176 92 / 0.045);
+}
+
+.beacon-readiness-list li.has-action {
+  align-items: start;
+}
+
+.beacon-readiness-list li > span {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 1px solid rgb(255 176 92 / 0.5);
+  border-radius: 50%;
+  color: #ffc477;
+  font-family: var(--font-mono, "Cascadia Mono", Consolas, monospace);
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.beacon-readiness-list li.is-ready {
+  border-color: rgb(119 232 174 / 0.2);
+  background: rgb(119 232 174 / 0.04);
+}
+
+.beacon-readiness-list li.is-ready > span {
+  border-color: rgb(119 232 174 / 0.48);
+  color: #77e8ae;
+}
+
+.beacon-readiness-list div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.beacon-readiness-list strong {
+  overflow: hidden;
+  color: #dbe7ee;
+  font-size: 0.75rem;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.beacon-readiness-list small {
+  overflow: hidden;
+  color: #748b99;
+  font-family: var(--font-mono, "Cascadia Mono", Consolas, monospace);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.beacon-readiness-list .beacon-readiness-action {
+  display: block;
+  grid-column: 1 / -1;
+}
+
+.beacon-readiness-action button {
+  width: 100%;
+  min-height: 30px;
+  padding: 6px 8px;
+  border: 1px solid rgb(255 176 92 / 0.48);
+  background: #111008;
+  color: #ffd08d;
+  font-family: var(--font-mono, "Cascadia Mono", Consolas, monospace);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.beacon-readiness-action button:hover:not(:disabled) {
+  border-color: #ffd08d;
+  background: #1b170c;
+  color: #fff2c7;
+}
+
+.beacon-readiness-action button:disabled {
+  border-color: #2b3537;
+  background: #070b0d;
+  color: #657276;
+  cursor: not-allowed;
+}
+
+@media (max-width: 620px) {
+  .beacon-readiness-list {
+    grid-template-columns: 1fr;
+  }
+}
