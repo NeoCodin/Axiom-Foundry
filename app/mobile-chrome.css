@@ -22,6 +22,48 @@
     padding-inline: 0;
   }
 
+  /* ---- 1b · Space-void backdrop ----------------------------------------- */
+  /* The desktop pixel grid reads as "engineering paper" behind a phone UI.
+     Phones get the void instead: deep space, two repeating star layers at
+     different tile sizes for depth, and a faint world-accent nebula from the
+     shell's fixed backdrop. Matches the Foundry vista's identity. */
+  body {
+    background-color: #020308;
+    background-image:
+      radial-gradient(1px 1px at 22px 34px, rgb(223 252 255 / 0.9), transparent),
+      radial-gradient(1px 1px at 118px 76px, rgb(223 252 255 / 0.5), transparent),
+      radial-gradient(1.5px 1.5px at 201px 143px, rgb(255 255 255 / 0.8), transparent),
+      radial-gradient(1px 1px at 63px 187px, rgb(170 220 255 / 0.45), transparent),
+      radial-gradient(1px 1px at 244px 27px, rgb(223 252 255 / 0.6), transparent),
+      radial-gradient(1.5px 1.5px at 157px 231px, rgb(255 240 220 / 0.65), transparent),
+      radial-gradient(1px 1px at 331px 302px, rgb(223 252 255 / 0.5), transparent),
+      radial-gradient(2px 2px at 88px 411px, rgb(255 255 255 / 0.55), transparent),
+      radial-gradient(1px 1px at 419px 178px, rgb(170 220 255 / 0.4), transparent);
+    background-size:
+      280px 280px, 280px 280px, 280px 280px,
+      280px 280px, 280px 280px, 280px 280px,
+      460px 460px, 460px 460px, 460px 460px;
+  }
+  .game-shell::before {
+    background:
+      radial-gradient(120% 70% at 50% -20%, rgb(var(--world-accent-rgb, 85 214 232) / 0.09), transparent 62%),
+      radial-gradient(90% 60% at 88% 112%, rgb(var(--world-accent-rgb, 85 214 232) / 0.05), transparent 60%);
+  }
+  .game-shell .ambient-grid { display: none; }
+
+  /* ---- 1c · Adjacent-page swipe transitions ------------------------------ */
+  /* The five destinations are physically adjacent pages: while a swipe is in
+     progress the live screen follows the finger (inline transforms from
+     page.tsx), and on commit the incoming screen slides in from the side the
+     gesture implied. Taps set the same direction from tab order. */
+  .game-shell .destination-viewport { overflow-x: clip; }
+  .game-shell .destination-viewport-inner[data-nav-direction="1"] {
+    animation: destination-slide-from-right 240ms ease-out;
+  }
+  .game-shell .destination-viewport-inner[data-nav-direction="-1"] {
+    animation: destination-slide-from-left 240ms ease-out;
+  }
+
   /* ---- 2 · Flatten the box language ------------------------------------ */
   /* Desktop's 9-patch idiom (2-4px border + offset shadow + inner ring) is
      charm at 1200px and noise at 390px. In-flow containers keep exactly one
@@ -217,30 +259,45 @@
   .game-shell .facility-navigation button::after { display: none; }
 
   /* ---- 6 · Bottom nav polish -------------------------------------------- */
-  /* The bar itself is the container: one top hairline, no per-button
-     frames. The active tab is the only accented element. */
+  /* One continuous surface, zero boxes. Tabs are icon+label glyphs on the
+     bar itself; the active tab is simply lit in the world accent while the
+     rest rest dim. No frames, no fills, no lines per tab. */
   .game-shell .living-foundry-nav.primary-destinations {
     border-width: 1px 0 0;
-    border-color: #1c2a33;
+    border-color: #131f27;
+    background: rgb(4 8 13 / 0.97);
     box-shadow: none;
     gap: 0;
-    padding-top: 2px;
+    padding: 6px 0 calc(6px + env(safe-area-inset-bottom));
   }
   .game-shell .living-foundry-nav.primary-destinations > button {
     border: 0;
     background: transparent;
-    box-shadow: none;
+    box-shadow: none !important;
+    color: #5e7773;
+    gap: 4px;
+    padding: 4px 0;
   }
   .game-shell .living-foundry-nav.primary-destinations > button.active {
     border: 0;
-    background: linear-gradient(180deg, rgb(var(--world-accent-rgb, 85 214 232) / 0.14), transparent 70%);
-    box-shadow: inset 0 2px 0 var(--world-accent, var(--flux)) !important;
+    background: transparent;
+    color: var(--world-accent, var(--flux));
   }
   .game-shell .living-foundry-nav.primary-destinations > button::after { display: none; }
   .game-shell .living-foundry-nav.primary-destinations .nav-sprite {
+    width: 26px;
+    height: 26px;
     border: 0;
     background: transparent;
     box-shadow: none;
+    color: currentColor;
+    transform: none;
+  }
+  .game-shell .living-foundry-nav.primary-destinations .nav-destination-copy strong {
+    color: currentColor;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
   }
 
   /* ---- 8 · Card idiom --------------------------------------------------- */
@@ -343,5 +400,26 @@
   .game-shell h4 { font-size: 17px; }
   .game-shell :where(.eyebrow, .kicker, .machine-index, .resource-label) {
     font-size: 11px;
+  }
+}
+
+@keyframes destination-slide-from-right {
+  from {
+    opacity: 0.35;
+    transform: translateX(72px);
+  }
+}
+
+@keyframes destination-slide-from-left {
+  from {
+    opacity: 0.35;
+    transform: translateX(-72px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-shell .destination-viewport-inner[data-nav-direction="1"],
+  .game-shell .destination-viewport-inner[data-nav-direction="-1"] {
+    animation: none;
   }
 }

@@ -464,6 +464,11 @@ export default function Home() {
   const [ready, setReady] = useState(false);
   const [primaryView, setPrimaryView] = useState<PrimaryView>("deck");
   const destinationViewportRef = useRef<HTMLDivElement>(null);
+  const destinationInnerRef = useRef<HTMLDivElement>(null);
+  // Direction of the last primary-destination change (1 = rightward in the
+  // tab order, -1 = leftward, 0 = not directional) - drives which side the
+  // incoming screen slides in from, for swipes AND taps alike.
+  const [navDirection, setNavDirection] = useState<0 | 1 | -1>(0);
   const [foundryConsoleTab, setFoundryConsoleTab] =
     useState<FoundryConsoleTab>("chain");
   const [researchEntry, setResearchEntry] = useState<{
@@ -2445,6 +2450,11 @@ export default function Home() {
       }
       return;
     }
+    // Taps slide the incoming screen from the same side a swipe would - the
+    // five destinations read as physically adjacent pages either way.
+    const fromIndex = PRIMARY_DESTINATION_VIEWS.indexOf(primaryView);
+    const toIndex = PRIMARY_DESTINATION_VIEWS.indexOf(view);
+    setNavDirection(fromIndex === -1 || toIndex === -1 || fromIndex === toIndex ? 0 : toIndex > fromIndex ? 1 : -1);
     setPrimaryView(view);
   };
 
@@ -2458,11 +2468,31 @@ export default function Home() {
     if (next) handlePrimaryNavigation(next);
   };
 
+  // Finger-follow: while a horizontal swipe is in progress the live screen
+  // tracks the finger (direct DOM writes - no re-render per move); a short
+  // or cancelled swipe springs back to rest.
+  const dragDestinationScreen = (dx: number) => {
+    const inner = destinationInnerRef.current;
+    if (!inner) return;
+    inner.style.transition = "none";
+    inner.style.transform = `translateX(${dx}px)`;
+    inner.style.opacity = String(Math.max(0.55, 1 - Math.abs(dx) / 700));
+  };
+  const settleDestinationScreen = () => {
+    const inner = destinationInnerRef.current;
+    if (!inner) return;
+    inner.style.transition = "transform 180ms ease, opacity 180ms ease";
+    inner.style.transform = "";
+    inner.style.opacity = "";
+  };
+
   useSwipeNavigation({
     containerRef: destinationViewportRef,
     excludeSelector: ".facility-navigation, .research-evidence-tube-bank, .foundry-console-tabs",
     onSwipeLeft: () => navigateRelativeDestination(1),
     onSwipeRight: () => navigateRelativeDestination(-1),
+    onSwipeProgress: dragDestinationScreen,
+    onSwipeSettle: settleDestinationScreen,
   });
 
   const updateMode = (mode: PurchaseMode) => {
@@ -2959,7 +2989,7 @@ export default function Home() {
       )}
 
       <div className="destination-viewport" ref={destinationViewportRef}>
-      <div key={primaryView} className="destination-viewport-inner">
+      <div key={primaryView} ref={destinationInnerRef} className="destination-viewport-inner" data-nav-direction={navDirection}>
       {primaryView === "deck" ? (
         campaignWorldIndex === 0 && !coldWakeStatus.arkOverviewAvailable ? (
           <AxiomLawHeart
