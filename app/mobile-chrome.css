@@ -259,6 +259,81 @@
     border-left-color: var(--world-accent, var(--ark-cyan, #55e6e8));
   }
 
+  /* ---- 9 · Personnel destination ---------------------------------------- */
+  /* Audited at 390px: 907px of chrome (169px header + 325px summary band +
+     187px of vertically stacked tabs) rendered before the first crew member,
+     and the roster was a 720px inner-scroll box. Compress the chrome, put
+     the tabs back on one row, and let the page be the only scroller. */
+
+  /* Console header - shared by every console destination, so this slims
+     Continuity/Defense/Armory headers too. The explainer sentence is
+     desktop luxury; the title and return control carry the meaning. */
+  .game-shell .continuity-console-header {
+    gap: 8px;
+    margin-bottom: 8px;
+    padding: 10px 12px;
+  }
+  .game-shell .continuity-console-header > div > span { display: none; }
+  .game-shell .continuity-console-header > button {
+    min-height: 36px;
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+
+  /* Summary band: six stats as compact three-across chips. */
+  .game-shell .continuity-summary-band {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    padding: 6px;
+  }
+  .game-shell .continuity-summary-band > div {
+    min-width: 0;
+    padding: 6px 8px;
+  }
+  .game-shell .continuity-summary-band span { font-size: 10px; }
+  .game-shell .continuity-summary-band strong { font-size: 16px; }
+  .game-shell .continuity-summary-band small { font-size: 10px; }
+
+  /* Sub-view tabs: one 48px segmented row instead of a 187px stack. The
+     label is enough at this size; sprites and detail lines are desktop
+     ornament. Overrides the <=900px one-column rule by specificity. */
+  .game-shell .personnel-console-tabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2px;
+    padding: 2px;
+  }
+  .game-shell .personnel-console-tabs button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 4px 6px;
+  }
+  .game-shell .personnel-console-tabs .personnel-tab-sprite { display: none; }
+  .game-shell .personnel-console-tabs button small { display: none; }
+  .game-shell .personnel-console-tabs button strong {
+    font-size: 12px;
+    line-height: 1.1;
+    text-align: center;
+  }
+
+  /* The page is the scroll container: no scroll boxes inside scroll. */
+  .game-shell .crew-roster-list {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+  }
+  .game-shell .team-alpha-picker-grid {
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  /* Roster rows on the shared card recipe. */
+  .game-shell .crew-roster-list > button {
+    border-width: 1px;
+    border-color: #1c2a33;
+  }
+
   /* ---- 7 · Type ramp ---------------------------------------------------- */
   /* Collapse the ~11 sizes in play at phone width toward a deliberate ramp:
      11px labels · 12-13px body (already dominant) · 17px/20px headings.

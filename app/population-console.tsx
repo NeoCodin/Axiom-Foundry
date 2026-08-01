@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { HelpTrigger, type ManualTopicId } from "./game-manual";
 import {
   BeaconReadinessList,
@@ -209,6 +209,17 @@ function PopulationConsole({
 }: PopulationConsoleProps) {
   const beaconAvailable = beaconReadiness.ready;
   const [selectedCrewId, setSelectedCrewId] = useState<string | null>(null);
+  // On phones the personnel file stacks well below the roster list, so a tap
+  // must carry the player to it - otherwise selection changes invisibly.
+  const crewDetailRef = useRef<HTMLElement>(null);
+  const selectCrewAndReveal = (survivorId: string) => {
+    setSelectedCrewId(survivorId);
+    if (window.matchMedia("(max-width: 767px)").matches) {
+      requestAnimationFrame(() => {
+        crewDetailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+  };
   const [teamPickerSlot, setTeamPickerSlot] = useState<"leader" | number | null>(
     null,
   );
@@ -736,7 +747,7 @@ function PopulationConsole({
                           ? titleCase(survivor.assignedRole)
                           : "Reserve";
                 return (
-                  <button className={`crew-rarity-${rarity.id} ${selectedCrew?.id === survivor.id ? "is-selected" : ""} ${reserve ? "is-idle" : ""} ${wounded ? "is-recovering" : ""}`} type="button" key={survivor.id} onClick={() => setSelectedCrewId(survivor.id)}>
+                  <button className={`crew-rarity-${rarity.id} ${selectedCrew?.id === survivor.id ? "is-selected" : ""} ${reserve ? "is-idle" : ""} ${wounded ? "is-recovering" : ""}`} type="button" key={survivor.id} onClick={() => selectCrewAndReveal(survivor.id)}>
                     <CrewToken id={survivor.id} name={survivor.name} role={survivor.assignedRole ?? survivor.role} rarity={rarity.id} status={wounded ? "wounded" : training ? "training" : "ready"} />
                     <span><strong>{survivor.callsign ? `“${survivor.callsign}” ${survivor.name}` : survivor.name}</strong><small>{titleCase(survivor.ageGroup)} · {titleCase(survivor.gender ?? "unspecified")} · {adapting ? "Bioadaptation procedure" : training ? `Studying ${titleCase(training.targetRole)} · ${Math.round((training.progressSeconds / training.durationSeconds) * 100)}%` : survivor.role === "civilian" ? titleCase(survivor.assignedRole ?? "Ark Reserve") : `${titleCase(survivor.role)} · Level ${getSurvivorSkillLevel(survivor, survivor.role)} · ${titleCase(survivor.assignedRole ?? "Ark Reserve")}`}</small>{(wounded || survivor.injury || survivor.health < MAX_SURVIVOR_HEALTH) && <HealthBar survivor={survivor} />}</span>
                     <span className="crew-roster-status">
@@ -757,7 +768,7 @@ function PopulationConsole({
           )}
         </section>
 
-        <section className={`continuity-panel crew-detail-panel ${selectedRarity ? `crew-rarity-${selectedRarity.id}` : ""}`}>
+        <section ref={crewDetailRef} className={`continuity-panel crew-detail-panel ${selectedRarity ? `crew-rarity-${selectedRarity.id}` : ""}`}>
           {selectedCrew ? (
             <>
               <header><div><span>PERSONNEL FILE</span><h3>{selectedCrew.callsign ? `${selectedCrew.callsign} · ${selectedCrew.name}` : selectedCrew.name}</h3></div><div className="crew-file-classification"><em className="crew-rarity-badge" title={selectedRarity?.description}>{selectedRarity?.label}</em></div></header>
