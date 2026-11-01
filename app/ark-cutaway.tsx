@@ -314,7 +314,7 @@ export function ArkCutaway({
   } as CSSProperties;
 
   return (
-    <div className={`ark-cutaway ${transit ? "is-in-transit" : ""}`} style={style}>
+    <div className={`ark-cutaway-scene ${transit ? "is-in-transit" : ""}`} style={style}>
       <div className="ark-cutaway-frame">
         <svg
           className="ark-cutaway-art"
@@ -422,8 +422,8 @@ export function ArkCutaway({
           };
           const centre = ((slot.x + slot.w / 2) / VIEW_W) * 100;
           const tagStyle = slot.tag === "above"
-            ? ({ "--tag-x": `${centre}%`, bottom: `calc(${100 - (HULL_TOP / VIEW_H) * 100}% + 16px)` } as CSSProperties)
-            : ({ "--tag-x": `${centre}%`, top: `calc(${(HULL_BOTTOM / VIEW_H) * 100}% + 16px)` } as CSSProperties);
+            ? ({ "--tag-x": `${centre}%`, bottom: `calc(${100 - (HULL_TOP / VIEW_H) * 100}% + 26px)` } as CSSProperties)
+            : ({ "--tag-x": `${centre}%`, top: `calc(${(HULL_BOTTOM / VIEW_H) * 100}% + 26px)` } as CSSProperties);
           return (
             <div key={room.key} className="ark-cutaway-slot">
               <button
@@ -456,7 +456,7 @@ export function ArkCutaway({
 
         <div
           className="ark-cutaway-heart-tag"
-          style={{ "--tag-x": `${(HEART_X / VIEW_W) * 100}%`, bottom: `calc(${100 - (HULL_TOP / VIEW_H) * 100}% + 16px)` } as CSSProperties}
+          style={{ "--tag-x": `${(HEART_X / VIEW_W) * 100}%`, bottom: `calc(${100 - (HULL_TOP / VIEW_H) * 100}% + 26px)` } as CSSProperties}
           tabIndex={0}
           aria-label={`Law-Heart: ${heart.name}, ${heart.rateLabel} routed through the Ark`}
         >

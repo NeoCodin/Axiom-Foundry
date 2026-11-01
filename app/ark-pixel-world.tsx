@@ -113,13 +113,14 @@ function paintPixel(
   context: CanvasRenderingContext2D,
   x: number,
   y: number,
-  size: number,
+  width: number,
+  height: number,
   color: string,
   alpha = 1,
 ) {
   context.globalAlpha = alpha;
   context.fillStyle = color;
-  context.fillRect(x, y, size, size);
+  context.fillRect(x, y, width, height);
   context.globalAlpha = 1;
 }
 
@@ -183,6 +184,7 @@ function drawWorld(
             context,
             x,
             y,
+            pixel,
             pixel,
             palette.atmosphere,
             distance < 1.035 ? 0.72 : 0.28,
