@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 
+import { formatNumber } from "./game-engine";
+import { getResonantFlux, type PulseJudgement } from "./law-heart-pulse";
+import { LawHeartCoherenceMeter, LawHeartPulseOverlay, PULSE_JUDGEMENT_LABEL } from "./law-heart-pulse-overlay";
 import {
   getLawHeartSpectrum,
   LawPressCanvas,
@@ -10,6 +13,7 @@ import {
   type LawHeartTier,
   type LawPressState,
 } from "./law-heart-particle-field";
+import { useLawHeartPulse, type PulseStrike } from "./use-law-heart-pulse";
 
 type FoundryLawHeartProps = {
   flux: number;
@@ -25,7 +29,7 @@ type FoundryLawHeartProps = {
   droneFrames: readonly LawHeartDroneFrame[];
   worldProgress: number;
   qaOverride?: LawHeartQaOverride;
-  onTune: () => void;
+  onTune: (strike: PulseStrike) => void;
 };
 
 function clamp(value: number) {
@@ -49,9 +53,11 @@ export function FoundryLawHeart({
   onTune,
 }: FoundryLawHeartProps) {
   const [pulseSerial, setPulseSerial] = useState(0);
-  const spectrum = getLawHeartSpectrum(
-    qaOverride?.enabled ? qaOverride.spectrumAxioms : lifetimeAxioms,
-  );
+  const [lastStrike, setLastStrike] = useState<{ judgement: PulseJudgement; amountLabel: string } | null>(null);
+  const [resonated, setResonated] = useState(false);
+  const spectrumAxioms = qaOverride?.enabled ? qaOverride.spectrumAxioms : lifetimeAxioms;
+  const spectrum = getLawHeartSpectrum(spectrumAxioms);
+  const pulse = useLawHeartPulse(spectrumAxioms);
   const fabricationIntensity = tiers.reduce((total, tier) => total + tier.count, 0);
   const liveState: LawPressState = fabricationIntensity >= 150
     ? "synchronized"
@@ -68,8 +74,12 @@ export function FoundryLawHeart({
       : liveState;
 
   const handleTune = () => {
+    const strike = pulse.strike();
+    const amount = manualGain + getResonantFlux({ ...strike, manualGain, fluxPerSecond });
+    setLastStrike({ judgement: strike.judgement, amountLabel: formatNumber(amount) });
+    if (strike.judgement !== "off-phase") setResonated(true);
     setPulseSerial((current) => current + 1);
-    onTune();
+    onTune(strike);
   };
 
   return (
@@ -78,9 +88,10 @@ export function FoundryLawHeart({
         <button
           className="foundry-law-heart-machine"
           type="button"
+          onPointerDown={pulse.press}
           onClick={handleTune}
-          aria-label={`Strike the Law-Heart for ${manualGainLabel} Flux`}
-          data-pixel-tooltip={`${spectrum.name}. Strike for ${manualGainLabel} Flux. Fabrication mechanisms shape the particle field, permanent Axioms alter the stellar spectrum, and assigned utility drones appear as colored service craft in the outer void.`}
+          aria-label={`Strike the Law-Heart for ${manualGainLabel} Flux. Strikes on the beat release a resonant bonus.`}
+          data-pixel-tooltip={`${spectrum.name}. Strike for ${manualGainLabel} Flux. Strike as the ring closes to land on the beat: on-beat strikes release part of current output and build Coherence. Fabrication mechanisms shape the particle field, permanent Axioms alter the stellar spectrum, and assigned utility drones appear as colored service craft in the outer void.`}
         >
           <LawPressCanvas
             state={state}
@@ -97,14 +108,21 @@ export function FoundryLawHeart({
             droneFrames={droneFrames}
             qaOverride={qaOverride}
           />
+          <LawHeartPulseOverlay approachRef={pulse.approachRef} targetRef={pulse.targetRef} coherence={pulse.coherence} />
           <span className="foundry-law-heart-readout">
             <small>LOCAL FLUX</small>
             <strong>{fluxLabel}</strong>
             <em>STRIKE LAW +{manualGainLabel}</em>
+            <LawHeartCoherenceMeter coherence={pulse.coherence} showHint={!resonated} />
           </span>
           <span className="foundry-law-heart-rate"><small>FIELD VELOCITY</small><strong>{fluxPerSecondLabel}/sec</strong></span>
           <span className="foundry-law-heart-axiom-count"><strong>{lifetimeAxiomsLabel}</strong><small> PROVEN AXIOMS</small></span>
-          {pulseSerial > 0 && <span className="foundry-law-heart-gain" key={`foundry-law-gain-${pulseSerial}`} aria-hidden="true">+{manualGainLabel}</span>}
+          {pulseSerial > 0 && lastStrike && (
+            <span className={`foundry-law-heart-gain is-${lastStrike.judgement}`} key={`foundry-law-gain-${pulseSerial}`} aria-hidden="true">
+              {PULSE_JUDGEMENT_LABEL[lastStrike.judgement] && <b>{PULSE_JUDGEMENT_LABEL[lastStrike.judgement]}</b>}
+              +{lastStrike.amountLabel}
+            </span>
+          )}
         </button>
       </div>
     </section>

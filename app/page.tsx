@@ -147,6 +147,7 @@ import {
   setTutorialComplete,
   simulateGame,
   type GameState,
+  type PulseResonance,
   type PurchaseMode,
 } from "./game-engine";
 import { WORLD_VISUALS } from "./world-visuals";
@@ -1473,8 +1474,8 @@ export default function Home() {
     ready,
   ]);
 
-  const handlePulse = () => {
-    setGame((current) => pulseCore(current));
+  const handlePulse = (resonance: PulseResonance) => {
+    setGame((current) => pulseCore(current, resonance));
   };
 
   const handleBuyTier = (index: number) => {

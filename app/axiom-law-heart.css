@@ -873,3 +873,68 @@
   .law-heart-deck * { animation-duration: 1ms !important; animation-iteration-count: 1 !important; }
   .foundry-console-tabs button.has-attention::after { animation: none; }
 }
+
+/* Pulse timing (prototype): a target ring frames the heart, an approach ring
+   closes on each beat, and Coherence lights the target as it builds. */
+.law-pulse-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+.law-pulse-target,
+.law-pulse-approach {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 24%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+.law-pulse-target {
+  border: 2px solid rgb(var(--world-accent-rgb, 85 214 232) / calc(0.4 + var(--pulse-coherence, 0) * 0.5));
+  box-shadow: 0 0 calc(var(--pulse-coherence, 0) * 24px) rgb(240 247 250 / 0.6), inset 0 0 calc(var(--pulse-coherence, 0) * 14px) rgb(240 247 250 / 0.35);
+  opacity: 0.55;
+}
+.law-pulse-approach {
+  border: 3px solid #f0c367;
+  opacity: calc(0.08 + var(--pulse-approach, 0) * 0.82);
+  transform: translate(-50%, -50%) scale(calc(1 + (1 - var(--pulse-approach, 0)) * 2.4));
+}
+.law-pulse-coherence.is-hint { display: block; color: #f0c367; }
+
+.law-pulse-coherence {
+  display: grid;
+  grid-template-columns: auto minmax(44px, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  margin-top: 7px;
+  color: #5d777b;
+  text-shadow: none;
+}
+.law-heart-readout .law-pulse-coherence small,
+.foundry-law-heart-readout .law-pulse-coherence small,
+.law-heart-readout .law-pulse-coherence strong,
+.foundry-law-heart-readout .law-pulse-coherence strong {
+  margin: 0;
+  color: inherit;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.law-pulse-coherence i { display: block; height: 5px; border: 1px solid #23414a; background: #0b1b20; }
+.law-pulse-coherence b { display: block; height: 100%; background: #f0c367; }
+.law-pulse-coherence.is-charged { color: #f0c367; }
+
+.law-heart-click-gain b,
+.foundry-law-heart-gain b { display: block; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; }
+.law-heart-click-gain.is-in-phase,
+.foundry-law-heart-gain.is-in-phase { border-color: #61dce2; color: #b9f6f8; }
+.law-heart-click-gain.is-coherent,
+.foundry-law-heart-gain.is-coherent { border-color: #fff4cf; background: #23200f; color: #fff4cf; box-shadow: 0 0 18px rgb(255 244 207 / 0.45); }
+
+@media (prefers-reduced-motion: reduce) {
+  /* The approach ring stops shrinking; its brightness still rises into each beat. */
+  .law-pulse-approach { transform: translate(-50%, -50%); }
+}

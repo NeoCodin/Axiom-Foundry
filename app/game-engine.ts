@@ -9,6 +9,7 @@ import {
   type LivingFoundryState,
 } from "./living-foundry-engine.ts";
 import { syncAutomaticDiscoveries } from "./discovery-engine.ts";
+import { getResonantFlux, type PulseJudgement } from "./law-heart-pulse.ts";
 import {
   abandonStrandedParty,
   advanceExpeditions,
@@ -5043,9 +5044,28 @@ export function getManualGain(state: GameState) {
   );
 }
 
-export function pulseCore(state: GameState) {
+export type PulseResonance = {
+  judgement: PulseJudgement;
+  coherence: number;
+};
+
+export function getPulseCoreGain(state: GameState, resonance: PulseResonance | null = null) {
+  const manualGain = getManualGain(state);
+  if (!resonance) return manualGain;
+  return safeAdd(
+    manualGain,
+    getResonantFlux({
+      judgement: resonance.judgement,
+      coherence: resonance.coherence,
+      manualGain,
+      fluxPerSecond: getProductionSnapshot(state).fluxPerSecond,
+    }),
+  );
+}
+
+export function pulseCore(state: GameState, resonance: PulseResonance | null = null) {
   const next = cloneGameState(state);
-  const gain = getManualGain(next);
+  const gain = getPulseCoreGain(next, resonance);
   next.flux = safeAdd(next.flux, gain);
   next.maxFlux = Math.max(next.maxFlux, next.flux);
   next.runFlux = safeAdd(next.runFlux, gain);

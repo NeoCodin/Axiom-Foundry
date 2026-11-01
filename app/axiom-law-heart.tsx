@@ -1,13 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import type { PurchaseMode } from "./game-engine";
+import { formatNumber, type PurchaseMode } from "./game-engine";
+import { getResonantFlux, type PulseJudgement } from "./law-heart-pulse";
+import { LawHeartCoherenceMeter, LawHeartPulseOverlay, PULSE_JUDGEMENT_LABEL } from "./law-heart-pulse-overlay";
 import {
   getLawHeartSpectrum,
   LawPressCanvas,
   type LawHeartQaOverride,
   type LawPressState,
 } from "./law-heart-particle-field";
+import { useLawHeartPulse, type PulseStrike } from "./use-law-heart-pulse";
 
 export type LawHeartMachine = {
   name: string;
@@ -47,7 +50,7 @@ type AxiomLawHeartProps = {
     canContribute: boolean;
   } | null;
   qaOverride?: LawHeartQaOverride;
-  onTune: () => void;
+  onTune: (strike: PulseStrike) => void;
   onBuy: () => void;
   onSetBuyMode: (mode: PurchaseMode) => void;
   onRecalibrate: () => void;
@@ -98,10 +101,12 @@ export function AxiomLawHeart({
   onContribute,
 }: AxiomLawHeartProps) {
   const [pulseSerial, setPulseSerial] = useState(0);
+  const [lastStrike, setLastStrike] = useState<{ judgement: PulseJudgement; amountLabel: string } | null>(null);
+  const [resonated, setResonated] = useState(false);
   const [confirmRecalibration, setConfirmRecalibration] = useState(false);
-  const spectrum = getLawHeartSpectrum(
-    qaOverride?.enabled ? qaOverride.spectrumAxioms : lifetimeAxioms,
-  );
+  const spectrumAxioms = qaOverride?.enabled ? qaOverride.spectrumAxioms : lifetimeAxioms;
+  const spectrum = getLawHeartSpectrum(spectrumAxioms);
+  const pulse = useLawHeartPulse(spectrumAxioms);
   const automationVisible = manualPulses >= 6 || machine.bought > 0;
   const recalibrationVisible = stageIndex >= 3 || lifetimeAxioms > 0;
   const fabricationAuthorized = stageIndex >= 1;
@@ -151,8 +156,12 @@ export function AxiomLawHeart({
     : "synchronized";
 
   const tune = () => {
+    const strike = pulse.strike();
+    const amount = manualGain + getResonantFlux({ ...strike, manualGain, fluxPerSecond });
+    setLastStrike({ judgement: strike.judgement, amountLabel: formatNumber(amount) });
+    if (strike.judgement !== "off-phase") setResonated(true);
     setPulseSerial((value) => value + 1);
-    onTune();
+    onTune(strike);
   };
 
   const recalibrate = () => {
@@ -179,9 +188,10 @@ export function AxiomLawHeart({
           className="law-heart-core"
           data-guide-target="law-heart-core"
           type="button"
+          onPointerDown={pulse.press}
           onClick={tune}
-          aria-label={`Strike the Axiom Law Press for ${manualGainLabel} Flux`}
-          data-pixel-tooltip={`${spectrum.name}. Strike the Law-Heart once for ${manualGainLabel} Flux. Vacuum Taps add cyan motes, stored Flux thickens the field, and permanent Axioms alter the star's spectrum.`}
+          aria-label={`Strike the Axiom Law-Heart for ${manualGainLabel} Flux. Strikes on the beat release a resonant bonus.`}
+          data-pixel-tooltip={`${spectrum.name}. Strike the Law-Heart for ${manualGainLabel} Flux. Strike as the ring closes to land on the beat: on-beat strikes release part of current output and build Coherence. Vacuum Taps add cyan motes, stored Flux thickens the field, and permanent Axioms alter the star's spectrum.`}
         >
           <LawPressCanvas
             state={pressState}
@@ -197,12 +207,19 @@ export function AxiomLawHeart({
             preparingRecalibration={confirmRecalibration}
             qaOverride={qaOverride}
           />
+          <LawHeartPulseOverlay approachRef={pulse.approachRef} targetRef={pulse.targetRef} coherence={pulse.coherence} />
           <span className="law-heart-readout">
             <small>LOCAL FLUX</small>
             <strong>{fluxLabel}</strong>
             <em>STRIKE LAW +{manualGainLabel}</em>
+            <LawHeartCoherenceMeter coherence={pulse.coherence} showHint={!resonated} />
           </span>
-          {pulseSerial > 0 && <span className="law-heart-click-gain" key={`gain-${pulseSerial}`} aria-hidden="true">+{manualGainLabel}</span>}
+          {pulseSerial > 0 && lastStrike && (
+            <span className={`law-heart-click-gain is-${lastStrike.judgement}`} key={`gain-${pulseSerial}`} aria-hidden="true">
+              {PULSE_JUDGEMENT_LABEL[lastStrike.judgement] && <b>{PULSE_JUDGEMENT_LABEL[lastStrike.judgement]}</b>}
+              +{lastStrike.amountLabel}
+            </span>
+          )}
           <span className="law-press-state" aria-hidden="true">
             {machine.bought > 0 ? `${machine.bought} taps feeding the field` : manualPulses > 0 ? "manual impulse retained" : "particle field dormant"}
           </span>

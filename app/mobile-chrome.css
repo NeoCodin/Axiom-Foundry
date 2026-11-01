@@ -446,6 +446,16 @@
   .game-shell :where(.eyebrow, .kicker, .machine-index, .resource-label) {
     font-size: 11px;
   }
+
+  /* ---- 10 · Law-Heart pulse --------------------------------------------- */
+  /* The readout gains a Coherence line, so the press-state label moves to
+     the empty top corner instead of colliding with it. */
+  .game-shell .law-press-state {
+    top: 10px;
+    right: 10px;
+    bottom: auto;
+    font-size: 10px;
+  }
 }
 
 @keyframes destination-slide-from-right {
