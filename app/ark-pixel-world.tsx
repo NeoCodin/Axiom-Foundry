@@ -297,7 +297,7 @@ function drawWorld(
   paintPixel(context, glintX + 2, 29, 2, 2, "#f4ffff", 0.72);
 }
 
-/** One frame of a world on a 128x128 canvas; the drone's bridge window uses it. */
+/** One frame of a world on a 128x128 canvas. */
 export function drawPixelWorldFrame(
   context: CanvasRenderingContext2D,
   worldName: string,
@@ -306,6 +306,49 @@ export function drawPixelWorldFrame(
 ) {
   const worldSlug = slugify(worldName);
   drawWorld(context, WORLD_PALETTES[worldSlug] ?? WORLD_PALETTES.pelagos, worldSlug, progress, frame);
+}
+
+/** One full turn of a world in seconds, matching the 2D globe. */
+export const PIXEL_WORLD_DAY_SECONDS = 333 * 0.24;
+
+/**
+ * A world's whole surface unrolled and unlit, for wrapping round a 3D globe: ground on
+ * one 128x64 canvas, clouds on another (clear where the sky is), with the colours the
+ * 2D globe draws it in. Returns the colours the globe needs for its night side and air.
+ */
+export function drawPixelWorldSurface(
+  ground: CanvasRenderingContext2D,
+  clouds: CanvasRenderingContext2D,
+  worldName: string,
+  progress: number,
+) {
+  const worldSlug = slugify(worldName);
+  const palette = WORLD_PALETTES[worldSlug] ?? WORLD_PALETTES.pelagos;
+  const surface = getSurfaceMap(palette.seed);
+  const readiness = clamp(progress);
+  ground.clearRect(0, 0, SURFACE_W, SURFACE_H);
+  clouds.clearRect(0, 0, SURFACE_W, SURFACE_H);
+  for (let row = 0; row < SURFACE_H; row += 1) {
+    for (let column = 0; column < SURFACE_W; column += 1) {
+      const index = row * SURFACE_W + column;
+      const dither = BAYER[row % 4][column % 4] / 16;
+      const height = surface.terrain[index] + readiness * 0.035;
+      let color = palette.low;
+      if (height > 0.64 + dither * 0.1) color = palette.high;
+      else if (height > 0.4 + dither * 0.08) color = palette.middle;
+      if (surface.feature[index]) color = palette.feature;
+      paintPixel(ground, column, row, 1, 1, color);
+      if (surface.cloud[index] > 0.6) paintPixel(clouds, column, row, 1, 1, palette.cloud);
+    }
+  }
+  return {
+    width: SURFACE_W,
+    height: SURFACE_H,
+    shadow: palette.shadow,
+    atmosphere: palette.atmosphere,
+    /** Cold Wake sees Pelagos only as a far point of light. */
+    distant: worldSlug === "cold-wake",
+  };
 }
 
 export function ArkPixelWorld({

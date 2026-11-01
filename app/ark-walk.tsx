@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
 import type { ArkCutawayRoomKind } from "./ark-cutaway";
-import { drawPixelWorldFrame } from "./ark-pixel-world";
+import { drawPixelWorldSurface, PIXEL_WORLD_DAY_SECONDS } from "./ark-pixel-world";
 import {
   buildWalkLayout,
   compartmentAt,
@@ -226,7 +226,7 @@ function glassTexture(tint: string) {
     context.globalAlpha = 0.07;
     context.fillRect(0, 0, 32, 32);
     context.fillStyle = "#ffffff";
-    for (const [start, width, alpha] of [[4, 3, 0.16], [11, 1, 0.1], [22, 2, 0.08]] as const) {
+    for (const [start, width, alpha] of [[4, 2, 0.07], [9, 1, 0.045], [22, 1, 0.04]] as const) {
       context.globalAlpha = alpha;
       for (let step = 0; step < 32; step += 1) context.fillRect(start + step, 31 - step, width, 1);
     }
@@ -530,33 +530,104 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     nebula.scale.setScalar(260);
     sky.add(nebula);
   }
-  const planetCanvas = document.createElement("canvas");
-  planetCanvas.width = 128;
-  planetCanvas.height = 128;
-  const planetContext = planetCanvas.getContext("2d")!;
-  const planetTexture = new THREE.CanvasTexture(planetCanvas);
-  planetTexture.magFilter = THREE.NearestFilter;
-  planetTexture.minFilter = THREE.NearestFilter;
-  planetTexture.generateMipmaps = false;
-  planetTexture.colorSpace = THREE.SRGBColorSpace;
-  // The ship never lands: the world hangs below and ahead, off the starboard bow.
-  const planetOffset = new THREE.Vector3(110, -95, 110);
-  const planet = inert(new THREE.Sprite(new THREE.SpriteMaterial({ map: planetTexture, fog: false, alphaTest: 0.5 })));
+  // The world below: a real globe wrapped in the 2D globe's own surface, turning under a
+  // fixed sun, with clouds drifting over it and its air glowing at the rim.
+  const surfaceTexture = (paint: (context: CanvasRenderingContext2D) => void) => {
+    const texture = canvasTexture(128, 64, paint);
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    return texture;
+  };
+  let look = { shadow: PALETTE.dark, atmosphere: accent, distant: false };
+  let cloudContext: CanvasRenderingContext2D | null = null;
+  const cloudTexture = surfaceTexture((context) => { cloudContext = context; });
+  const groundTexture = surfaceTexture((context) => {
+    look = drawPixelWorldSurface(context, cloudContext!, props.worldName, 0.5);
+  });
+  cloudTexture.needsUpdate = true;
+  const sun = new THREE.Vector3(-0.35, 0.7, -0.62).normalize();
+  const globeShader = (map: THREE.Texture, clouds: boolean) => new THREE.ShaderMaterial({
+    uniforms: {
+      map: { value: map },
+      sun: { value: sun },
+      night: { value: new THREE.Color(look.shadow) },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      varying vec3 vNormal;
+      void main() {
+        vUv = uv;
+        vNormal = normalize(mat3(modelMatrix) * normal);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    // Light falls in four steps with an ordered dither between them, like the 2D globe.
+    fragmentShader: `
+      uniform sampler2D map;
+      uniform vec3 sun;
+      uniform vec3 night;
+      varying vec2 vUv;
+      varying vec3 vNormal;
+      float bayer2(vec2 a) { a = floor(a); return fract(dot(a, vec2(0.5, a.y * 0.75))); }
+      float bayer4(vec2 a) { return bayer2(0.5 * a) * 0.25 + bayer2(a); }
+      void main() {
+        vec4 texel = texture2D(map, vUv);
+        ${clouds ? "if (texel.a < 0.5) discard;" : ""}
+        float light = clamp(dot(normalize(vNormal), sun) * 1.25 + 0.2, 0.0, 1.0);
+        float stepped = floor(light * 4.0 + bayer4(gl_FragCoord.xy)) / 4.0;
+        vec3 color = mix(night, texel.rgb, clamp(0.06 + stepped * 0.94, 0.0, 1.0));
+        gl_FragColor = vec4(color, 1.0);
+        #include <colorspace_fragment>
+      }
+    `,
+  });
+  const planetRadius = look.distant ? 6 : 100;
+  const planetOffset = look.distant ? new THREE.Vector3(260, -120, 260) : new THREE.Vector3(110, -95, 110);
+  const planet = new THREE.Group();
   planet.position.copy(planetOffset);
-  planet.scale.setScalar(230);
-  const atmosphere = inert(new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTexture(accent), transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })));
-  atmosphere.position.copy(planetOffset).multiplyScalar(1.04);
-  atmosphere.scale.setScalar(310);
-  sky.add(atmosphere, planet);
+  planet.rotation.z = 0.32;
+  sky.add(planet);
+  const ground = inert(new THREE.Mesh(new THREE.SphereGeometry(planetRadius, 48, 32), globeShader(groundTexture, false)));
+  const cloudLayer = inert(new THREE.Mesh(new THREE.SphereGeometry(planetRadius * 1.012, 48, 32), globeShader(cloudTexture, true)));
+  const air = inert(new THREE.Mesh(
+    new THREE.SphereGeometry(planetRadius * 1.06, 48, 32),
+    new THREE.ShaderMaterial({
+      uniforms: { glow: { value: new THREE.Color(look.atmosphere) }, sun: { value: sun } },
+      vertexShader: `
+        varying vec3 vNormal;
+        varying vec3 vView;
+        varying vec3 vWorldNormal;
+        void main() {
+          vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
+          vNormal = normalize(normalMatrix * normal);
+          vView = normalize(-viewPosition.xyz);
+          vWorldNormal = normalize(mat3(modelMatrix) * normal);
+          gl_Position = projectionMatrix * viewPosition;
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 glow;
+        uniform vec3 sun;
+        varying vec3 vNormal;
+        varying vec3 vView;
+        varying vec3 vWorldNormal;
+        void main() {
+          float rim = pow(1.0 - clamp(dot(vNormal, vView), 0.0, 1.0), 3.5);
+          float day = clamp(dot(vWorldNormal, sun) + 0.35, 0.0, 1.0);
+          gl_FragColor = vec4(glow * rim * day * 0.9, 1.0);
+          #include <colorspace_fragment>
+        }
+      `,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }),
+  ));
+  planet.add(ground, cloudLayer, air);
   const planetWorld = planetOffset.clone().add(sky.position);
-  let planetFrame = 0;
-  let lastPlanetDraw = -Infinity;
   animated.push((time) => {
-    if (time - lastPlanetDraw < 240) return;
-    lastPlanetDraw = time;
-    planetFrame += 1;
-    drawPixelWorldFrame(planetContext, props.worldName, 0.5, planetFrame);
-    planetTexture.needsUpdate = true;
+    const turn = (time / 1000 / PIXEL_WORLD_DAY_SECONDS) * Math.PI * 2;
+    ground.rotation.y = turn;
+    cloudLayer.rotation.y = turn * 1.35;
   });
 
   /** A hull side: thick panels round its openings, the room's wall inside and the ship's skin out. */
@@ -767,7 +838,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         // The conveyor, crates riding it, a robot arm loading them, and a stack waiting.
         const beltLength = room.x1 - 1 - (room.x0 + 5);
         fit(beltLength, 0.7, 1.2, solid(metal), room.x0 + 5 + beltLength / 2, 0.35, 5);
-        fit(beltLength, 0.04, 1, solid(PALETTE.dark), room.x0 + 5 + beltLength / 2, 0.72, 5);
+        fit(beltLength, 0.04, 1, solid(tinted(PALETTE.metal, PALETTE.floor, 0.35)), room.x0 + 5 + beltLength / 2, 0.72, 5);
         for (let roller = 0; roller < beltLength; roller += 1) fit(0.1, 0.1, 1.24, solid(metalLight), room.x0 + 5.5 + roller, 0.62, 5);
         const crates = [0, 1, 2, 3].map(() => fit(0.6, 0.6, 0.6, solid(PALETTE.wood), 0, 1.04, 5));
         fitCylinder(0.5, 0.6, 0.6, solid(metal), room.x1 - 3.6, y0 + 0.3, 3);
@@ -1303,6 +1374,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     });
     const doorwayOut = new THREE.Vector3(pad.x, y0 + 2.4, half + 5);
     const awayDirection = planetWorld.clone().sub(doorwayOut).normalize();
+    const awayDistance = Math.max(40, planetWorld.distanceTo(doorwayOut) - planetRadius * 1.02);
     let current = rest(state.home);
 
     animated.push((time, drone) => {
@@ -1388,7 +1460,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         flyer.group.position.set(pad.x, y0 + 2.4, pad.z + (doorwayOut.z - pad.z) * t);
       } else {
         const t = ((ship.out - 0.3) / 0.7) ** 1.6;
-        flyer.group.position.copy(doorwayOut).addScaledVector(awayDirection, t * 260);
+        flyer.group.position.copy(doorwayOut).addScaledVector(awayDirection, t * awayDistance);
       }
       flyer.group.rotation.set(ship.out > 0.3 ? 0.25 : 0, (Math.PI / 2) * (1 - ship.turn), 0);
       flyer.ramp.rotation.x = ship.lift === 0 && ship.out === 0 ? 0.42 : -1.4;
@@ -2081,6 +2153,21 @@ export default function ArkWalk(props: ArkWalkProps) {
     const onKeyUp = (event: KeyboardEvent) => keys.delete(event.key.toLowerCase());
     const onBlur = () => keys.clear();
 
+    // QA sandbox only (?qa=1): place the drone anywhere, to check a view without flying there.
+    const qa = new URLSearchParams(window.location.search).has("qa");
+    if (qa) {
+      (window as unknown as { arkWalkQa?: unknown }).arkWalkQa = {
+        layout,
+        place(deck: number, px: number, pz: number, look = yaw, tilt = 0) {
+          deckIndex = deck;
+          x = px;
+          z = pz;
+          yaw = look;
+          pitch = tilt;
+        },
+      };
+    }
+
     renderer.domElement.addEventListener("click", onClick);
     document.addEventListener("pointerlockchange", onPointerLockChange);
     document.addEventListener("mousemove", onMouseMove);
@@ -2242,6 +2329,7 @@ export default function ArkWalk(props: ArkWalkProps) {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
+      if (qa) delete (window as unknown as { arkWalkQa?: unknown }).arkWalkQa;
       if (document.pointerLockElement === renderer.domElement) document.exitPointerLock();
       scene.traverse((object) => {
         const mesh = object as THREE.Mesh;
