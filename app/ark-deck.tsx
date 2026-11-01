@@ -1,11 +1,15 @@
 "use client";
 
-import { type CSSProperties } from "react";
+import { lazy, Suspense, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import {
   BeaconReadinessList,
 } from "./beacon-readiness";
 import { ArkCutaway, type ArkCutawayRoom, type ArkCutawayRoomKind } from "./ark-cutaway";
 import { ArkPixelWorld } from "./ark-pixel-world";
+
+/** The drone view loads three.js, so it is fetched only when someone opens it. */
+const ArkWalk = lazy(() => import("./ark-walk"));
 import type { BeaconReadiness } from "./beacon-readiness-engine";
 import type { RoomId } from "./discovery-content";
 import { getLawHeartSpectrum } from "./law-heart-particle-field";
@@ -105,6 +109,8 @@ export type ArkDeckProps = {
   roomReinforcements?: readonly ArkRoomReinforcement[];
   supportUpgradeCosts?: Partial<Record<LifeSupportKey, number>>;
   onCommission?: () => void;
+  /** Striking the Law-Heart from the drone view. */
+  onStrikeLawHeart?: () => void;
   onUpgradeSupport?: (key: LifeSupportKey) => void;
   onOpenView: (view: ArkViewId) => void;
 };
@@ -170,9 +176,11 @@ function ArkDeck({
   roomReinforcements = [],
   supportUpgradeCosts,
   onCommission,
+  onStrikeLawHeart,
   onUpgradeSupport,
   onOpenView,
 }: ArkDeckProps) {
+  const [walkAccent, setWalkAccent] = useState<string | null>(null);
   const beaconAvailable = beaconReadiness.ready;
   const normalizedWorldProgress = clamp(worldProgress);
   const normalizedResearchProgress = clamp(researchProgress);
@@ -450,7 +458,37 @@ function ArkDeck({
           </div>
         )}
 
+        <button
+          type="button"
+          className="ark-walk-launch"
+          onClick={() => {
+            const shell = document.querySelector(".game-shell");
+            setWalkAccent(shell ? getComputedStyle(shell).getPropertyValue("--world-accent").trim() || "#6a6290" : "#6a6290");
+          }}
+        >
+          Walk the Ark
+        </button>
         <ArkCutaway {...cutawayProps} />
+        {walkAccent && createPortal(
+          <Suspense fallback={<div className="ark-walk is-loading">Waking the drone…</div>}>
+            <ArkWalk
+              worldName={worldName}
+              worldAccent={walkAccent}
+              rooms={cutawayRooms}
+              crew={crew}
+              heart={{
+                name: lawHeartSpectrum.name,
+                core: lawHeartSpectrum.core,
+                surface: lawHeartSpectrum.surface,
+                bright: lawHeartSpectrum.surfaceBright,
+              }}
+              beatPeriodMs={getPulseProfile(lifetimeAxioms).periodMs}
+              onStrike={onStrikeLawHeart}
+              onClose={() => setWalkAccent(null)}
+            />
+          </Suspense>,
+          document.querySelector(".game-shell") ?? document.body,
+        )}
 
         {transitActive && (
           <div className="ark-transit-readout">

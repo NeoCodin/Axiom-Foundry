@@ -297,6 +297,17 @@ function drawWorld(
   paintPixel(context, glintX + 2, 29, 2, 2, "#f4ffff", 0.72);
 }
 
+/** One frame of a world on a 128x128 canvas; the drone's bridge window uses it. */
+export function drawPixelWorldFrame(
+  context: CanvasRenderingContext2D,
+  worldName: string,
+  progress: number,
+  frame: number,
+) {
+  const worldSlug = slugify(worldName);
+  drawWorld(context, WORLD_PALETTES[worldSlug] ?? WORLD_PALETTES.pelagos, worldSlug, progress, frame);
+}
+
 export function ArkPixelWorld({
   worldName,
   progress,

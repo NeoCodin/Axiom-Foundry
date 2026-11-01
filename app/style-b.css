@@ -691,6 +691,20 @@ body {
     filter: drop-shadow(0 0 24px rgb(var(--world-accent-rgb, 106 98 144) / 0.25));
   }
 
+  /* Walk the Ark (drone view, PC): the launch key sits in the Ark view. */
+  .game-shell .ark-visual-stage button.ark-walk-launch {
+    position: absolute;
+    z-index: 8;
+    top: 26px;
+    right: 26px;
+    min-height: 44px;
+    padding-inline: 14px;
+    border-image-source: var(--b-key-active);
+    font-family: var(--font-display);
+    font-size: 18px;
+    letter-spacing: 0.06em;
+  }
+
   /* The header's actions overflowed their column at 1440px and slid under
      the third readout. The save stamp now gets its own line above the keys. */
   .game-shell .command-bar .header-actions {
@@ -898,5 +912,17 @@ body {
   .game-shell .ark-cutaway-scene button.ark-cutaway-tag.is-commissioning,
   .game-shell .ark-cutaway-scene button.ark-cutaway-signal {
     animation: none;
+  }
+}
+
+/* Walk the Ark needs a keyboard and mouse, so the launch key shows on PCs only.
+   Phones and tablets never see it; their layout is untouched. */
+.game-shell button.ark-walk-launch {
+  display: none;
+}
+
+@media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
+  .game-shell .ark-visual-stage button.ark-walk-launch {
+    display: block;
   }
 }

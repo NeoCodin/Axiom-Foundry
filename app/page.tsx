@@ -3126,6 +3126,7 @@ export default function Home() {
           roomReinforcements={roomReinforcements}
           supportUpgradeCosts={supportUpgradeCosts}
           onCommission={handleMissionContribution}
+          onStrikeLawHeart={() => handlePulse({ judgement: "off-phase", coherence: 0 })}
           onUpgradeSupport={handleUpgradeSupport}
           onOpenView={handleOpenArkView}
         />
