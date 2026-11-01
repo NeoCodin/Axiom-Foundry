@@ -153,6 +153,7 @@ import {
 } from "./game-engine";
 import { WORLD_VISUALS } from "./world-visuals";
 import { MachineGlyph } from "./machine-glyphs";
+import { NullInterference } from "./null-interference";
 import ArkDeck, { type ArkViewId } from "./ark-deck";
 import { AxiomLawHeart } from "./axiom-law-heart";
 import { FoundryLawHeart } from "./foundry-law-heart";
@@ -2747,6 +2748,10 @@ export default function Home() {
       style={shellStyle}
     >
       {tooltipsEnabled && <PixelTooltipLayer />}
+      <NullInterference
+        classification={nullSaturation.classification}
+        intensity={nullSaturation.visualIntensity}
+      />
       <div className="ambient-grid" aria-hidden="true" />
       <div className="sr-only" aria-live="polite">
         {announcement}
