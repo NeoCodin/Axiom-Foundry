@@ -8,6 +8,7 @@ import {
   type RefObject,
 } from "react";
 
+import { AxiomEye } from "./axiom-eye";
 import type { ContextGuideStep } from "./story-content";
 
 type GuideRect = {
@@ -144,7 +145,7 @@ export function ContextualGuide({
         aria-describedby="context-guide-description"
       >
         <div className="context-guide-speaker">
-          <span aria-hidden="true">A</span>
+          <span aria-hidden="true"><AxiomEye /></span>
           <div><strong>AXIOM · GUIDED HANDOFF</strong><small>{label}</small></div>
         </div>
         <p className="context-guide-eyebrow">{step.eyebrow}</p>

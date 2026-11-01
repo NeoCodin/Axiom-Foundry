@@ -362,6 +362,24 @@ body {
   transition: none;
 }
 
+/* AXIOM speaks through its guide cards: the eye is the avatar and the card
+   is a world-coloured hull plate, its shadow following the cut. */
+.game-shell :is(.context-guide-speaker, .destination-guide-speaker) > span {
+  padding: 3px;
+  border-color: transparent;
+  border-image: var(--b-key-active) 4 fill / 8px stretch;
+  background: transparent;
+  color: var(--world-accent, #c9b6ff);
+}
+
+.game-shell :is(.context-guide-card, .destination-guide-card) {
+  border-color: transparent;
+  border-image: var(--b-plate-active) 7 fill / 14px / 6px stretch;
+  background: transparent;
+  box-shadow: none;
+  filter: drop-shadow(0 14px 22px rgb(0 0 0 / 0.65));
+}
+
 /* Null interference (app/null-interference.tsx): brief, self-clearing
    presentation glitches whose frequency follows the world's Null. */
 .null-interference-defs {

@@ -152,6 +152,7 @@ import {
   type PurchaseMode,
 } from "./game-engine";
 import { WORLD_VISUALS } from "./world-visuals";
+import { AxiomEye } from "./axiom-eye";
 import { MachineGlyph } from "./machine-glyphs";
 import { NullInterference } from "./null-interference";
 import { useUiSounds } from "./use-ui-sounds";
@@ -2943,7 +2944,7 @@ export default function Home() {
           <div className="destination-guide-scrim" aria-hidden="true" />
           <section className="destination-guide-card" role="dialog" aria-modal="true" aria-labelledby="destination-guide-title" aria-describedby="destination-guide-description">
             <div className="destination-guide-speaker">
-              <span aria-hidden="true">A</span>
+              <span aria-hidden="true"><AxiomEye /></span>
               <div><strong>AXIOM · INTERFACE HANDOFF</strong><small>New destination detected</small></div>
             </div>
             <p className="destination-guide-eyebrow">{destinationIntroduction.eyebrow}</p>
