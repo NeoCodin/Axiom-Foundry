@@ -1,6 +1,7 @@
 # Generates the B "hull plate" 9-slice frames as CSS custom properties.
-# Run from any folder: writes tokens.css there; paste its :root block into
-# app/style-b.css. The mask previews it prints are a quick visual check.
+# Run from any folder: writes tokens.css there; paste it over the generated
+# token block at the top of app/style-b.css (the :root block and the
+# per-world .game-shell.world-theme-* blocks). The mask previews it prints are a quick visual check.
 from urllib.parse import quote
 
 def shape(size, margin, tl, tr, br, bl):
@@ -86,7 +87,32 @@ for name, pal in PALETTES.items():
     lines.append(f"  --b-plate-{name}: {svg(16, plate, pal, halo=True, rivets=plate_rivets)};")
 for name, pal in PALETTES.items():
     lines.append(f"  --b-key-{name}: {svg(10, key, pal)};")
+lines.append('  --b-plate-active: var(--b-plate-warm);')
+lines.append('  --b-key-active: var(--b-key-warm);')
 lines.append('}')
+
+# Each world tints the plates: muted accent edges at rest, the full accent
+# when active, so the whole interface still changes colour planet by planet.
+# Keep in step with app/world-visuals.ts.
+WORLDS = {
+    'cold-wake': '#55d6e8', 'pelagos': '#35c6d8', 'viridia': '#7ee7a8',
+    'cinder': '#ff8a3d', 'nox': '#c697ff', 'vesper': '#ff5e6d',
+}
+
+def mix(a, b, t):
+    pa = [int(a[i:i + 2], 16) for i in (1, 3, 5)]
+    pb = [int(b[i:i + 2], 16) for i in (1, 3, 5)]
+    return '#' + ''.join(f'{round(x * t + y * (1 - t)):02x}' for x, y in zip(pa, pb))
+
+for world, accent in WORLDS.items():
+    base = dict(line=mix(accent, '#15131f', 0.45), fill=mix(accent, '#0e0d18', 0.06), hi=mix(accent, '#15131f', 0.16), lo='#0a0910', rivet=mix(accent, '#15131f', 0.6), halo=HALO)
+    active = dict(line=accent, fill=mix(accent, '#0e0d18', 0.14), hi=mix(accent, '#15131f', 0.35), lo=mix(accent, '#0a0910', 0.05), rivet=accent, halo=HALO)
+    lines.append(f'.game-shell.world-theme-{world} {{')
+    lines.append(f"  --b-plate-base: {svg(16, plate, base, halo=True, rivets=plate_rivets)};")
+    lines.append(f"  --b-plate-active: {svg(16, plate, active, halo=True, rivets=plate_rivets)};")
+    lines.append(f"  --b-key-base: {svg(10, key, base)};")
+    lines.append(f"  --b-key-active: {svg(10, key, active)};")
+    lines.append('}')
 open('tokens.css', 'w', newline='\n').write('\n'.join(lines) + '\n')
 # Preview: render the plate mask as text for a sanity check.
 for row in plate: print(''.join('#' if v else '.' for v in row))
