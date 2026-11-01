@@ -66,6 +66,12 @@
   --b-key-active: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10' shape-rendering='crispEdges'%3E%3Crect x='3' y='0' width='6' height='1' fill='%23ff5e6d'/%3E%3Crect x='2' y='1' width='1' height='1' fill='%23ff5e6d'/%3E%3Crect x='3' y='1' width='6' height='1' fill='%23672d3a'/%3E%3Crect x='9' y='1' width='1' height='1' fill='%23ff5e6d'/%3E%3Crect x='1' y='2' width='1' height='1' fill='%23ff5e6d'/%3E%3Crect x='2' y='2' width='1' height='1' fill='%23672d3a'/%3E%3Crect x='3' y='2' width='6' height='1' fill='%23301824'/%3E%3Crect x='9' y='2' width='1' height='1' fill='%23ff5e6d'/%3E%3Crect x='0' y='3' width='1' height='1' fill='%23ff5e6d'/%3E%3Crect x='1' y='3' width='1' height='1' fill='%23672d3a'/%3E%3Crect x='2' y='3' width='7' height='1' fill='%23301824'/%3E%3Crect x='9' y='3' width='1' height='1' fill='%23ff5e6d'/%3E%3Crect x='0' y='4' width='1' height='1' fill='%23ff5e6d'/%3E%3Crect x='1' y='4' width='8' height='1' fill='%23301824'/%3E%3Crect x='9' y='4' width='1' height='1' fill='%23ff5e6d'/%3E%3Crect x='0' y='5' width='1' height='1' fill='%23ff5e6d'/%3E%3Crect x='1' y='5' width='8' height='1' fill='%23301824'/%3E%3Crect x='9' y='5' width='1' height='1' fill='%23ff5e6d'/%3E%3Crect x='0' y='6' width='1' height='1' fill='%23ff5e6d'/%3E%3Crect x='1' y='6' width='7' height='1' fill='%23301824'/%3E%3Crect x='8' y='6' width='1' height='1' fill='%23160d15'/%3E%3Crect x='9' y='6' width='1' height='1' fill='%23ff5e6d'/%3E%3Crect x='0' y='7' width='1' height='1' fill='%23ff5e6d'/%3E%3Crect x='1' y='7' width='6' height='1' fill='%23301824'/%3E%3Crect x='7' y='7' width='1' height='1' fill='%23160d15'/%3E%3Crect x='8' y='7' width='1' height='1' fill='%23ff5e6d'/%3E%3Crect x='0' y='8' width='1' height='1' fill='%23ff5e6d'/%3E%3Crect x='1' y='8' width='6' height='1' fill='%23160d15'/%3E%3Crect x='7' y='8' width='1' height='1' fill='%23ff5e6d'/%3E%3Crect x='1' y='9' width='6' height='1' fill='%23ff5e6d'/%3E%3C/svg%3E");
 }
 
+/* The Continuity planet is the same rotating pixel world as the Ark's;
+   phones keep their faint CSS disc until the mobile pass. */
+.settlement-hero-world {
+  display: none;
+}
+
 @media (min-width: 768px) {
   /* Palette: deep indigo space, bone text, warm deck light. Components that
      read these tokens follow; hard-coded colours move screen by screen. */
@@ -429,6 +435,62 @@
     font-size: 12px;
     letter-spacing: 0;
     text-transform: none;
+  }
+
+  /* Research and Continuity build their panels from their own classes;
+     they get the same hull plates and cut keys as everything else. */
+  .game-shell.game-shell :is(
+    .continuity-panel,
+    .research-core-empty-copy,
+    .research-core-purpose,
+    .command-briefing,
+    .settlement-hero,
+    .continuity-console-header,
+    .research-lattice-header,
+    .foundry-workspace-header
+  ) {
+    border-style: solid;
+    border-width: 10px;
+    border-color: transparent;
+    border-radius: 0;
+    border-image: var(--b-plate-base) 7 fill / 14px / 4px stretch;
+    background-color: transparent;
+    background-clip: padding-box;
+    box-shadow: none;
+  }
+
+  .game-shell.game-shell :is(
+    .research-core-empty-copy > ol > li,
+    .command-priority,
+    .command-upcoming,
+    .crew-advanced-record
+  ) {
+    border-style: solid;
+    border-width: 4px;
+    border-color: transparent;
+    border-radius: 0;
+    border-image: var(--b-key-base) 4 fill / 8px / 4px stretch;
+    background-color: transparent;
+    background-clip: padding-box;
+    box-shadow: none;
+  }
+
+  .game-shell.game-shell .settlement-console-v2 .settlement-hero::after {
+    display: none;
+  }
+
+  .game-shell .settlement-hero-world {
+    position: absolute;
+    right: 5%;
+    bottom: -60px;
+    display: block;
+    width: 320px;
+    aspect-ratio: 1;
+    pointer-events: none;
+  }
+
+  .game-shell .settlement-hero-world .ark-pixel-world-canvas {
+    filter: drop-shadow(0 0 24px rgb(var(--world-accent-rgb, 106 98 144) / 0.25));
   }
 
   /* The header's actions overflowed their column at 1440px and slid under

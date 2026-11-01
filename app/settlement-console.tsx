@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { ArkPixelWorld } from "./ark-pixel-world";
 import { getCampaignWorld, type CampaignWorldDefinition } from "./campaign-content";
 import { HelpTrigger, type ManualTopicId } from "./game-manual";
 import type {
@@ -303,6 +304,9 @@ function SettlementConsole({
       </nav>
 
       <section className="settlement-hero" data-guide-target="planet-world">
+        <div className="settlement-hero-world" aria-hidden="true">
+          <ArkPixelWorld worldName={world.name} progress={forecast.score / 100} transit={false} />
+        </div>
         <div className="settlement-kicker">{world.subtitle.toUpperCase()}</div>
         <h3>{world.name}</h3>
         <p>{world.arrivalBrief}</p>
