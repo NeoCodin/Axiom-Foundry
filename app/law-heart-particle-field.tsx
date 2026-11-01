@@ -124,7 +124,8 @@ const CENTER = SIZE / 2;
 const TWO_PI = Math.PI * 2;
 const MAX_FIELD_PARTICLES = 480;
 const MAX_DENSITY_PARTICLES = 160;
-const TIER_COLORS = [
+/** One colour per Foundry machine tier: its particles, and its feed into the 3D heart. */
+export const TIER_COLORS = [
   "#55e6e8",
   "#559dff",
   "#b87cff",
@@ -477,7 +478,7 @@ function drawPixelDisk(
   }
 }
 
-function getVisibleAxiomShardCount(lifetimeAxioms: number) {
+export function getVisibleAxiomShardCount(lifetimeAxioms: number) {
   const axioms = Math.floor(safe(lifetimeAxioms));
   if (axioms <= 12) return axioms;
   return Math.min(20, 12 + Math.floor(Math.log2(axioms / 12 + 1) * 2.4));

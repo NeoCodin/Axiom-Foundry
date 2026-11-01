@@ -81,6 +81,17 @@ function pick<T>(random: () => number, values: readonly T[]) {
   return values[Math.floor(random() * values.length) % values.length];
 }
 
+/** A person's skin and hair, as their portrait draws them; for figures that must match it. */
+export function getCrewLook({ id, ageGroup = "adult" }: { id: string; ageGroup?: string | null }) {
+  // Same seed and draw order as getCrewPortrait, so the two always agree.
+  const random = seededRandom(portraitSeed(id));
+  const skin = pick(random, PORTRAIT_SKINS);
+  const hair = ageGroup === "elder" ? pick(random, ELDER_HAIRS) : pick(random, HAIRS);
+  const style = Math.floor(random() * 6);
+  // Style 2 is the close crop, drawn a shade lighter; style 1 is long hair.
+  return { skin, hair: style === 2 ? shade(hair, 0.12) : hair, longHair: style === 1 };
+}
+
 export function getCrewPortrait({
   id,
   role,

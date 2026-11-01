@@ -3128,6 +3128,8 @@ export default function Home() {
           onCommission={handleMissionContribution}
           onStrikeLawHeart={() => handlePulse({ judgement: "off-phase", coherence: 0 })}
           onOpenExpeditions={expeditionsUnlocked ? () => setPrimaryView("expeditions") : undefined}
+          lawHeartMachines={game.tiers.map((tier, index) => ({ name: GENERATORS[index].name, count: tier.bought }))}
+          lawHeartDrones={lawHeartDroneFrames}
           onUpgradeSupport={handleUpgradeSupport}
           onOpenView={handleOpenArkView}
         />

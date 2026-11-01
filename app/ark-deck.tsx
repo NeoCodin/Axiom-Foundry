@@ -12,7 +12,13 @@ import { ArkPixelWorld } from "./ark-pixel-world";
 const ArkWalk = lazy(() => import("./ark-walk"));
 import type { BeaconReadiness } from "./beacon-readiness-engine";
 import type { RoomId } from "./discovery-content";
-import { getLawHeartSpectrum } from "./law-heart-particle-field";
+import {
+  getLawHeartSpectrum,
+  getVisibleAxiomShardCount,
+  LAW_HEART_SPECTRA,
+  TIER_COLORS,
+  type LawHeartDroneFrame,
+} from "./law-heart-particle-field";
 import { getPulseProfile } from "./law-heart-pulse";
 import type { LifeSupportKey } from "./survivor-engine";
 
@@ -111,8 +117,11 @@ export type ArkDeckProps = {
   onCommission?: () => void;
   /** Striking the Law-Heart from the drone view. */
   onStrikeLawHeart?: () => void;
-  /** The drone view's hangar opens Expeditions once they exist. */
+  /** The drone view's recon dock opens Expeditions once they exist. */
   onOpenExpeditions?: () => void;
+  /** What feeds and tends the Law-Heart, for the drone view: Foundry machines by tier, automation drones. */
+  lawHeartMachines?: readonly { name: string; count: number }[];
+  lawHeartDrones?: readonly LawHeartDroneFrame[];
   onUpgradeSupport?: (key: LifeSupportKey) => void;
   onOpenView: (view: ArkViewId) => void;
 };
@@ -180,6 +189,8 @@ function ArkDeck({
   onCommission,
   onStrikeLawHeart,
   onOpenExpeditions,
+  lawHeartMachines = [],
+  lawHeartDrones = [],
   onUpgradeSupport,
   onOpenView,
 }: ArkDeckProps) {
@@ -481,7 +492,7 @@ function ArkDeck({
                 ...cutawayRooms,
                 {
                   kind: "hangar",
-                  label: "Hangar",
+                  label: "Recon Dock",
                   online: true,
                   interactive: Boolean(onOpenExpeditions),
                   onActivate: () => onOpenExpeditions?.(),
@@ -490,9 +501,16 @@ function ArkDeck({
               crew={crew}
               heart={{
                 name: lawHeartSpectrum.name,
+                stage: Math.max(0, LAW_HEART_SPECTRA.indexOf(lawHeartSpectrum)),
                 core: lawHeartSpectrum.core,
                 surface: lawHeartSpectrum.surface,
                 bright: lawHeartSpectrum.surfaceBright,
+                limb: lawHeartSpectrum.limb,
+                corona: lawHeartSpectrum.corona,
+                shard: lawHeartSpectrum.shard,
+                shards: getVisibleAxiomShardCount(lifetimeAxioms),
+                machines: lawHeartMachines.map((machine, tier) => ({ ...machine, color: TIER_COLORS[tier] ?? TIER_COLORS[0] })),
+                drones: lawHeartDrones.map((drone) => ({ color: drone.color, compromised: drone.compromised === true })),
               }}
               beatPeriodMs={getPulseProfile(lifetimeAxioms).periodMs}
               onStrike={onStrikeLawHeart}

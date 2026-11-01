@@ -4,8 +4,9 @@
  * on each deck's floor plane: x runs from the stern to the bow, z across the
  * ship. Compartments sit end to end with a bulkhead and a doorway between
  * each; furniture blocks movement. The Law-Heart chamber is one two-storey
- * atrium: a catwalk rings it on the upper deck, its floor is on the lower,
- * and grav-lifts in two corners carry the drone between them.
+ * atrium: a catwalk rings it on the upper deck, its containment vessel stands
+ * on the lower, and grav-lifts in two corners carry the drone between them.
+ * The lower deck ends in the recon dock, where ships leave for the planet.
  */
 
 export type WalkRoomKind =
@@ -49,41 +50,53 @@ export type WalkLayout = {
   atrium: Box;
   /** Grav-lift columns joining the decks; each stands in the same spot on both. */
   lifts: { x: number; z: number }[];
+  /** The recon dock: the pad ships launch from, the one where a ship is parked, and the bay opening. */
+  dock: {
+    pad: { x: number; z: number };
+    parked: { x: number; z: number };
+    lounge: { x: number; z: number };
+    door: { x: number; z: number };
+    opening: { x0: number; x1: number };
+  };
 };
 
 /** Stern to bow along each deck, matching the 2D cutaway's two rows. */
 export const UPPER_DECK: readonly WalkRoomKind[] = ["fabrication", "chamber", "habitation", "research", "bridge"];
 export const LOWER_DECK: readonly WalkRoomKind[] = ["support", "chamber", "education", "hangar"];
 
+export const UPPER_FLOOR = 6;
+export const HALF_DEPTH = 7;
+export const BULKHEAD = 0.4;
+export const DOOR_HALF_WIDTH = 1.8;
+export const DOOR_HEIGHT = 3.6;
+export const LIFT_RADIUS = 0.9;
+/** The containment vessel's plinth, which keeps everyone off the Law-Heart. */
+export const PLINTH_HALF = 3.8;
+
 const WIDTH: Record<WalkRoomKind, number> = {
-  fabrication: 10,
-  support: 10,
-  chamber: 12,
-  habitation: 10,
-  education: 10,
-  research: 9,
-  hangar: 9,
-  bridge: 8,
+  fabrication: 14,
+  support: 14,
+  chamber: 16,
+  habitation: 14,
+  education: 14,
+  research: 12,
+  bridge: 12,
+  // The dock runs under both the Analysis Core and the bridge.
+  hangar: 12 + BULKHEAD + 12,
 };
 const HEIGHT: Record<WalkRoomKind, number> = {
-  fabrication: 3.6,
-  support: 3.6,
-  chamber: 9,
-  habitation: 3.4,
-  education: 3.4,
-  research: 3.6,
-  hangar: 3.8,
-  bridge: 4,
+  fabrication: 5,
+  support: 5.2,
+  chamber: 12.5,
+  habitation: 4.6,
+  education: 4.8,
+  research: 5,
+  bridge: 5.5,
+  hangar: 5.8,
 };
-export const UPPER_FLOOR = 4;
-export const HALF_DEPTH = 4;
-export const BULKHEAD = 0.4;
-export const DOOR_HALF_WIDTH = 1;
-export const DOOR_HEIGHT = 2.6;
-export const LIFT_RADIUS = 0.8;
 
 function pillars(cx: number): Box[] {
-  return [-4, 4].flatMap((px) => [-2.2, 2.2].map((pz) => ({ x0: cx + px - 0.2, x1: cx + px + 0.2, z0: pz - 0.2, z1: pz + 0.2 })));
+  return [-5, 5].flatMap((px) => [-4.6, 4.6].map((pz) => ({ x0: cx + px - 0.25, x1: cx + px + 0.25, z0: pz - 0.25, z1: pz + 0.25 })));
 }
 
 function furniture(kind: WalkRoomKind, upper: boolean, x0: number, x1: number): Box[] {
@@ -91,41 +104,54 @@ function furniture(kind: WalkRoomKind, upper: boolean, x0: number, x1: number): 
   switch (kind) {
     case "fabrication":
       return [
-        { x0: x0 + 1.4, x1: x0 + 3.6, z0: -3.8, z1: -1.6 },
-        { x0: x0 + 4.6, x1: x1 - 0.8, z0: 2.3, z1: 3.3 },
+        { x0: x0 + 2, x1: x0 + 5, z0: -6.6, z1: -3.6 }, // the press
+        { x0: x0 + 6, x1: x1 - 1, z0: -6.9, z1: -5.5 }, // machine racks, one per Foundry tier
+        { x0: x0 + 5, x1: x1 - 1, z0: 4.4, z1: 5.6 }, // the conveyor
+        { x0: x1 - 4.2, x1: x1 - 3, z0: 2.4, z1: 3.6 }, // the robot arm
+        { x0: x0 + 1, x1: x0 + 3.4, z0: 4.4, z1: 6.6 }, // stacked crates
       ];
     case "chamber":
-      // Upstairs the middle is open air around the heart; downstairs it is the pedestal.
+      // Upstairs the middle is open air around the vessel; downstairs it is the vessel's plinth.
       return upper
-        ? [{ x0: cx - 4, x1: cx + 4, z0: -2.2, z1: 2.2 }, ...pillars(cx)]
-        : [{ x0: cx - 1.7, x1: cx + 1.7, z0: -1.7, z1: 1.7 }, ...pillars(cx)];
+        ? [{ x0: cx - 5, x1: cx + 5, z0: -4.6, z1: 4.6 }, ...pillars(cx)]
+        : [{ x0: cx - PLINTH_HALF, x1: cx + PLINTH_HALF, z0: -PLINTH_HALF, z1: PLINTH_HALF }, ...pillars(cx)];
     case "habitation":
       return [
-        { x0: x0 + 0.8, x1: x0 + 5.2, z0: -3.9, z1: -2.5 },
-        { x0: x1 - 4.2, x1: x1 - 1.8, z0: 1.3, z1: 2.5 },
+        { x0: x0 + 1, x1: x0 + 6, z0: -6.9, z1: -4.8 }, // bunks
+        { x0: x0 + 7.5, x1: x0 + 12.5, z0: -6.9, z1: -4.8 },
+        { x0: x1 - 5.4, x1: x1 - 1.8, z0: 2.4, z1: 4.4 }, // the mess table and its chairs
+        { x0: x0 + 1, x1: x0 + 5, z0: 6.2, z1: 6.9 }, // lockers
       ];
     case "research":
-      return [{ x0: x0 + 1.2, x1: x1 - 1.2, z0: -3.9, z1: -3.0 }];
+      return [
+        { x0: x0 + 1, x1: x1 - 1, z0: -6.9, z1: -5.4 }, // desks under the wall screens
+        { x0: cx - 1.4, x1: cx + 1.4, z0: 2.2, z1: 4.6 }, // the holo-table
+        { x0: x0 + 1, x1: x0 + 4.6, z0: 6, z1: 6.9 }, // server racks
+      ];
     case "bridge":
       return [
-        { x0: x1 - 2.6, x1: x1 - 1.4, z0: -1.4, z1: 1.4 },
-        { x0: x1 - 3.8, x1: x1 - 3.0, z0: -0.4, z1: 0.4 }, // the pilot's stool
+        { x0: x1 - 3.4, x1: x1 - 1.8, z0: -2.6, z1: 2.6 }, // the helm
+        { x0: x1 - 5.2, x1: x1 - 4.2, z0: -0.5, z1: 0.5 }, // the pilot's chair
+        { x0: x0 + 2, x1: x0 + 6, z0: -6.9, z1: -5.6 }, // side stations
+        { x0: x0 + 2, x1: x0 + 6, z0: 5.6, z1: 6.9 },
       ];
     case "support":
       return [
-        { x0: x0 + 1.6, x1: x0 + 8.4, z0: -3.9, z1: -2.0 }, // the three culture tanks
-        { x0: x0 + 4, x1: x0 + 6, z0: 3.0, z1: 3.9 }, // the atmosphere desk
+        { x0: x0 + 1.4, x1: x1 - 1.4, z0: -6.6, z1: -4.2 }, // four culture tanks
+        { x0: x0 + 5, x1: x0 + 8.4, z0: 5, z1: 6.4 }, // the atmosphere desk
+        { x0: x0 + 9.4, x1: x1 - 0.8, z0: 6.2, z1: 6.9 }, // hydroponic shelves
       ];
     case "education":
       return [
-        { x0: x0 + 2.6, x1: x0 + 7.4, z0: 1.4, z1: 1.9 }, // two rows of desks
-        { x0: x0 + 2.6, x1: x0 + 7.4, z0: 2.7, z1: 3.2 },
-        { x0: x0 + 4.7, x1: x0 + 5.3, z0: -2.9, z1: -2.4 }, // the lectern
+        { x0: x0 + 6.6, x1: x0 + 7.4, z0: -5.4, z1: -4.8 }, // the lectern
+        ...[2, 3.6, 5.2].map((rowZ) => ({ x0: x0 + 2, x1: x1 - 2, z0: rowZ - 0.3, z1: rowZ + 0.3 })), // rows of desks
       ];
     case "hangar":
       return [
-        { x0: x0 + 1.6, x1: x0 + 6.8, z0: -3.4, z1: -1.0 }, // the shuttle
-        { x0: x1 - 2.4, x1: x1 - 1.2, z0: 2.0, z1: 2.8 }, // the launch desk
+        { x0: x0 + 13.6, x1: x0 + 18.4, z0: -4.1, z1: 1.1 }, // the recon ship parked on the second pad
+        { x0: x0 + 1.5, x1: x0 + 5.5, z0: -6.9, z1: -5.9 }, // departure lounge benches
+        { x0: x1 - 4.2, x1: x1 - 2.4, z0: -6.9, z1: -5.4 }, // the launch desk
+        { x0: x1 - 3.2, x1: x1 - 1, z0: 2.4, z1: 4.8 }, // cargo
       ];
   }
 }
@@ -168,17 +194,25 @@ export function buildWalkLayout(
   const byKind = new Map(rooms.map((room) => [room.kind, room]));
   const decks = [buildDeck(UPPER_DECK, true, byKind), buildDeck(LOWER_DECK, false, byKind)];
   const chamber = decks[0].compartments.find((compartment) => compartment.kind === "chamber")!;
+  const dock = decks[1].compartments.find((compartment) => compartment.kind === "hangar")!;
   const cx = (chamber.x0 + chamber.x1) / 2;
   return {
     decks,
     halfDepth: HALF_DEPTH,
     spawn: { deck: 0, x: decks[0].compartments[0].x0 + 1.6, z: 0, yaw: 0 },
-    heart: { x: cx, y: 3.5, z: 0 },
-    atrium: { x0: cx - 4, x1: cx + 4, z0: -2.2, z1: 2.2 },
+    heart: { x: cx, y: 5.5, z: 0 },
+    atrium: { x0: cx - 5, x1: cx + 5, z0: -4.6, z1: 4.6 },
     lifts: [
-      { x: chamber.x0 + 1, z: -3.1 },
-      { x: chamber.x1 - 1, z: 3.1 },
+      { x: chamber.x0 + 1.5, z: -5.8 },
+      { x: chamber.x1 - 1.5, z: 5.8 },
     ],
+    dock: {
+      pad: { x: dock.x0 + 7, z: -1.5 },
+      parked: { x: dock.x0 + 16, z: -1.5 },
+      lounge: { x: dock.x0 + 3.5, z: -5.2 },
+      door: { x: dock.x0 + 0.6, z: 0 },
+      opening: { x0: dock.x0 + 3, x1: dock.x1 - 3 },
+    },
   };
 }
 
@@ -213,4 +247,33 @@ export function compartmentAt(deck: WalkDeck, x: number) {
 /** The grav-lift the drone is standing in, if any. */
 export function liftAt(layout: WalkLayout, x: number, z: number) {
   return layout.lifts.find((lift) => Math.hypot(x - lift.x, z - lift.z) <= LIFT_RADIUS) ?? null;
+}
+
+/**
+ * Where the dock's recon ship is in its round trip, as a fraction of the cycle:
+ * boarding, lift-off, out through the bay, away at the planet, back, landing, and
+ * the returning team walking off.
+ */
+export const DOCK_CYCLE_MS = 56_000;
+export const DOCK_PHASES = {
+  boardingEnds: 9_000,
+  liftEnds: 11_000,
+  departEnds: 20_000,
+  returnStarts: 34_000,
+  approachEnds: 43_000,
+  landEnds: 45_000,
+} as const;
+
+export function reconShipAt(time: number) {
+  const t = ((time % DOCK_CYCLE_MS) + DOCK_CYCLE_MS) % DOCK_CYCLE_MS;
+  const ease = (value: number) => (value < 0.5 ? 2 * value * value : 1 - ((-2 * value + 2) ** 2) / 2);
+  const span = (from: number, to: number) => Math.min(1, Math.max(0, (t - from) / (to - from)));
+  const P = DOCK_PHASES;
+  if (t < P.boardingEnds) return { lift: 0, out: 0, docked: true, away: false };
+  if (t < P.liftEnds) return { lift: ease(span(P.boardingEnds, P.liftEnds)), out: 0, docked: false, away: false };
+  if (t < P.departEnds) return { lift: 1, out: span(P.liftEnds, P.departEnds) ** 2, docked: false, away: false };
+  if (t < P.returnStarts) return { lift: 1, out: 1, docked: false, away: true };
+  if (t < P.approachEnds) return { lift: 1, out: 1 - ease(span(P.returnStarts, P.approachEnds)), docked: false, away: false };
+  if (t < P.landEnds) return { lift: 1 - ease(span(P.approachEnds, P.landEnds)), out: 0, docked: false, away: false };
+  return { lift: 0, out: 0, docked: true, away: false };
 }

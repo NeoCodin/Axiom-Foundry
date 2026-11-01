@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   PORTRAIT_HEIGHT,
   PORTRAIT_WIDTH,
+  getCrewLook,
   getCrewPortrait,
 } from "../app/crew-portrait.ts";
 
@@ -46,4 +47,13 @@ test("children are drawn smaller than adults", () => {
   const adult = getCrewPortrait({ id: "kin", role: "teacher", ageGroup: "adult" });
   const child = getCrewPortrait({ id: "kin", role: "teacher", ageGroup: "child" });
   assert.ok(topRow(child) > topRow(adult));
+});
+
+test("a person's 3D figure takes the same skin and hair as their portrait", () => {
+  for (const id of ids.slice(0, 20)) {
+    const fills = new Set(getCrewPortrait({ id, role: "farmer" }).map((run) => run.fill));
+    const look = getCrewLook({ id });
+    assert.ok(fills.has(look.skin), `${id}: skin`);
+    assert.ok(fills.has(look.hair), `${id}: hair`);
+  }
 });

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   DOOR_HALF_WIDTH,
+  DOCK_CYCLE_MS,
   LOWER_DECK,
   UPPER_DECK,
   buildWalkLayout,
@@ -9,6 +10,7 @@ import {
   isWalkable,
   liftAt,
   moveWithin,
+  reconShipAt,
   type WalkDeck,
 } from "../app/ark-walk-layout.ts";
 
@@ -18,7 +20,7 @@ const rooms = [
   { kind: "habitation", label: "Habitation Ring", online: true },
   { kind: "education", label: "Learning Deck", online: false },
   { kind: "research", label: "Analysis Core", online: false },
-  { kind: "hangar", label: "Hangar", online: true },
+  { kind: "hangar", label: "Recon Dock", online: true },
   { kind: "bridge", label: "Continuity Bridge", online: true },
 ] as const;
 
@@ -64,8 +66,9 @@ test("walls, bulkheads and furniture stop the drone; doorways let it through", (
   assert.ok(!isWalkable(upper, 3, layout.halfDepth + 0.1), "the hull wall is solid");
   assert.ok(!isWalkable(lower, layout.heart.x, layout.heart.z), "the Law-Heart pedestal is solid");
   assert.ok(!isWalkable(upper, layout.heart.x, layout.heart.z), "no stepping off the catwalk into the atrium");
-  assert.ok(isWalkable(upper, layout.heart.x, 3), "the catwalk beside the atrium is open");
-  assert.ok(!isWalkable(lower, layout.heart.x + 4, 2.2), "the chamber pillars are solid");
+  assert.ok(isWalkable(upper, layout.heart.x, layout.atrium.z1 + 1.2), "the catwalk beside the atrium is open");
+  assert.ok(!isWalkable(lower, layout.atrium.x1, layout.atrium.z1), "the chamber pillars are solid");
+  assert.ok(!isWalkable(lower, layout.heart.x + 2, layout.heart.z + 2), "the containment vessel keeps the drone off the Law-Heart");
   assert.ok(!isWalkable(upper, -1, 0), "nothing behind the stern");
   assert.ok(!isWalkable(lower, lower.length + 1, 0), "nothing beyond the hangar");
 });
@@ -115,4 +118,18 @@ test("every room on each deck can be reached through its doorways", () => {
   assert.deepEqual([...reachableRooms(upper, layout.spawn.x, layout.spawn.z)].sort(), [...UPPER_DECK].sort());
   const lift = layout.lifts[0];
   assert.deepEqual([...reachableRooms(lower, lift.x, lift.z)].sort(), [...LOWER_DECK].sort());
+});
+
+test("the recon ship leaves the dock, stays away a while, and comes back to its pad", () => {
+  const layout = buildWalkLayout(rooms);
+  assert.ok(isWalkable(layout.decks[1], layout.dock.door.x, layout.dock.door.z), "the arrivals walk out by an open door");
+  const samples = Array.from({ length: 104 }, (_, index) => reconShipAt(index * (DOCK_CYCLE_MS / 104)));
+  assert.equal(samples[0].docked, true, "the cycle starts with the ship on its pad");
+  assert.ok(samples.some((sample) => sample.away), "the ship spends time away at the planet");
+  assert.equal(samples.at(-1)?.docked, true, "and ends back on its pad");
+  for (const sample of samples) {
+    assert.ok(sample.lift >= 0 && sample.lift <= 1 && sample.out >= 0 && sample.out <= 1);
+    if (sample.docked) assert.equal(sample.lift + sample.out, 0, "a docked ship sits on the pad");
+  }
+  assert.deepEqual(reconShipAt(DOCK_CYCLE_MS * 3 + 5), reconShipAt(5), "the round trip repeats");
 });
