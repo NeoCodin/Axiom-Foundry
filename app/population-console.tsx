@@ -133,6 +133,7 @@ export type PopulationConsoleProps = {
   onUpgradeSupport: (key: LifeSupportKey) => void;
   onActivateBeacon: () => void;
   onRescueSignal: () => void;
+  onReleaseSignal: () => void;
   onStartTraining: (survivorId: string, role: ProfessionalRole) => void;
   onCancelTraining: (survivorId: string) => void;
   onAssignRole: (survivorId: string, role: SurvivorRole | null) => void;
@@ -195,6 +196,7 @@ function PopulationConsole({
   onUpgradeSupport,
   onActivateBeacon,
   onRescueSignal,
+  onReleaseSignal,
   onStartTraining,
   onCancelTraining,
   onAssignRole,
@@ -480,7 +482,24 @@ function PopulationConsole({
               </div>
               <button type="button" disabled={!activeSignalReadiness.canRescue || !rescueFlux.affordable} onClick={onRescueSignal}>Dispatch rescue shuttle</button>
               {!rescueFlux.affordable && <p>The shuttle launch needs {rescueFlux.label}.</p>}
-              <p>This signal never expires. You can leave it here until the Ark is ready.</p>
+              {activeSignalReadiness.reason === "roster-full" ? (
+                <>
+                  <p>The Ark is at its 48-person limit, so this group cannot board on this world. Departure stays paused while the signal is open.</p>
+                  <button
+                    type="button"
+                    className="signal-release"
+                    onClick={() => {
+                      if (window.confirm(`Release Signal ${activeSignal.sequence}? These ${activeSignal.survivors.length} survivors will not be rescued, and the Ark will be clear to depart. This cannot be undone.`)) {
+                        onReleaseSignal();
+                      }
+                    }}
+                  >
+                    Release signal
+                  </button>
+                </>
+              ) : (
+                <p>This signal never expires. You can leave it here until the Ark is ready.</p>
+              )}
             </article>
           ) : (
             <div className="continuity-empty-state"><strong>Listening across the drowned world.</strong><p>Each scan takes {Math.round(scanDurationSeconds / 60)} minutes here, and every signal remains until answered. Completed expeditions chart the surface and shorten future scans.</p></div>

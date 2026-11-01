@@ -78,6 +78,7 @@ import {
   getLifeSupportUpgradeSalvageCost,
   hasRescueDetail,
   performArkRescue,
+  releaseSurvivorSignal,
   getDefenseInstallationQuote,
   getCrisisReadiness,
   getCurrentViabilityForecast,
@@ -1974,7 +1975,7 @@ export default function Home() {
     if (next === current) {
       setAnnouncement(
         quote.reason === "roster-full"
-          ? "The signal is holding. The Ark has reached its 48-person limit; establish a founding community before accepting more people."
+          ? "The signal is holding. The Ark has reached its 48-person limit, so this group cannot board here. Release the signal to depart; founders who settle free their berths for the next world."
           : quote.reason === "berths"
           ? "The signal is holding. Expand the Ark's living space before dispatching the shuttle."
           : quote.reason === "life-support"
@@ -1990,6 +1991,16 @@ export default function Home() {
     commitGameState(
       next,
       `${rescued} survivors are safely aboard. Their names, aptitudes, and histories are now part of the Ark.`,
+    );
+  };
+
+  const handleReleaseSignal = () => {
+    const current = gameRef.current;
+    const next = releaseSurvivorSignal(current);
+    if (next === current) return;
+    commitGameState(
+      next,
+      "The signal is released. The beacon keeps listening, and the Ark is clear to depart.",
     );
   };
 
@@ -2219,7 +2230,9 @@ export default function Home() {
           : result.reason === "crew-stranded"
             ? "Departure paused. A stranded party is still waiting for rescue or an explicit abandonment decision."
             : result.reason === "survivor-signal-pending"
-              ? "Departure paused. Resolve the persistent survivor signal before leaving this orbit."
+              ? getArkRescueQuote(current).reason === "roster-full"
+                ? "Departure paused. A survivor signal is still open and the Ark is at its 48-person limit. Release the signal in rescue operations to depart."
+                : "Departure paused. Resolve the persistent survivor signal before leaving this orbit."
               : "Departure denied. The continuity forecast still lists required work or founders.",
       );
       return;
@@ -3057,6 +3070,8 @@ export default function Home() {
             blockedReason:
               rescueQuote.reason === "transit"
                 ? "Rescue launches resume after orbital arrival."
+                : rescueQuote.reason === "roster-full"
+                ? "The Ark is at its 48-person limit. Release this signal to depart."
                 : rescueQuote.reason === "berths"
                 ? "Build another quarters section first."
                 : rescueQuote.reason === "life-support"
@@ -3157,6 +3172,7 @@ export default function Home() {
           onUpgradeSupport={handleUpgradeSupport}
           onActivateBeacon={handleActivateBeacon}
           onRescueSignal={handleRescueSurvivors}
+          onReleaseSignal={handleReleaseSignal}
           onStartTraining={handleStartTraining}
           onCancelTraining={handleCancelTraining}
           onAssignRole={handleAssignSurvivor}

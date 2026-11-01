@@ -155,6 +155,7 @@ import {
   MAX_BERTH_SECTIONS,
   RARE_SURVIVOR_HOOKS,
   getRescueReadiness,
+  declineSurvivorSignal,
   rescueSurvivorSignal,
   sanitizeSurvivorSystemState,
   setSosBeaconOnline,
@@ -174,6 +175,7 @@ import {
   createResearchLatticeState,
   getResearchBonuses,
   getResearchProjectCosts,
+  getResearchLeadRequirementLevel,
   getResearchProjectDefinition,
   getResearchRepeatCount,
   sanitizeResearchLatticeState,
@@ -2085,22 +2087,37 @@ export function getOperationalResearchExpertise(state: GameState): ResearchExper
 
 export function getResearchLeadStatus(state: GameState) {
   const unavailable = getUnavailableResearchCrewIds(state);
-  const lead = state.survivors.survivors
+  const convergenceLevel = getResearchLeadRequirementLevel("convergence");
+  const candidates = state.survivors.survivors
     .filter(
       (survivor) =>
         !unavailable.has(survivor.id) && isSurvivorOnDuty(survivor, "researcher"),
     )
-    .sort(
-      (left, right) =>
-        getSurvivorSkillLevel(right, "researcher") -
-        getSurvivorSkillLevel(left, "researcher"),
-    )[0];
-  const rarity = lead ? getSurvivorRarity(lead).id : "standard";
+    .map((survivor) => {
+      const rarity = getSurvivorRarity(survivor).id;
+      const level = getSurvivorSkillLevel(survivor, "researcher");
+      const exceptional = rarity === "exceptional" || rarity === "anomalous";
+      return {
+        survivor,
+        level,
+        exceptional,
+        canLeadConvergence: exceptional && level >= convergenceLevel,
+      };
+    });
+  // A Convergence-qualified lead satisfies every era's requirement, so a
+  // higher-level Standard researcher must never hide them. Otherwise the
+  // highest level leads, with Exceptional breaking ties.
+  candidates.sort(
+    (left, right) =>
+      Number(right.canLeadConvergence) - Number(left.canLeadConvergence) ||
+      right.level - left.level ||
+      Number(right.exceptional) - Number(left.exceptional),
+  );
+  const lead = candidates[0];
   return {
-    level: lead ? getSurvivorSkillLevel(lead, "researcher") : 0,
-    exceptional:
-      Boolean(lead) && (rarity === "exceptional" || rarity === "anomalous"),
-    name: lead?.callsign || lead?.name || null,
+    level: lead?.level ?? 0,
+    exceptional: lead?.exceptional ?? false,
+    name: lead ? lead.survivor.callsign || lead.survivor.name : null,
   };
 }
 
@@ -2507,6 +2524,18 @@ export function performArkRescue(state: GameState): GameState {
       if (itemId) next.armory = addArmoryItem(next.armory, itemId);
     }
   }
+  return next;
+}
+
+/**
+ * Lets an open signal go. Signals never expire on their own, so this is the
+ * player's way out when the Ark's 48-person limit means the group can never
+ * board here and the open signal would otherwise hold departure forever.
+ */
+export function releaseSurvivorSignal(state: GameState): GameState {
+  if (!state.survivors.activeSignal) return state;
+  const next = cloneGameState(state);
+  next.survivors = declineSurvivorSignal(next.survivors);
   return next;
 }
 
@@ -5357,6 +5386,10 @@ export function recalibrate(state: GameState, now = Date.now()) {
   fresh.armory = cloneArmoryState(state.armory);
   fresh.automation = cloneAutomationState(state.automation);
   fresh.planetaryDefense = clonePlanetaryDefenseState(state.planetaryDefense);
+  // The corridor and any procedure under way are physical, not economic: a
+  // Recalibration mid-transit must not strand the Ark between worlds.
+  fresh.transit = cloneTransitState(state.transit);
+  fresh.bioadaptation = cloneBioadaptationState(state.bioadaptation);
   fresh.worldProgress = {
     completedInfrastructureIds: [...state.worldProgress.completedInfrastructureIds],
     completedResearchIds: [...state.worldProgress.completedResearchIds],

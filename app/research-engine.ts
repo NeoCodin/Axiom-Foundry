@@ -1299,6 +1299,11 @@ const LEGACY_PROJECT_ERAS: Partial<Record<ResearchProjectId, ResearchEra>> = {
   "axiom-origin-proof": "convergence",
 };
 
+/** On-duty lead level each era needs; Convergence also needs an Exceptional or Anomalous lead. */
+export function getResearchLeadRequirementLevel(era: ResearchEra) {
+  return era === "convergence" ? 9 : era === "synthesis" ? 5 : era === "integration" ? 3 : 0;
+}
+
 export const getResearchProjectEra = (
   project: ResearchProjectDefinition | ResearchProjectId,
 ): ResearchEra => {
@@ -1863,8 +1868,7 @@ export const getResearchNetworkStatus = (
   // Operational mastery matters, but never becomes the dominant exponential.
   const expertiseMultiplier = 1 + Math.min(0.35, expertiseTotal * 0.015);
   const era = project ? getResearchProjectEra(project) : "recovery";
-  const leadRequirementLevel =
-    era === "convergence" ? 9 : era === "synthesis" ? 5 : era === "integration" ? 3 : 0;
+  const leadRequirementLevel = getResearchLeadRequirementLevel(era);
   const leadRequirementMet =
     !project ||
     leadRequirementLevel === 0 ||
