@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+
+import { ArkPixelWorld } from "./ark-pixel-world";
 import type {
   ExpeditionSiteDefinition,
   ExpeditionSiteId,
@@ -376,7 +378,7 @@ function ExpeditionConsole({
               <div className="expedition-planning-grid">
                 <div className={`expedition-mission-theater expedition-category-${site.category}`} aria-hidden="true">
                   <div className="expedition-stars">{Array.from({ length: 18 }, (_, index) => <i key={index} />)}</div>
-                  <div className="expedition-world-limb"><i /><i /><i /></div>
+                  <div className="expedition-world-limb"><ArkPixelWorld worldName={currentWorldName} progress={0.5} transit={false} /></div>
                   <div className="expedition-site-beacon"><i /></div>
                   <div className="expedition-shuttle"><i /></div>
                   <strong>{site.operationCode} · {site.name.toUpperCase()}</strong>

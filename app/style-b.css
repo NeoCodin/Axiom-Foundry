@@ -289,6 +289,16 @@ body {
   color: #c9b6ff;
 }
 
+/* The expedition map shows the same rotating pixel world as the Ark. */
+.game-shell.game-shell .expedition-world-limb {
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  filter: none;
+}
+
 @media (min-width: 768px) {
   /* Panels and the command strip are hull plates. */
   .game-shell .panel,

@@ -94,7 +94,7 @@ function MedicalConsole({
           {medBay.researchBonusPercent > 0 && <small>Research +{medBay.researchBonusPercent}%</small>}
         </div>
         <div title={`Each occupied bed diverts ${medBay.diversionPerPatientPercent.toFixed(1)}% of ALL Flux production, capped at 40%. Medical research can lower the per-bed draw.`}>
-          <span>Flux diversion</span><strong>−{medBay.diversionPercent}% production</strong>
+          <span>Flux diversion</span><strong>{medBay.diversionPercent > 0 ? `−${medBay.diversionPercent}% production` : "None"}</strong>
           <small>{medBay.diversionPerPatientPercent.toFixed(1)}% per patient</small>
         </div>
         <div className="continuity-summary-help">
