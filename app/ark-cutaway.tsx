@@ -44,6 +44,8 @@ export type ArkCutawayProps = {
   worldGlass: string;
   transit: boolean;
   driveEnergy: number;
+  /** Art only: no tags or hit areas. Phones list the rooms beneath it. */
+  compact?: boolean;
 };
 
 type Px = readonly [x: number, y: number, w: number, h: number, fill: string, opacity?: number];
@@ -294,6 +296,7 @@ export function ArkCutaway({
   worldGlass,
   transit,
   driveEnergy,
+  compact = false,
 }: ArkCutawayProps) {
   const onlineKinds = new Set(rooms.filter((room) => room.online).map((room) => room.kind));
   const placed = placeCrew(crew, onlineKinds);
@@ -303,7 +306,7 @@ export function ArkCutaway({
   } as CSSProperties;
 
   return (
-    <div className={`ark-cutaway-scene ${transit ? "is-in-transit" : ""}`} style={style}>
+    <div className={`ark-cutaway-scene ${transit ? "is-in-transit" : ""} ${compact ? "is-compact" : ""}`} style={style}>
       <div className="ark-cutaway-frame">
         <svg
           className="ark-cutaway-art"
@@ -401,70 +404,74 @@ export function ArkCutaway({
           ))}
         </svg>
 
-        {rooms.map((room) => {
-          const slot = SLOTS[room.kind];
-          const area = {
-            left: `${(slot.x / VIEW_W) * 100}%`,
-            top: `${(slot.y / VIEW_H) * 100}%`,
-            width: `${(slot.w / VIEW_W) * 100}%`,
-            height: `${(slot.h / VIEW_H) * 100}%`,
-          };
-          const centre = ((slot.x + slot.w / 2) / VIEW_W) * 100;
-          const tagStyle = slot.tag === "above"
-            ? ({ "--tag-x": `${centre}%`, bottom: `calc(${100 - (HULL_TOP / VIEW_H) * 100}% + 26px)` } as CSSProperties)
-            : ({ "--tag-x": `${centre}%`, top: `calc(${(HULL_BOTTOM / VIEW_H) * 100}% + 26px)` } as CSSProperties);
-          return (
-            <div key={room.key} className="ark-cutaway-slot">
-              <button
-                type="button"
-                className="ark-cutaway-hit"
-                style={area}
-                tabIndex={-1}
-                aria-hidden="true"
-                disabled={!room.interactive}
-                onClick={room.onActivate}
-              />
-              <button
-                type="button"
-                className={`ark-cutaway-tag is-${slot.tag} align-${slot.align} ${room.online ? "is-online" : "is-dormant"} ${room.commissioning ? "is-commissioning" : ""}`}
-                style={tagStyle}
-                data-room={room.kind}
-                data-guide-target={room.guideTarget}
-                disabled={!room.interactive}
-                aria-label={room.ariaLabel}
-                onClick={room.onActivate}
-              >
-                <strong>{room.label}</strong>
-                <small>{room.sublabel}</small>
-                {room.commissioning && <em className="is-commission">Commission</em>}
-                {!room.commissioning && room.mark > 0 && <em>Mark {room.mark}</em>}
-              </button>
+        {!compact && (
+          <>
+            {rooms.map((room) => {
+              const slot = SLOTS[room.kind];
+              const area = {
+                left: `${(slot.x / VIEW_W) * 100}%`,
+                top: `${(slot.y / VIEW_H) * 100}%`,
+                width: `${(slot.w / VIEW_W) * 100}%`,
+                height: `${(slot.h / VIEW_H) * 100}%`,
+              };
+              const centre = ((slot.x + slot.w / 2) / VIEW_W) * 100;
+              const tagStyle = slot.tag === "above"
+                ? ({ "--tag-x": `${centre}%`, bottom: `calc(${100 - (HULL_TOP / VIEW_H) * 100}% + 26px)` } as CSSProperties)
+                : ({ "--tag-x": `${centre}%`, top: `calc(${(HULL_BOTTOM / VIEW_H) * 100}% + 26px)` } as CSSProperties);
+              return (
+                <div key={room.key} className="ark-cutaway-slot">
+                  <button
+                    type="button"
+                    className="ark-cutaway-hit"
+                    style={area}
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    disabled={!room.interactive}
+                    onClick={room.onActivate}
+                  />
+                  <button
+                    type="button"
+                    className={`ark-cutaway-tag is-${slot.tag} align-${slot.align} ${room.online ? "is-online" : "is-dormant"} ${room.commissioning ? "is-commissioning" : ""}`}
+                    style={tagStyle}
+                    data-room={room.kind}
+                    data-guide-target={room.guideTarget}
+                    disabled={!room.interactive}
+                    aria-label={room.ariaLabel}
+                    onClick={room.onActivate}
+                  >
+                    <strong>{room.label}</strong>
+                    <small>{room.sublabel}</small>
+                    {room.commissioning && <em className="is-commission">Commission</em>}
+                    {!room.commissioning && room.mark > 0 && <em>Mark {room.mark}</em>}
+                  </button>
+                </div>
+              );
+            })}
+
+            <div
+              className="ark-cutaway-heart-tag"
+              style={{ "--tag-x": `${(HEART_X / VIEW_W) * 100}%`, bottom: `calc(${100 - (HULL_TOP / VIEW_H) * 100}% + 26px)` } as CSSProperties}
+              tabIndex={0}
+              aria-label={`Law-Heart: ${heart.name}, ${heart.rateLabel} routed through the Ark`}
+            >
+              <strong>{heart.name}</strong>
+              <small>{heart.rateLabel} routed</small>
             </div>
-          );
-        })}
 
-        <div
-          className="ark-cutaway-heart-tag"
-          style={{ "--tag-x": `${(HEART_X / VIEW_W) * 100}%`, bottom: `calc(${100 - (HULL_TOP / VIEW_H) * 100}% + 26px)` } as CSSProperties}
-          tabIndex={0}
-          aria-label={`Law-Heart: ${heart.name}, ${heart.rateLabel} routed through the Ark`}
-        >
-          <strong>{heart.name}</strong>
-          <small>{heart.rateLabel} routed</small>
-        </div>
-
-        {signal && (
-          <button
-            type="button"
-            className="ark-cutaway-signal"
-            style={{ "--tag-x": `${(ANTENNA_X / VIEW_W) * 100}%` } as CSSProperties}
-            onClick={signal.onOpen}
-            disabled={!signal.onOpen}
-            aria-label={`${signal.label}: ${signal.detail}. Open rescue operations`}
-          >
-            <strong>{signal.label}</strong>
-            <small>{signal.detail}</small>
-          </button>
+            {signal && (
+              <button
+                type="button"
+                className="ark-cutaway-signal"
+                style={{ "--tag-x": `${(ANTENNA_X / VIEW_W) * 100}%` } as CSSProperties}
+                onClick={signal.onOpen}
+                disabled={!signal.onOpen}
+                aria-label={`${signal.label}: ${signal.detail}. Open rescue operations`}
+              >
+                <strong>{signal.label}</strong>
+                <small>{signal.detail}</small>
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>

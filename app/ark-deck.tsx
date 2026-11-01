@@ -4,7 +4,7 @@ import { type CSSProperties } from "react";
 import {
   BeaconReadinessList,
 } from "./beacon-readiness";
-import { ArkCutaway, type ArkCutawayRoomKind } from "./ark-cutaway";
+import { ArkCutaway, type ArkCutawayRoom, type ArkCutawayRoomKind } from "./ark-cutaway";
 import { ArkPixelWorld } from "./ark-pixel-world";
 import type { BeaconReadiness } from "./beacon-readiness-engine";
 import type { RoomId } from "./discovery-content";
@@ -307,6 +307,73 @@ function ArkDeck({
     },
   ];
 
+  const cutawayRooms: ArkCutawayRoom[] = rooms.map((room) => {
+    const commissioningRoom = coldWakeCommissioning?.active === true && (
+      (!coldWakeCommissioning.navigationRestored && room.kind === "bridge") ||
+      (coldWakeCommissioning.navigationRestored && !coldWakeCommissioning.lifeSupportRestored && room.kind === "support")
+    );
+    const roomAccessible = room.online && isRoomAccessible(room);
+    return {
+      key: `${room.code}-${room.label}`,
+      kind: room.kind,
+      label: room.label,
+      sublabel: commissioningRoom
+        ? coldWakeCommissioning.canAct
+          ? coldWakeCommissioning.actionLabel
+          : "Produce Flux in the Foundry"
+        : room.online ? room.sublabel : "Dormant",
+      online: room.online || commissioningRoom,
+      commissioning: commissioningRoom,
+      interactive: commissioningRoom
+        ? Boolean(onCommission) && coldWakeCommissioning.canAct
+        : roomAccessible,
+      ariaLabel: commissioningRoom
+        ? coldWakeCommissioning.canAct
+          ? `${coldWakeCommissioning.actionLabel} into ${room.label}`
+          : `${room.label} is awaiting available Flux`
+        : roomAccessible
+          ? `Open ${room.label}`
+          : `${room.label} is not yet available`,
+      guideTarget: commissioningRoom
+        ? "ark-commissioning-room"
+        : room.kind === "support"
+          ? "ark-room-support"
+          : undefined,
+      mark: room.reinforcementLevel,
+      onActivate: () => {
+        if (commissioningRoom) {
+          onCommission?.();
+          return;
+        }
+        if (room.id !== "core" && roomAccessible) onOpenView(room.id);
+      },
+    };
+  });
+  const cutawaySignal = pendingSignal ? {
+    label: pendingSignal.label,
+    detail: `${pendingSignal.groupSize} life signs · ${pendingSignal.location}`,
+    onOpen: populationUnlocked ? () => onOpenView("population") : undefined,
+  } : null;
+
+  const cutawayProps = {
+    rooms: cutawayRooms,
+    crew,
+    heart: {
+      name: lawHeartSpectrum.name,
+      core: lawHeartSpectrum.core,
+      surface: lawHeartSpectrum.surface,
+      bright: lawHeartSpectrum.surfaceBright,
+      limb: lawHeartSpectrum.limb,
+      rateLabel: `${fluxPerSecondLabel}/s`,
+    },
+    beatPeriodMs: getPulseProfile(lifetimeAxioms).periodMs,
+    beaconOnline,
+    signal: cutawaySignal,
+    worldGlass: "var(--world-accent, #5fd39a)",
+    transit: transitActive,
+    driveEnergy: coreEnergy,
+  };
+
   return (
     <section
       className={`ark-command-deck ark-command-deck-v2 ark-command-deck-v3 fabrication-depth-${Math.min(6, fabricationDepth)} ${fabricationIntensity >= 150 ? "core-phase-locked" : ""} ${transitActive ? "is-in-transit" : "is-in-orbit"}`}
@@ -382,69 +449,7 @@ function ArkDeck({
           </div>
         )}
 
-        <ArkCutaway
-          rooms={rooms.map((room) => {
-            const commissioningRoom = coldWakeCommissioning?.active === true && (
-              (!coldWakeCommissioning.navigationRestored && room.kind === "bridge") ||
-              (coldWakeCommissioning.navigationRestored && !coldWakeCommissioning.lifeSupportRestored && room.kind === "support")
-            );
-            const roomAccessible = room.online && isRoomAccessible(room);
-            return {
-              key: `${room.code}-${room.label}`,
-              kind: room.kind,
-              label: room.label,
-              sublabel: commissioningRoom
-                ? coldWakeCommissioning.canAct
-                  ? coldWakeCommissioning.actionLabel
-                  : "Produce Flux in the Foundry"
-                : room.online ? room.sublabel : "Dormant",
-              online: room.online || commissioningRoom,
-              commissioning: commissioningRoom,
-              interactive: commissioningRoom
-                ? Boolean(onCommission) && coldWakeCommissioning.canAct
-                : roomAccessible,
-              ariaLabel: commissioningRoom
-                ? coldWakeCommissioning.canAct
-                  ? `${coldWakeCommissioning.actionLabel} into ${room.label}`
-                  : `${room.label} is awaiting available Flux`
-                : roomAccessible
-                  ? `Open ${room.label}`
-                  : `${room.label} is not yet available`,
-              guideTarget: commissioningRoom
-                ? "ark-commissioning-room"
-                : room.kind === "support"
-                  ? "ark-room-support"
-                  : undefined,
-              mark: room.reinforcementLevel,
-              onActivate: () => {
-                if (commissioningRoom) {
-                  onCommission?.();
-                  return;
-                }
-                if (room.id !== "core" && roomAccessible) onOpenView(room.id);
-              },
-            };
-          })}
-          crew={crew}
-          heart={{
-            name: lawHeartSpectrum.name,
-            core: lawHeartSpectrum.core,
-            surface: lawHeartSpectrum.surface,
-            bright: lawHeartSpectrum.surfaceBright,
-            limb: lawHeartSpectrum.limb,
-            rateLabel: `${fluxPerSecondLabel}/s`,
-          }}
-          beatPeriodMs={getPulseProfile(lifetimeAxioms).periodMs}
-          beaconOnline={beaconOnline}
-          signal={pendingSignal ? {
-            label: pendingSignal.label,
-            detail: `${pendingSignal.groupSize} life signs · ${pendingSignal.location}`,
-            onOpen: populationUnlocked ? () => onOpenView("population") : undefined,
-          } : null}
-          worldGlass="var(--world-accent, #5fd39a)"
-          transit={transitActive}
-          driveEnergy={coreEnergy}
-        />
+        <ArkCutaway {...cutawayProps} />
 
         {transitActive && (
           <div className="ark-transit-readout">
@@ -462,6 +467,9 @@ function ArkDeck({
           just presented as a plain tappable list instead of a diorama. Both
           trees render; a CSS media query (ark-deck.css) shows exactly one. */}
       <section className="ark-compartment-list" aria-label={`${onlineRoomCount} of ${totalRoomCount} Ark rooms online`}>
+        <div className="ark-compartment-ship">
+          <ArkCutaway {...cutawayProps} compact />
+        </div>
         {rooms.map((room) => {
           const commissioningRoom = coldWakeCommissioning?.active === true && (
             (!coldWakeCommissioning.navigationRestored && room.kind === "bridge") ||

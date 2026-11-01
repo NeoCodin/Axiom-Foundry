@@ -7,18 +7,18 @@
 .ark-command-deck-v3 {
   --ark-cyan: var(--ark-power-surface, #55e6e8);
   --ark-blue: var(--ark-power-limb, #327f91);
-  --ark-room-border: #2b414a;
+  --ark-room-border: #3c3949;
   width: 100%;
   max-width: 100%;
   margin: 0 auto 56px;
   overflow: visible;
-  border-color: #293f48;
+  border-color: #3a3747;
   background:
     repeating-linear-gradient(0deg, transparent 0 3px, rgb(255 255 255 / 0.012) 3px 4px),
     #020609;
   box-shadow:
     inset 0 0 0 3px #010304,
-    inset 0 0 0 4px #14262e;
+    inset 0 0 0 4px #22212a;
 }
 
 .ark-command-deck-v3.is-in-transit .ark-flight-wake {
@@ -27,10 +27,10 @@
 
 .ark-command-deck-v3 .ark-command-heading {
   min-height: 88px;
-  border-bottom-color: #263d46;
+  border-bottom-color: #383544;
   background:
     linear-gradient(90deg, color-mix(in srgb, var(--ark-power-surface) 8%, transparent), transparent 28%),
-    #050b10;
+    #0a090c;
 }
 
 .ark-command-deck-v3 .ark-ai-eye {
@@ -57,7 +57,7 @@
   min-height: 850px;
   overflow: hidden;
   isolation: isolate;
-  border-bottom: 2px solid #263d46;
+  border-bottom: 2px solid #383544;
   background: #010305;
 }
 
@@ -94,7 +94,7 @@
 }
 
 .ark-command-deck-v3 .ark-void-particles i {
-  background: color-mix(in srgb, var(--ark-power-surface) 54%, #8aa2a8);
+  background: color-mix(in srgb, var(--ark-power-surface) 54%, #9a94bd);
   box-shadow: none;
 }
 
@@ -105,7 +105,7 @@
   width: min(360px, 42vw);
   max-width: none;
   padding: 11px 14px 13px;
-  border: 1px solid #263e47;
+  border: 1px solid #383645;
   border-left: 4px solid var(--world-accent);
   background:
     repeating-linear-gradient(0deg, transparent 0 3px, rgb(255 255 255 / 0.018) 3px 4px),
@@ -162,7 +162,7 @@
   position: absolute;
   width: 18px;
   height: 18px;
-  border-color: color-mix(in srgb, var(--world-accent) 62%, #32464d);
+  border-color: color-mix(in srgb, var(--world-accent) 62%, #413e50);
   border-style: solid;
   opacity: 0.62;
 }
@@ -196,7 +196,7 @@
   right: 13%;
   bottom: 9%;
   left: auto;
-  border-color: color-mix(in srgb, var(--world-accent) 52%, #283b42);
+  border-color: color-mix(in srgb, var(--world-accent) 52%, #363443);
   background: #020609;
   color: var(--world-accent);
 }
@@ -245,18 +245,18 @@
     10% 77%, 4% 77%, 4% 69%, 1% 69%, 1% 31%, 3% 31%
   );
   background:
-    repeating-linear-gradient(90deg, transparent 0 47px, rgb(118 157 169 / 0.025) 47px 49px),
-    linear-gradient(180deg, #172730 0 9%, #0a151b 9% 78%, #03070a 78%);
+    repeating-linear-gradient(90deg, transparent 0 47px, rgb(147 141 179 / 0.025) 47px 49px),
+    linear-gradient(180deg, #24222b 0 9%, #131217 9% 78%, #03070a 78%);
   box-shadow:
     inset 0 0 0 6px #010406,
-    inset 0 0 0 8px #2a434e,
-    inset 0 17px 0 rgb(104 144 158 / 0.08),
+    inset 0 0 0 8px #3d3b4b,
+    inset 0 17px 0 rgb(134 128 164 / 0.08),
     inset 0 -26px 0 #010305;
 }
 
 .ark-command-deck-v3 .ark-vessel-hull::before {
   inset: 8px;
-  border: 2px solid #304c57;
+  border: 2px solid #454355;
   clip-path: inherit;
   opacity: 0.72;
 }
@@ -269,13 +269,13 @@
   background:
     repeating-linear-gradient(
       90deg,
-      #293f49 0 14px,
+      #3a3847 0 14px,
       var(--ark-power-surface) 14px 20px,
-      #293f49 20px 42px
+      #3a3847 20px 42px
     );
   box-shadow:
-    0 -193px 0 rgb(56 84 96 / 0.23),
-    0 193px 0 rgb(56 84 96 / 0.2);
+    0 -193px 0 rgb(77 74 95 / 0.23),
+    0 193px 0 rgb(77 74 95 / 0.2);
 }
 
 .ark-hull-silhouette {
@@ -290,9 +290,9 @@
   bottom: 24%;
   left: 1%;
   width: 13%;
-  border: 3px solid #34525e;
+  border: 3px solid #4b485c;
   background:
-    repeating-linear-gradient(0deg, #071016 0 22px, #152a33 22px 27px);
+    repeating-linear-gradient(0deg, #0e0e11 0 22px, #25242e 22px 27px);
   box-shadow: inset -10px 0 0 #020609;
   clip-path: polygon(0 13%, 25% 13%, 25% 0, 100% 0, 100% 100%, 25% 100%, 25% 87%, 0 87%);
 }
@@ -302,8 +302,8 @@
   bottom: 1%;
   width: 28%;
   height: 16%;
-  border: 2px solid #2f4954;
-  background: #061016;
+  border: 2px solid #434052;
+  background: #0e0d11;
   clip-path: polygon(8% 0, 92% 0, 100% 48%, 82% 48%, 82% 73%, 66% 73%, 66% 100%, 33% 100%, 33% 73%, 18% 73%, 18% 48%, 0 48%);
 }
 
@@ -312,9 +312,9 @@
   right: 0;
   width: 11%;
   height: 38%;
-  border: 2px solid #34505b;
+  border: 2px solid #49465a;
   background:
-    linear-gradient(90deg, #09151b, #03070a);
+    linear-gradient(90deg, #131217, #03070a);
   clip-path: polygon(0 0, 68% 0, 68% 12%, 87% 12%, 87% 28%, 100% 28%, 100% 72%, 87% 72%, 87% 88%, 68% 88%, 68% 100%, 0 100%);
 }
 
@@ -323,9 +323,9 @@
   right: 16%;
   left: 17%;
   height: 6px;
-  border-color: #31505a;
+  border-color: #494659;
   background:
-    repeating-linear-gradient(90deg, #071117 0 24px, var(--ark-power-limb) 24px 28px, #1d323b 28px 36px);
+    repeating-linear-gradient(90deg, #0f0e12 0 24px, var(--ark-power-limb) 24px 28px, #2d2b37 28px 36px);
 }
 
 .ark-command-deck-v3 .ark-hull-edge-top {
@@ -339,7 +339,7 @@
 .ark-command-deck-v3 .ark-vessel-nameplate {
   top: 58px;
   left: 19%;
-  color: color-mix(in srgb, var(--ark-power-surface) 45%, #8aa0a8);
+  color: color-mix(in srgb, var(--ark-power-surface) 45%, #9993bb);
 }
 
 .ark-command-deck-v3 .ark-engine-stack {
@@ -351,11 +351,11 @@
 }
 
 .ark-command-deck-v3 .ark-engine-stack i {
-  border-color: #34525e;
+  border-color: #4b485c;
   background:
     linear-gradient(90deg, #010305 0 28%, var(--ark-power-limb) 28% 42%, var(--ark-power-surface) 42% 67%, #03080b 67%);
   box-shadow:
-    inset 0 0 0 5px #061016,
+    inset 0 0 0 5px #0e0d11,
     0 0 10px color-mix(in srgb, var(--ark-power-surface) 18%, transparent);
 }
 
@@ -386,14 +386,14 @@
   right: 20%;
   width: 150px;
   height: 74px;
-  border-color: #35515d;
-  background: #071117;
+  border-color: #4a475b;
+  background: #0f0e12;
   clip-path: polygon(0 48%, 13% 48%, 13% 26%, 37% 26%, 37% 10%, 69% 10%, 69% 0, 84% 0, 84% 25%, 100% 25%, 100% 100%, 0 100%);
 }
 
 .ark-command-deck-v3 .ark-command-tower i {
   background:
-    repeating-linear-gradient(90deg, var(--ark-power-surface) 0 11px, #071016 11px 16px);
+    repeating-linear-gradient(90deg, var(--ark-power-surface) 0 11px, #0e0e11 11px 16px);
   box-shadow: none;
 }
 
@@ -418,7 +418,7 @@
   right: 1%;
   width: 8%;
   height: 28%;
-  border-color: #34515c;
+  border-color: #4a475b;
   clip-path: polygon(0 0, 68% 0, 68% 16%, 88% 16%, 88% 36%, 100% 36%, 100% 64%, 88% 64%, 88% 84%, 68% 84%, 68% 100%, 0 100%);
 }
 
@@ -436,15 +436,15 @@
   bottom: 20px;
   width: 190px;
   height: 49px;
-  border-color: #304b56;
+  border-color: #454254;
   background: #02070a;
 }
 
 .ark-command-deck-v3 .ark-ventral-hangar i {
-  border-color: #29424b;
+  border-color: #3c3a4a;
   background:
     repeating-linear-gradient(0deg, transparent 0 5px, var(--ark-power-limb) 5px 6px),
-    #061016;
+    #0e0d11;
 }
 
 .ark-observation-domes {
@@ -460,10 +460,10 @@
   display: block;
   width: 38px;
   height: 19px;
-  border: 2px solid #36545e;
+  border: 2px solid #4d4a5e;
   border-bottom: 0;
   background:
-    repeating-linear-gradient(90deg, var(--ark-power-limb) 0 6px, #061016 6px 9px);
+    repeating-linear-gradient(90deg, var(--ark-power-limb) 0 6px, #0e0d11 6px 9px);
   clip-path: polygon(17% 0, 83% 0, 100% 100%, 0 100%);
   opacity: 0.58;
 }
@@ -517,8 +517,8 @@
 }
 
 .ark-command-deck-v3 .ark-hull-reinforcements i {
-  border-color: #516b76;
-  background: linear-gradient(90deg, #15252c, #4e6972, #15252c);
+  border-color: #64607b;
+  background: linear-gradient(90deg, #212029, #625e78, #212029);
   box-shadow: none;
 }
 
@@ -535,7 +535,7 @@
     #020609;
   box-shadow:
     4px 4px 0 #000,
-    inset 0 0 0 3px #091218,
+    inset 0 0 0 3px #101014,
     inset 0 0 20px color-mix(in srgb, var(--ark-power-surface) 12%, transparent);
 }
 
@@ -563,7 +563,7 @@
 }
 
 .ark-command-deck-v3 .ark-law-relay small {
-  color: color-mix(in srgb, var(--ark-power-surface) 67%, #758a91);
+  color: color-mix(in srgb, var(--ark-power-surface) 67%, #837ea1);
 }
 
 .ark-command-deck-v3 .ark-law-relay strong {
@@ -575,7 +575,7 @@
   top: calc(50% - 4px);
   right: 12%;
   left: 18%;
-  border-color: #334e58;
+  border-color: #484558;
   box-shadow: none;
 }
 
@@ -602,10 +602,10 @@
 .ark-command-deck-v3 .ark-vessel-room {
   overflow: hidden;
   padding: 14px 13px 16px;
-  border: 1px solid #263c45;
+  border: 1px solid #373543;
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--room-accent) 5%, transparent), transparent 44%),
-    #040a0e;
+    #09080b;
   box-shadow:
     inset 0 0 0 3px #020609,
     inset 0 -10px 0 rgb(0 0 0 / 0.22);
@@ -633,13 +633,13 @@
   width: auto;
   height: 3px;
   background:
-    repeating-linear-gradient(90deg, var(--room-accent) 0 18px, #071016 18px 25px);
+    repeating-linear-gradient(90deg, var(--room-accent) 0 18px, #0e0e11 18px 25px);
   box-shadow: none;
   opacity: 0.38;
 }
 
 .ark-command-deck-v3 .ark-vessel-room.is-online {
-  border-color: color-mix(in srgb, var(--room-accent) 44%, #2b414a);
+  border-color: color-mix(in srgb, var(--room-accent) 44%, #3c3949);
   box-shadow:
     inset 0 0 0 3px #020609,
     inset 0 0 20px color-mix(in srgb, var(--room-accent) 5%, transparent);
@@ -651,7 +651,7 @@
   border-color: var(--room-accent);
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--room-accent) 10%, transparent), transparent 48%),
-    #061016;
+    #0e0d11;
   filter: brightness(1.12);
   transform: none;
   outline: 2px solid var(--room-accent);
@@ -668,9 +668,9 @@
 }
 
 .ark-command-deck-v3 .ark-vessel-room.is-dormant {
-  border-color: #18272d;
+  border-color: #24222b;
   background:
-    repeating-linear-gradient(135deg, transparent 0 13px, rgb(70 90 98 / 0.025) 13px 14px),
+    repeating-linear-gradient(135deg, transparent 0 13px, rgb(85 81 104 / 0.025) 13px 14px),
     #020609;
   filter: grayscale(0.8) brightness(0.66);
 }
@@ -685,7 +685,7 @@
   max-width: 66%;
   max-height: 2.7em;
   overflow: hidden;
-  color: #789098;
+  color: #8983a7;
   font-size: 11px;
   text-overflow: clip;
   white-space: normal;

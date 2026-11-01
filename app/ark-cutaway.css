@@ -19,6 +19,21 @@
   position: relative;
 }
 
+/* Phones: the same ship, art only, at the head of the room list. */
+.ark-cutaway-scene.is-compact {
+  position: relative;
+  top: auto;
+  left: auto;
+  width: 100%;
+  transform: none;
+}
+
+.ark-compartment-ship {
+  margin: 0 0 6px;
+  padding: 14px 4px 10px;
+  background: radial-gradient(90% 80% at 50% 60%, rgb(var(--world-accent-rgb, 106 98 144) / 0.12), transparent 70%);
+}
+
 .ark-cutaway-art {
   display: block;
   width: 100%;

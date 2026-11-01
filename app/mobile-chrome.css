@@ -87,7 +87,7 @@
   .game-shell .expedition-manifest,
   .game-shell .machine-row {
     border-width: 1px 0;
-    border-color: #1c2a33;
+    border-color: #272530;
     box-shadow: none;
   }
 
@@ -104,7 +104,7 @@
     grid-template-columns: 1fr auto 1fr;
     align-items: center;
     border-width: 0 0 1px;
-    border-color: #1c2a33;
+    border-color: #272530;
     box-shadow: none;
   }
   .game-shell .command-bar .brand-lockup {
@@ -159,11 +159,11 @@
     display: grid;
     gap: 10px;
     padding: 12px;
-    border: 1px solid #1c2a33;
-    background: #0a141b;
+    border: 1px solid #272530;
+    background: #121116;
   }
   .game-shell .mobile-menu-save-status {
-    color: #718983;
+    color: #817c9e;
     font-size: 11px;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -177,9 +177,9 @@
     display: grid;
     gap: 2px;
     padding: 8px 10px;
-    background: #071016;
+    background: #0e0e11;
   }
-  .game-shell .mobile-menu-metrics span { color: #718983; font-size: 11px; text-transform: uppercase; }
+  .game-shell .mobile-menu-metrics span { color: #817c9e; font-size: 11px; text-transform: uppercase; }
   .game-shell .mobile-menu-metrics strong { font-family: var(--font-number); font-size: 20px; }
   .game-shell .mobile-menu-actions {
     display: grid;
@@ -195,16 +195,16 @@
   .game-shell .law-heart-deck,
   .game-shell .foundry-law-heart {
     border-width: 1px 0;
-    border-color: #1c2a33;
+    border-color: #272530;
     outline: none;
     box-shadow: none;
   }
   .game-shell .law-heart-heading,
   .game-shell .foundry-law-heart > header {
-    border-bottom: 1px solid #1c2a33;
+    border-bottom: 1px solid #272530;
   }
-  .game-shell .law-heart-controls { border-top: 1px solid #1c2a33; }
-  .game-shell .law-heart-controls > section + section { border-left: 1px solid #1c2a33; }
+  .game-shell .law-heart-controls { border-top: 1px solid #272530; }
+  .game-shell .law-heart-controls > section + section { border-left: 1px solid #272530; }
 
   /* Buttons keep their 2px border (a real touch affordance) and the press
      feel, but resting offset shadows go - "sticker" depth reads as clutter
@@ -222,7 +222,7 @@
      not furniture. Panels lose their accent-tinted borders. */
   .game-shell .panel,
   .game-shell .continuity-panel {
-    border-color: #1c2a33;
+    border-color: #272530;
   }
 
   /* ---- 5 · Facility nav as a chips row ---------------------------------- */
@@ -235,7 +235,7 @@
     padding: 4px 8px;
     gap: 6px;
     border-width: 0 0 1px;
-    border-color: #1c2a33;
+    border-color: #272530;
     background: transparent;
     box-shadow: none;
   }
@@ -246,14 +246,14 @@
     flex: 1 1 0;
     padding: 6px 8px;
     border-width: 1px;
-    border-color: #253843;
-    background: #0a141b;
+    border-color: #34323f;
+    background: #121116;
     font-size: 11px;
     box-shadow: none !important;
   }
   .game-shell .facility-navigation button.active {
     border-color: var(--world-accent, var(--flux));
-    background: #102128;
+    background: #1d1c24;
     box-shadow: inset 0 -3px 0 var(--world-accent, var(--flux)) !important;
   }
   .game-shell .facility-navigation button::after { display: none; }
@@ -264,7 +264,7 @@
      rest rest dim. No frames, no fills, no lines per tab. */
   .game-shell .living-foundry-nav.primary-destinations {
     border-width: 1px 0 0;
-    border-color: #131f27;
+    border-color: #1c1b23;
     background: rgb(4 8 13 / 0.97);
     box-shadow: none;
     gap: 0;
@@ -274,7 +274,7 @@
     border: 0;
     background: transparent;
     box-shadow: none !important;
-    color: #5e7773;
+    color: #6f6b88;
     gap: 4px;
     padding: 4px 0;
   }
@@ -307,9 +307,9 @@
   /* The compartment cards are <button>s, so this must outrank the global
      .game-shell button:not(.ark-core-engine) border rule. */
   .game-shell button.ark-compartment-card {
-    border: 1px solid #1c2a33;
-    border-left: 3px solid #26343d;
-    background: #0a141b;
+    border: 1px solid #272530;
+    border-left: 3px solid #312f3c;
+    background: #121116;
     box-shadow: none;
   }
   .game-shell button.ark-compartment-card.is-online {
@@ -413,10 +413,10 @@
   .game-shell .crew-roster-list > button {
     min-height: 56px;
     border-width: 1px;
-    border-color: #1c2a33;
+    border-color: #272530;
   }
   .game-shell .crew-roster-list > button strong { font-size: 14px; }
-  .game-shell .crew-roster-list > button small { font-size: 11px; color: #6b8380; }
+  .game-shell .crew-roster-list > button small { font-size: 11px; color: #7b7697; }
   .game-shell .crew-roster-list .crew-rarity-badge { display: none; }
   .game-shell .crew-roster-list .crew-duty-badge {
     padding: 2px 6px;
@@ -455,6 +455,129 @@
     right: 10px;
     bottom: auto;
     font-size: 10px;
+  }
+
+  /* ---- 11 · Art direction B on phones ---------------------------------- */
+  /* Same game as desktop: world-tinted space, the Ark's hull-plate cut on
+     every card and key, crew faces, the living ship. The phone structure
+     stays as designed above (edge-to-edge sections, hairlines, frameless
+     bottom nav). Frames are border images drawn wider than the existing
+     border (border-image-width), so no box changes size. */
+  body {
+    background-color: color-mix(in srgb, var(--world-accent, #6a6290) 5%, #07081a);
+  }
+  .game-shell .panel,
+  .game-shell .continuity-panel,
+  .game-shell .continuity-console-header,
+  .game-shell .research-lattice-shell,
+  .game-shell .transit-console-header,
+  .game-shell .defense-command-header,
+  .game-shell .command-briefing,
+  .game-shell .ark-command-heading,
+  .game-shell .ark-command-deck-v3,
+  .game-shell .offline-banner,
+  .game-shell .foundry-telemetry,
+  .game-shell .personnel-console-tabs,
+  .game-shell .continuity-summary-band,
+  .game-shell .research-lattice-projects,
+  .game-shell .expedition-manifest,
+  .game-shell .law-heart-controls,
+  .game-shell .facility-navigation,
+  .game-shell .crew-roster-list > button {
+    border-color: var(--b-edge);
+  }
+  .game-shell .law-heart-controls > section + section { border-left-color: var(--b-edge); }
+
+  /* Keys: the cut frame over the existing 1-2px border. */
+  .game-shell button:not(.ark-core-engine) {
+    border-color: transparent;
+    border-image: var(--b-key-base) 4 fill / 8px stretch;
+    background-color: transparent;
+    color: #efe6d2;
+  }
+  .game-shell button:not(.ark-core-engine):is(:hover, :focus-visible, :active):not(:disabled) {
+    border-image-source: var(--b-key-active);
+  }
+  .game-shell button:disabled {
+    border-image-source: var(--b-key-dim);
+    color: #77718f;
+  }
+  .game-shell .facility-navigation button,
+  .game-shell .crew-roster-tools nav button {
+    background: transparent;
+  }
+  /* research-lattice.tsx also imports its stylesheet, which can land after
+     this file; the doubled class keeps the cut on its tabs. */
+  .game-shell.game-shell :is(.research-command-tabs, .research-era-tabs, .research-lattice-branch-tabs) button {
+    border-color: transparent;
+    border-image: var(--b-key-base) 4 fill / 8px stretch;
+  }
+  .game-shell.game-shell :is(.research-command-tabs, .research-era-tabs, .research-lattice-branch-tabs) button:is(.active, .is-active, [aria-pressed="true"], [aria-current="page"]) {
+    border-image-source: var(--b-key-active);
+  }
+  .game-shell .facility-navigation button.active,
+  .game-shell .crew-roster-tools nav button.is-active,
+  .game-shell .personnel-console-tabs button.is-active {
+    border-image-source: var(--b-key-active);
+    background: transparent;
+    box-shadow: none !important;
+  }
+
+  /* Cards: plates instead of a stripe down the left edge. */
+  .game-shell button.ark-compartment-card,
+  .game-shell button.ark-compartment-card.is-online,
+  .game-shell .machine-row {
+    border-color: transparent;
+    border-image: var(--b-plate-base) 7 fill / 14px stretch;
+    background: transparent;
+  }
+  .game-shell button.ark-compartment-card:not(.is-online) {
+    border-image-source: var(--b-plate-dim);
+  }
+  .game-shell .machine-row::before { display: none; }
+  .game-shell .command-priority,
+  .game-shell .command-upcoming {
+    border-color: transparent;
+    border-image: var(--b-plate-base) 7 fill / 14px stretch;
+    background: transparent;
+  }
+  .game-shell .command-priority.active {
+    border-image-source: var(--b-plate-active);
+  }
+  .game-shell .machine-id {
+    border: 0;
+    background: transparent;
+    color: var(--tier-accent, var(--world-accent));
+  }
+  .game-shell .machine-glyph { width: 30px; height: 30px; }
+  .game-shell .machine-index,
+  .game-shell .owned-count { color: var(--tier-accent, var(--world-accent)); }
+  .game-shell .resonance-link {
+    height: auto;
+    min-height: 18px;
+    margin: 6px 0;
+  }
+
+  /* Bottom nav and top chrome: the B palette instead of teal-navy. */
+  .game-shell .living-foundry-nav.primary-destinations {
+    border-color: var(--b-edge);
+    background: color-mix(in srgb, var(--world-accent, #6a6290) 6%, rgb(9 9 20 / 0.97));
+  }
+  .game-shell .living-foundry-nav.primary-destinations > button {
+    border-image: none;
+    color: #8a84a3;
+  }
+  .game-shell .living-foundry-nav.primary-destinations > button.active {
+    color: var(--world-accent, var(--flux));
+  }
+  .game-shell .mobile-menu-sheet,
+  .game-shell .mobile-menu-metrics > div {
+    border-color: var(--b-edge);
+    background: var(--b-surface);
+  }
+  .game-shell .mobile-menu-metrics span,
+  .game-shell .crew-roster-list > button small {
+    color: #a29cbb;
   }
 }
 
