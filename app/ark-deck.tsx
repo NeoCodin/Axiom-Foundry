@@ -8,8 +8,7 @@ import {
 import { ArkCutaway, type ArkCutawayRoom, type ArkCutawayRoomKind } from "./ark-cutaway";
 import { ArkPixelWorld } from "./ark-pixel-world";
 
-/** The drone view loads three.js, so it is fetched only when someone opens it. */
-const ArkWalk = lazy(() => import("./ark-walk"));
+import type { ArkWalkRecon } from "./ark-walk";
 import type { BeaconReadiness } from "./beacon-readiness-engine";
 import type { RoomId } from "./discovery-content";
 import {
@@ -122,6 +121,8 @@ export type ArkDeckProps = {
   /** What feeds and tends the Law-Heart, for the drone view: Foundry machines by tier, automation drones. */
   lawHeartMachines?: readonly { name: string; count: number }[];
   lawHeartDrones?: readonly LawHeartDroneFrame[];
+  /** The recon ship, for the drone view's dock: in its bay, or away with an expedition. */
+  recon?: ArkWalkRecon;
   onUpgradeSupport?: (key: LifeSupportKey) => void;
   onOpenView: (view: ArkViewId) => void;
 };
@@ -135,6 +136,9 @@ type ArkRoom = {
   online: boolean;
   reinforcementLevel: number;
 };
+
+/** The drone view loads three.js, so it is fetched only when someone opens it. */
+const ArkWalk = lazy(() => import("./ark-walk"));
 
 function clamp(value: number, minimum = 0, maximum = 1) {
   return Math.min(maximum, Math.max(minimum, Number.isFinite(value) ? value : 0));
@@ -191,6 +195,7 @@ function ArkDeck({
   onOpenExpeditions,
   lawHeartMachines = [],
   lawHeartDrones = [],
+  recon,
   onUpgradeSupport,
   onOpenView,
 }: ArkDeckProps) {
@@ -512,6 +517,7 @@ function ArkDeck({
                 machines: lawHeartMachines.map((machine, tier) => ({ ...machine, color: TIER_COLORS[tier] ?? TIER_COLORS[0] })),
                 drones: lawHeartDrones.map((drone) => ({ color: drone.color, compromised: drone.compromised === true })),
               }}
+              recon={recon}
               beatPeriodMs={getPulseProfile(lifetimeAxioms).periodMs}
               onStrike={onStrikeLawHeart}
               onClose={() => setWalkAccent(null)}

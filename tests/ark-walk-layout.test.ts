@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   DOOR_HALF_WIDTH,
-  DOCK_CYCLE_MS,
+  DOCK_SCENES,
   LOWER_DECK,
   UPPER_DECK,
   buildWalkLayout,
@@ -10,7 +10,8 @@ import {
   isWalkable,
   liftAt,
   moveWithin,
-  reconShipAt,
+  dockMoment,
+  wallPieces,
   type WalkDeck,
 } from "../app/ark-walk-layout.ts";
 
@@ -40,7 +41,7 @@ test("two decks run stern to bow with a doorway between every compartment", () =
   assert.equal(lower.compartments.find((room) => room.kind === "chamber")?.online, true, "the Law-Heart chamber is always lit");
 });
 
-test("the chamber is one atrium: it lines up on both decks and holds the heart between them", () => {
+test("the chamber lines up on both decks and holds the heart between them", () => {
   const layout = buildWalkLayout(rooms);
   const [upperChamber, lowerChamber] = layout.decks.map((deck) => deck.compartments.find((room) => room.kind === "chamber")!);
   assert.equal(upperChamber.x0, lowerChamber.x0);
@@ -64,11 +65,10 @@ test("walls, bulkheads and furniture stop the drone; doorways let it through", (
   assert.ok(isWalkable(upper, doorX, 0), "the doorway is open");
   assert.ok(!isWalkable(upper, doorX, DOOR_HALF_WIDTH + 0.5), "the bulkhead beside it is solid");
   assert.ok(!isWalkable(upper, 3, layout.halfDepth + 0.1), "the hull wall is solid");
-  assert.ok(!isWalkable(lower, layout.heart.x, layout.heart.z), "the Law-Heart pedestal is solid");
-  assert.ok(!isWalkable(upper, layout.heart.x, layout.heart.z), "no stepping off the catwalk into the atrium");
-  assert.ok(isWalkable(upper, layout.heart.x, layout.atrium.z1 + 1.2), "the catwalk beside the atrium is open");
-  assert.ok(!isWalkable(lower, layout.atrium.x1, layout.atrium.z1), "the chamber pillars are solid");
-  assert.ok(!isWalkable(lower, layout.heart.x + 2, layout.heart.z + 2), "the containment vessel keeps the drone off the Law-Heart");
+  for (const deck of [upper, lower]) {
+    assert.ok(!isWalkable(deck, layout.heart.x + 2, layout.heart.z + 2), "the sealed core room keeps the drone off the Law-Heart");
+    assert.ok(isWalkable(deck, layout.heart.x, layout.core.z1 + 1.2), "the gallery beside the core is open");
+  }
   assert.ok(!isWalkable(upper, -1, 0), "nothing behind the stern");
   assert.ok(!isWalkable(lower, lower.length + 1, 0), "nothing beyond the hangar");
 });
@@ -120,16 +120,55 @@ test("every room on each deck can be reached through its doorways", () => {
   assert.deepEqual([...reachableRooms(lower, lift.x, lift.z)].sort(), [...LOWER_DECK].sort());
 });
 
-test("the recon ship leaves the dock, stays away a while, and comes back to its pad", () => {
+test("the launch bay is never open to space and to the ship at once", () => {
   const layout = buildWalkLayout(rooms);
-  assert.ok(isWalkable(layout.decks[1], layout.dock.door.x, layout.dock.door.z), "the arrivals walk out by an open door");
-  const samples = Array.from({ length: 104 }, (_, index) => reconShipAt(index * (DOCK_CYCLE_MS / 104)));
-  assert.equal(samples[0].docked, true, "the cycle starts with the ship on its pad");
-  assert.ok(samples.some((sample) => sample.away), "the ship spends time away at the planet");
-  assert.equal(samples.at(-1)?.docked, true, "and ends back on its pad");
-  for (const sample of samples) {
-    assert.ok(sample.lift >= 0 && sample.lift <= 1 && sample.out >= 0 && sample.out <= 1);
-    if (sample.docked) assert.equal(sample.lift + sample.out, 0, "a docked ship sits on the pad");
+  const lower = layout.decks[1];
+  assert.ok(isWalkable(lower, layout.dock.exit.x, layout.dock.exit.z), "the team walks out of the dock by an open door");
+  const gap = layout.dock.blastDoor;
+  const gapZ = (gap.z0 + gap.z1) / 2;
+  assert.ok(isWalkable(lower, (gap.x0 + gap.x1) / 2, gapZ), "the blast-door gap is the way into the bay");
+  assert.ok(!isWalkable(lower, gap.x0 - 2, gapZ), "the pressure wall beside it is solid");
+  for (const scene of ["departure", "arrival"] as const) {
+    for (let elapsed = 0; elapsed <= DOCK_SCENES[scene] + 500; elapsed += 100) {
+      const moment = dockMoment(scene, elapsed);
+      if (moment.hullDoors > 0) assert.equal(moment.blastDoors, 1, scene + " at " + elapsed + " ms: open to space only while sealed");
+      if (moment.ship.out > 0 && moment.ship.out < 1) assert.ok(moment.hullDoors > 0.99, scene + " at " + elapsed + " ms: the ship only passes open doors");
+    }
+    const end = dockMoment(scene, DOCK_SCENES[scene]);
+    assert.equal(end.done, true);
+    assert.equal(end.blastDoors, 0, scene + " ends with the bay open to the ship again");
+    assert.equal(end.hullDoors, 0, scene + " ends with the hull doors shut");
   }
-  assert.deepEqual(reconShipAt(DOCK_CYCLE_MS * 3 + 5), reconShipAt(5), "the round trip repeats");
+  assert.equal(dockMoment("departure", DOCK_SCENES.departure).ship.out, 1, "after departure the ship is gone");
+  assert.equal(dockMoment("arrival", DOCK_SCENES.arrival).ship.out, 0, "after arrival it is home on its pad");
+  assert.equal(dockMoment("arrival", DOCK_SCENES.arrival).ship.lift, 0);
+});
+
+test("the core room cannot be crossed: the gallery round it is the only way from door to door", () => {
+  const layout = buildWalkLayout(rooms);
+  for (const deck of layout.decks) {
+    const chamber = deck.compartments.find((room) => room.kind === "chamber")!;
+    const straightThrough = Array.from({ length: 40 }, (_, step) => chamber.x0 + 0.5 + (step / 39) * (chamber.x1 - chamber.x0 - 1));
+    assert.ok(straightThrough.some((x) => !isWalkable(deck, x, 0, 0.35)), "the middle line is blocked");
+  }
+});
+
+test("a wall is split round its windows with nothing missing and nothing doubled", () => {
+  const holes = [
+    { a0: 2, a1: 4, y0: 1, y1: 3 },
+    { a0: 6, a1: 8, y0: 1, y1: 3 },
+    { a0: 2, a1: 8, y0: 6, y1: 8 },
+  ];
+  const pieces = wallPieces(0, 10, 10, holes);
+  const area = (rects: { a0: number; a1: number; y0: number; y1: number }[]) =>
+    rects.reduce((sum, rect) => sum + (rect.a1 - rect.a0) * (rect.y1 - rect.y0), 0);
+  assert.equal(area(pieces) + area(holes), 100);
+  for (const piece of pieces) {
+    assert.ok(piece.a1 > piece.a0 && piece.y1 > piece.y0);
+    for (const hole of holes) {
+      const overlaps = piece.a0 < hole.a1 && piece.a1 > hole.a0 && piece.y0 < hole.y1 && piece.y1 > hole.y0;
+      assert.ok(!overlaps, "no wall across a window");
+    }
+  }
+  assert.deepEqual(wallPieces(0, 5, 3, []), [{ a0: 0, a1: 5, y0: 0, y1: 3 }]);
 });

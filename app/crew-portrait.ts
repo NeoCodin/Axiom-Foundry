@@ -92,6 +92,34 @@ export function getCrewLook({ id, ageGroup = "adult" }: { id: string; ageGroup?:
   return { skin, hair: style === 2 ? shade(hair, 0.12) : hair, longHair: style === 1 };
 }
 
+export type CrewHead = {
+  /** The portrait's head pixels (hair, face, any glasses), in portrait-grid cells. */
+  pixels: { x: number; y: number; color: string }[];
+  skin: string;
+  hair: string;
+  longHair: boolean;
+  /** Grid rows: where the face starts (above it is hair) and the head's lowest row. */
+  faceTop: number;
+  bottom: number;
+};
+
+/** Just the head from a person's portrait, so a 3D figure's head can take its exact shape. */
+export function getCrewHead({ id, role, ageGroup = "adult" }: { id: string; role?: string | null; ageGroup?: string | null }): CrewHead {
+  const child = ageGroup === "child";
+  const look = getCrewLook({ id, ageGroup });
+  const backdrop = new Set(["#15131f", "#ff707b", ...Object.values(RARITY_EDGE), ...Object.values(STATUS_MARK)]);
+  const bottom = child ? 12 : 11;
+  const pixels: CrewHead["pixels"] = [];
+  for (const run of getCrewPortrait({ id, role, ageGroup })) {
+    if (run.y < 2 || run.y > bottom || backdrop.has(run.fill)) continue;
+    for (let offset = 0; offset < run.w; offset += 1) {
+      const x = run.x + offset;
+      if (x >= 2 && x <= 11) pixels.push({ x, y: run.y, color: run.fill });
+    }
+  }
+  return { pixels, skin: look.skin, hair: look.hair, longHair: look.longHair, faceTop: child ? 6 : 5, bottom };
+}
+
 export function getCrewPortrait({
   id,
   role,

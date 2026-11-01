@@ -3130,6 +3130,13 @@ export default function Home() {
           onOpenExpeditions={expeditionsUnlocked ? () => setPrimaryView("expeditions") : undefined}
           lawHeartMachines={game.tiers.map((tier, index) => ({ name: GENERATORS[index].name, count: tier.bought }))}
           lawHeartDrones={lawHeartDroneFrames}
+          recon={game.expeditions.active ? {
+            away: true,
+            site: EXPEDITION_SITE_DEFINITIONS.find((site) => site.id === game.expeditions.active?.siteId)?.name ?? null,
+            crewIds: game.expeditions.active.crewIds,
+            sinceLaunch: game.expeditions.clockSeconds - game.expeditions.active.startedAtSeconds,
+            remaining: Math.max(0, game.expeditions.active.startedAtSeconds + game.expeditions.active.durationSeconds - game.expeditions.clockSeconds),
+          } : { away: false, site: null, crewIds: [], sinceLaunch: 0, remaining: 0 }}
           onUpgradeSupport={handleUpgradeSupport}
           onOpenView={handleOpenArkView}
         />
