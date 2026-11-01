@@ -136,14 +136,10 @@
   width: clamp(390px, 31vw, 570px);
   aspect-ratio: 1;
   opacity: 0.96;
-  transform: translateX(180px);
+  transform: translateX(90px);
   image-rendering: pixelated;
   pointer-events: auto;
   will-change: transform;
-}
-
-.ark-command-deck-v3.is-in-orbit .ark-world-limb {
-  animation: ark-v3-orbit-sweep 44s steps(120, end) infinite;
 }
 
 .ark-pixel-world-canvas {
@@ -766,10 +762,6 @@
   100% { transform: translate(34px, -8px); }
 }
 
-@keyframes ark-v3-orbit-sweep {
-  0% { transform: translate(180px, 4px); }
-  100% { transform: translate(-360px, -4px); }
-}
 
 @media (max-width: 1180px) {
   .ark-command-deck-v3 .ark-visual-stage {
