@@ -3127,6 +3127,7 @@ export default function Home() {
           supportUpgradeCosts={supportUpgradeCosts}
           onCommission={handleMissionContribution}
           onStrikeLawHeart={() => handlePulse({ judgement: "off-phase", coherence: 0 })}
+          onOpenExpeditions={expeditionsUnlocked ? () => setPrimaryView("expeditions") : undefined}
           onUpgradeSupport={handleUpgradeSupport}
           onOpenView={handleOpenArkView}
         />

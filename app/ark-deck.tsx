@@ -111,6 +111,8 @@ export type ArkDeckProps = {
   onCommission?: () => void;
   /** Striking the Law-Heart from the drone view. */
   onStrikeLawHeart?: () => void;
+  /** The drone view's hangar opens Expeditions once they exist. */
+  onOpenExpeditions?: () => void;
   onUpgradeSupport?: (key: LifeSupportKey) => void;
   onOpenView: (view: ArkViewId) => void;
 };
@@ -177,6 +179,7 @@ function ArkDeck({
   supportUpgradeCosts,
   onCommission,
   onStrikeLawHeart,
+  onOpenExpeditions,
   onUpgradeSupport,
   onOpenView,
 }: ArkDeckProps) {
@@ -474,7 +477,16 @@ function ArkDeck({
             <ArkWalk
               worldName={worldName}
               worldAccent={walkAccent}
-              rooms={cutawayRooms}
+              rooms={[
+                ...cutawayRooms,
+                {
+                  kind: "hangar",
+                  label: "Hangar",
+                  online: true,
+                  interactive: Boolean(onOpenExpeditions),
+                  onActivate: () => onOpenExpeditions?.(),
+                },
+              ]}
               crew={crew}
               heart={{
                 name: lawHeartSpectrum.name,
