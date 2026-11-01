@@ -105,6 +105,8 @@ const HULL = 0.3;
 const WINDOW_WIDTH = 2.4;
 const WINDOW_LOW = 1.2;
 const WINDOW_HIGH = 3.2;
+/** The recon status board on the dock's back wall: centre and width, from the dock's stern end. */
+const DOCK_BOARD = { at: 13, width: 5 };
 /** A team returning or launching within this many game seconds is shown leaving. */
 const FRESH_LAUNCH_SECONDS = 120;
 
@@ -158,7 +160,8 @@ const WINDOWS: Partial<Record<WalkRoomKind, { port?: readonly number[]; starboar
   bridge: { port: [8.5], starboard: [8.5] },
   support: { starboard: [2.5, 6.7] },
   education: { starboard: [2.5, 6, 9.5, 12.5] },
-  hangar: { port: [8, 12, 16] },
+  // The dock's back wall keeps a bare stretch in the middle for the recon board.
+  hangar: { port: [3.5, 7.5, 19] },
   chamber: { port: [2.5, 8, 13.5], starboard: [2.5, 8, 13.5] },
 };
 
@@ -672,6 +675,11 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
           hullSide(room.x0, room.x1, y0, room.height, side, openings);
           for (const pane of windows) hullWindow(y0, pane, side);
           openingsBySide.set(side, openings);
+        }
+        if (dock) {
+          // Keep the wall ribs and pipes clear of the recon board.
+          const board = { a0: room.x0 + DOCK_BOARD.at - DOCK_BOARD.width / 2 - 0.4, a1: room.x0 + DOCK_BOARD.at + DOCK_BOARD.width / 2 + 0.4, y0: 1.6, y1: 3.6 };
+          openingsBySide.set(-1, [...(openingsBySide.get(-1) ?? []), board]);
         }
         dress(room, y0, openingsBySide, dock ? [-1] : [-1, 1]);
 
@@ -1217,10 +1225,10 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     boardTexture.minFilter = THREE.NearestFilter;
     boardTexture.generateMipmaps = false;
     boardTexture.colorSpace = THREE.SRGBColorSpace;
-    const board = new THREE.Mesh(new THREE.PlaneGeometry(5, 1.5), new THREE.MeshBasicMaterial({ map: boardTexture }));
-    board.position.set(room.x0 + 13, y0 + 2.6, -half + 0.06);
+    const board = new THREE.Mesh(new THREE.PlaneGeometry(DOCK_BOARD.width, 1.5), new THREE.MeshBasicMaterial({ map: boardTexture }));
+    board.position.set(room.x0 + DOCK_BOARD.at, y0 + 2.6, -half + 0.12);
     scene.add(board);
-    put(5.2, 1.7, 0.08, solid(PALETTE.dark), room.x0 + 13, 2.6, -half + 0.02);
+    put(DOCK_BOARD.width + 0.3, 1.8, 0.1, trimMaterial, room.x0 + DOCK_BOARD.at, 2.6, -half + 0.03);
 
     // Two recon ships: one laid up for repairs with a drone at it, and the one that flies.
     const laidUp = reconShip(false);
@@ -1426,8 +1434,18 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       const now = live().recon;
       if (state.scene === "departure") return ["LAUNCHING", now?.site ? `TEAM BOUND FOR ${now.site.toUpperCase()}` : "TEAM BOUND FOR THE SURFACE"];
       if (state.scene === "arrival") return ["COMING HOME", "STAND CLEAR OF THE BAY"];
-      if (now?.away) return [`ON THE SURFACE`, `${(now.site ?? "SITE").toUpperCase()} · BACK IN ${minutes(now.remaining).toUpperCase()}`];
+      if (now?.away) return [`AWAY · BACK IN ${minutes(now.remaining).toUpperCase()}`, (now.site ?? "THE SURFACE").toUpperCase()];
       return ["IN ITS BAY", "READY FOR AN EXPEDITION"];
+    };
+    /** Write a line, shrinking the type until it fits the board. */
+    const writeLine = (text: string, y: number, size: number, weight: string, color: string) => {
+      let fontSize = size;
+      do {
+        boardContext.font = `${weight}${fontSize}px monospace`;
+        fontSize -= 1;
+      } while (boardContext.measureText(text).width > 148 && fontSize > 6);
+      boardContext.fillStyle = color;
+      boardContext.fillText(text, 6, y);
     };
     let lastBoard = "";
     animated.push(() => {
@@ -1437,15 +1455,10 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       lastBoard = key;
       boardContext.fillStyle = PALETTE.dark;
       boardContext.fillRect(0, 0, 160, 48);
-      boardContext.fillStyle = PALETTE.amber;
-      boardContext.font = "bold 11px monospace";
       boardContext.textBaseline = "top";
-      boardContext.fillText("RECON SHIP ONE", 6, 5);
-      boardContext.fillStyle = PALETTE.light;
-      boardContext.fillText(lines[0], 6, 19);
-      boardContext.fillStyle = screenGlow;
-      boardContext.font = "9px monospace";
-      boardContext.fillText(lines[1], 6, 34);
+      writeLine("RECON SHIP ONE", 5, 11, "bold ", PALETTE.amber);
+      writeLine(lines[0], 19, 11, "bold ", PALETTE.light);
+      writeLine(lines[1], 34, 9, "", screenGlow);
       boardTexture.needsUpdate = true;
     });
     const deskRoom = roomsByKind.get("hangar") ?? null;
