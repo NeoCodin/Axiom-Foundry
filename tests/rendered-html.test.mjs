@@ -93,7 +93,7 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(tutorialEngine, /Meet the first people aboard/);
   assert.match(page, /createQaPlanetIntroductionCheckpoint/);
   assert.doesNotMatch(arkDeck, /onTuneCore|Tune the Core/);
-  assert.match(arkDeck, /Law-Heart power bus/);
+  assert.match(arkDeck, /<ArkCutaway/);
   assert.doesNotMatch(arkDeck, />AXIOM CHAMBER</);
   assert.match(arkDeck, /ArkPixelWorld/);
   assert.match(arkDeck, /--ark-power-surface/);
@@ -198,7 +198,8 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(manualCss, /\.manual-action-grid\.count-1/);
   assert.match(awakeningCss, /\.living-foundry-nav\s*\{[^}]*position:\s*fixed/s);
   assert.match(pixelCss, /Share Tech Mono/);
-  assert.match(pixelCss, /VT323/);
+  assert.match(pixelCss, /Jersey\+15/);
+  assert.match(pixelCss, /Pixelify\+Sans/);
   assert.match(pixelCss, /image-rendering:\s*pixelated/);
   assert.match(pixelCss, /repeating-linear-gradient/);
   assert.match(pixelCss, /\.destination-guide-card\s*\{/);
@@ -209,7 +210,7 @@ test("removes all temporary starter-preview wiring", async () => {
   assert.match(loreArchiveCss, /\.archive-reader-page\s*\{/);
   assert.match(loreArchiveCss, /@media \(max-width: 800px\)/);
   assert.match(pixelCss, /\.personnel-console-tabs\s*\{/);
-  for (const stylesheet of ["ark-deck", "continuity-console", "research-lattice", "game-manual", "awakening", "pixel-ui", "axiom-law-heart", "lore-archive", "operations-console", "mobile-chrome"]) {
+  for (const stylesheet of ["ark-deck", "continuity-console", "research-lattice", "game-manual", "awakening", "pixel-ui", "axiom-law-heart", "lore-archive", "operations-console", "ark-cutaway", "mobile-chrome"]) {
     assert.match(layout, new RegExp(`import "\\./${stylesheet}\\.css"`));
     assert.match(pagesEntry, new RegExp(`import "\\.\\./app/${stylesheet}\\.css"`));
   }

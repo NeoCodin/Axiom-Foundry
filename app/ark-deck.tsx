@@ -4,10 +4,12 @@ import { type CSSProperties } from "react";
 import {
   BeaconReadinessList,
 } from "./beacon-readiness";
+import { ArkCutaway, type ArkCutawayRoomKind } from "./ark-cutaway";
 import { ArkPixelWorld } from "./ark-pixel-world";
 import type { BeaconReadiness } from "./beacon-readiness-engine";
 import type { RoomId } from "./discovery-content";
 import { getLawHeartSpectrum } from "./law-heart-particle-field";
+import { getPulseProfile } from "./law-heart-pulse";
 import type { LifeSupportKey } from "./survivor-engine";
 
 export type ArkViewId =
@@ -112,7 +114,7 @@ type ArkRoom = {
   code: string;
   label: string;
   sublabel: string;
-  kind: string;
+  kind: ArkCutawayRoomKind;
   online: boolean;
   reinforcementLevel: number;
 };
@@ -175,7 +177,6 @@ function ArkDeck({
   const normalizedWorldProgress = clamp(worldProgress);
   const normalizedResearchProgress = clamp(researchProgress);
   const normalizedSettlement = clamp(settlementScore / 100) * 100;
-  const occupiedDots = Math.min(8, Math.max(0, population));
   const fluxValue = numericLabelValue(fluxLabel);
   const recoveredMaterialsValue = numericLabelValue(salvageLabel);
   const researchRate = numericLabelValue(researchThroughput);
@@ -202,7 +203,6 @@ function ArkDeck({
     earlyPelagosHabitability ||
     coldWakeCommissioning?.lifeSupportRestored === true;
   const habitationOnline = populationUnlocked;
-  const berthPodCount = Math.min(10, 1 + berthSections);
   const researchOnline = researchUnlocked;
   const educationOnline = populationUnlocked && crew.length > 0;
   const fullBeaconPanel = pelagosFirstContact || pendingSignal !== null;
@@ -382,162 +382,69 @@ function ArkDeck({
           </div>
         )}
 
-        <div className="ark-vessel" aria-label={`${onlineRoomCount} of ${totalRoomCount} Ark rooms online`}>
-          <span className="ark-drive-plume" aria-hidden="true"><i /><i /><i /><i /></span>
-          <span className="ark-vessel-shadow" aria-hidden="true" />
-          <div className="ark-vessel-hull">
-            <span className="ark-hull-silhouette ark-hull-silhouette-aft" aria-hidden="true" />
-            <span className="ark-hull-silhouette ark-hull-silhouette-keel" aria-hidden="true" />
-            <span className="ark-hull-silhouette ark-hull-silhouette-prow" aria-hidden="true" />
-            <span className="ark-hull-edge ark-hull-edge-top" aria-hidden="true" />
-            <span className="ark-hull-edge ark-hull-edge-bottom" aria-hidden="true" />
-            <span className="ark-engine-stack" aria-hidden="true"><i /><i /><i /></span>
-            <span className="ark-command-tower" aria-hidden="true"><i /><b /><em /></span>
-            <span className="ark-forward-sensor" aria-hidden="true"><i /></span>
-            <span className="ark-ventral-hangar" aria-hidden="true"><i /><i /><i /></span>
-            <span className="ark-vessel-nameplate">ARK · ITERATION 44</span>
-            <span className="ark-observation-domes" aria-hidden="true"><i /><i /><i /></span>
-
-            <span className="ark-population-lights" aria-hidden="true">
-              {Array.from({ length: Math.min(28, Math.ceil(population * 0.75)) }, (_, index) => (
-                <i key={index} style={{ "--window-delay": `${index * -0.11}s` } as CSSProperties} />
-              ))}
-            </span>
-
-            <span className="ark-service-drones" aria-hidden="true">
-              {Array.from({
-                length: Math.min(8, Math.min(3, fabricationDepth) + Math.floor(totalReinforcement / 3)),
-              }, (_, index) => (
-                <i
-                  key={index}
-                  style={{
-                    "--drone-top": `${18 + (index % 4) * 6}%`,
-                    "--drone-left": `${16 + (index % 3) * 25}%`,
-                    "--drone-duration": `${5.2 + index * 0.34}s`,
-                    "--drone-delay": `${index * -0.7}s`,
-                  } as CSSProperties}
-                />
-              ))}
-            </span>
-
-            <span className="ark-hull-reinforcements" aria-hidden="true">
-              {Array.from({ length: Math.min(18, totalReinforcement) }, (_, index) => <i key={index} />)}
-            </span>
-
-            <div
-              className="ark-law-relay"
-              aria-label={`Law-Heart power bus: ${fluxLabel} Flux stored and ${fluxPerSecondLabel} Flux per second routed through the Ark`}
-              tabIndex={0}
-            >
-              <span className="ark-law-relay-core" aria-hidden="true"><i /><b /></span>
-              <span>
-                <small>{lawHeartSpectrum.name}</small>
-                <strong>{fluxPerSecondLabel}/s</strong>
-              </span>
-            </div>
-
-            <div className="ark-power-spine" aria-hidden="true">
-              <span />
-              {Array.from({ length: 12 }, (_, index) => <i key={index} style={{ "--power-delay": `${index * -0.16}s` } as CSSProperties} />)}
-            </div>
-
-            <div className="ark-deck-layout">
-              {rooms.map((room, index) => {
-                const commissioningRoom = coldWakeCommissioning?.active === true && (
-                  (!coldWakeCommissioning.navigationRestored && room.kind === "bridge") ||
-                  (coldWakeCommissioning.navigationRestored && !coldWakeCommissioning.lifeSupportRestored && room.kind === "support")
-                );
-                const roomAccessible = room.online && isRoomAccessible(room);
-                const roomInteractive = commissioningRoom
-                  ? Boolean(onCommission) && coldWakeCommissioning.canAct
-                  : roomAccessible;
-                const roomState = room.online || commissioningRoom ? "is-online" : "is-dormant";
-                const roomProgress =
-                  room.kind === "fabrication" ? coreEnergy :
-                  room.kind === "support" ? roomRatio :
-                  room.kind === "habitation" ? clamp(population / Math.max(1, berthCapacity)) :
-                  room.kind === "research" ? normalizedResearchProgress :
-                  room.kind === "education" ? clamp(crew.filter((member) => member.training).length / Math.max(1, crew.length)) :
-                  normalizedSettlement / 100;
-                const roomStyle = {
-                  "--room-progress": roomProgress,
-                  "--room-progress-width": `${roomProgress * 100}%`,
-                  "--room-index": index,
-                  "--room-mark": room.reinforcementLevel,
-                } as CSSProperties;
-                return (
-                  <button
-                    className={`ark-vessel-room ark-room-${room.kind} ${roomState} mark-${Math.min(5, room.reinforcementLevel)} ${commissioningRoom ? "is-commissioning" : ""}`}
-                    data-room={room.id}
-                    data-kind={room.kind}
-                    data-guide-target={
-                      commissioningRoom
-                        ? "ark-commissioning-room"
-                        : room.kind === "support"
-                          ? "ark-room-support"
-                          : undefined
-                    }
-                    key={`${room.code}-${room.label}`}
-                    type="button"
-                    style={roomStyle}
-                    onClick={() => {
-                      if (commissioningRoom) {
-                        onCommission?.();
-                        return;
-                      }
-                      if (room.id !== "core" && roomAccessible) onOpenView(room.id);
-                    }}
-                    disabled={!roomInteractive}
-                    aria-label={commissioningRoom
-                      ? coldWakeCommissioning.canAct
-                        ? `${coldWakeCommissioning.actionLabel} into ${room.label}`
-                        : `${room.label} is awaiting available Flux`
-                      : roomAccessible
-                        ? `Open ${room.label}`
-                        : `${room.label} is not yet available`}
-                  >
-                    <span className="ark-room-power-tap" aria-hidden="true"><i /></span>
-                    <span className="ark-room-status" aria-hidden="true" />
-                    <span className="ark-room-code">DECK {room.code}</span>
-                    <strong>{room.label}</strong>
-                    <small>{commissioningRoom
-                      ? coldWakeCommissioning.canAct
-                        ? coldWakeCommissioning.actionLabel
-                        : "Produce Flux in the Foundry"
-                      : room.online ? room.sublabel : "Dormant outline"}</small>
-                    {room.reinforcementLevel > 0 && <em className="ark-room-mark">MARK {room.reinforcementLevel}</em>}
-                    {commissioningRoom && <em className="ark-room-commissioning-label">COMMISSION</em>}
-
-                    <span className={`ark-compartment-scene ark-scene-${room.kind}`} aria-hidden="true">
-                      {Array.from({ length: 8 }, (_, activityIndex) => <i key={activityIndex} />)}
-                      {(room.kind === "habitation" || room.kind === "education") &&
-                        Array.from({ length: Math.min(8, occupiedDots) }, (_, personIndex) => <b key={personIndex} />)}
-                    </span>
-
-                    {room.kind === "habitation" && room.online && (
-                      <span className="ark-berth-pods" aria-hidden="true">
-                        {Array.from({ length: berthPodCount }, (_, berthIndex) => <i key={berthIndex} />)}
-                        {berthConstructionProgress !== null && berthPodCount < 10 && (
-                          <i className="is-under-construction" style={{ "--berth-progress": berthConstructionProgress } as CSSProperties} />
-                        )}
-                      </span>
-                    )}
-
-                    <span className="ark-room-load" aria-hidden="true"><i /></span>
-                  </button>
-                );
-              })}
-            </div>
-
-            <div
-              className="ark-ship-legend"
-              aria-label="Ship interaction guide"
-            >
-              <span><i /> ONLINE</span>
-              <span><i /> DORMANT</span>
-            </div>
-          </div>
-        </div>
+        <ArkCutaway
+          rooms={rooms.map((room) => {
+            const commissioningRoom = coldWakeCommissioning?.active === true && (
+              (!coldWakeCommissioning.navigationRestored && room.kind === "bridge") ||
+              (coldWakeCommissioning.navigationRestored && !coldWakeCommissioning.lifeSupportRestored && room.kind === "support")
+            );
+            const roomAccessible = room.online && isRoomAccessible(room);
+            return {
+              key: `${room.code}-${room.label}`,
+              kind: room.kind,
+              label: room.label,
+              sublabel: commissioningRoom
+                ? coldWakeCommissioning.canAct
+                  ? coldWakeCommissioning.actionLabel
+                  : "Produce Flux in the Foundry"
+                : room.online ? room.sublabel : "Dormant",
+              online: room.online || commissioningRoom,
+              commissioning: commissioningRoom,
+              interactive: commissioningRoom
+                ? Boolean(onCommission) && coldWakeCommissioning.canAct
+                : roomAccessible,
+              ariaLabel: commissioningRoom
+                ? coldWakeCommissioning.canAct
+                  ? `${coldWakeCommissioning.actionLabel} into ${room.label}`
+                  : `${room.label} is awaiting available Flux`
+                : roomAccessible
+                  ? `Open ${room.label}`
+                  : `${room.label} is not yet available`,
+              guideTarget: commissioningRoom
+                ? "ark-commissioning-room"
+                : room.kind === "support"
+                  ? "ark-room-support"
+                  : undefined,
+              mark: room.reinforcementLevel,
+              onActivate: () => {
+                if (commissioningRoom) {
+                  onCommission?.();
+                  return;
+                }
+                if (room.id !== "core" && roomAccessible) onOpenView(room.id);
+              },
+            };
+          })}
+          crew={crew}
+          heart={{
+            name: lawHeartSpectrum.name,
+            core: lawHeartSpectrum.core,
+            surface: lawHeartSpectrum.surface,
+            bright: lawHeartSpectrum.surfaceBright,
+            limb: lawHeartSpectrum.limb,
+            rateLabel: `${fluxPerSecondLabel}/s`,
+          }}
+          beatPeriodMs={getPulseProfile(lifetimeAxioms).periodMs}
+          beaconOnline={beaconOnline}
+          signal={pendingSignal ? {
+            label: pendingSignal.label,
+            detail: `${pendingSignal.groupSize} life signs · ${pendingSignal.location}`,
+            onOpen: populationUnlocked ? () => onOpenView("population") : undefined,
+          } : null}
+          worldGlass="var(--world-accent, #5fd39a)"
+          transit={transitActive}
+          driveEnergy={coreEnergy}
+        />
 
         {transitActive && (
           <div className="ark-transit-readout">

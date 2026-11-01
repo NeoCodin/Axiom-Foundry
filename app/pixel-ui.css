@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Jersey+15&family=Pixelify+Sans:wght@400..700&family=Share+Tech+Mono&display=swap");
 
 /* AXIOM FOUNDRY // RETRO INDUSTRIAL DISPLAY LAYER
    This file intentionally loads last. It redraws the presentation without
@@ -22,9 +22,9 @@
   --danger: #dd655c;
   --brass: #e4ad4e;
   --axiom: #b19bdb;
-  --font-ui: "Share Tech Mono", "Cascadia Mono", Consolas, monospace;
-  --font-display: "VT323", "Share Tech Mono", monospace;
-  --font-number: "VT323", "Share Tech Mono", monospace;
+  --font-ui: "Pixelify Sans", "Share Tech Mono", Consolas, monospace;
+  --font-display: "Jersey 15", "Pixelify Sans", monospace;
+  --font-number: "Jersey 15", "Pixelify Sans", monospace;
   --font-mono: "Share Tech Mono", "Cascadia Mono", Consolas, monospace;
   --type-floor: 12px;
   --type-body: 14px;
