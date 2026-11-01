@@ -989,60 +989,18 @@
   .armory-project-ribbon { grid-template-columns: 1fr; }
 }
 
-/* Deterministic crew tokens: recognizable without bespoke portraits. */
+/* Deterministic crew portraits (app/crew-portrait.ts): every person has a
+   face, framed in the hull-plate cut; the frame carries rarity and status. */
 .crew-pixel-token {
-  --crew-duty: #65aebe;
-  --crew-edge: #59727d;
   position: relative;
   display: inline-block;
   flex: 0 0 auto;
   width: 28px;
   height: 34px;
-  overflow: hidden;
-  color: var(--crew-duty);
-  border: 2px solid var(--crew-edge);
-  background: #03090c;
   image-rendering: pixelated;
-  box-shadow: inset 0 0 0 2px #0b1920;
 }
-.crew-pixel-token.is-large { width: 72px; height: 86px; border-width: 3px; box-shadow: inset 0 0 0 5px #0b1920; }
-.crew-pixel-token.rarity-notable { --crew-edge: #4e91e8; }
-.crew-pixel-token.rarity-exceptional { --crew-edge: #af6eea; }
-.crew-pixel-token.rarity-anomalous { --crew-edge: #f1bd62; }
-.crew-pixel-token.role-engineer, .crew-pixel-token.role-fabricator, .crew-pixel-token.role-builder { --crew-duty: #e3a947; }
-.crew-pixel-token.role-doctor { --crew-duty: #72e6a5; }
-.crew-pixel-token.role-researcher { --crew-duty: #bd8df1; }
-.crew-pixel-token.role-security { --crew-duty: #ff6d78; }
-.crew-pixel-token.role-navigator { --crew-duty: #62a7ff; }
-.crew-pixel-token.role-teacher { --crew-duty: #f0d875; }
-.crew-pixel-token.status-wounded { filter: saturate(.55); }
-.crew-pixel-token.status-wounded::after { position: absolute; z-index: 6; right: 1px; bottom: 1px; content: "+"; color: #ff707b; font-family: var(--font-mono, monospace); font-size: 12px; }
-.crew-pixel-token.status-training { box-shadow: inset 0 -4px #bd8df1; }
-.crew-pixel-token.status-deployed { box-shadow: inset 0 -4px #62a7ff; }
-.crew-pixel-token.status-protected { box-shadow: inset 0 -4px #72e6a5; }
-.crew-token-head { position: absolute; z-index: 3; top: 5px; left: 9px; width: 8px; height: 8px; border: 2px solid currentColor; background: #a7d2d9; }
-.crew-token-body { position: absolute; z-index: 2; top: 14px; left: 7px; width: 12px; height: 11px; border: 2px solid currentColor; background: color-mix(in srgb, var(--crew-duty) 38%, #0a151b); }
-.crew-token-arm { position: absolute; z-index: 1; top: 15px; width: 4px; height: 11px; background: var(--crew-duty); }
-.crew-token-arm.arm-left { left: 3px; }
-.crew-token-arm.arm-right { right: 3px; }
-.crew-token-leg { position: absolute; z-index: 1; bottom: 2px; width: 4px; height: 8px; background: var(--crew-duty); }
-.crew-token-leg.leg-left { left: 8px; }
-.crew-token-leg.leg-right { right: 8px; }
-.crew-pixel-token > em { position: absolute; z-index: 4; top: 9px; left: 12px; width: 2px; height: 2px; background: #031014; box-shadow: 3px 0 #031014; }
-.crew-pixel-token.variant-1 .crew-token-head { box-shadow: 0 -3px var(--crew-duty); }
-.crew-pixel-token.variant-2 .crew-token-head { border-top-width: 4px; }
-.crew-pixel-token.variant-3 .crew-token-head { transform: translateX(-1px); }
-.crew-pixel-token.variant-4 .crew-token-body { border-top-color: #d9f3f7; }
-.crew-pixel-token.variant-5 .crew-token-arm.arm-right { height: 8px; transform: rotate(-25deg); transform-origin: top; }
-.crew-pixel-token.is-large .crew-token-head { top: 14px; left: 25px; width: 20px; height: 20px; border-width: 4px; }
-.crew-pixel-token.is-large .crew-token-body { top: 37px; left: 19px; width: 30px; height: 27px; border-width: 4px; }
-.crew-pixel-token.is-large .crew-token-arm { top: 39px; width: 8px; height: 28px; }
-.crew-pixel-token.is-large .crew-token-arm.arm-left { left: 9px; }
-.crew-pixel-token.is-large .crew-token-arm.arm-right { right: 9px; }
-.crew-pixel-token.is-large .crew-token-leg { bottom: 5px; width: 9px; height: 18px; }
-.crew-pixel-token.is-large .crew-token-leg.leg-left { left: 22px; }
-.crew-pixel-token.is-large .crew-token-leg.leg-right { right: 22px; }
-.crew-pixel-token.is-large > em { top: 25px; left: 33px; width: 3px; height: 3px; box-shadow: 7px 0 #031014; }
+.crew-pixel-token.is-large { width: 70px; height: 85px; }
+.crew-pixel-token > svg { display: block; width: 100%; height: 100%; }
 .population-console.is-view-command .team-alpha-panel {
   padding: 18px;
   border-color: #2d5060;

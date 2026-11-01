@@ -1,6 +1,7 @@
 "use client";
 
 import { type CSSProperties } from "react";
+import { CIVILIAN_COLOR, CREW_ROLE_COLORS, PORTRAIT_SKINS } from "./crew-portrait";
 
 /*
  * The Ark as a living pixel cutaway: one shared ship drawn on a 300x110 unit
@@ -175,18 +176,6 @@ const ROOM_SPOTS: Record<ArkCutawayRoomKind, readonly number[]> = {
   bridge: [268],
 };
 const WALK_RANGE: Partial<Record<ArkCutawayRoomKind, number>> = { fabrication: 22, habitation: 18, education: 12 };
-const ROLE_SHIRT: Record<string, string> = {
-  engineer: "#ff9f43",
-  technician: "#ffd27a",
-  fabricator: "#e8a35c",
-  doctor: "#e9e4da",
-  farmer: "#5fd39a",
-  researcher: "#7fb7ff",
-  teacher: "#f28ab2",
-  navigator: "#b18cff",
-  soldier: "#d9654f",
-};
-const SKINS = ["#f3cfae", "#dcaa82", "#b8805a", "#8d5a3b", "#62402a"];
 const HAIRS = ["#231a17", "#4b3020", "#8a4f27", "#cf9a52", "#d9d4cc", "#7c2f2a"];
 
 function hash(text: string) {
@@ -263,8 +252,8 @@ function roomShell(x: number, y: number, w: number, h: number, lit: boolean): Px
 function Person({ x, top, id, role }: { x: number; top: number; id: string; role: string }) {
   const seed = hash(id);
   const hair = HAIRS[seed % HAIRS.length];
-  const skin = SKINS[(seed >>> 4) % SKINS.length];
-  const shirt = ROLE_SHIRT[role] ?? "#8f8aa3";
+  const skin = PORTRAIT_SKINS[(seed >>> 4) % PORTRAIT_SKINS.length];
+  const shirt = CREW_ROLE_COLORS[role] ?? CIVILIAN_COLOR;
   return (
     <>
       <rect x={x} y={top} width={3} height={1} fill={hair} />

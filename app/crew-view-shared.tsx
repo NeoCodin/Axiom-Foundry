@@ -2,6 +2,12 @@
 
 import type { CSSProperties } from "react";
 import {
+  PORTRAIT_HEIGHT,
+  PORTRAIT_WIDTH,
+  getCrewPortrait,
+  type PortraitStatus,
+} from "./crew-portrait";
+import {
   MAX_SURVIVOR_HEALTH,
   getSurvivorHealthCap,
   isSurvivorWounded,
@@ -50,30 +56,30 @@ export function CrewToken({
   role = "civilian",
   rarity = "standard",
   status = "ready",
+  ageGroup = "adult",
   large = false,
 }: {
   id: string;
   name: string;
   role?: string | null;
   rarity?: string | null;
-  status?: "ready" | "wounded" | "training" | "deployed" | "protected";
+  status?: PortraitStatus;
+  ageGroup?: string | null;
   large?: boolean;
 }) {
-  const seed = [...`${id}:${name}`].reduce((total, character) => total + character.charCodeAt(0), 0);
+  const portrait = getCrewPortrait({ id, role, ageGroup, rarity, status });
   return (
     <span
-      className={`crew-pixel-token role-${role ?? "civilian"} rarity-${rarity ?? "standard"} status-${status} variant-${seed % 6} ${large ? "is-large" : ""}`}
+      className={`crew-pixel-token role-${role ?? "civilian"} rarity-${rarity ?? "standard"} status-${status} ${large ? "is-large" : ""}`}
       role="img"
       aria-label={`${name}, ${titleCase(role ?? "civilian")}`}
       title={`${name} · ${titleCase(role ?? "civilian")}`}
     >
-      <i className="crew-token-head" />
-      <i className="crew-token-body" />
-      <i className="crew-token-arm arm-left" />
-      <i className="crew-token-arm arm-right" />
-      <i className="crew-token-leg leg-left" />
-      <i className="crew-token-leg leg-right" />
-      <em aria-hidden="true" />
+      <svg viewBox={`0 0 ${PORTRAIT_WIDTH} ${PORTRAIT_HEIGHT}`} shapeRendering="crispEdges" aria-hidden="true">
+        {portrait.map((run, index) => (
+          <rect key={index} x={run.x} y={run.y} width={run.w} height={1} fill={run.fill} />
+        ))}
+      </svg>
     </span>
   );
 }

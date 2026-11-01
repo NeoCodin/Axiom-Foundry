@@ -120,7 +120,7 @@ function MedicalConsole({
               const surgery = survivor.injury ? getProstheticQuote(survivor.id) : null;
               return (
                 <div className="medbay-row" key={survivor.id}>
-                  <CrewToken id={survivor.id} name={survivor.name} role={survivor.role} rarity={getSurvivorRarity(survivor).id} status="wounded" />
+                  <CrewToken id={survivor.id} ageGroup={survivor.ageGroup} name={survivor.name} role={survivor.role} rarity={getSurvivorRarity(survivor).id} status="wounded" />
                   <span className="medbay-row-name">
                     <strong>{survivor.callsign || survivor.name}</strong>
                     <small>{survivor.role === "civilian" ? "Civilian" : `${titleCase(survivor.role)} · Lv ${getSurvivorSkillLevel(survivor, survivor.role)}`}{survivor.injury ? ` · ${survivor.injury} injury (cap ${cap})` : ""}</small>
@@ -181,7 +181,7 @@ function MedicalConsole({
                   : null;
               return (
                 <div className="medbay-row" key={survivor.id}>
-                  <CrewToken id={survivor.id} name={survivor.name} role={survivor.role} rarity={getSurvivorRarity(survivor).id} status={isSurvivorWounded(survivor) ? "wounded" : "ready"} />
+                  <CrewToken id={survivor.id} ageGroup={survivor.ageGroup} name={survivor.name} role={survivor.role} rarity={getSurvivorRarity(survivor).id} status={isSurvivorWounded(survivor) ? "wounded" : "ready"} />
                   <span className="medbay-row-name">
                     <strong>{survivor.callsign || survivor.name}</strong>
                     <small>{survivor.role === "civilian" ? "Civilian" : `${titleCase(survivor.role)} · Lv ${getSurvivorSkillLevel(survivor, survivor.role)}`}{isSurvivorWounded(survivor) ? " · RECOVERING" : ""}{survivor.injury ? ` · ${survivor.injury} injury (cap ${cap})` : ""}</small>

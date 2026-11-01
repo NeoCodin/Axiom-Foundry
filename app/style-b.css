@@ -380,7 +380,9 @@
   .game-shell .crew-roster-tools nav button {
     gap: 3px;
     padding: 3px 5px;
-    font-size: 13px;
+    font-size: 12px;
+    letter-spacing: 0;
+    text-transform: none;
   }
 
   /* Primary destinations: plates, the current one lit like a deck light. */

@@ -212,7 +212,7 @@ function ExpeditionConsole({
                         return (
                           <label className={`crew-rarity-${rarity.id} ${picked ? "is-selected" : ""}`} key={survivor.id}>
                             <input type="checkbox" checked={picked} onChange={() => toggleRescuer(survivor.id)} />
-                            <CrewToken id={survivor.id} name={survivor.name} role={survivor.role} rarity={rarity.id} status="deployed" />
+                            <CrewToken id={survivor.id} ageGroup={survivor.ageGroup} name={survivor.name} role={survivor.role} rarity={rarity.id} status="deployed" />
                             <span><strong>{survivor.callsign || survivor.name}</strong><small>{survivor.role === "civilian" ? "Civilian" : `${titleCase(survivor.role)} · Level ${getSurvivorSkillLevel(survivor, survivor.role)}`}</small></span>
                             <span className="settler-row-status"><b>{picked ? "RESCUE" : ""}</b></span>
                           </label>
@@ -294,7 +294,7 @@ function ExpeditionConsole({
                 <div className="expedition-manifest-rows" aria-label="Party biometrics">
                   {members.map(({ survivor, gear, fallbackLabel }, index) => (
                     <div className="expedition-manifest-row" key={survivor?.id ?? index}>
-                      <CrewToken id={survivor?.id ?? fallbackLabel} name={survivor?.name ?? fallbackLabel} role={survivor?.role} rarity={survivor ? getSurvivorRarity(survivor).id : "standard"} status="deployed" />
+                      <CrewToken id={survivor?.id ?? fallbackLabel} ageGroup={survivor?.ageGroup} name={survivor?.name ?? fallbackLabel} role={survivor?.role} rarity={survivor ? getSurvivorRarity(survivor).id : "standard"} status="deployed" />
                       <span className="expedition-manifest-name"><strong>{survivor ? survivor.callsign || survivor.name : fallbackLabel}</strong></span>
                       {survivor && <span className="crew-health-chip"><HealthBar survivor={survivor} /><small>{Math.round(survivor.health)}</small></span>}
                       <span className="expedition-gear-tags">
@@ -420,7 +420,7 @@ function ExpeditionConsole({
                       return (
                         <label className={`expedition-manifest-row crew-rarity-${rarity.id} ${picked ? "is-selected" : ""}`} key={survivor.id}>
                           <input type="checkbox" checked={picked} onChange={() => toggle(survivor.id)} />
-                          <CrewToken id={survivor.id} name={survivor.name} role={survivor.role} rarity={rarity.id} status={picked ? "deployed" : "ready"} />
+                          <CrewToken id={survivor.id} ageGroup={survivor.ageGroup} name={survivor.name} role={survivor.role} rarity={rarity.id} status={picked ? "deployed" : "ready"} />
                           <span className="expedition-manifest-name">
                             <strong>{survivor.callsign || survivor.name}</strong>
                             <small>{survivor.role === "civilian" ? "Civilian" : `${titleCase(survivor.role)} · Lv ${getSurvivorSkillLevel(survivor, survivor.role)}`}</small>
