@@ -320,8 +320,115 @@
     color: var(--world-accent);
   }
 
+  .game-shell.game-shell .crew-duty-badge,
+  .game-shell.game-shell .foundry-law-heart-readout {
+    border-color: var(--b-edge);
+  }
+
   .game-shell.game-shell .null-readout.is-trace strong {
     color: #c9b6ff;
+  }
+
+  /* Fabrication Chain: each machine is a hull plate with its own glyph in
+     the tier colour, not a card with a stripe down its left edge. */
+  .game-shell.game-shell .foundry-chain-sidebar .machine-row {
+    margin-inline: 8px;
+    padding: 4px 6px;
+    border-style: solid;
+    border-width: 6px;
+    border-color: transparent;
+    border-image: var(--b-plate-base) 7 fill / 14px / 8px stretch;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .game-shell.game-shell .foundry-chain-sidebar .machine-list,
+  .game-shell.game-shell .foundry-chain-sidebar .machine-list.is-density-filled {
+    display: block;
+    height: auto;
+    padding-block: 8px;
+  }
+
+  /* The density fill squeezed every row to the sidebar's height, so their
+     contents overflowed; rows now keep their natural height and the console
+     scrolls. */
+  .game-shell.game-shell .foundry-chain-sidebar .machine-list.is-density-filled > .machine-block {
+    display: block;
+    min-height: 0;
+    flex: none;
+  }
+
+  .game-shell.game-shell .foundry-chain-sidebar .machine-list.is-density-filled > .machine-row,
+  .game-shell.game-shell .foundry-chain-sidebar .machine-list.is-density-filled .machine-row:not(.locked) {
+    display: grid;
+    min-height: 0;
+    flex: none;
+  }
+
+  .game-shell.game-shell .foundry-chain-sidebar .resonance-link {
+    height: auto;
+    min-height: 18px;
+    margin: 10px 8px;
+  }
+
+  .game-shell.game-shell .foundry-chain-sidebar .machine-row:hover:not(.locked) {
+    border-image-source: var(--b-plate-active);
+  }
+
+  .game-shell.game-shell .foundry-chain-sidebar .machine-row::before {
+    display: none;
+  }
+
+  .game-shell.game-shell .foundry-chain-sidebar .machine-id {
+    display: grid;
+    width: 36px;
+    height: 36px;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    color: var(--tier-accent, var(--world-accent));
+  }
+
+  .machine-glyph {
+    display: block;
+    width: 36px;
+    height: 36px;
+    image-rendering: pixelated;
+  }
+
+  .game-shell.game-shell .foundry-chain-sidebar .machine-index,
+  .game-shell.game-shell .foundry-chain-sidebar .owned-count {
+    color: var(--tier-accent, var(--world-accent));
+  }
+
+  .game-shell.game-shell .foundry-chain-sidebar .buy-button {
+    padding: 3px 6px;
+    border-width: 4px;
+    border-style: solid;
+    border-color: transparent;
+    border-image: var(--b-key-active) 4 fill / 8px / 4px stretch;
+    background: transparent;
+    box-shadow: none;
+    color: #fff8e8;
+  }
+
+  .game-shell.game-shell .foundry-chain-sidebar .buy-button:disabled {
+    border-image-source: var(--b-key-dim);
+    color: #8a84a3;
+  }
+
+  .game-shell.game-shell .foundry-chain-sidebar .buy-button small {
+    color: #c9c2dc;
+  }
+
+  /* Six console tabs share the sidebar; keep every label whole. */
+  .game-shell.game-shell .foundry-console-tabs button {
+    padding-inline: 4px;
+    font-size: 12px;
+    letter-spacing: 0;
+    text-transform: none;
   }
 
   /* The header's actions overflowed their column at 1440px and slid under

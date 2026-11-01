@@ -152,6 +152,7 @@ import {
   type PurchaseMode,
 } from "./game-engine";
 import { WORLD_VISUALS } from "./world-visuals";
+import { MachineGlyph } from "./machine-glyphs";
 import ArkDeck, { type ArkViewId } from "./ark-deck";
 import { AxiomLawHeart } from "./axiom-law-heart";
 import { FoundryLawHeart } from "./foundry-law-heart";
@@ -3631,7 +3632,7 @@ export default function Home() {
                     </div>
                   )}
                   <article className="machine-row">
-                    <div className="machine-id" aria-hidden="true">0{index + 1}</div>
+                    <div className="machine-id" aria-hidden="true"><MachineGlyph tier={index} /></div>
                     <div className="machine-primary">
                       <div className="machine-title-line">
                         <div>
