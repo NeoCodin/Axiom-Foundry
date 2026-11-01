@@ -154,6 +154,7 @@ import {
 import { WORLD_VISUALS } from "./world-visuals";
 import { MachineGlyph } from "./machine-glyphs";
 import { NullInterference } from "./null-interference";
+import { useUiSounds } from "./use-ui-sounds";
 import ArkDeck, { type ArkViewId } from "./ark-deck";
 import { AxiomLawHeart } from "./axiom-law-heart";
 import { FoundryLawHeart } from "./foundry-law-heart";
@@ -464,6 +465,7 @@ export default function Home() {
   const [game, setGame] = useState<GameState>(() => createInitialState(0));
   const [ready, setReady] = useState(false);
   const [primaryView, setPrimaryView] = useState<PrimaryView>("deck");
+  useUiSounds(primaryView);
   const destinationViewportRef = useRef<HTMLDivElement>(null);
   const destinationInnerRef = useRef<HTMLDivElement>(null);
   // Direction of the last primary-destination change (1 = rightward in the

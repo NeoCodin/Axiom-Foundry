@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
+import { playNullStatic } from "./law-heart-audio";
 import { corruptReading } from "./null-misread";
 
 /*
@@ -104,6 +105,7 @@ export function NullInterference({
           turbulenceRef.current?.setAttribute("baseFrequency", `0 ${(0.04 + Math.random() * 0.08).toFixed(3)}`);
           displacementRef.current?.setAttribute("scale", String(Math.round(10 + strength * 28)));
           shell.classList.add("null-tearing");
+          playNullStatic(strength);
           later(() => shell.classList.remove("null-tearing"), 90);
           later(() => shell.classList.add("null-tearing"), 160);
           later(() => shell.classList.remove("null-tearing"), 240);
@@ -136,6 +138,7 @@ export function NullInterference({
         }
         case "slip": {
           shell.classList.add("null-slip");
+          playNullStatic(strength * 0.5);
           later(() => shell.classList.remove("null-slip"), 220);
           break;
         }

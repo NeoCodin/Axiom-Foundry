@@ -1,10 +1,11 @@
 import type { PulseJudgement } from "./law-heart-pulse";
 
 /**
- * Synthesized Law-Heart audio (prototype). Every sound is generated with Web
- * Audio, so nothing needs to be downloaded. Browsers only allow audio after a
- * user gesture, so the context is created on the first strike; until then the
- * heart is silent. The on/off preference is per device.
+ * Synthesized game audio: the Law-Heart and the interface. Every sound is
+ * generated with Web Audio, so nothing needs to be downloaded. Browsers only
+ * allow audio after a user gesture, so the context is created on the first
+ * press; until then the game is silent. One on/off preference per device
+ * covers all of it.
  */
 
 const PREFERENCE_KEY = "axiom-foundry-pulse-audio";
@@ -133,5 +134,75 @@ export function playPulseStrike(judgement: PulseJudgement, coherence: number) {
   tone(output, when, { type: "triangle", from: pitch, peak, attack: 0.004, decay: 0.36 });
   if (judgement === "coherent") {
     tone(output, when, { type: "sine", from: pitch * 2, peak: peak * 0.35, attack: 0.004, decay: 0.28 });
+  }
+}
+
+let noiseBuffer: AudioBuffer | null = null;
+
+/** One second of white noise, made once and reused for every hiss and crackle. */
+function noise({ context }: PulseAudio) {
+  if (!noiseBuffer || noiseBuffer.sampleRate !== context.sampleRate) {
+    noiseBuffer = context.createBuffer(1, context.sampleRate, context.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for (let index = 0; index < data.length; index += 1) data[index] = Math.random() * 2 - 1;
+  }
+  return noiseBuffer;
+}
+
+function noiseBurst(
+  output: PulseAudio,
+  when: number,
+  options: { filter: BiquadFilterType; frequency: number; q?: number; peak: number; attack: number; decay: number },
+) {
+  const { context, master } = output;
+  const source = context.createBufferSource();
+  source.buffer = noise(output);
+  const filter = context.createBiquadFilter();
+  filter.type = options.filter;
+  filter.frequency.value = options.frequency;
+  filter.Q.value = options.q ?? 0.8;
+  const gain = envelope(context, when, options.peak, options.attack, options.decay);
+  source.connect(filter).connect(gain).connect(master);
+  source.start(when, Math.random() * 0.5);
+  source.stop(when + options.attack + options.decay + 0.02);
+  return gain;
+}
+
+/** A key press on the Ark's panels: a short, slightly varied blip. */
+export function playUiKey() {
+  const output = ready();
+  if (!output) return;
+  const pitch = 620 * (0.94 + Math.random() * 0.12);
+  tone(output, output.context.currentTime, { type: "triangle", from: pitch, to: pitch * 0.82, glide: 0.03, peak: 0.035, attack: 0.002, decay: 0.045 });
+}
+
+/** A committed action (building a machine): two rising blips. */
+export function playUiConfirm() {
+  const output = ready();
+  if (!output) return;
+  const when = output.context.currentTime;
+  tone(output, when, { type: "square", from: 520, peak: 0.022, attack: 0.002, decay: 0.05 });
+  tone(output, when + 0.055, { type: "square", from: 780, peak: 0.022, attack: 0.002, decay: 0.08 });
+}
+
+/** Moving between decks: a bulkhead thud with a breath of air. */
+export function playBulkhead() {
+  const output = ready();
+  if (!output) return;
+  const when = output.context.currentTime;
+  tone(output, when, { type: "sine", from: 130, to: 58, glide: 0.12, peak: 0.12, attack: 0.004, decay: 0.2 });
+  noiseBurst(output, when, { filter: "bandpass", frequency: 900, q: 0.7, peak: 0.03, attack: 0.01, decay: 0.16 });
+}
+
+/** Null interference: a crackle of static, stepped like a failing signal. */
+export function playNullStatic(intensity: number) {
+  const output = ready();
+  if (!output) return;
+  const when = output.context.currentTime;
+  const strength = Math.min(1, Math.max(0, intensity));
+  const gain = noiseBurst(output, when, { filter: "highpass", frequency: 2400, peak: 0.025 + strength * 0.045, attack: 0.004, decay: 0.22 });
+  // Chop it into a stutter so it reads as a signal dropping out.
+  for (let step = 1; step < 5; step += 1) {
+    gain.gain.setValueAtTime(step % 2 === 0 ? 0.0001 : 0.02 + strength * 0.03, when + step * 0.04);
   }
 }

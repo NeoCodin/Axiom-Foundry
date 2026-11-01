@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AxiomEye } from "./axiom-eye";
+import { PulseSoundToggle } from "./law-heart-pulse-overlay";
 import { HelpTrigger } from "./game-manual";
 import type { NullSaturationView } from "./null-saturation-engine";
 
@@ -109,6 +110,7 @@ export function GameCommandBar({
             <div className="mobile-menu-actions">
               <button className="quiet-button" type="button" onClick={closeMenuAnd(onOpenHelp)}>Guide</button>
               <button className={`quiet-button tooltip-toggle ${tooltipsEnabled ? "is-on" : ""}`} type="button" aria-pressed={tooltipsEnabled} onClick={onToggleTooltips}>Hints {tooltipsEnabled ? "ON" : "OFF"}</button>
+              <PulseSoundToggle className="quiet-button" />
               <button className="quiet-button" type="button" onClick={closeMenuAnd(onOpenLore)}>Lore archive</button>
               <button className="quiet-button" type="button" onClick={closeMenuAnd(onSave)}>Save now</button>
               <button className="quiet-button" type="button" onClick={closeMenuAnd(onOpenBackup)}>Back up / restore</button>
@@ -126,6 +128,7 @@ export function GameCommandBar({
         <span className="save-status" data-pixel-tooltip="Your progress saves automatically on this device. The timestamp confirms the latest stored state." tabIndex={0} aria-label="Your progress saves automatically on this device. The timestamp confirms the latest stored state.">{ready ? saveStatus : "Restoring local cycle…"}</span>
         <span className="header-tooltip-control" data-pixel-tooltip="Open the Field Manual for this page, resource explanations, and exact next steps."><HelpTrigger label="Open guide for this page" withLabel onClick={onOpenHelp} /></span>
         <button className={`quiet-button tooltip-toggle ${tooltipsEnabled ? "is-on" : ""}`} type="button" aria-pressed={tooltipsEnabled} onClick={onToggleTooltips}>Hints {tooltipsEnabled ? "ON" : "OFF"}</button>
+        <PulseSoundToggle className="quiet-button header-sound-toggle" />
         <button className="quiet-button" type="button" data-pixel-tooltip="Review only the transmissions, contradictions, and historical fragments AXIOM has already discovered." aria-label="Open the discovered Lore Archive" onClick={onOpenLore}>Lore archive</button>
         <button className="quiet-button" type="button" data-pixel-tooltip="Write the current game state to this device immediately. Automatic saving remains active." aria-label="Save progress on this device now" onClick={onSave}>Save now</button>
         <button className="quiet-button" type="button" data-pixel-tooltip="Copy or download a backup code for this save, or restore one from another device." aria-label="Back up or restore your save" onClick={onOpenBackup}>Backup</button>

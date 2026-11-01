@@ -299,6 +299,21 @@ body {
   filter: none;
 }
 
+/* The game Sound switch, placed with the header and menu keys, looks like
+   them; the warm colour still marks it as on. */
+.game-shell :is(.header-actions, .mobile-menu-actions) button.law-pulse-sound {
+  display: block;
+  min-height: 32px;
+  margin: 0;
+  color: #efe6d2;
+  font-size: 12px;
+  letter-spacing: 0.035em;
+}
+
+.game-shell :is(.header-actions, .mobile-menu-actions) button.law-pulse-sound.is-on {
+  color: #f0c367;
+}
+
 /* AXIOM's eye replaces the diamond brand mark (app/axiom-eye.tsx). */
 .game-shell .brand-mark::before,
 .game-shell .brand-mark::after {

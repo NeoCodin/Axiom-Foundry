@@ -4,7 +4,7 @@ import { useSyncExternalStore, type CSSProperties, type RefObject } from "react"
 import { isPulseAudioEnabled, setPulseAudioEnabled, subscribePulseAudio } from "./law-heart-audio";
 import type { PulseJudgement } from "./law-heart-pulse";
 
-/** Per-device heartbeat audio switch; server render assumes on, then the stored choice takes over. */
+/** Per-device game sound switch (heartbeat and interface); server render assumes on, then the stored choice takes over. */
 export function PulseSoundToggle({ className = "" }: { className?: string }) {
   const enabled = useSyncExternalStore(subscribePulseAudio, isPulseAudioEnabled, () => true);
   return (
@@ -12,7 +12,7 @@ export function PulseSoundToggle({ className = "" }: { className?: string }) {
       className={`law-pulse-sound ${enabled ? "is-on" : ""} ${className}`}
       type="button"
       aria-pressed={enabled}
-      aria-label={enabled ? "Mute the Law-Heart pulse sound" : "Turn on the Law-Heart pulse sound"}
+      aria-label={enabled ? "Mute game sound" : "Turn on game sound"}
       onClick={() => setPulseAudioEnabled(!enabled)}
     >
       Sound {enabled ? "on" : "off"}
