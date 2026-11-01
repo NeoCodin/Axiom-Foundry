@@ -109,17 +109,82 @@ function hash(x: number, y: number, seed: number) {
   return result - Math.floor(result);
 }
 
+/** One revolution roughly every 80 seconds at the orbital frame rate. */
+const ROTATION_PER_FRAME = (Math.PI * 2) / 333;
+const SURFACE_W = 128;
+const SURFACE_H = 64;
+
+type SurfaceMap = {
+  terrain: Float32Array;
+  feature: Uint8Array;
+  cloud: Float32Array;
+};
+
+const surfaceMaps = new Map<number, SurfaceMap>();
+
+/** Value noise on a lattice that wraps in longitude, so the globe has no seam. */
+function wrappingNoise(u: number, v: number, cellsU: number, cellsV: number, seed: number) {
+  const x = u * cellsU;
+  const y = v * cellsV;
+  const x0 = Math.floor(x);
+  const y0 = Math.floor(y);
+  const fx = x - x0;
+  const fy = y - y0;
+  const sx = fx * fx * (3 - 2 * fx);
+  const sy = fy * fy * (3 - 2 * fy);
+  const xa = ((x0 % cellsU) + cellsU) % cellsU;
+  const xb = (xa + 1) % cellsU;
+  const top = hash(xa, y0, seed) + (hash(xb, y0, seed) - hash(xa, y0, seed)) * sx;
+  const bottom = hash(xa, y0 + 1, seed) + (hash(xb, y0 + 1, seed) - hash(xa, y0 + 1, seed)) * sx;
+  return top + (bottom - top) * sy;
+}
+
+function getSurfaceMap(seed: number): SurfaceMap {
+  const cached = surfaceMaps.get(seed);
+  if (cached) return cached;
+  const terrain = new Float32Array(SURFACE_W * SURFACE_H);
+  const feature = new Uint8Array(SURFACE_W * SURFACE_H);
+  const cloud = new Float32Array(SURFACE_W * SURFACE_H);
+  for (let row = 0; row < SURFACE_H; row += 1) {
+    const v = row / SURFACE_H;
+    const band = 0.55 + 0.45 * Math.abs(Math.sin(v * Math.PI * 3 + seed));
+    for (let column = 0; column < SURFACE_W; column += 1) {
+      const u = column / SURFACE_W;
+      const index = row * SURFACE_W + column;
+      const height =
+        wrappingNoise(u, v, 8, 4, seed) * 0.55 +
+        wrappingNoise(u, v, 16, 8, seed + 19) * 0.3 +
+        wrappingNoise(u, v, 32, 16, seed + 37) * 0.15;
+      terrain[index] = clamp((height - 0.5) * 1.7 + 0.5);
+      feature[index] = wrappingNoise(u, v, 24, 12, seed + 43) > 0.74 ? 1 : 0;
+      cloud[index] =
+        (wrappingNoise(u, v, 12, 10, seed + 89) * 0.7 +
+          wrappingNoise(u, v, 32, 20, seed + 97) * 0.3) *
+        band;
+    }
+  }
+  const map = { terrain, feature, cloud };
+  surfaceMaps.set(seed, map);
+  return map;
+}
+
+function surfaceColumn(longitude: number) {
+  const turn = longitude / (Math.PI * 2);
+  return Math.floor((turn - Math.floor(turn)) * SURFACE_W) % SURFACE_W;
+}
+
 function paintPixel(
   context: CanvasRenderingContext2D,
   x: number,
   y: number,
-  size: number,
+  width: number,
+  height: number,
   color: string,
   alpha = 1,
 ) {
   context.globalAlpha = alpha;
   context.fillStyle = color;
-  context.fillRect(x, y, size, size);
+  context.fillRect(x, y, width, height);
   context.globalAlpha = 1;
 }
 
@@ -165,8 +230,13 @@ function drawWorld(
   const center = size / 2;
   const radius = 53;
   const pixel = 2;
-  const cloudShift = Math.floor(frame / 2);
   const readiness = clamp(progress);
+  const surface = getSurfaceMap(palette.seed);
+  // The planet stays put and turns: the seamless surface map scrolls under a
+  // sphere projection while the light stays fixed, so the day side, the
+  // terminator and the night side read as a globe rotating in place.
+  const spin = frame * ROTATION_PER_FRAME;
+  const cloudSpin = spin * 1.35;
 
   for (let y = 0; y < size; y += pixel) {
     for (let x = 0; x < size; x += pixel) {
@@ -184,6 +254,7 @@ function drawWorld(
             x,
             y,
             pixel,
+            pixel,
             palette.atmosphere,
             distance < 1.035 ? 0.72 : 0.28,
           );
@@ -193,10 +264,11 @@ function drawWorld(
 
       const sphereDepth = Math.sqrt(Math.max(0, 1 - distanceSquared));
       const light = clamp(nx * -0.48 + ny * -0.42 + sphereDepth * 0.82);
-      const terrain =
-        hash(Math.floor(x / 5), Math.floor(y / 5), palette.seed) * 0.54 +
-        hash(Math.floor(x / 11), Math.floor(y / 9), palette.seed + 19) * 0.3 +
-        (Math.sin((ny * 8 + nx * 3.5) + palette.seed) + 1) * 0.08;
+      const latitude = Math.asin(clamp(ny, -1, 1)) / Math.PI + 0.5;
+      const row = Math.min(SURFACE_H - 1, Math.floor(latitude * SURFACE_H)) * SURFACE_W;
+      const longitude = Math.atan2(nx, sphereDepth);
+      const column = surfaceColumn(longitude + spin);
+      const terrain = surface.terrain[row + column];
       const dither = BAYER[(y / pixel) % 4][(x / pixel) % 4] / 16;
       const terminator = clamp((light - 0.08) * 1.45);
       const shade = terminator * 0.62 + terrain * 0.38 + readiness * 0.035;
@@ -206,20 +278,11 @@ function drawWorld(
       else if (shade > 0.38 + dither * 0.09) color = palette.middle;
       else if (shade > 0.18 + dither * 0.05) color = palette.low;
 
-      const featureNoise = hash(Math.floor(x / 7), Math.floor(y / 7), palette.seed + 43);
-      if (featureNoise > 0.81 && light > 0.18 && distance < 0.94) color = palette.feature;
+      if (surface.feature[row + column] && light > 0.18 && distance < 0.94) color = palette.feature;
       paintPixel(context, x, y, pixel, pixel, color);
 
-      const cloudNoise =
-        hash(Math.floor((x + cloudShift) / 8), Math.floor(y / 4), palette.seed + 89) +
-        Math.sin(y * 0.29 + x * 0.07 + palette.seed) * 0.2;
-      const cloudBand = Math.abs(Math.sin(ny * 11 + nx * 2.8 + palette.seed * 0.1));
-      if (
-        cloudNoise > 0.88 &&
-        cloudBand > 0.56 &&
-        light > 0.32 &&
-        distance < 0.92
-      ) {
+      const cloud = surface.cloud[row + surfaceColumn(longitude + cloudSpin)];
+      if (cloud > 0.6 && light > 0.32 && distance < 0.95) {
         paintPixel(context, x, y, pixel, pixel, palette.cloud, 0.62);
       }
 
