@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { AxiomEye } from "./axiom-eye";
 import type { CausalArchiveView } from "./causal-archive-engine";
 import type { DiscoveryFragment } from "./discovery-content";
 
@@ -451,6 +452,7 @@ export function LoreArchive({
       <button className="modal-backdrop" type="button" aria-label="Close lore archive" onClick={onClose} />
       <section className="lore-archive archive-tablet" role="dialog" aria-modal="true" aria-labelledby="archive-title">
         <header>
+          <span className="archive-axiom-eye" aria-hidden="true"><AxiomEye /></span>
           <div>
             <p className="section-kicker violet">AXIOM ARCHIVE</p>
             <h2 id="archive-title">What have we learned?</h2>
