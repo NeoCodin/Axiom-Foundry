@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { playPulseStrike, schedulePulseBeat, unlockPulseAudio } from "./law-heart-audio";
+import type { LawHeartBeat } from "./law-heart-particle-field";
 import {
   decayCoherence,
   getBeatIntervalMs,
@@ -20,17 +22,21 @@ type PulseClock = {
   lastBeatAt: number;
   nextBeatAt: number;
   judgedBeat: number;
+  soundedBeat: number;
   lastStrikeAt: number;
   coherenceAtStrike: number;
 };
 
 /** A tap is timed from the moment the finger or button lands, not from release. */
 const PRESS_MEMORY_MS = 600;
+/** Heartbeat audio is scheduled this far ahead so it lands on the beat, not a frame late. */
+const AUDIO_LOOKAHEAD_MS = 120;
 
 export function useLawHeartPulse(lifetimeAxioms: number) {
   const profile = useMemo(() => getPulseProfile(lifetimeAxioms), [lifetimeAxioms]);
   const approachRef = useRef<HTMLSpanElement>(null);
   const targetRef = useRef<HTMLSpanElement>(null);
+  const beatRef = useRef<LawHeartBeat | null>(null);
   const clockRef = useRef<PulseClock | null>(null);
   const pressedAtRef = useRef<number | null>(null);
   const [coherence, setCoherence] = useState(0);
@@ -47,6 +53,7 @@ export function useLawHeartPulse(lifetimeAxioms: number) {
           lastBeatAt: now,
           nextBeatAt: now + getBeatIntervalMs(profile, 1),
           judgedBeat: -1,
+          soundedBeat: 0,
           lastStrikeAt: clock?.lastStrikeAt ?? 0,
           coherenceAtStrike: clock?.coherenceAtStrike ?? 0,
         };
@@ -66,18 +73,35 @@ export function useLawHeartPulse(lifetimeAxioms: number) {
       approachRef.current?.style.setProperty("--pulse-approach", approach.toFixed(3));
 
       const decayed = decayCoherence(clock.coherenceAtStrike, now - clock.lastStrikeAt, profile.periodMs);
+      const upcomingBeat = clock.lastBeatIndex + 1;
+      if (clock.soundedBeat < upcomingBeat && clock.nextBeatAt - now <= AUDIO_LOOKAHEAD_MS) {
+        clock.soundedBeat = upcomingBeat;
+        schedulePulseBeat(clock.nextBeatAt, decayed);
+      }
+
+      const beat = beatRef.current ?? { lastBeatAt: 0, nextBeatAt: 0, coherence: 0 };
+      beat.lastBeatAt = clock.lastBeatAt;
+      beat.nextBeatAt = clock.nextBeatAt;
+      beat.coherence = decayed;
+      beatRef.current = beat;
+
       setCoherence((shown) => (Math.abs(shown - decayed) >= 0.02 || (decayed === 0 && shown !== 0) ? decayed : shown));
       frame = window.requestAnimationFrame(tick);
     };
     frame = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(frame);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      beatRef.current = null;
+    };
   }, [profile]);
 
   const press = useCallback(() => {
     pressedAtRef.current = performance.now();
+    unlockPulseAudio();
   }, []);
 
   const strike = useCallback((): PulseStrike => {
+    unlockPulseAudio();
     const now = performance.now();
     const pressedAt = pressedAtRef.current;
     pressedAtRef.current = null;
@@ -95,6 +119,7 @@ export function useLawHeartPulse(lifetimeAxioms: number) {
     // gain without costing Coherence; excited double-taps are not punished.
     if (beat === clock.judgedBeat) {
       clock.coherenceAtStrike = current;
+      playPulseStrike("off-phase", current);
       return { judgement: "off-phase", coherence: current };
     }
 
@@ -103,8 +128,9 @@ export function useLawHeartPulse(lifetimeAxioms: number) {
     const updated = nextCoherence(current, judgement);
     clock.coherenceAtStrike = updated;
     setCoherence(updated);
+    playPulseStrike(judgement, updated);
     return { judgement, coherence: updated };
   }, [profile]);
 
-  return { approachRef, targetRef, coherence, press, strike };
+  return { approachRef, targetRef, beatRef, coherence, press, strike };
 }

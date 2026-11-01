@@ -1,7 +1,24 @@
 "use client";
 
-import type { CSSProperties, RefObject } from "react";
+import { useSyncExternalStore, type CSSProperties, type RefObject } from "react";
+import { isPulseAudioEnabled, setPulseAudioEnabled, subscribePulseAudio } from "./law-heart-audio";
 import type { PulseJudgement } from "./law-heart-pulse";
+
+/** Per-device heartbeat audio switch; server render assumes on, then the stored choice takes over. */
+export function PulseSoundToggle({ className = "" }: { className?: string }) {
+  const enabled = useSyncExternalStore(subscribePulseAudio, isPulseAudioEnabled, () => true);
+  return (
+    <button
+      className={`law-pulse-sound ${enabled ? "is-on" : ""} ${className}`}
+      type="button"
+      aria-pressed={enabled}
+      aria-label={enabled ? "Mute the Law-Heart pulse sound" : "Turn on the Law-Heart pulse sound"}
+      onClick={() => setPulseAudioEnabled(!enabled)}
+    >
+      Sound {enabled ? "on" : "off"}
+    </button>
+  );
+}
 
 export const PULSE_JUDGEMENT_LABEL: Record<PulseJudgement, string | null> = {
   coherent: "Coherent",

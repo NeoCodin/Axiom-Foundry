@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { formatNumber, type PurchaseMode } from "./game-engine";
 import { getResonantFlux, type PulseJudgement } from "./law-heart-pulse";
-import { LawHeartCoherenceMeter, LawHeartPulseOverlay, PULSE_JUDGEMENT_LABEL } from "./law-heart-pulse-overlay";
+import { LawHeartCoherenceMeter, LawHeartPulseOverlay, PULSE_JUDGEMENT_LABEL, PulseSoundToggle } from "./law-heart-pulse-overlay";
 import {
   getLawHeartSpectrum,
   LawPressCanvas,
@@ -180,6 +180,7 @@ export function AxiomLawHeart({
         <div className="law-heart-status" aria-label="Core status">
           <span>{pressStatus}</span>
           <strong>{fluxPerSecondLabel}<small> Flux / sec</small></strong>
+          <PulseSoundToggle />
         </div>
       </header>
 
@@ -206,6 +207,7 @@ export function AxiomLawHeart({
             provenLaws={provenLawCount}
             preparingRecalibration={confirmRecalibration}
             qaOverride={qaOverride}
+            beat={pulse.beatRef}
           />
           <LawHeartPulseOverlay approachRef={pulse.approachRef} targetRef={pulse.targetRef} coherence={pulse.coherence} />
           <span className="law-heart-readout">

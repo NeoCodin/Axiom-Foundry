@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { formatNumber } from "./game-engine";
 import { getResonantFlux, type PulseJudgement } from "./law-heart-pulse";
-import { LawHeartCoherenceMeter, LawHeartPulseOverlay, PULSE_JUDGEMENT_LABEL } from "./law-heart-pulse-overlay";
+import { LawHeartCoherenceMeter, LawHeartPulseOverlay, PULSE_JUDGEMENT_LABEL, PulseSoundToggle } from "./law-heart-pulse-overlay";
 import {
   getLawHeartSpectrum,
   LawPressCanvas,
@@ -107,6 +107,7 @@ export function FoundryLawHeart({
             preparingRecalibration={false}
             droneFrames={droneFrames}
             qaOverride={qaOverride}
+            beat={pulse.beatRef}
           />
           <LawHeartPulseOverlay approachRef={pulse.approachRef} targetRef={pulse.targetRef} coherence={pulse.coherence} />
           <span className="foundry-law-heart-readout">
@@ -124,6 +125,7 @@ export function FoundryLawHeart({
             </span>
           )}
         </button>
+        <PulseSoundToggle className="is-floating" />
       </div>
     </section>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, type RefObject } from "react";
 
 export type LawPressState =
   | "dormant"
@@ -73,6 +73,15 @@ type LawPressCanvasProps = {
   preparingRecalibration: boolean;
   droneFrames?: readonly LawHeartDroneFrame[];
   qaOverride?: LawHeartQaOverride;
+  /** Live beat from the pulse-timing clock; when present the core throbs on it instead of breathing freely. */
+  beat?: RefObject<LawHeartBeat | null>;
+};
+
+/** Beat times share the requestAnimationFrame / performance.now() clock. */
+export type LawHeartBeat = {
+  lastBeatAt: number;
+  nextBeatAt: number;
+  coherence: number;
 };
 
 type PurchaseEvent = {
@@ -636,6 +645,23 @@ function drawSolarSurface(
   context.restore();
 }
 
+/**
+ * Heartbeat envelope: a contraction just before the beat, a strong swell on
+ * it ("lub"), and a softer echo 170ms later ("dub").
+ */
+function getBeatThrob(beat: LawHeartBeat | null, now: number) {
+  if (!beat || beat.nextBeatAt <= 0) return null;
+  const since = Math.max(0, now - beat.lastBeatAt);
+  const until = Math.max(0, beat.nextBeatAt - now);
+  const lub = Math.exp(-since / 110);
+  const dub = since > 170 ? 0.45 * Math.exp(-(since - 170) / 90) : 0;
+  return {
+    swell: lub + dub,
+    squeeze: until < 180 ? 1 - until / 180 : 0,
+    coherence: clamp(beat.coherence),
+  };
+}
+
 function drawCore(
   context: CanvasRenderingContext2D,
   props: LawPressCanvasProps,
@@ -667,7 +693,10 @@ function drawCore(
       ? 1 - recalibrationPhase / 0.46 * 0.88
       : 0.12 + Math.pow((recalibrationPhase - 0.46) / 0.54, 0.42) * 0.88;
   }
-  const idleBreath = active ? pulse * 2.1 : pulse * 1.15;
+  const throb = reducedMotion ? null : getBeatThrob(props.beat?.current ?? null, now);
+  const idleBreath = throb
+    ? throb.swell * (4 + 5 * throb.coherence) - throb.squeeze * 1.8
+    : active ? pulse * 2.1 : pulse * 1.15;
   const qaScale = props.qaOverride?.enabled
     ? clamp(props.qaOverride.coreScale, 0.45, 2)
     : 1;
@@ -680,7 +709,8 @@ function drawCore(
     70,
   );
   const intensity = clamp(
-    (0.16 + productionOrder * 0.08 + machineOrder * 0.025 + clickFlare * 0.65) *
+    (0.16 + productionOrder * 0.08 + machineOrder * 0.025 + clickFlare * 0.65 +
+      (throb ? throb.swell * (0.22 + 0.4 * throb.coherence) : 0)) *
       qaIntensity,
     0.12,
     3,

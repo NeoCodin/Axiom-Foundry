@@ -938,3 +938,19 @@
   /* The approach ring stops shrinking; its brightness still rises into each beat. */
   .law-pulse-approach { transform: translate(-50%, -50%); }
 }
+
+/* Heartbeat audio switch: inside the Cold Wake status box, floating in the
+   Foundry reactor's free corner. Matches the pixel skin's specificity and
+   wins on load order. */
+.game-shell button.law-pulse-sound {
+  display: block;
+  min-height: 24px;
+  margin: 8px 0 0 auto;
+  padding: 3px 8px;
+  color: #6f878b;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+.game-shell button.law-pulse-sound.is-on { border-color: #8a6a2f; color: #f0c367; }
+.foundry-law-heart-body { position: relative; }
+.game-shell button.law-pulse-sound.is-floating { position: absolute; z-index: 8; right: 18px; bottom: 18px; margin: 0; }
