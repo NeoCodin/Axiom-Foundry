@@ -77,6 +77,16 @@ function ready() {
   return audio && isPulseAudioEnabled() && audio.context.state === "running" ? audio : null;
 }
 
+/** The shared output, once a press has started audio and while sound is on; else null. */
+export function getPulseAudioOutput() {
+  return ready();
+}
+
+/** The shared second of white noise, for anyone building their own hiss. */
+export function getPulseNoise(output: PulseAudio) {
+  return noise(output);
+}
+
 function envelope(context: AudioContext, when: number, peak: number, attack: number, decay: number) {
   const gain = context.createGain();
   gain.gain.setValueAtTime(0.0001, when);

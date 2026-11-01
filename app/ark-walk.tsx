@@ -26,6 +26,7 @@ import {
   type WalkLayout,
   type WalkRoomKind,
 } from "./ark-walk-layout";
+import { createSoundscape, type BaySound, type Soundscape, type SoundPlace } from "./ark-walk-audio";
 import { demoCrew, LYING, planCrew, SEATED, type Activity, type WalkCrewMember } from "./ark-walk-crew";
 import { AxiomEye } from "./axiom-eye";
 import { CIVILIAN_COLOR, CREW_ROLE_COLORS, getCrewHead } from "./crew-portrait";
@@ -404,6 +405,9 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
   const animated: Updater[] = [];
   const notices: (() => string | null)[] = [];
   const crowd: { person: Person; deck: number }[] = [];
+  // Where the ship's sounds come from, and what the launch bay is doing, for ark-walk-audio.
+  const soundPlaces: SoundPlace[] = [];
+  const baySound: BaySound = { alarm: false, venting: false, engines: 0, ship: null };
   const dynamicObstacles: (() => Obstacle | null)[] = [];
   const roomsByKind = new Map(props.rooms.map((room) => [room.kind as string, room]));
   const accent = props.worldAccent || "#c9b6ff";
@@ -812,7 +816,11 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       const addConsole = (object: THREE.Object3D, prompt?: () => string) =>
         interactables.push({ kind: "console", object, label: room.label, room: consoleRoom, online: room.online, deck: deckIndex, prompt });
 
+      const hear = (kind: SoundPlace["kind"], x: number, y: number, z: number) =>
+        soundPlaces.push({ kind, x, y: y0 + y, z, deck: deckIndex, online: !dark });
       if (room.kind === "fabrication") {
+        hear("press", room.x0 + 3.5, 2, towardWalls(-5.1, half));
+        hear("conveyor", room.x0 + 9, 0.8, towardWalls(5, half));
         // The press, with its console on the front.
         fit(3, 3, 3, solid(metal), room.x0 + 3.5, 1.5, -5.1);
         fit(3.1, 0.2, 3.1, lambert("#ffffff", { map: repeated(stripes, 4, 0.3) }), room.x0 + 3.5, 0.1, -5.1);
@@ -886,6 +894,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         put(core.x0 - room.x0 - 1.8, 0.06, 0.06, rail, (room.x0 + core.x0) / 2 + 0.9, 1, core.z0);
         put(room.x1 - core.x1 - 1.8, 0.06, 0.06, rail, (core.x1 + room.x1) / 2 - 0.9, 1, core.z1);
       } else if (room.kind === "habitation") {
+        hear("mess", room.x1 - 3.6, 1, towardWalls(3.4, half));
         // Two bunk stacks with linen and posts.
         for (const sx of [room.x0 + 3.5, room.x0 + 10]) {
           for (const level of [0.55, 1.75]) {
@@ -921,6 +930,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         fit(0.6, 0.6, 0.6, solid(PALETTE.wood), room.x1 - 1, 0.3, 6.1);
         for (let leaf = 0; leaf < 5; leaf += 1) fit(0.25, 0.5 + leaf * 0.1, 0.25, solid(PALETTE.leaf), room.x1 - 1.2 + (leaf % 3) * 0.2, 0.85 + leaf * 0.08, 6 + (leaf % 2) * 0.2);
       } else if (room.kind === "research") {
+        hear("servers", room.x0 + 2.8, 1.2, towardWalls(6.25, half));
         // A long desk under wall screens, the middle screen being the console.
         fit(width - 2, 1, 1.4, solid(metal), cx, 0.5, -6.15);
         const screens = [-1.5, -0.5, 0.5, 1.5].map((offset) => fit(2.2, 1.2, 0.06, glow(screenColor), cx + offset * 2.5, 2.4, -6.68));
@@ -951,6 +961,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
           leds.forEach((led, ledIndex) => { led.visible = !dark && hash(Math.floor(time / 300) + ledIndex * 13.1) > 0.35; });
         });
       } else if (room.kind === "bridge") {
+        hear("helm", room.x1 - 2.6, 1, 0);
         // The helm with its wide screen (the console), the pilot's chair, and two side stations.
         fit(1.6, 1, 5.2, solid(metal), room.x1 - 2.6, 0.5, 0);
         addConsole(fit(0.06, 0.9, 4.4, glow(screenColor), room.x1 - 3.42, 1.45, 0));
@@ -963,6 +974,8 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
           fit(3.4, 0.7, 0.06, glow(screenColor), room.x0 + 4, 1.5, side * 5.62);
         }
       } else if (room.kind === "support") {
+        hear("tanks", room.x0 + 7, 1.5, towardWalls(-5.4, half));
+        hear("fan", room.x0 + 7, room.height - 0.3, 0);
         // Four culture tanks keep the air breathable.
         const glassMaterialTank = lambert(glass, { transparent: true, opacity: 0.25, depthWrite: false });
         const cultureMaterial = solid(dark ? "#2a3a2a" : PALETTE.culture);
@@ -1475,6 +1488,11 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       for (const leg of flyer.legs) leg.visible = ship.lift < 0.4;
       const burn = ship.lift === 0 && ship.out === 0 ? 0.15 : 0.75 + hash(Math.floor(time / 60)) * 0.25;
       for (const engine of flyer.engines) engine.scale.setScalar(0.5 + burn * 0.8);
+      baySound.alarm = moment.alarm;
+      baySound.venting = moment.venting;
+      const flying = flyer.group.visible && (ship.lift > 0 || ship.out > 0);
+      baySound.engines = flying ? 0.45 + Math.min(1, ship.out * 2) * 0.55 : 0;
+      baySound.ship = flying ? flyer.group.position : null;
 
       // The team: aboard through the blast doors on the way out, off and away on the way home.
       team.forEach((person, member) => {
@@ -2230,7 +2248,15 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     ...dynamicObstacles.map((obstacle) => obstacle()).filter((obstacle): obstacle is Obstacle => obstacle !== null),
   ];
 
-  return { interactables, animated, notices, heartGroup, heartTarget, heartLight, gimbals, obstacles, stage };
+  // The core's roar, heard from both decks of the gallery; the bay's alarms and engines.
+  soundPlaces.push({ kind: "star", x: heart.x, y: heart.y, z: heart.z, deck: null, online: true });
+  const dockRoom = layout.decks[1].compartments.find((compartment) => compartment.kind === "hangar");
+  if (dockRoom) {
+    const bay = layout.dock.bay;
+    soundPlaces.push({ kind: "bay", x: (bay.x0 + bay.x1) / 2, y: 2.5, z: (bay.z0 + bay.z1) / 2, deck: 1, online: true });
+  }
+
+  return { interactables, animated, notices, heartGroup, heartTarget, heartLight, gimbals, obstacles, stage, soundPlaces, baySound };
 }
 
 export default function ArkWalk(props: ArkWalkProps) {
@@ -2279,6 +2305,7 @@ export default function ArkWalk(props: ArkWalkProps) {
 
     const camera = new THREE.PerspectiveCamera(72, 1, 0.05, 1000);
     const ship = buildShip(scene, layout, initial, () => propsRef.current);
+    let soundscape: Soundscape | null = null;
     const heart = layout.heart;
     const lookup = new Map(ship.interactables.map((item) => [item.object, item]));
 
@@ -2299,6 +2326,8 @@ export default function ArkWalk(props: ArkWalkProps) {
     let pitch = 0;
     let eyeY = layout.decks[deckIndex].floorY + EYE_HEIGHT;
     let travel: { to: number; fromY: number; start: number } | null = null;
+    let lastX = x;
+    let lastZ = z;
     let standingLift = false;
     const keys = new Set<string>();
     let target: Interactable | null = null;
@@ -2319,6 +2348,7 @@ export default function ArkWalk(props: ArkWalkProps) {
         unlockPulseAudio();
         playBulkhead();
         travel = { to: deckIndex === 0 ? 1 : 0, fromY: eyeY, start: performance.now() };
+        soundscape?.lift(travel.to === 0);
         return;
       }
       if (!target) return;
@@ -2375,6 +2405,7 @@ export default function ArkWalk(props: ArkWalkProps) {
     if (qa) {
       (window as unknown as { arkWalkQa?: unknown }).arkWalkQa = {
         layout,
+        sounding: () => soundscape !== null,
         place(deck: number, px: number, pz: number, look = yaw, tilt = 0) {
           deckIndex = deck;
           x = px;
@@ -2483,6 +2514,11 @@ export default function ArkWalk(props: ArkWalkProps) {
       }
       ship.heartLight.intensity = (ship.stage === 0 ? 2 : 14) + throb * 6 + strikeFlash * 8;
       const drone = { x, z, deck: deckIndex, dt };
+      // Sound starts with the first press (browsers insist), then follows the drone.
+      soundscape ??= createSoundscape(ship.soundPlaces, () => ship.baySound);
+      soundscape?.update({ x, y: eyeY, z, yaw, deck: deckIndex, speed: dt > 0 ? Math.hypot(x - lastX, z - lastZ) / dt : 0 });
+      lastX = x;
+      lastZ = z;
       for (const update of ship.animated) update(now, drone);
 
       // What is the drone looking at?
@@ -2557,6 +2593,7 @@ export default function ArkWalk(props: ArkWalkProps) {
           material.dispose();
         }
       });
+      soundscape?.dispose();
       renderer.dispose();
       renderer.domElement.remove();
     };
