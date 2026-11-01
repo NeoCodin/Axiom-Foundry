@@ -41,6 +41,9 @@ export type ArkCrewPreview = {
   role: string;
   level: number;
   training?: string | null;
+  /** Wounded and resting; the drone view puts them in the sick bay. */
+  resting?: boolean;
+  ageGroup?: string;
   rarity: string;
   rarityLabel: string;
   rarityDescription: string;
@@ -503,7 +506,14 @@ function ArkDeck({
                   onActivate: () => onOpenExpeditions?.(),
                 },
               ]}
-              crew={crew}
+              crew={crew.map((member) => ({
+                id: member.id,
+                name: member.name,
+                role: member.role,
+                training: Boolean(member.training),
+                resting: member.resting,
+                ageGroup: member.ageGroup,
+              }))}
               heart={{
                 name: lawHeartSpectrum.name,
                 stage: Math.max(0, LAW_HEART_SPECTRA.indexOf(lawHeartSpectrum)),

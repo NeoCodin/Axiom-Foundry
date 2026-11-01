@@ -220,6 +220,7 @@ import {
   getLifeSupportStatus,
   getSurvivorRarity,
   getSurvivorSkillLevel,
+  isSurvivorWounded,
   renameSurvivorCallsign,
   returnSurvivorToAutoAssignment,
   setSurvivorSettlementProtected,
@@ -3061,6 +3062,8 @@ export default function Home() {
                   ? 0
                   : getSurvivorSkillLevel(survivor, survivor.role),
               training: training?.targetRole ?? null,
+              resting: isSurvivorWounded(survivor),
+              ageGroup: survivor.ageGroup,
               rarity: rarity.id,
               rarityLabel: rarity.label,
               rarityDescription: rarity.description,

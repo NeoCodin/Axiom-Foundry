@@ -166,6 +166,8 @@ function furniture(kind: WalkRoomKind, upper: boolean, x0: number, x1: number): 
         { x0: x0 + 1.4, x1: x1 - 1.4, z0: -6.6, z1: -4.2 }, // four culture tanks
         { x0: x0 + 5, x1: x0 + 8.4, z0: 5, z1: 6.4 }, // the atmosphere desk
         { x0: x0 + 9.4, x1: x1 - 0.8, z0: 6.2, z1: 6.9 }, // hydroponic shelves
+        { x0: x0 + 1, x1: x0 + 3.4, z0: 2.35, z1: 3.35 }, // the two sick-bay beds
+        { x0: x0 + 1, x1: x0 + 3.4, z0: 3.75, z1: 4.75 },
       ];
     case "education":
       return [
