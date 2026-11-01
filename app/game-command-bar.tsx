@@ -34,6 +34,7 @@ type GameCommandBarProps = {
   onOpenHelp: () => void;
   onOpenLore: () => void;
   onSave: () => void;
+  onOpenBackup: () => void;
   onOpenDirective: () => void;
   tooltipsEnabled: boolean;
   onToggleTooltips: () => void;
@@ -44,7 +45,7 @@ export function GameCommandBar({
   axiomsLabel, resonanceLabel, operationalLoadLabel, saveStatus, ready, focusWelcome, focusFlux,
   nullSaturation,
   showAxioms, showResonance, showOperations,
-  objective, onOpenHelp, onOpenLore, onSave, onOpenDirective,
+  objective, onOpenHelp, onOpenLore, onSave, onOpenBackup, onOpenDirective,
   tooltipsEnabled, onToggleTooltips,
 }: GameCommandBarProps) {
   // Phone widths hide the desktop metrics/actions cells entirely, so their
@@ -109,6 +110,7 @@ export function GameCommandBar({
               <button className={`quiet-button tooltip-toggle ${tooltipsEnabled ? "is-on" : ""}`} type="button" aria-pressed={tooltipsEnabled} onClick={onToggleTooltips}>Hints {tooltipsEnabled ? "ON" : "OFF"}</button>
               <button className="quiet-button" type="button" onClick={closeMenuAnd(onOpenLore)}>Lore archive</button>
               <button className="quiet-button" type="button" onClick={closeMenuAnd(onSave)}>Save now</button>
+              <button className="quiet-button" type="button" onClick={closeMenuAnd(onOpenBackup)}>Back up / restore</button>
             </div>
           </div>
         </>
@@ -125,6 +127,7 @@ export function GameCommandBar({
         <button className={`quiet-button tooltip-toggle ${tooltipsEnabled ? "is-on" : ""}`} type="button" aria-pressed={tooltipsEnabled} onClick={onToggleTooltips}>Hints {tooltipsEnabled ? "ON" : "OFF"}</button>
         <button className="quiet-button" type="button" data-pixel-tooltip="Review only the transmissions, contradictions, and historical fragments AXIOM has already discovered." aria-label="Open the discovered Lore Archive" onClick={onOpenLore}>Lore archive</button>
         <button className="quiet-button" type="button" data-pixel-tooltip="Write the current game state to this device immediately. Automatic saving remains active." aria-label="Save progress on this device now" onClick={onSave}>Save now</button>
+        <button className="quiet-button" type="button" data-pixel-tooltip="Copy or download a backup code for this save, or restore one from another device." aria-label="Back up or restore your save" onClick={onOpenBackup}>Backup</button>
       </div>
       <div
         className="objective-strip"

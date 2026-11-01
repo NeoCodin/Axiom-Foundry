@@ -173,10 +173,7 @@ import { useSwipeNavigation } from "./use-swipe-navigation";
 import { CommandBriefing } from "./command-briefing";
 import { getCommandPriorities, type CommandPriority } from "./command-priorities";
 import { GameCommandBar } from "./game-command-bar";
-import {
-  PUBLIC_COLD_WAKE_RECOVERY_KEY,
-  createColdWakeStepFiveRecoveryState,
-} from "./public-recovery";
+import { SaveTransferDialog } from "./save-transfer-dialog";
 import PopulationConsole from "./population-console";
 import DefenseConsole from "./defense-console";
 import ArmoryConsole, { type ArmoryItemQuoteView } from "./armory-console";
@@ -504,7 +501,7 @@ export default function Home() {
   const [manualTopic, setManualTopic] = useState<ManualTopicId | null>(null);
   const [tooltipsEnabled, setTooltipsEnabled] = useState(true);
   const [qaMode, setQaMode] = useState(false);
-  const [publicRecoveryHandled, setPublicRecoveryHandled] = useState(true);
+  const [saveTransferOpen, setSaveTransferOpen] = useState(false);
   const [qaCollapsed, setQaCollapsed] = useState(false);
   const [qaLawHeartOverride, setQaLawHeartOverride] =
     useState<LawHeartQaOverride>(DEFAULT_LAW_HEART_QA_OVERRIDE);
@@ -512,6 +509,7 @@ export default function Home() {
     useState<NullSaturationOverride>(DEFAULT_NULL_SATURATION_OVERRIDE);
   const loadStarted = useRef(false);
   const activeSaveKeyRef = useRef(SAVE_KEY);
+  const persistBlockedRef = useRef(false);
   const gameRef = useRef(game);
   const tourActionRef = useRef<HTMLButtonElement>(null);
   const contextGuideActionRef = useRef<HTMLButtonElement>(null);
@@ -529,6 +527,10 @@ export default function Home() {
 
   const closeManual = useCallback(() => {
     setManualTopic(null);
+  }, []);
+
+  const closeSaveTransfer = useCallback(() => {
+    setSaveTransferOpen(false);
   }, []);
 
   useEffect(() => {
@@ -552,10 +554,6 @@ export default function Home() {
 
     try {
       setTooltipsEnabled(window.localStorage.getItem(TOOLTIP_PREFERENCE_KEY) !== "off");
-      setPublicRecoveryHandled(
-        qaEnabled ||
-          window.localStorage.getItem(PUBLIC_COLD_WAKE_RECOVERY_KEY) !== null,
-      );
       if (!qaEnabled) {
         for (const retiredKey of RETIRED_SAVE_KEYS) {
           window.localStorage.removeItem(retiredKey);
@@ -674,6 +672,7 @@ export default function Home() {
   }, [contextGuide, ready, tourStep]);
 
   const persistGame = useCallback((message = "Progress saved") => {
+    if (persistBlockedRef.current) return;
     try {
       const snapshot = { ...gameRef.current, lastSaved: Date.now() };
       window.localStorage.setItem(activeSaveKeyRef.current, JSON.stringify(snapshot));
@@ -2273,29 +2272,20 @@ export default function Home() {
     return true;
   };
 
-  const finishPublicRecoveryPrompt = (result: "recovered" | "dismissed") => {
+  const handleRestoreSave = (restored: GameState) => {
+    // Write the restored save, then reload so it passes through the normal
+    // load path (offline credit, notices, unlock-derived view state). Blocking
+    // persistence first keeps the autosave and page-exit save from writing the
+    // outgoing game over it during the reload.
+    persistBlockedRef.current = true;
     try {
-      window.localStorage.setItem(PUBLIC_COLD_WAKE_RECOVERY_KEY, result);
+      window.localStorage.setItem(activeSaveKeyRef.current, JSON.stringify(restored));
     } catch {
-      // The prompt can still close for this session when storage is unavailable.
+      persistBlockedRef.current = false;
+      return "This browser is blocking saved data, so the backup cannot be restored here.";
     }
-    setPublicRecoveryHandled(true);
-  };
-
-  const handleColdWakeRecovery = () => {
-    if (qaMode) return;
-    const next = createColdWakeStepFiveRecoveryState(Date.now());
-    gameRef.current = next;
-    setGame(next);
-    setPrimaryView("settlement");
-    setFoundryConsoleTab("chain");
-    setContextGuide(null);
-    setTourStep(null);
-    setAnnouncement(
-      "Cold Wake commissioning recovered. Authorize Pelagos orbital insertion when ready.",
-    );
-    finishPublicRecoveryPrompt("recovered");
-    window.setTimeout(() => persistGame("Recovered progress saved"), 0);
+    window.location.reload();
+    return null;
   };
 
   const handleUpgradeLivingRoom = (roomId: RoomId) => {
@@ -2781,6 +2771,7 @@ export default function Home() {
         onOpenHelp={() => openManual(primaryView)}
         onOpenLore={() => setLoreOpen(true)}
         onSave={() => persistGame("Saved")}
+        onOpenBackup={() => setSaveTransferOpen(true)}
         onOpenDirective={() => {
           if (navigationUnlocks.settlement) handlePrimaryNavigation("settlement");
           else setPrimaryView("deck");
@@ -2788,39 +2779,6 @@ export default function Home() {
         tooltipsEnabled={tooltipsEnabled}
         onToggleTooltips={handleToggleTooltips}
       />
-
-      {!qaMode &&
-        ready &&
-        !publicRecoveryHandled &&
-        game.missions.currentIndex === 0 &&
-        !game.missions.awaitingAcknowledgement && (
-          <section
-            className="public-save-recovery"
-            aria-label="Cold Wake save recovery"
-          >
-            <div>
-              <span>ONE-TIME SAVE RECOVERY</span>
-              <strong>Did the public reset erase your Cold Wake run?</strong>
-              <small>
-                Restore completed commissioning and stop at Step 5, immediately
-                before Pelagos departure. No later-world progress or bonus
-                resources are granted.
-              </small>
-            </div>
-            <div className="public-save-recovery-actions">
-              <button type="button" onClick={handleColdWakeRecovery}>
-                Recover Cold Wake Step 5
-              </button>
-              <button
-                type="button"
-                className="quiet-button"
-                onClick={() => finishPublicRecoveryPrompt("dismissed")}
-              >
-                Dismiss
-              </button>
-            </div>
-          </section>
-        )}
 
       {qaMode && (
         <QaSandbox
@@ -4150,6 +4108,15 @@ export default function Home() {
         <CoreEchoPreview
           previewId={qaCoreEchoPreview}
           onClose={() => setQaCoreEchoPreview(null)}
+        />
+      )}
+
+      {saveTransferOpen && (
+        <SaveTransferDialog
+          profile={qaMode ? "qa" : "player"}
+          getCurrentSave={() => ({ ...gameRef.current, lastSaved: Date.now() })}
+          onRestore={handleRestoreSave}
+          onClose={closeSaveTransfer}
         />
       )}
 
