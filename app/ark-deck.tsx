@@ -372,6 +372,7 @@ function ArkDeck({
     worldGlass: "var(--world-accent, #5fd39a)",
     transit: transitActive,
     driveEnergy: coreEnergy,
+    onOpenCrew: populationUnlocked ? () => onOpenView("population") : undefined,
   };
 
   return (

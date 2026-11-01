@@ -17,8 +17,11 @@ type TooltipRule = {
   place?: TooltipPlacement;
 };
 
+/** Tooltips can sit on HTML or on SVG art (for example crew on the Ark cutaway). */
+type TooltipTarget = HTMLElement | SVGElement;
+
 type ActiveTooltip = {
-  target: HTMLElement;
+  target: TooltipTarget;
   copy: string;
   place?: TooltipPlacement;
 };
@@ -143,34 +146,35 @@ const TOOLTIP_RULES: TooltipRule[] = [
   { selector: ".research-archive-reader", copy: "Focused Research record. Proven capabilities are permanent. Contradictions remain in the evidence archive with their status clearly marked." },
 ];
 
-function isActionableTooltipTarget(target: HTMLElement): boolean {
+function isActionableTooltipTarget(target: TooltipTarget): boolean {
   return target.matches("button, a, select, [role='button']");
 }
 
 function resolveTooltip(start: Element | null): ActiveTooltip | null {
   let element = start;
-  while (element && element instanceof HTMLElement && !element.matches("body")) {
-    const explicit = element.dataset.pixelTooltip?.trim();
+  while (element && (element instanceof HTMLElement || element instanceof SVGElement) && !element.matches("body")) {
+    const current: TooltipTarget = element;
+    const explicit = current.dataset.pixelTooltip?.trim();
     if (explicit) {
-      const place = element.dataset.tooltipPlace;
+      const place = current.dataset.tooltipPlace;
       return {
-        target: element,
+        target: current,
         copy: explicit,
         place: place === "above" || place === "below" ? place : undefined,
       };
     }
 
-    const rule = TOOLTIP_RULES.find((candidate) => element.matches(candidate.selector));
+    const rule = TOOLTIP_RULES.find((candidate) => current.matches(candidate.selector));
     if (rule) {
       return {
-        target: element,
-        copy: typeof rule.copy === "function" ? rule.copy(element) : rule.copy,
+        target: current,
+        copy: typeof rule.copy === "function" ? rule.copy(current as HTMLElement) : rule.copy,
         place: rule.place,
       };
     }
 
-    const nativeTitle = element.getAttribute("title")?.trim();
-    if (nativeTitle) return { target: element, copy: nativeTitle };
+    const nativeTitle = current.getAttribute("title")?.trim();
+    if (nativeTitle) return { target: current, copy: nativeTitle };
     element = element.parentElement;
   }
   return null;
@@ -189,7 +193,7 @@ export function PixelTooltipLayer() {
   const [position, setPosition] = useState<TooltipPosition>(hiddenPosition);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<ActiveTooltip | null>(null);
-  const nativeTitleRef = useRef<{ target: HTMLElement; title: string } | null>(null);
+  const nativeTitleRef = useRef<{ target: TooltipTarget; title: string } | null>(null);
 
   const restoreNativeTitle = useCallback(() => {
     const saved = nativeTitleRef.current;

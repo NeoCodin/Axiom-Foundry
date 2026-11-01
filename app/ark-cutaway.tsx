@@ -32,7 +32,7 @@ export type ArkCutawayRoom = {
   onActivate: () => void;
 };
 
-export type ArkCutawayCrew = { id: string; role: string };
+export type ArkCutawayCrew = { id: string; role: string; name: string };
 
 export type ArkCutawayProps = {
   rooms: readonly ArkCutawayRoom[];
@@ -44,8 +44,10 @@ export type ArkCutawayProps = {
   worldGlass: string;
   transit: boolean;
   driveEnergy: number;
-  /** Art only: no tags or hit areas. Phones list the rooms beneath it. */
+  /** Art only: no tags, no clicks. Phones list the rooms beneath it. */
   compact?: boolean;
+  /** Clicking a crew member on the ship opens Personnel. */
+  onOpenCrew?: () => void;
 };
 
 type Px = readonly [x: number, y: number, w: number, h: number, fill: string, opacity?: number];
@@ -267,14 +269,19 @@ function Person({ x, top, id, role }: { x: number; top: number; id: string; role
   );
 }
 
+function titleCase(role: string) {
+  const display = role === "security" ? "soldier" : role;
+  return display.charAt(0).toUpperCase() + display.slice(1);
+}
+
 function placeCrew(crew: readonly ArkCutawayCrew[], online: ReadonlySet<ArkCutawayRoomKind>) {
-  const placed: { id: string; role: string; kind: ArkCutawayRoomKind; spot: number }[] = [];
+  const placed: { id: string; role: string; name: string; kind: ArkCutawayRoomKind; spot: number }[] = [];
   const used: Partial<Record<ArkCutawayRoomKind, number>> = {};
   const claim = (member: ArkCutawayCrew, kind: ArkCutawayRoomKind) => {
     const taken = used[kind] ?? 0;
     if (!online.has(kind) || taken >= ROOM_SPOTS[kind].length) return false;
     used[kind] = taken + 1;
-    placed.push({ id: member.id, role: member.role, kind, spot: taken });
+    placed.push({ id: member.id, role: member.role, name: member.name, kind, spot: taken });
     return true;
   };
   for (const member of crew) {
@@ -297,8 +304,10 @@ export function ArkCutaway({
   transit,
   driveEnergy,
   compact = false,
+  onOpenCrew,
 }: ArkCutawayProps) {
   const onlineKinds = new Set(rooms.filter((room) => room.online).map((room) => room.kind));
+  const roomLabels = new Map(rooms.map((room) => [room.kind, room.label] as const));
   const placed = placeCrew(crew, onlineKinds);
   const style = {
     "--cutaway-beat": `${Math.max(600, beatPeriodMs)}ms`,
@@ -340,7 +349,11 @@ export function ArkCutaway({
           {rooms.map((room) => {
             const slot = SLOTS[room.kind];
             return (
-              <g key={room.key} className={`ark-cutaway-room ${room.online ? "is-online" : "is-dormant"}`}>
+              <g
+                key={room.key}
+                className={`ark-cutaway-room ${room.online ? "is-online" : "is-dormant"} ${!compact && room.interactive ? "is-interactive" : ""}`}
+                onClick={!compact && room.interactive ? room.onActivate : undefined}
+              >
                 <Blocks blocks={roomShell(slot.x, slot.y, slot.w, slot.h, room.online)} />
                 <Blocks blocks={PROPS[room.kind]} />
                 {room.kind === "bridge" && <rect x={281} y={58} width={3} height={12} style={{ fill: worldGlass }} />}
@@ -385,7 +398,9 @@ export function ArkCutaway({
             return (
               <g
                 key={person.id}
-                className={range ? "ark-cutaway-walker" : undefined}
+                className={`ark-cutaway-person ${range ? "ark-cutaway-walker" : ""} ${!compact && onOpenCrew ? "is-interactive" : ""}`}
+                data-pixel-tooltip={compact ? undefined : `${person.name} · ${titleCase(person.role)} · ${roomLabels.get(person.kind) ?? ""}`}
+                onClick={!compact ? onOpenCrew : undefined}
                 style={range ? ({
                   "--walk": `${range}px`,
                   animationDuration: `${8 + (index % 4) * 1.5}s`,
@@ -408,27 +423,12 @@ export function ArkCutaway({
           <>
             {rooms.map((room) => {
               const slot = SLOTS[room.kind];
-              const area = {
-                left: `${(slot.x / VIEW_W) * 100}%`,
-                top: `${(slot.y / VIEW_H) * 100}%`,
-                width: `${(slot.w / VIEW_W) * 100}%`,
-                height: `${(slot.h / VIEW_H) * 100}%`,
-              };
               const centre = ((slot.x + slot.w / 2) / VIEW_W) * 100;
               const tagStyle = slot.tag === "above"
                 ? ({ "--tag-x": `${centre}%`, bottom: `calc(${100 - (HULL_TOP / VIEW_H) * 100}% + 26px)` } as CSSProperties)
                 : ({ "--tag-x": `${centre}%`, top: `calc(${(HULL_BOTTOM / VIEW_H) * 100}% + 26px)` } as CSSProperties);
               return (
                 <div key={room.key} className="ark-cutaway-slot">
-                  <button
-                    type="button"
-                    className="ark-cutaway-hit"
-                    style={area}
-                    tabIndex={-1}
-                    aria-hidden="true"
-                    disabled={!room.interactive}
-                    onClick={room.onActivate}
-                  />
                   <button
                     type="button"
                     className={`ark-cutaway-tag is-${slot.tag} align-${slot.align} ${room.online ? "is-online" : "is-dormant"} ${room.commissioning ? "is-commissioning" : ""}`}
