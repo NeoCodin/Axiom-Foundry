@@ -148,7 +148,7 @@ export function NullInterference({
     const schedule = () => {
       const [minimum, maximum] = cadence;
       later(() => {
-        if (!document.hidden) {
+        if (!document.hidden && !document.querySelector(".ark-walk")) {
           run(pickWeighted(weights));
           if (classification === "severe" && Math.random() < 0.3) {
             later(() => run(pickWeighted(weights)), 120);

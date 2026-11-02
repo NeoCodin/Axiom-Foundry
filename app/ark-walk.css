@@ -26,10 +26,6 @@
   image-rendering: crisp-edges;
 }
 
-.game-shell.null-tearing .ark-walk-canvas {
-  filter: url(#null-tear);
-}
-
 .ark-walk-hud {
   position: absolute;
   inset: 0;
@@ -75,6 +71,49 @@
   top: 24px;
   right: 24px;
   pointer-events: auto;
+}
+
+/* The drone's signal: four bars, fewer as the Null presses on the feed. */
+.ark-walk-signal {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 24px;
+  margin-left: 6px;
+}
+
+.ark-walk-signal i {
+  display: block;
+  width: 5px;
+  background: #3a3548;
+}
+
+.ark-walk-signal i:nth-child(1) { height: 25%; }
+.ark-walk-signal i:nth-child(2) { height: 50%; }
+.ark-walk-signal i:nth-child(3) { height: 75%; }
+.ark-walk-signal i:nth-child(4) { height: 100%; }
+
+.ark-walk-signal[data-bars="4"] i,
+.ark-walk-signal[data-bars="3"] i:nth-child(-n + 3) { background: #efe6d2; }
+.ark-walk-signal[data-bars="2"] i:nth-child(-n + 2) { background: #ffb347; }
+.ark-walk-signal[data-bars="1"] i:nth-child(1) { background: #ff695c; }
+
+.ark-walk-lost {
+  position: absolute;
+  top: 34%;
+  left: 50%;
+  margin: 0;
+  color: #ff695c;
+  font-family: var(--font-display);
+  font-size: 34px;
+  letter-spacing: 0.12em;
+  text-shadow: 3px 3px 0 #07081a;
+  text-transform: uppercase;
+  transform: translateX(-50%);
+}
+
+.ark-walk-lost[hidden] {
+  display: none;
 }
 
 .ark-walk-crosshair {

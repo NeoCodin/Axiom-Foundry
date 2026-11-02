@@ -46,9 +46,10 @@ import {
 import { createSoundscape, type BaySound, type Soundscape, type SoundPlace } from "./ark-walk-audio";
 import { demoCrew, LYING, planCrew, SEATED, type Activity, type WalkCrewMember } from "./ark-walk-crew";
 import { furnishLayout, planDecor, type DecorPiece, type WallSpot } from "./ark-walk-decor";
+import { createNullFeed, misreadLabel, type NullClass, type NullFeed } from "./ark-walk-null";
 import { AxiomEye } from "./axiom-eye";
 import { CIVILIAN_COLOR, CREW_ROLE_COLORS, getCrewHead } from "./crew-portrait";
-import { playBulkhead, playPulseStrike, schedulePulseBeat, unlockPulseAudio } from "./law-heart-audio";
+import { playBulkhead, playNullStatic, playPulseStrike, schedulePulseBeat, unlockPulseAudio } from "./law-heart-audio";
 import "./ark-walk.css";
 
 /*
@@ -104,6 +105,8 @@ export type ArkWalkProps = {
   crew: readonly WalkCrewMember[];
   heart: ArkWalkHeart;
   recon?: ArkWalkRecon;
+  /** The world's Null saturation, as the console shows it: it reaches the drone's feed too. */
+  nullInterference?: { classification: NullClass; intensity: number };
   beatPeriodMs: number;
   onStrike?: () => void;
   onClose: () => void;
@@ -152,6 +155,56 @@ const PALETTE = {
   ok: "#5fd39a",
   stars: "#cfd3ff",
 };
+
+/** The drone's feed: the picture, with the Null's interference drawn over it pixel by pixel. */
+const FEED_VERTEX = `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = vec4(position.xy, 0.0, 1.0);
+  }
+`;
+const FEED_FRAGMENT = `
+  uniform sampler2D frame;
+  uniform vec2 resolution;
+  uniform float time;
+  uniform float seed;
+  uniform float ambient;
+  uniform float tear;
+  uniform float split;
+  uniform float snow;
+  uniform float drop;
+  varying vec2 vUv;
+  float noise(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+  void main() {
+    vec2 pixel = floor(vUv * resolution);
+    // Tears: bands of rows slide sideways by whole pixels.
+    float bandHeight = 2.0 + floor(noise(vec2(seed, 3.1)) * 7.0);
+    float band = floor(pixel.y / bandHeight);
+    float moved = step(1.0 - tear * 0.55, noise(vec2(band, seed)));
+    float shift = moved * floor((noise(vec2(band, seed + 7.0)) - 0.5) * tear * 0.3 * resolution.x);
+    // Now and then a single row slips a pixel or two, even between bursts.
+    float slip = step(0.996, noise(vec2(pixel.y, floor(time * 12.0)))) * step(0.01, ambient);
+    vec2 uv = (pixel + vec2(shift + slip * 2.0, 0.0) + 0.5) / resolution;
+    float apart = floor(split * 5.0 + ambient * 0.6) / resolution.x;
+    vec3 color = vec3(texture2D(frame, uv + vec2(apart, 0.0)).r, texture2D(frame, uv).g, texture2D(frame, uv - vec2(apart, 0.0)).b);
+    // A slow bright bar rolling down the feed, and scanlines.
+    float roll = 1.0 - fract(time * 0.06);
+    color += (1.0 - smoothstep(0.0, 0.05, abs(vUv.y - roll))) * ambient * 0.08;
+    color *= 1.0 - ambient * 0.14 * mod(pixel.y, 2.0);
+    // Static: a few grains always, a snowfall in a burst.
+    float tick = floor(time * 24.0);
+    float speck = step(1.0 - (ambient * 0.012 + snow * 0.45), noise(pixel + vec2(tick * 1.37, seed)));
+    color = mix(color, vec3(noise(pixel * 1.7 + tick)) * 0.8, speck);
+    float grey = dot(color, vec3(0.299, 0.587, 0.114));
+    color = mix(color, vec3(grey), ambient * 0.22 + snow * 0.35);
+    // Signal lost: black, but for a little static still getting through.
+    color *= 1.0 - drop;
+    color += step(1.0 - drop * 0.12, noise(pixel * 0.7 + vec2(tick, 3.0))) * 0.06;
+    gl_FragColor = vec4(color, 1.0);
+    #include <colorspace_fragment>
+  }
+`;
 
 /** The deck lamps: a warm white, not the amber of the trim lights. */
 const LAMP = "#ffeccc";
@@ -425,6 +478,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
   const soundPlaces: SoundPlace[] = [];
   const baySound: BaySound = { alarm: false, venting: false, engines: 0, ship: null };
   const dynamicObstacles: (() => Obstacle | null)[] = [];
+  let hullOpen = 0;
   const roomsByKind = new Map(props.rooms.map((room) => [room.kind as string, room]));
   const accent = props.worldAccent || "#c9b6ff";
   const metal = tinted(PALETTE.metal, accent, 0.12);
@@ -1582,6 +1636,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         leaf.position.x = stowed + (shut - stowed) * moment.blastDoors;
       }
       hullDoor.rotation.x = moment.hullDoors * 1.75;
+      hullOpen = moment.hullDoors;
       if (previous) {
         const moved = (now: number, before: number) => (now > 0 && before === 0) || (now < 1 && before === 1 && now !== before);
         if (moved(moment.blastDoors, previous.blastDoors) || moved(moment.hullDoors, previous.hullDoors)) playBulkhead();
@@ -2629,7 +2684,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     soundPlaces.push({ kind: "bay", x: (bay.x0 + bay.x1) / 2, y: 2.5, z: (bay.z0 + bay.z1) / 2, deck: 1, online: true });
   }
 
-  return { interactables, animated, notices, heartGroup, heartTarget, heartLight, gimbals, obstacles, stage, soundPlaces, baySound };
+  return { interactables, animated, notices, heartGroup, heartTarget, heartLight, gimbals, obstacles, stage, soundPlaces, baySound, hullOpen: () => hullOpen };
 }
 
 export default function ArkWalk(props: ArkWalkProps) {
@@ -2637,6 +2692,8 @@ export default function ArkWalk(props: ArkWalkProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const promptRef = useRef<HTMLParagraphElement>(null);
   const roomRef = useRef<HTMLElement>(null);
+  const signalRef = useRef<HTMLSpanElement>(null);
+  const lostRef = useRef<HTMLParagraphElement>(null);
   const propsRef = useRef(props);
   useEffect(() => {
     propsRef.current = props;
@@ -2688,10 +2745,46 @@ export default function ArkWalk(props: ArkWalkProps) {
     const heart = layout.heart;
     const lookup = new Map(ship.interactables.map((item) => [item.object, item]));
 
+    // The Null reaches the drone's feed. ?qa=1&null=trace|elevated|severe previews it.
+    const qaNull = search.has("qa") ? search.get("null") : null;
+    const nullLevel = qaNull === "trace" || qaNull === "elevated" || qaNull === "severe"
+      ? { classification: qaNull as NullClass, intensity: 0.85 }
+      : initial.nullInterference ?? { classification: "quiet" as const, intensity: 0 };
+    const nullFeed = createNullFeed(nullLevel.classification, nullLevel.intensity, { reducedMotion });
+    let signal: NullFeed | null = null;
+    const feedTarget = new THREE.WebGLRenderTarget(1, 1, {
+      minFilter: THREE.NearestFilter,
+      magFilter: THREE.NearestFilter,
+      generateMipmaps: false,
+      colorSpace: THREE.SRGBColorSpace,
+    });
+    const feedMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        frame: { value: feedTarget.texture },
+        resolution: { value: new THREE.Vector2(1, 1) },
+        time: { value: 0 },
+        seed: { value: 0 },
+        ambient: { value: 0 },
+        tear: { value: 0 },
+        split: { value: 0 },
+        snow: { value: 0 },
+        drop: { value: 0 },
+      },
+      vertexShader: FEED_VERTEX,
+      fragmentShader: FEED_FRAGMENT,
+      depthTest: false,
+      depthWrite: false,
+    });
+    const feedScene = new THREE.Scene();
+    feedScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), feedMaterial));
+    const feedCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
     const resize = () => {
       const width = Math.max(1, Math.floor(mount.clientWidth / PIXEL_SCALE));
       const height = Math.max(1, Math.floor(mount.clientHeight / PIXEL_SCALE));
       renderer.setSize(width, height, false);
+      feedTarget.setSize(width, height);
+      feedMaterial.uniforms.resolution.value.set(width, height);
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
     };
@@ -2712,6 +2805,8 @@ export default function ArkWalk(props: ArkWalkProps) {
     let target: Interactable | null = null;
     let lastPrompt = "";
     let lastRoom = "";
+    let lastBars = -1;
+    let lastLost = false;
     let strikeFlash = 0;
 
     const locked = () => document.pointerLockElement === renderer.domElement;
@@ -2785,6 +2880,7 @@ export default function ArkWalk(props: ArkWalkProps) {
       (window as unknown as { arkWalkQa?: unknown }).arkWalkQa = {
         layout,
         sounding: () => soundscape !== null,
+        signal: () => signal,
         place(deck: number, px: number, pz: number, look = yaw, tilt = 0) {
           deckIndex = deck;
           x = px;
@@ -2871,9 +2967,17 @@ export default function ArkWalk(props: ArkWalkProps) {
         }
         eyeY = deck.floorY + EYE_HEIGHT;
       }
+      // The Null on the feed: shielded near the Law-Heart, worse with the launch bay open to space.
+      const fromHeart = Math.hypot(x - heart.x, z - heart.z);
+      const inBay = !travel && compartmentAt(deck, x)?.kind === "hangar" ? ship.hullOpen() : 0;
+      const exposure = (fromHeart < 12 ? 0.45 + (fromHeart / 12) * 0.55 : 1) * (1 + inBay * 0.8);
+      signal = nullFeed.update(now, exposure);
+      if (signal.began === "tear" || signal.began === "drop") playNullStatic(signal.began === "drop" ? 1 : nullLevel.intensity);
+      else if (signal.began === "snow" || signal.began === "split") playNullStatic(nullLevel.intensity * 0.4);
+
       const hover = reducedMotion ? 0 : Math.sin(now * 0.002) * 0.03;
       camera.position.set(x, eyeY + hover, z);
-      camera.rotation.set(pitch, yaw - Math.PI / 2, 0, "YXZ");
+      camera.rotation.set(pitch + signal.jolt.pitch, yaw - Math.PI / 2 + signal.jolt.yaw, 0, "YXZ");
 
       // The Law-Heart beats; close enough and AXIOM hears it. Its gimbals flare on each beat.
       const sincePeriod = now % period;
@@ -2943,12 +3047,39 @@ export default function ArkWalk(props: ArkWalkProps) {
       else setPrompt(target.label);
 
       const roomLabel = travel ? "Grav-lift" : `${deck.label} · ${compartmentAt(deck, x)?.label ?? "Bulkhead"}`;
-      if (roomLabel !== lastRoom && roomRef.current) {
-        lastRoom = roomLabel;
-        roomRef.current.textContent = roomLabel;
+      const shownRoom = signal.misread ? misreadLabel(roomLabel, signal.seed) : roomLabel;
+      if (shownRoom !== lastRoom && roomRef.current) {
+        lastRoom = shownRoom;
+        roomRef.current.textContent = shownRoom;
+      }
+      if (signal.bars !== lastBars && signalRef.current) {
+        lastBars = signal.bars;
+        signalRef.current.dataset.bars = String(signal.bars);
+      }
+      if (signal.drop > 0 !== lastLost && lostRef.current) {
+        lastLost = signal.drop > 0;
+        lostRef.current.hidden = !lastLost;
       }
 
-      renderer.render(scene, camera);
+      if (signal.ambient === 0 && !signal.freeze && signal.drop === 0) {
+        renderer.render(scene, camera);
+      } else {
+        // A frozen feed keeps showing the last picture it got.
+        if (!signal.freeze) {
+          renderer.setRenderTarget(feedTarget);
+          renderer.render(scene, camera);
+          renderer.setRenderTarget(null);
+        }
+        const uniforms = feedMaterial.uniforms;
+        uniforms.time.value = now / 1000;
+        uniforms.seed.value = signal.seed;
+        uniforms.ambient.value = signal.ambient;
+        uniforms.tear.value = signal.tear;
+        uniforms.split.value = signal.split;
+        uniforms.snow.value = signal.snow;
+        uniforms.drop.value = signal.drop;
+        renderer.render(feedScene, feedCamera);
+      }
     };
     frame = window.requestAnimationFrame(tick);
 
@@ -2973,6 +3104,8 @@ export default function ArkWalk(props: ArkWalkProps) {
         }
       });
       soundscape?.dispose();
+      feedTarget.dispose();
+      feedMaterial.dispose();
       renderer.dispose();
       renderer.domElement.remove();
     };
@@ -2988,7 +3121,11 @@ export default function ArkWalk(props: ArkWalkProps) {
             <strong>Maintenance drone 03</strong>
             <small ref={roomRef}>Upper deck · Fabrication</small>
           </div>
+          <span ref={signalRef} className="ark-walk-signal" data-bars="4" role="img" aria-label="Drone signal">
+            <i /><i /><i /><i />
+          </span>
         </div>
+        <p ref={lostRef} className="ark-walk-lost" hidden>Signal lost</p>
         <button type="button" className="ark-walk-exit" onClick={() => props.onClose()}>Return to console · Q</button>
         <span className="ark-walk-crosshair" aria-hidden="true" />
         <p ref={promptRef} className="ark-walk-prompt" aria-live="polite" />

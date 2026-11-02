@@ -126,6 +126,8 @@ export type ArkDeckProps = {
   lawHeartDrones?: readonly LawHeartDroneFrame[];
   /** The recon ship, for the drone view's dock: in its bay, or away with an expedition. */
   recon?: ArkWalkRecon;
+  /** The world's Null saturation, which also reaches the drone's camera. */
+  nullInterference?: { classification: "quiet" | "trace" | "elevated" | "severe"; intensity: number };
   onUpgradeSupport?: (key: LifeSupportKey) => void;
   onOpenView: (view: ArkViewId) => void;
 };
@@ -199,6 +201,7 @@ function ArkDeck({
   lawHeartMachines = [],
   lawHeartDrones = [],
   recon,
+  nullInterference,
   onUpgradeSupport,
   onOpenView,
 }: ArkDeckProps) {
@@ -528,6 +531,7 @@ function ArkDeck({
                 drones: lawHeartDrones.map((drone) => ({ color: drone.color, compromised: drone.compromised === true })),
               }}
               recon={recon}
+              nullInterference={nullInterference}
               beatPeriodMs={getPulseProfile(lifetimeAxioms).periodMs}
               onStrike={onStrikeLawHeart}
               onClose={() => setWalkAccent(null)}
