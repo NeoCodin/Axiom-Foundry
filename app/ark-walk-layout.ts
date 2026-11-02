@@ -75,16 +75,39 @@ export type WalkLayout = {
 export const UPPER_DECK: readonly WalkRoomKind[] = ["fabrication", "chamber", "habitation", "research", "bridge"];
 export const LOWER_DECK: readonly WalkRoomKind[] = ["support", "chamber", "education", "hangar"];
 
-export const UPPER_FLOOR = 6;
-/** Half the ship's width: 22 metres across, room enough to move. */
-export const HALF_DEPTH = 11;
+export const UPPER_FLOOR = 7.5;
+/** Half the ship's width: 28 metres across, room enough to breathe. */
+export const HALF_DEPTH = 14;
 export const BULKHEAD = 0.4;
-export const DOOR_HALF_WIDTH = 2.4;
-export const DOOR_HEIGHT = 3.8;
+export const DOOR_HALF_WIDTH = 3;
+export const DOOR_HEIGHT = 4.6;
 export const LIFT_RADIUS = 0.9;
 /** Half the core room's outside size: the gallery round it is what is left of the chamber. */
-export const CORE_HALF_X = 5.4;
-export const CORE_HALF_Z = 7.5;
+export const CORE_HALF_X = 6.4;
+export const CORE_HALF_Z = 9;
+
+/** Hull windows: their size, and where they sit, from each room's stern end, on the port (-z) and starboard (+z) walls. */
+export const WINDOW_WIDTH = 3;
+export const WINDOW_LOW = 1.2;
+export const WINDOW_HIGH = 4.2;
+export const WINDOWS: Partial<Record<WalkRoomKind, { port?: readonly number[]; starboard?: readonly number[] }>> = {
+  fabrication: { starboard: [6, 10, 14] },
+  habitation: { starboard: [7.5, 11, 14.5] },
+  research: { starboard: [6, 9.5, 13] },
+  bridge: { port: [8, 11.5], starboard: [8, 11.5] },
+  support: { starboard: [2.5, 6.7, 14.8] },
+  education: { starboard: [2.5, 6, 9.5, 13] },
+  // The dock's back wall keeps a bare stretch in the middle for the recon board.
+  hangar: { port: [3.5, 7.5, 21.5, 26] },
+  chamber: { port: [3, 9.5, 16], starboard: [3, 9.5, 16] },
+};
+
+/** Where a compartment's wall ribs stand, stern to bow, between its bays. */
+export function wallRibs(room: { x0: number; x1: number }) {
+  const width = room.x1 - room.x0;
+  const bays = Math.max(2, Math.round(width / 3.5));
+  return Array.from({ length: bays - 1 }, (_, bay) => room.x0 + (width * (bay + 1)) / bays);
+}
 
 /**
  * Furniture is drawn against walls 7 m out from the centre line; this pushes it out to
@@ -102,29 +125,33 @@ function againstWall(box: Box): Box {
   return { ...box, z0: middle - depth, z1: middle + depth };
 }
 
+/** The pressure wall between the dock's gallery and its launch bay, across the ship. */
+export const DOCK_WALL_Z = HALF_DEPTH - 5;
+/** The recon status board on the dock's back wall: centre and width, from the dock's stern end. */
+export const DOCK_BOARD = { at: 14.5, width: 5 } as const;
 /** The recon dock's plan, in metres from its stern end (x) and across the ship (z). */
-const DOCK = { wallZ: 6, doorFrom: 10, doorTo: 14, padX: 6.5, parkedX: 17.5, padZ: 8.7 } as const;
+const DOCK = { wallZ: DOCK_WALL_Z, doorFrom: 10, doorTo: 14, padX: 6.5, parkedX: 19, padZ: (DOCK_WALL_Z + 0.4 + HALF_DEPTH) / 2 } as const;
 
 const WIDTH: Record<WalkRoomKind, number> = {
-  fabrication: 14,
-  support: 14,
-  chamber: 16,
-  habitation: 14,
-  education: 14,
-  research: 12,
-  bridge: 12,
+  fabrication: 17,
+  support: 17,
+  chamber: 19,
+  habitation: 17,
+  education: 17,
+  research: 15,
+  bridge: 15,
   // The dock runs under both the Analysis Core and the bridge.
-  hangar: 12 + BULKHEAD + 12,
+  hangar: 15 + BULKHEAD + 15,
 };
 const HEIGHT: Record<WalkRoomKind, number> = {
-  fabrication: 5,
-  support: 5.2,
-  chamber: 12.5,
-  habitation: 4.6,
-  education: 4.8,
-  research: 5,
-  bridge: 5.5,
-  hangar: 5.8,
+  fabrication: 6.8,
+  support: 6.8,
+  chamber: UPPER_FLOOR + 7,
+  habitation: 6.4,
+  education: 6.6,
+  research: 6.6,
+  bridge: 7,
+  hangar: 7,
 };
 
 function furniture(kind: WalkRoomKind, upper: boolean, x0: number, x1: number): Box[] {
@@ -133,7 +160,7 @@ function furniture(kind: WalkRoomKind, upper: boolean, x0: number, x1: number): 
     case "fabrication":
       return [
         { x0: x0 + 2, x1: x0 + 5, z0: -6.6, z1: -3.6 }, // the press
-        { x0: x0 + 6, x1: x1 - 1, z0: -6.9, z1: -5.5 }, // machine racks, one per Foundry tier
+        { x0: x0 + 6, x1: x0 + 13, z0: -6.9, z1: -5.5 }, // machine racks, one per Foundry tier
         { x0: x0 + 5, x1: x1 - 1, z0: 4.4, z1: 5.6 }, // the conveyor
         { x0: x1 - 4.2, x1: x1 - 3, z0: 2.4, z1: 3.6 }, // the robot arm
         { x0: x0 + 1, x1: x0 + 3.4, z0: 4.4, z1: 6.6 }, // stacked crates
@@ -163,16 +190,16 @@ function furniture(kind: WalkRoomKind, upper: boolean, x0: number, x1: number): 
       ];
     case "support":
       return [
-        { x0: x0 + 1.4, x1: x1 - 1.4, z0: -6.6, z1: -4.2 }, // four culture tanks
+        { x0: x0 + 1.4, x1: x0 + 12.6, z0: -6.6, z1: -4.2 }, // four culture tanks
         { x0: x0 + 5, x1: x0 + 8.4, z0: 5, z1: 6.4 }, // the atmosphere desk
-        { x0: x0 + 9.4, x1: x1 - 0.8, z0: 6.2, z1: 6.9 }, // hydroponic shelves
+        { x0: x0 + 9.4, x1: x0 + 13.2, z0: 6.2, z1: 6.9 }, // hydroponic shelves
         { x0: x0 + 1, x1: x0 + 3.4, z0: 2.35, z1: 3.35 }, // the two sick-bay beds
         { x0: x0 + 1, x1: x0 + 3.4, z0: 3.75, z1: 4.75 },
       ];
     case "education":
       return [
         { x0: x0 + 6.6, x1: x0 + 7.4, z0: -5.4, z1: -4.8 }, // the lectern
-        ...[2, 3.6, 5.2].map((rowZ) => ({ x0: x0 + 2, x1: x1 - 2, z0: rowZ - 0.3, z1: rowZ + 0.3 })), // rows of desks
+        ...[2, 3.6, 5.2].map((rowZ) => ({ x0: x0 + 2, x1: x0 + 12, z0: rowZ - 0.3, z1: rowZ + 0.3 })), // rows of desks
       ];
     case "hangar":
       return [
@@ -233,7 +260,7 @@ export function buildWalkLayout(
     decks,
     halfDepth: HALF_DEPTH,
     spawn: { deck: 0, x: decks[0].compartments[0].x0 + 1.6, z: 0, yaw: 0 },
-    heart: { x: cx, y: 6.2, z: 0 },
+    heart: { x: cx, y: UPPER_FLOOR + 0.4, z: 0 },
     core: { x0: cx - CORE_HALF_X, x1: cx + CORE_HALF_X, z0: -CORE_HALF_Z, z1: CORE_HALF_Z },
     lifts: [
       { x: chamber.x0 + 1.3, z: -(HALF_DEPTH + CORE_HALF_Z) / 2 },

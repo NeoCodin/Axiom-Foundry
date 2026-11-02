@@ -7,7 +7,7 @@
  * planning; ark-walk.tsx animates it.
  */
 
-import { CORE_HALF_Z, towardWalls, type WalkRoomKind } from "./ark-walk-layout.ts";
+import { CORE_HALF_Z, DOCK_WALL_Z, HALF_DEPTH, towardWalls, type WalkRoomKind } from "./ark-walk-layout.ts";
 
 export type WalkCrewMember = {
   id: string;
@@ -83,22 +83,22 @@ const GALLERY_Z = -(CORE_HALF_Z + 1.4);
 export const ROOM_SPOTS: Record<WalkRoomKind, readonly Spot[]> = {
   fabrication: [
     { activity: "type", at: point(3.5, w(-2.9)), look: point(0, -1), for: ENGINEERS },
-    { activity: "carry", at: point(12.4, w(3.7)), to: point(3.2, w(3.9)), look: point(-1, 0) },
+    { activity: "carry", at: point(15.4, w(3.7)), to: point(3.2, w(3.9)), look: point(-1, 0) },
     { activity: "inspect", at: point(7, w(-4.8)), to: point(12.2, w(-4.8)), look: point(0, -1) },
-    { activity: "fix", at: point(9.4, w(1.9)), look: point(1, 1.1) },
+    { activity: "fix", at: point(12.4, w(1.9)), look: point(1, 1.1) },
     { activity: "talk", at: point(5.6, 2.4), look: point(1, 0), pair: "fabrication" },
     { activity: "talk", at: point(6.5, 2.4), look: point(-1, 0), pair: "fabrication" },
   ],
   research: [
     { activity: "type", at: point(3.5, w(-4.8)), look: point(0, -1) },
     { activity: "type", at: point(6, w(-4.8)), look: point(0, -1) },
-    { activity: "point", at: point(4.2, w(3.4)), look: point(1, 0), pair: "holo-table" },
-    { activity: "talk", at: point(7.8, w(3.4)), look: point(-1, 0), pair: "holo-table" },
+    { activity: "point", at: point(5.7, w(3.4)), look: point(1, 0), pair: "holo-table" },
+    { activity: "talk", at: point(9.3, w(3.4)), look: point(-1, 0), pair: "holo-table" },
     { activity: "type", at: point(8.5, w(-4.8)), look: point(0, -1) },
     { activity: "type", at: point(2.8, w(5.1)), look: point(0, 1) },
   ],
   bridge: [
-    { activity: "pilot", at: point(7.3, 0), look: point(1, 0), y: 0.66, for: ["navigator"] },
+    { activity: "pilot", at: point(10.3, 0), look: point(1, 0), y: 0.66, for: ["navigator"] },
     { activity: "type", at: point(4, w(-4.9)), look: point(0, -1) },
     { activity: "guard", at: point(5.5, 2.6), look: point(1, 0) },
     { activity: "type", at: point(4, w(4.9)), look: point(0, 1) },
@@ -120,10 +120,10 @@ export const ROOM_SPOTS: Record<WalkRoomKind, readonly Spot[]> = {
     ),
   ],
   habitation: [
-    { activity: "eat", at: point(9.6, w(2.25)), look: point(0, 1), y: 0.55 },
-    { activity: "eat", at: point(11.2, w(4.55)), look: point(0, -1), y: 0.55 },
-    { activity: "eat", at: point(11.2, w(2.25)), look: point(0, 1), y: 0.55 },
-    { activity: "eat", at: point(9.6, w(4.55)), look: point(0, -1), y: 0.55 },
+    { activity: "eat", at: point(12.6, w(2.25)), look: point(0, 1), y: 0.55 },
+    { activity: "eat", at: point(14.2, w(4.55)), look: point(0, -1), y: 0.55 },
+    { activity: "eat", at: point(14.2, w(2.25)), look: point(0, 1), y: 0.55 },
+    { activity: "eat", at: point(12.6, w(4.55)), look: point(0, -1), y: 0.55 },
     { activity: "talk", at: point(5, -3), look: point(0, 1), pair: "habitation-a" },
     { activity: "talk", at: point(5, -2.1), look: point(0, -1), pair: "habitation-a" },
     { activity: "talk", at: point(7, 3.2), look: point(1, 0), pair: "habitation-b" },
@@ -136,11 +136,11 @@ export const ROOM_SPOTS: Record<WalkRoomKind, readonly Spot[]> = {
   ],
   // The dock is laid out at full width already.
   hangar: [
-    { activity: "type", at: point(6, 3.9), look: point(0, 1) },
-    { activity: "guard", at: point(9.3, 5.3), look: point(0, -1) },
-    { activity: "guard", at: point(3, -2.4), to: point(21, -2.4), look: point(0, 1) },
-    { activity: "lounge", at: point(2.5, -10.3), look: point(0, 1), y: 0.45, pair: "lounge" },
-    { activity: "lounge", at: point(4.5, -10.3), look: point(0, 1), y: 0.45, pair: "lounge" },
+    { activity: "type", at: point(6, DOCK_WALL_Z - 2.1), look: point(0, 1) },
+    { activity: "guard", at: point(9.3, DOCK_WALL_Z - 0.7), look: point(0, -1) },
+    { activity: "guard", at: point(3, -2.4), to: point(24, -2.4), look: point(0, 1) },
+    { activity: "lounge", at: point(2.5, -(HALF_DEPTH - 0.7)), look: point(0, 1), y: 0.45, pair: "lounge" },
+    { activity: "lounge", at: point(4.5, -(HALF_DEPTH - 0.7)), look: point(0, 1), y: 0.45, pair: "lounge" },
   ],
   // Watching the Law-Heart through the core windows from the lower gallery.
   chamber: [

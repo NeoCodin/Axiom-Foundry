@@ -9,6 +9,7 @@ import { drawPixelWorldSurface, PIXEL_WORLD_DAY_SECONDS } from "./ark-pixel-worl
 import {
   buildWalkLayout,
   compartmentAt,
+  DOCK_BOARD,
   dockMoment,
   DOOR_HALF_WIDTH,
   DOOR_HEIGHT,
@@ -18,6 +19,10 @@ import {
   towardWalls,
   UPPER_FLOOR,
   wallPieces,
+  WINDOW_HIGH,
+  WINDOW_LOW,
+  WINDOW_WIDTH,
+  WINDOWS,
   type Box,
   type DockMoment,
   type DockScene,
@@ -26,8 +31,21 @@ import {
   type WalkLayout,
   type WalkRoomKind,
 } from "./ark-walk-layout";
+import {
+  paintBanner,
+  paintChart,
+  paintDrawing,
+  paintMat,
+  paintMural,
+  paintPainting,
+  paintPortraits,
+  paintPoster,
+  paintRug,
+  type CrewFace,
+} from "./ark-walk-art";
 import { createSoundscape, type BaySound, type Soundscape, type SoundPlace } from "./ark-walk-audio";
 import { demoCrew, LYING, planCrew, SEATED, type Activity, type WalkCrewMember } from "./ark-walk-crew";
+import { furnishLayout, planDecor, type DecorPiece, type WallSpot } from "./ark-walk-decor";
 import { AxiomEye } from "./axiom-eye";
 import { CIVILIAN_COLOR, CREW_ROLE_COLORS, getCrewHead } from "./crew-portrait";
 import { playBulkhead, playPulseStrike, schedulePulseBeat, unlockPulseAudio } from "./law-heart-audio";
@@ -103,24 +121,20 @@ const LIFT_SECONDS = 1.4;
 /** The Law-Heart's radius at each stage, from Dormant Seed to Transcendent Star. */
 const STAR_RADII = [1, 1.4, 1.7, 1.9, 2.1, 2.3, 2.5];
 const HULL = 0.3;
-const WINDOW_WIDTH = 2.4;
-const WINDOW_LOW = 1.2;
-const WINDOW_HIGH = 3.2;
-/** The recon status board on the dock's back wall: centre and width, from the dock's stern end. */
-const DOCK_BOARD = { at: 13, width: 5 };
 /** A team returning or launching within this many game seconds is shown leaving. */
 const FRESH_LAUNCH_SECONDS = 120;
 
 const PALETTE = {
   space: "#07081a",
   floor: "#6e5d4c",
-  floorDark: "#4f4338",
-  wall: "#262236",
-  wallSeam: "#1b1726",
-  wallLight: "#3b3548",
-  hull: "#5d5468",
-  metal: "#3b3548",
-  metalLight: "#7c7290",
+  wall: "#8d879b",
+  wallSeam: "#6c667c",
+  wallLight: "#aaa4b8",
+  skirting: "#3a3548",
+  ceiling: "#5e5970",
+  hull: "#7a7390",
+  metal: "#5a546e",
+  metalLight: "#a49bba",
   dark: "#1b1726",
   light: "#ffd27a",
   amber: "#ffb347",
@@ -139,17 +153,19 @@ const PALETTE = {
   stars: "#cfd3ff",
 };
 
-/** Hull windows, as distances from each room's stern end, on the port (-z) and starboard (+z) walls. */
-const WINDOWS: Partial<Record<WalkRoomKind, { port?: readonly number[]; starboard?: readonly number[] }>> = {
-  fabrication: { starboard: [6, 9.5, 12.5] },
-  habitation: { starboard: [7, 10.5] },
-  research: { starboard: [7, 10] },
-  bridge: { port: [8.5], starboard: [8.5] },
-  support: { starboard: [2.5, 6.7] },
-  education: { starboard: [2.5, 6, 9.5, 12.5] },
-  // The dock's back wall keeps a bare stretch in the middle for the recon board.
-  hangar: { port: [3.5, 7.5, 19] },
-  chamber: { port: [2.5, 8, 13.5], starboard: [2.5, 8, 13.5] },
+/** The deck lamps: a warm white, not the amber of the trim lights. */
+const LAMP = "#ffeccc";
+
+/** Each compartment's own colour: the bands painted round its walls, its door signs, its lit skirting. */
+const ROOM_COLOR: Record<WalkRoomKind, string> = {
+  fabrication: "#e8963a",
+  habitation: "#e2786a",
+  research: "#7d8cf0",
+  bridge: "#a27ef0",
+  support: "#7cc35a",
+  education: "#f2c744",
+  hangar: "#ee7a3c",
+  chamber: "#d9b65e",
 };
 
 function canvasTexture(width: number, height: number, paint: (context: CanvasRenderingContext2D) => void) {
@@ -400,7 +416,7 @@ type Drone = { x: number; z: number; deck: number; dt: number };
 type Updater = (time: number, drone: Drone) => void;
 type Obstacle = { deck: number } & ({ x: number; z: number; radius: number } | { box: Box });
 
-function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, live: () => ArkWalkProps) {
+function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, live: () => ArkWalkProps, decor: readonly DecorPiece[]) {
   const interactables: Interactable[] = [];
   const animated: Updater[] = [];
   const notices: (() => string | null)[] = [];
@@ -411,7 +427,6 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
   const dynamicObstacles: (() => Obstacle | null)[] = [];
   const roomsByKind = new Map(props.rooms.map((room) => [room.kind as string, room]));
   const accent = props.worldAccent || "#c9b6ff";
-  const wallTone = tinted(PALETTE.wall, accent, 0.16);
   const metal = tinted(PALETTE.metal, accent, 0.12);
   const metalLight = tinted(PALETTE.metalLight, accent, 0.16);
   const screenGlow = tinted(accent, "#ffffff", 0.2);
@@ -422,37 +437,153 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     ? spec.machines.slice(0, 6)
     : Array.from({ length: 6 }, (_, tier) => ({ name: `Tier ${tier + 1} machine`, count: 0, color: PALETTE.dark }));
 
-  const floorTexture = canvasTexture(16, 16, (context) => {
-    context.fillStyle = PALETTE.floor;
-    context.fillRect(0, 0, 16, 16);
-    context.fillStyle = PALETTE.floorDark;
-    for (let index = 0; index < 16; index += 4) {
-      context.fillRect(index, 0, 1, 16);
-      context.fillRect(0, index, 16, 1);
-    }
-    context.fillStyle = "#8a7660";
-    context.fillRect(2, 2, 1, 1);
-    context.fillRect(10, 10, 1, 1);
-  });
-  const wallTexture = canvasTexture(16, 16, (context) => {
-    context.fillStyle = wallTone;
-    context.fillRect(0, 0, 16, 16);
-    context.fillStyle = tinted(PALETTE.wallSeam, accent, 0.1);
-    context.fillRect(0, 0, 16, 1);
-    context.fillRect(0, 0, 1, 16);
-    context.fillRect(8, 0, 1, 6);
-    context.fillStyle = tinted(PALETTE.wallLight, accent, 0.26);
-    context.fillRect(3, 3, 1, 1);
-    context.fillRect(12, 3, 1, 1);
-    context.fillRect(3, 9, 1, 1);
-    context.fillRect(12, 9, 1, 1);
-    context.fillRect(1, 12, 14, 2);
-  });
+  const paintOf = (kind: WalkRoomKind) => tinted(ROOM_COLOR[kind], accent, 0.12);
+  const floorTextures = new Map<WalkRoomKind, THREE.CanvasTexture>();
+  /** Each room's floor, four metres to a tile: deck plate, planks, tiles, carpet, lino, concrete. */
+  const floorFor = (kind: WalkRoomKind) => {
+    const cached = floorTextures.get(kind);
+    if (cached) return cached;
+    const texture = canvasTexture(32, 32, (context) => {
+      const px = (x: number, y: number, color: string, w = 1, h = 1) => {
+        context.fillStyle = tinted(color, accent, 0.07);
+        context.fillRect(x, y, w, h);
+      };
+      const tiles = (size: number, light: string, dark: string, grout: string) => {
+        for (let y = 0; y < 32; y += size) {
+          for (let x = 0; x < 32; x += size) {
+            px(x, y, (x + y) % (size * 2) === 0 ? light : dark, size, size);
+            px(x, y, grout, size, 1);
+            px(x, y, grout, 1, size);
+          }
+        }
+      };
+      if (kind === "habitation") {
+        // Warm planks, stern to bow, their joints staggered.
+        for (let row = 0; row < 8; row += 1) {
+          const y = row * 4;
+          px(0, y, row % 2 === 0 ? "#b07c4f" : "#a07046", 32, 4);
+          px(0, y + 3, "#7c5536", 32, 1);
+          const joint = (row * 13) % 32;
+          px(joint, y, "#7c5536", 1, 3);
+          px((joint + 6) % 29, y + 1, "#c08e5e", 3, 1);
+          px((joint + 18) % 28, y + 2, "#90613e", 4, 1);
+        }
+      } else if (kind === "research") {
+        tiles(8, "#9da3c6", "#8d93b8", "#767ca2");
+        for (const [x, y] of [[3, 3], [19, 11], [11, 27]]) px(x, y, "#c4c9e6", 2, 2);
+      } else if (kind === "support") {
+        // Clean pale tiles, with now and then a green one.
+        tiles(8, "#b4c6a6", "#a5b896", "#8a9e7e");
+        for (const [x, y] of [[8, 0], [24, 16]]) px(x + 1, y + 1, "#88b46a", 7, 7);
+      } else if (kind === "education") {
+        // Lino in a big check, flecked with colour.
+        tiles(16, "#d4c088", "#c4ac76", "#ae9662");
+        for (const [x, y, color] of [[4, 6, "#e2786a"], [22, 3, "#7d8cf0"], [12, 20, "#7cc35a"], [27, 25, "#e2786a"], [6, 28, "#a27ef0"], [19, 14, "#7d8cf0"]] as const) px(x, y, color);
+      } else if (kind === "bridge") {
+        // Carpet: a lattice of diamonds.
+        px(0, 0, "#62529a", 32, 32);
+        for (let y = 0; y < 32; y += 1) {
+          for (let x = 0; x < 32; x += 1) {
+            const d = Math.abs((x % 16) - 8) + Math.abs((y % 16) - 8);
+            if (d === 8) px(x, y, "#7c6bb8");
+            else if (d === 2) px(x, y, "#8e7ec8");
+          }
+        }
+      } else if (kind === "hangar") {
+        // Poured deck, stained, in big panels.
+        px(0, 0, "#8e8a86", 32, 32);
+        px(0, 0, "#76726e", 32, 1);
+        px(0, 0, "#76726e", 1, 32);
+        px(0, 16, "#807c78", 32, 1);
+        for (const [x, y, w] of [[5, 7, 4], [20, 22, 6], [13, 12, 2], [26, 4, 3]]) px(x, y, "#83807b", w, 2);
+      } else if (kind === "chamber") {
+        // The gallery: steel plates with brass studs at their corners.
+        px(0, 0, "#77718a", 32, 32);
+        for (let y = 0; y < 32; y += 16) {
+          px(0, y, "#5e5972", 32, 1);
+          px(y, 0, "#5e5972", 1, 32);
+          for (const [x, z] of [[2, 2], [13, 2], [2, 13], [13, 13]]) px(y + x, z, "#c9a85a");
+        }
+        px(0, 8, "#857f98", 32, 1);
+      } else {
+        // Diamond deck plate.
+        px(0, 0, "#86838f", 32, 32);
+        for (let y = 0; y < 32; y += 4) {
+          for (let x = (y / 4) % 2 === 0 ? 0 : 2; x < 32; x += 4) {
+            px(x, y + 1, "#a19ead", 2, 1);
+            px(x + 1, y + 2, "#6c6976");
+          }
+        }
+        px(0, 0, "#62606c", 32, 1);
+        px(0, 0, "#62606c", 1, 32);
+      }
+    });
+    floorTextures.set(kind, texture);
+    return texture;
+  };
+  const floorMaterial = (kind: WalkRoomKind, w: number, d: number) => lambert("#ffffff", { map: repeated(floorFor(kind), w / 4, d / 4) });
+  const wallTextures = new Map<string, THREE.CanvasTexture>();
+  /**
+   * A compartment's inner wall from the deck to its ceiling, two metres to a tile across:
+   * light panels over a dark skirting, a band of the room's own colour at waist height
+   * and a stripe of it up near the ceiling, so each room reads as its own place.
+   */
+  const wallFor = (kind: WalkRoomKind, height: number) => {
+    const cacheKey = `${kind}:${height}`;
+    const cached = wallTextures.get(cacheKey);
+    if (cached) return cached;
+    const rows = Math.round(height * 8);
+    const texture = canvasTexture(16, rows, (context) => {
+      const paint = paintOf(kind);
+      const at = (y: number) => rows - Math.round(y * 8);
+      const band = (from: number, to: number, color: string) => {
+        context.fillStyle = color;
+        context.fillRect(0, at(to), 16, Math.max(1, at(from) - at(to)));
+      };
+      band(0, height, tinted(tinted(PALETTE.wall, paint, 0.16), accent, 0.06));
+      const seam = tinted(PALETTE.wallSeam, accent, 0.1);
+      const bevel = tinted(PALETTE.wallLight, accent, 0.12);
+      context.fillStyle = seam;
+      context.fillRect(0, 0, 1, rows);
+      // The two-storey chamber is painted the same on each of its levels.
+      const levels = kind === "chamber" ? [0, UPPER_FLOOR] : [0];
+      const top = kind === "chamber" ? UPPER_FLOOR - 0.4 : height;
+      for (const base of levels) {
+        for (let y = base + 1.5; y < base + top - 0.8; y += 1.5) {
+          band(y, y + 0.125, seam);
+          context.fillStyle = bevel;
+          context.fillRect(1, at(y), 15, 1);
+          context.fillRect(3, at(y + 0.5), 1, 1);
+          context.fillRect(12, at(y + 0.5), 1, 1);
+        }
+        band(base, base + 0.28, tinted(PALETTE.skirting, accent, 0.1));
+        band(base + 0.28, base + 0.32, tinted(paint, PALETTE.skirting, 0.3));
+        band(base + 0.55, base + 1.05, paint);
+        band(base + 1.05, base + 1.15, tinted(paint, "#ffffff", 0.45));
+      }
+      band(height - 1.15, height - 0.95, paint);
+      band(height - 0.35, height, tinted(PALETTE.metal, accent, 0.1));
+    });
+    wallTextures.set(cacheKey, texture);
+    return texture;
+  };
+  /** One piece of a room's wall: w across, from y0 up h, cut from the room's painted wall. */
+  const wallCut = (kind: WalkRoomKind, height: number, w: number, y0: number, h: number, shift = 0) => {
+    const texture = wallFor(kind, height).clone();
+    texture.repeat.set(w / 2, h / height);
+    texture.offset.set(shift, y0 / height);
+    texture.needsUpdate = true;
+    return lambert("#ffffff", { map: texture });
+  };
   const ceilingTexture = canvasTexture(16, 16, (context) => {
-    context.fillStyle = tinted("#1e1b2d", accent, 0.08);
+    context.fillStyle = tinted(PALETTE.ceiling, accent, 0.08);
     context.fillRect(0, 0, 16, 16);
-    context.fillStyle = tinted("#14121f", accent, 0.05);
-    context.fillRect(0, 7, 16, 2);
+    context.fillStyle = tinted("#4c475c", accent, 0.06);
+    context.fillRect(0, 7, 16, 1);
+    context.fillRect(7, 0, 1, 16);
+    context.fillStyle = tinted("#6e6982", accent, 0.06);
+    context.fillRect(0, 8, 16, 1);
+    context.fillRect(8, 0, 1, 16);
   });
   const grateTexture = canvasTexture(8, 8, (context) => {
     context.fillStyle = "#16141f";
@@ -495,6 +626,11 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
   const hullSkin = solid(tinted(PALETTE.hull, accent, 0.1));
   const trimMaterial = solid(metalLight);
   const glassMaterial = new THREE.MeshBasicMaterial({ map: glassTexture(glass), transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: false });
+  /** A bulkhead's materials: the room behind it (-x) and the room ahead (+x) each see their own paint. */
+  const bulkheadFaces = (behind: WalkCompartment | null, ahead: WalkCompartment | null, across: number, y0: number, h: number) => {
+    const face = (room: WalkCompartment | null) => (room ? wallCut(room.kind, room.height, across, y0, h) : bulkheadMaterial);
+    return [face(ahead), face(behind), bulkheadMaterial, bulkheadMaterial, bulkheadMaterial, bulkheadMaterial];
+  };
   const heart = layout.heart;
   const longest = Math.max(...layout.decks.map((deck) => deck.length));
 
@@ -630,11 +766,11 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
   });
 
   /** A hull side: thick panels round its openings, the room's wall inside and the ship's skin out. */
-  const hullSide = (x0: number, x1: number, y0: number, height: number, side: number, openings: Rect[]) => {
-    for (const piece of wallPieces(x0, x1, height, openings)) {
+  const hullSide = (room: WalkCompartment, y0: number, side: number, openings: Rect[]) => {
+    for (const piece of wallPieces(room.x0, room.x1, room.height, openings)) {
       const w = piece.a1 - piece.a0;
       const h = piece.y1 - piece.y0;
-      const inner = lambert("#ffffff", { map: repeated(wallTexture, w / 2, h / 2) });
+      const inner = wallCut(room.kind, room.height, w, piece.y0, h, side < 0 ? piece.a0 / 2 : -piece.a1 / 2);
       const faces = side > 0
         ? [hullSkin, hullSkin, hullSkin, hullSkin, hullSkin, inner]
         : [hullSkin, hullSkin, hullSkin, hullSkin, inner, hullSkin];
@@ -689,7 +825,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         pipe.rotation.z = Math.PI / 2;
       }
       // Lit skirting along the floor.
-      box(width, 0.06, 0.06, glow(dark ? PALETTE.dark : tinted(accent, PALETTE.dark, 0.45)), cx, y0 + 0.06, wallZ - side * 0.04);
+      box(width, 0.06, 0.06, glow(dark ? PALETTE.dark : tinted(paintOf(room.kind), PALETTE.dark, 0.2)), cx, y0 + 0.06, wallZ - side * 0.04);
     }
     // Walkway lines down the open middle.
     if (room.kind !== "chamber" && room.kind !== "hangar") {
@@ -717,7 +853,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       const dock = room.kind === "hangar";
 
       if (!coreTop) {
-        const floor = new THREE.Mesh(new THREE.PlaneGeometry(width, half * 2), lambert("#ffffff", { map: repeated(floorTexture, width / 2, half) }));
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(width, half * 2), floorMaterial(room.kind, width, half * 2));
         floor.rotation.x = -Math.PI / 2;
         floor.position.set(cx, y0, 0);
         scene.add(floor);
@@ -742,7 +878,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
           const openings = dock && side === 1
             ? [...windows, { a0: layout.dock.opening.x0, a1: layout.dock.opening.x1, y0: 0.4, y1: 5.2 }]
             : windows;
-          hullSide(room.x0, room.x1, y0, room.height, side, openings);
+          hullSide(room, y0, side, openings);
           for (const pane of windows) hullWindow(y0, pane, side);
           openingsBySide.set(side, openings);
         }
@@ -755,12 +891,12 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
 
         // Deck lights: strips down the ceiling and warm lamps, or an emergency glow when dormant.
         // The chamber's gallery and the dock light themselves.
-        const lampCount = room.kind === "chamber" || dock ? 0 : Math.max(1, Math.round(width / 11));
+        const lampCount = room.kind === "chamber" || dock ? 0 : Math.max(2, Math.round(width / 7));
         for (let lampIndex = 0; lampIndex < lampCount; lampIndex += 1) {
           const lx = room.x0 + (width * (lampIndex + 0.5)) / lampCount;
           if (!dark) {
-            put(width / lampCount - 1.6, 0.06, 0.4, glow(PALETTE.light), lx, room.height - 0.05, 0);
-            const lamp = new THREE.PointLight(PALETTE.light, 12, 24, 1.1);
+            for (const row of [-0.55, 0, 0.55]) put(width / lampCount - 1.6, 0.06, 0.45, glow(PALETTE.light), lx, room.height - 0.05, row * half);
+            const lamp = new THREE.PointLight(LAMP, 15, 34, 1);
             lamp.position.set(lx, y0 + room.height - 0.7, 0);
             scene.add(lamp);
           } else {
@@ -776,15 +912,15 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       const nextRoom = deck.compartments[index + 1];
       if (index === 0) {
         const height = wallHeight(room);
-        put(0.4, height, half * 2, bulkheadMaterial, room.x0 - 0.2, height / 2, 0);
+        put(0.4, height, half * 2, bulkheadFaces(null, room, half * 2, 0, height), room.x0 - 0.2, height / 2, 0);
       }
       if (nextRoom) {
         const height = wallHeight(room, nextRoom);
         const wx = room.x1 + 0.2;
         const sideDepth = half - DOOR_HALF_WIDTH;
-        put(0.4, height, sideDepth, bulkheadMaterial, wx, height / 2, -(DOOR_HALF_WIDTH + sideDepth / 2));
-        put(0.4, height, sideDepth, bulkheadMaterial, wx, height / 2, DOOR_HALF_WIDTH + sideDepth / 2);
-        put(0.4, height - DOOR_HEIGHT, DOOR_HALF_WIDTH * 2, bulkheadMaterial, wx, DOOR_HEIGHT + (height - DOOR_HEIGHT) / 2, 0);
+        put(0.4, height, sideDepth, bulkheadFaces(room, nextRoom, sideDepth, 0, height), wx, height / 2, -(DOOR_HALF_WIDTH + sideDepth / 2));
+        put(0.4, height, sideDepth, bulkheadFaces(room, nextRoom, sideDepth, 0, height), wx, height / 2, DOOR_HALF_WIDTH + sideDepth / 2);
+        put(0.4, height - DOOR_HEIGHT, DOOR_HALF_WIDTH * 2, bulkheadFaces(room, nextRoom, DOOR_HALF_WIDTH * 2, DOOR_HEIGHT, height - DOOR_HEIGHT), wx, DOOR_HEIGHT + (height - DOOR_HEIGHT) / 2, 0);
         put(0.6, 0.18, DOOR_HALF_WIDTH * 2 + 0.4, trimMaterial, wx, DOOR_HEIGHT + 0.09, 0);
         for (const side of [-1, 1]) {
           put(0.6, DOOR_HEIGHT, 0.2, trimMaterial, wx, DOOR_HEIGHT / 2, side * (DOOR_HALF_WIDTH + 0.1));
@@ -795,12 +931,12 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
           put(0.1, 0.5, 0.36, solid(PALETTE.dark), wx - facing * 0.32, 1.5, DOOR_HALF_WIDTH + 0.6);
           put(0.04, 0.2, 0.2, glow(nextRoom.online ? PALETTE.ok : PALETTE.alert), wx - facing * 0.38, 1.6, DOOR_HALF_WIDTH + 0.6);
         }
-        put(0.44, 0.14, DOOR_HALF_WIDTH * 2 + 0.4, lambert("#ffffff", { map: repeated(floorTexture, 0.25, DOOR_HALF_WIDTH) }), wx, -0.07, 0);
+        put(0.44, 0.14, DOOR_HALF_WIDTH * 2 + 0.4, floorMaterial("fabrication", 0.5, DOOR_HALF_WIDTH * 2), wx, -0.07, 0);
         put(0.46, 0.02, DOOR_HALF_WIDTH * 2, lambert("#ffffff", { map: repeated(stripes, 0.4, DOOR_HALF_WIDTH * 4) }), wx, 0.005, 0);
         // A painted name over each side of the doorway.
         for (const facing of [-1, 1]) {
           const target = facing > 0 ? nextRoom : room;
-          const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.26), new THREE.MeshBasicMaterial({ map: signTexture(target.label.toUpperCase(), PALETTE.light) }));
+          const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.26), new THREE.MeshBasicMaterial({ map: signTexture(target.label.toUpperCase(), tinted(paintOf(target.kind), "#ffffff", 0.3)) }));
           sign.position.set(wx - facing * 0.31, y0 + DOOR_HEIGHT + 0.35, 0);
           sign.rotation.y = -facing * Math.PI / 2;
           scene.add(sign);
@@ -875,7 +1011,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         const plate = (x0: number, x1: number, z0: number, z1: number) => {
           const mesh = new THREE.Mesh(
             new THREE.BoxGeometry(x1 - x0, 0.3, z1 - z0),
-            lambert("#ffffff", { map: repeated(floorTexture, (x1 - x0) / 2, (z1 - z0) / 2) }),
+            floorMaterial("chamber", x1 - x0, z1 - z0),
           );
           mesh.position.set((x0 + x1) / 2, y0 - 0.15, (z0 + z1) / 2);
           scene.add(mesh);
@@ -1075,22 +1211,22 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     const last = deck.compartments[deck.compartments.length - 1];
     const endX = last.x1 + 0.2;
     if (!upper) {
-      put(0.4, UPPER_FLOOR, half * 2, bulkheadMaterial, endX, UPPER_FLOOR / 2, 0);
+      put(0.4, UPPER_FLOOR, half * 2, bulkheadFaces(last, null, half * 2, 0, UPPER_FLOOR), endX, UPPER_FLOOR / 2, 0);
       return;
     }
-    const windowWidth = 9;
-    const windowLow = 1.2;
-    const windowHigh = 4.6;
+    const windowWidth = 12;
+    const windowLow = 1;
+    const windowHigh = 5.6;
     const sideDepth = (half * 2 - windowWidth) / 2;
-    put(0.4, last.height, sideDepth, bulkheadMaterial, endX, last.height / 2, -(windowWidth / 2 + sideDepth / 2));
-    put(0.4, last.height, sideDepth, bulkheadMaterial, endX, last.height / 2, windowWidth / 2 + sideDepth / 2);
-    put(0.4, windowLow, windowWidth, bulkheadMaterial, endX, windowLow / 2, 0);
-    put(0.4, last.height - windowHigh, windowWidth, bulkheadMaterial, endX, windowHigh + (last.height - windowHigh) / 2, 0);
+    put(0.4, last.height, sideDepth, bulkheadFaces(last, null, sideDepth, 0, last.height), endX, last.height / 2, -(windowWidth / 2 + sideDepth / 2));
+    put(0.4, last.height, sideDepth, bulkheadFaces(last, null, sideDepth, 0, last.height), endX, last.height / 2, windowWidth / 2 + sideDepth / 2);
+    put(0.4, windowLow, windowWidth, bulkheadFaces(last, null, windowWidth, 0, windowLow), endX, windowLow / 2, 0);
+    put(0.4, last.height - windowHigh, windowWidth, bulkheadFaces(last, null, windowWidth, windowHigh, last.height - windowHigh), endX, windowHigh + (last.height - windowHigh) / 2, 0);
     const bowGlass = inert(new THREE.Mesh(new THREE.PlaneGeometry(windowWidth, windowHigh - windowLow), glassMaterial));
     bowGlass.position.set(endX, y0 + (windowLow + windowHigh) / 2, 0);
     bowGlass.rotation.y = -Math.PI / 2;
     scene.add(bowGlass);
-    for (const mullion of [-1.5, 1.5]) put(0.2, windowHigh - windowLow, 0.12, trimMaterial, endX - 0.15, (windowLow + windowHigh) / 2, mullion);
+    for (const mullion of [-3, 0, 3]) put(0.2, windowHigh - windowLow, 0.12, trimMaterial, endX - 0.15, (windowLow + windowHigh) / 2, mullion);
   });
 
   /**
@@ -1108,7 +1244,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     const innerZ = core.z1 - wall;
     const innerX = core.x1 - cx - wall;
     const coreMetal = solid(tinted("#2a2638", accent, 0.08));
-    const levels: [number, number][] = [[0.9, 4.6], [UPPER_FLOOR + 0.9, UPPER_FLOOR + 4.8]];
+    const levels: [number, number][] = [[0.9, 5.8], [UPPER_FLOOR + 0.9, UPPER_FLOOR + 5.4]];
     const coreGlass = new THREE.MeshBasicMaterial({ map: glassTexture(tinted(spec.limb, "#ffffff", 0.3)), transparent: true, depthWrite: false, side: THREE.DoubleSide });
 
     const coreWall = (alongX: boolean, fixed: number, a0: number, a1: number, open0: number, open1: number) => {
@@ -1137,7 +1273,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         slab(0.18, tall, wall + 0.24, trimMaterial, opening.a1, y);
       }
     };
-    for (const side of [-1, 1]) coreWall(true, side * zWall, core.x0, core.x1, cx - 4, cx + 4);
+    for (const side of [-1, 1]) coreWall(true, side * zWall, core.x0, core.x1, cx - 4.8, cx + 4.8);
     for (const end of [-1, 1]) coreWall(false, cx + end * xWall, -innerZ, innerZ, -(innerZ - 1.2), innerZ - 1.2);
 
     // Hazard stripes round its foot on both levels, and its name over the end windows.
@@ -1155,7 +1291,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         band.rotation.y = (end * Math.PI) / 2;
         scene.add(band);
         const sign = new THREE.Mesh(new THREE.PlaneGeometry(4, 0.4), new THREE.MeshBasicMaterial({ map: signTexture("LAW-HEART CORE · SEALED", PALETTE.amber) }));
-        sign.position.set(cx + end * (core.x1 - cx + 0.02), base + (base === 0 ? 5.15 : 5.3), 0);
+        sign.position.set(cx + end * (core.x1 - cx + 0.02), (base === 0 ? levels[0][1] : levels[1][1]) + 0.45, 0);
         sign.rotation.y = (end * Math.PI) / 2;
         scene.add(sign);
       }
@@ -1777,7 +1913,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       if (tier === 0) {
         // Vacuum Tap: a bell on a stem, drawing Flux out of the quiet into the star.
         const angle = ((unit + 0.5) / 8) * Math.PI * 2;
-        const tap = machineGroup(heart.x + Math.cos(angle) * 3.9, 0, Math.sin(angle) * Math.min(4.4, innerZ - 0.9), text);
+        const tap = machineGroup(heart.x + Math.cos(angle) * 4.6, 0, Math.sin(angle) * Math.min(5.4, innerZ - 0.9), text);
         piece(tap, new THREE.CylinderGeometry(0.42, 0.5, 0.3, 10), solid(metal), 0, 0.15);
         piece(tap, new THREE.CylinderGeometry(0.18, 0.22, 0.8, 8), solid(metalLight), 0, 0.7);
         piece(tap, new THREE.CylinderGeometry(0.62, 0.2, 0.55, 12, 1, true), lambert(metal, { side: THREE.DoubleSide }), 0, 1.35);
@@ -1812,12 +1948,12 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       } else if (tier === 2) {
         // Harmonic Loom: a frame on the end wall strung with threads that shiver.
         const slot = [[-1, -1.5], [1, 1.5], [-1, 1.5], [1, -1.5]][unit];
-        const loom = machineGroup(heart.x + slot[0] * (innerX - 0.15), 5.75, slot[1], text);
+        const loom = machineGroup(heart.x + slot[0] * (innerX - 0.15), heart.y - 0.45, slot[1], text);
         for (const post of [-1.25, 1.25]) piece(loom, new THREE.BoxGeometry(0.14, 2, 0.14), solid(metalLight), 0, 0, post);
         for (const bar of [-1, 1]) piece(loom, new THREE.BoxGeometry(0.14, 0.14, 2.64), solid(metalLight), 0, bar, 0);
         const threads = Array.from({ length: 7 }, (_, thread) => piece(loom, new THREE.BoxGeometry(0.03, 1.86, 0.03), energy, 0, 0, -0.9 + thread * 0.3));
         if (lit) {
-          feedBeam(new THREE.Vector3(loom.position.x - slot[0] * 0.2, 5.75, slot[1]), machine.color, seed);
+          feedBeam(new THREE.Vector3(loom.position.x - slot[0] * 0.2, heart.y - 0.45, slot[1]), machine.color, seed);
           animated.push((time) => {
             threads.forEach((thread, threadIndex) => { thread.position.x = Math.sin(time * 0.03 + threadIndex * 1.3 + unit) * 0.05; });
           });
@@ -1827,26 +1963,26 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         if (unit === 0) {
           const track = new THREE.Mesh(new THREE.TorusGeometry(3.3, 0.06, 4, 48), solid(metalLight));
           track.rotation.x = Math.PI / 2;
-          track.position.set(heart.x, 11.3, 0);
+          track.position.set(heart.x, chamberHeight - 1.2, 0);
           scene.add(track);
           label(track, text);
         }
         if (!lit) continue;
-        const collector = machineGroup(heart.x, 11.3, 0, text);
+        const collector = machineGroup(heart.x, chamberHeight - 1.2, 0, text);
         piece(collector, new THREE.BoxGeometry(0.4, 0.22, 0.4), solid(metal));
         for (const wing of [-1, 1]) piece(collector, new THREE.BoxGeometry(0.9, 0.03, 0.34), energy, wing * 0.62, 0, 0);
         const phase = (unit / shown) * Math.PI * 2;
         const place = (time: number) => phase + time * 0.00035;
         animated.push((time) => {
           const angle = place(time);
-          collector.position.set(heart.x + Math.cos(angle) * 3.3, 11.3, Math.sin(angle) * 3.3);
+          collector.position.set(heart.x + Math.cos(angle) * 3.3, chamberHeight - 1.2, Math.sin(angle) * 3.3);
           collector.rotation.y = -angle;
         });
         emitters.push({ at: () => collector.position, color: new THREE.Color(machine.color), seed });
       } else if (tier === 4) {
         // Constraint Engine: a housing on the side wall turning a flywheel without rest.
         const slot = [[-1, -2.2], [1, 2.2], [-1, 2.2], [1, -2.2]][unit];
-        const engine = machineGroup(heart.x + slot[1], 5.75, slot[0] * (innerZ - 0.25), text);
+        const engine = machineGroup(heart.x + slot[1], heart.y - 0.45, slot[0] * (innerZ - 0.25), text);
         piece(engine, new THREE.BoxGeometry(1.4, 1.1, 0.5), solid(metal));
         const wheel = new THREE.Group();
         wheel.position.z = -slot[0] * 0.35;
@@ -1854,7 +1990,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         piece(wheel, new THREE.TorusGeometry(0.42, 0.11, 6, 16), energy);
         for (const spoke of [0, Math.PI / 2]) piece(wheel, new THREE.BoxGeometry(0.84, 0.06, 0.06), solid(metalLight)).rotation.z = spoke;
         if (lit) {
-          feedBeam(new THREE.Vector3(engine.position.x, 5.75, engine.position.z - slot[0] * 0.4), machine.color, seed);
+          feedBeam(new THREE.Vector3(engine.position.x, heart.y - 0.45, engine.position.z - slot[0] * 0.4), machine.color, seed);
           animated.push((time) => { wheel.rotation.z = time * 0.008 * (unit % 2 === 0 ? 1 : -1); });
         }
       } else {
@@ -1897,7 +2033,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     for (; tier < weights.length - 1 && pick > weights[tier]; tier += 1) pick -= weights[tier];
     new THREE.Color(weightTotal > 0 ? feeds[tier].color : spec.shard).toArray(particleColors, particle * 3);
     return {
-      radius: radius * 1.15 + hash(particle * 3.7) * (3.9 - radius * 1.15),
+      radius: radius * 1.15 + hash(particle * 3.7) * (4.8 - radius * 1.15),
       speed: (0.0003 + hash(particle * 9.1) * 0.0008) * (particle % 2 === 0 ? 1 : -1),
       phase: hash(particle * 1.3) * Math.PI * 2,
       height: (hash(particle * 5.9) - 0.5) * 8,
@@ -1967,11 +2103,248 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     tending.forEach(({ drone, program, droneIndex }) => {
       const direction = droneIndex % 2 === 0 ? 1 : -1;
       const angle = droneIndex * 1.7 + time * 0.00025 * (1 + (droneIndex % 3) * 0.2) * direction;
-      drone.position.set(starAt.x + Math.cos(angle) * 3.6, 2.2 + ((droneIndex * 1.3) % 7) + Math.sin(time * 0.002 + droneIndex) * 0.2, starAt.z + Math.sin(angle) * Math.min(3.6, innerZ - 0.4));
+      drone.position.set(starAt.x + Math.cos(angle) * 4.4, 2.2 + ((droneIndex * 1.3) % 9) + Math.sin(time * 0.002 + droneIndex) * 0.2, starAt.z + Math.sin(angle) * Math.min(4.4, innerZ - 0.4));
       face(drone, -Math.sin(angle) * direction, Math.cos(angle) * direction);
       drone.visible = !program.compromised || Math.floor(time / 140 + droneIndex) % 5 !== 0;
     });
   });
+
+  // ---- What the crew have put up: the more people aboard, the more of it there is (ark-walk-decor). ----
+  const crewFaces: CrewFace[] = props.crew.map((member) => getCrewHead({ id: member.id, role: member.role, ageGroup: member.ageGroup }));
+  const artTexture = (width: number, height: number, paint: (context: CanvasRenderingContext2D) => void) => {
+    const texture = canvasTexture(width, height, paint);
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    return texture;
+  };
+  const picture = (w: number, h: number, texture: THREE.Texture, cutout = false) =>
+    new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshLambertMaterial({ map: texture, alphaTest: cutout ? 0.5 : 0 }));
+  const block = (w: number, h: number, d: number, material: THREE.Material) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
+  const set = <T extends THREE.Object3D>(parent: THREE.Object3D, object: T, x: number, y: number, z: number) => {
+    object.position.set(x, y, z);
+    parent.add(object);
+    return object;
+  };
+  /** A frame on a wall: x along it, y up from the art's centre, z out into the room. */
+  const onWall = (spot: WallSpot, deckY: number) => {
+    const group = new THREE.Group();
+    if (spot.normal === "z") {
+      group.position.set(spot.along, deckY + spot.y, spot.plane);
+      group.rotation.y = spot.facing > 0 ? 0 : Math.PI;
+    } else {
+      group.position.set(spot.plane, deckY + spot.y, spot.along);
+      group.rotation.y = spot.facing > 0 ? Math.PI / 2 : -Math.PI / 2;
+    }
+    scene.add(group);
+    return group;
+  };
+  const ART_DENSITY = 16;
+  const pixels = (metres: number) => Math.max(4, Math.round(metres * ART_DENSITY));
+  const WOOD = ["#7a4a2a", "#5a3a24", "#9a6a3e"] as const;
+  const FABRIC = ["#c8605a", "#d8a03a", "#8a5a9a", "#5a8a4a", "#4f6ad0", "#e2786a"] as const;
+  const FLOWERS = ["#f08ab0", "#f2c744", "#c87ae8", "#ffffff", "#ff8a5a", "#e8443a"] as const;
+  const BUNTING = ["#e8443a", "#f2c744", "#4f7ad8", "#7cc35a", "#f08ab0", "#a27ef0", "#ee7a3c"] as const;
+  const BULBS = ["#fff0c0", "#ffc870", "#ff9ac8", "#c8b0ff", "#fff0c0"] as const;
+  const LEAVES = ["#5fae4e", "#4a9440", "#7cc35a", "#3f7f3a"] as const;
+  for (const piece of decor) {
+    const deckY = layout.decks[piece.deck].floorY;
+    const seed = piece.seed;
+    const pick = <T,>(list: readonly T[], salt = 0) => list[Math.floor(hash(seed * 1.31 + salt) * list.length)];
+    if (piece.wall) {
+      const spot = piece.wall;
+      const wall = onWall(spot, deckY);
+      const pairs = spot.width >= 2.3 ? [-0.62, 0.62] : [0];
+      if (piece.kind === "painting") {
+        const w = Math.min(spot.width, 2);
+        const h = Math.min(spot.height, w * 0.66);
+        set(wall, block(w + 0.1, h + 0.1, 0.06, solid(pick(WOOD))), 0, 0, 0.03);
+        set(wall, picture(w, h, artTexture(pixels(w), pixels(h), (context) => paintPainting(context, pixels(w), pixels(h), seed, accent))), 0, 0, 0.065);
+        label(wall, "A painting by one of the crew");
+      } else if (piece.kind === "portraits") {
+        const w = Math.min(spot.width, 2.2);
+        const h = (w * 30) / 44;
+        const start = Math.floor(hash(seed) * Math.max(1, crewFaces.length));
+        const chosen = Array.from({ length: Math.min(6, crewFaces.length) }, (_, index) => (start + index) % crewFaces.length);
+        set(wall, block(w + 0.1, h + 0.1, 0.05, solid(WOOD[1])), 0, 0, 0.025);
+        set(wall, picture(w, h, artTexture(44, 30, (context) => paintPortraits(context, 44, 30, seed, chosen.map((index) => crewFaces[index])))), 0, 0, 0.055);
+        const names = chosen.map((index) => props.crew[index].name);
+        label(wall, names.length > 0 ? `Photos of the crew · ${names.slice(0, 3).join(", ")}${names.length > 3 ? " and others" : ""}` : "A board for the crew's photos");
+      } else if (piece.kind === "poster") {
+        pairs.forEach((along, index) => {
+          const poster = set(wall, picture(0.9, 1.26, artTexture(40, 56, (context) => paintPoster(context, 40, 56, seed + index * 7, piece.room))), along, 0, 0.02);
+          poster.rotation.z = (hash(seed + index) - 0.5) * 0.04;
+        });
+        label(wall, "A poster the crew put up");
+      } else if (piece.kind === "drawings") {
+        const spread = Math.min(1, spot.width / 2.1);
+        [-0.72, 0, 0.72].forEach((along, index) => {
+          const sheet = set(wall, picture(0.62, 0.5, artTexture(16, 13, (context) => paintDrawing(context, 16, 13, seed * 3 + index))), along * spread, (hash(seed + index * 2.1) - 0.5) * 0.3, 0.02 + index * 0.004);
+          sheet.rotation.z = (hash(seed * 1.7 + index) - 0.5) * 0.32;
+        });
+        label(wall, "Drawings by the children aboard");
+      } else if (piece.kind === "chart") {
+        const w = Math.min(spot.width, 2);
+        const h = Math.min(spot.height, w * 0.66);
+        set(wall, block(w + 0.08, h + 0.08, 0.04, trimMaterial), 0, 0, 0.02);
+        set(wall, picture(w, h, artTexture(pixels(w), pixels(h), (context) => paintChart(context, pixels(w), pixels(h), seed, accent))), 0, 0, 0.045);
+        label(wall, "A star chart of the space round the Ark");
+      } else if (piece.kind === "banner") {
+        pairs.forEach((along, index) => {
+          const color = index === 0 ? paintOf(piece.room) : pick(FABRIC, index);
+          set(wall, block(0.86, 0.05, 0.05, trimMaterial), along, 0.92, 0.06);
+          set(wall, picture(0.7, 1.8, artTexture(12, 30, (context) => paintBanner(context, 12, 30, seed + index * 5, color)), true), along, 0, 0.05);
+        });
+        label(wall, "A banner the crew made");
+      } else if (piece.kind === "mural") {
+        set(wall, picture(spot.width, spot.height, artTexture(pixels(spot.width), pixels(spot.height), (context) => paintMural(context, pixels(spot.width), pixels(spot.height), seed, accent, piece.room === "habitation" ? "meadow" : piece.room === "education" ? "hands" : "world"))), 0, 0, 0.015);
+        label(wall, "A mural the crew painted together");
+      }
+    } else if (piece.floor) {
+      const foot = piece.floor;
+      const sideways = Math.abs(foot.facing.x) > 0.5;
+      const across = sideways ? foot.z1 - foot.z0 : foot.x1 - foot.x0;
+      const deep = sideways ? foot.x1 - foot.x0 : foot.z1 - foot.z0;
+      const item = new THREE.Group();
+      item.position.set((foot.x0 + foot.x1) / 2, deckY, (foot.z0 + foot.z1) / 2);
+      item.rotation.y = Math.atan2(foot.facing.x, foot.facing.z);
+      scene.add(item);
+      const fabric = solid(pick(FABRIC));
+      const wood = solid(pick(WOOD, 2));
+      if (piece.kind === "plant") {
+        const pot = solid(pick(["#b9643c", "#d8d2c4", "#4f6ad0", "#e2786a"] as const, 3));
+        set(item, new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.2, 0.44, 8), pot), 0, 0.22, 0);
+        set(item, new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.23, 0.04, 8), solid("#4a3424")), 0, 0.43, 0);
+        const variant = Math.floor(hash(seed * 2.9) * 3);
+        const leafCount = variant === 1 ? 4 : 7;
+        if (variant === 1) set(item, block(0.08, 1.1, 0.08, solid("#6a4a2a")), 0, 0.95, 0);
+        for (let leaf = 0; leaf < leafCount; leaf += 1) {
+          const angle = (leaf / leafCount) * Math.PI * 2 + hash(seed + leaf);
+          const reach = variant === 2 ? 0.34 : 0.18;
+          const height = variant === 1 ? 1.45 + hash(seed * 3 + leaf) * 0.35 : 0.6 + hash(seed * 3 + leaf) * 0.5;
+          const size = variant === 1 ? 0.42 : variant === 2 ? 0.22 : 0.3;
+          set(item, block(size, variant === 2 ? 0.12 : size, size, solid(LEAVES[leaf % LEAVES.length])), Math.cos(angle) * reach, height, Math.sin(angle) * reach);
+          if (variant === 0 && leaf % 3 === 0) set(item, block(0.1, 0.1, 0.1, solid(pick(FLOWERS, leaf))), Math.cos(angle) * reach * 1.6, height + 0.12, Math.sin(angle) * reach * 1.6);
+        }
+        label(item, "A plant someone brought aboard");
+      } else if (piece.kind === "rug" || piece.kind === "mat") {
+        const w = Math.max(4, Math.round(across * 8));
+        const h = Math.max(4, Math.round(deep * 8));
+        const rug = set(item, new THREE.Mesh(
+          new THREE.PlaneGeometry(across, deep),
+          lambert("#ffffff", { map: artTexture(w, h, (context) => (piece.kind === "mat" ? paintMat(context, w, h) : paintRug(context, w, h, seed))) }),
+        ), 0, 0.016 + (seed % 3) * 0.002, 0);
+        rug.rotation.x = -Math.PI / 2;
+        inert(rug);
+      } else if (piece.kind === "sofa" || piece.kind === "armchair") {
+        set(item, block(across, 0.4, deep, fabric), 0, 0.2, 0);
+        const seats = Math.max(1, Math.round((across - 0.44) / 0.9));
+        for (let seat = 0; seat < seats; seat += 1) {
+          const width = (across - 0.44) / seats;
+          set(item, block(width - 0.05, 0.14, deep - 0.32, solid(tinted(pick(FABRIC), "#ffffff", 0.12))), -across / 2 + 0.22 + width * (seat + 0.5), 0.47, 0.1);
+        }
+        set(item, block(across, 0.56, 0.24, fabric), 0, 0.68, -deep / 2 + 0.12);
+        for (const end of [-1, 1]) set(item, block(0.22, 0.64, deep, fabric), end * (across / 2 - 0.11), 0.32, 0);
+        if (piece.kind === "sofa") {
+          for (const end of [-1, 1]) {
+            const pillow = set(item, block(0.38, 0.34, 0.12, solid(pick(FLOWERS, end))), end * (across / 2 - 0.5), 0.68, -deep / 2 + 0.32);
+            pillow.rotation.x = -0.25;
+          }
+        }
+        label(item, piece.kind === "sofa" ? "A sofa the crew dragged in here" : "An armchair, worn at the arms");
+      } else if (piece.kind === "table") {
+        set(item, block(across, 0.07, deep, wood), 0, 0.42, 0);
+        for (const lx of [-1, 1]) for (const lz of [-1, 1]) set(item, block(0.06, 0.4, 0.06, wood), lx * (across / 2 - 0.1), 0.2, lz * (deep / 2 - 0.1));
+        set(item, new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.1, 6), solid("#e9e4da")), -across * 0.2, 0.51, 0.05);
+        set(item, block(0.3, 0.05, 0.22, solid(pick(FABRIC, 4))), across * 0.18, 0.48, -0.05);
+        label(item, "A low table, cups left on it");
+      } else if (piece.kind === "planter") {
+        set(item, block(across, 0.55, deep, wood), 0, 0.275, 0);
+        set(item, block(across - 0.1, 0.04, deep - 0.1, solid("#4a3424")), 0, 0.57, 0);
+        const columns = Math.max(1, Math.floor((across - 0.2) / 0.3));
+        const rows = Math.max(1, Math.floor((deep - 0.2) / 0.3));
+        for (let column = 0; column < columns; column += 1) {
+          for (let row = 0; row < rows; row += 1) {
+            const fx = -across / 2 + 0.1 + (across - 0.2) * ((column + 0.5) / columns);
+            const fz = -deep / 2 + 0.1 + (deep - 0.2) * ((row + 0.5) / rows);
+            const rise = 0.18 + hash(seed + column * 3.1 + row) * 0.22;
+            set(item, block(0.04, rise, 0.04, solid(LEAVES[1])), fx, 0.59 + rise / 2, fz);
+            set(item, block(0.13, 0.1, 0.13, solid(pick(FLOWERS, column * 7 + row))), fx, 0.62 + rise, fz);
+          }
+        }
+        label(item, "Flowers someone is growing");
+      } else if (piece.kind === "shelf") {
+        const dark = solid(WOOD[1]);
+        for (const end of [-1, 1]) set(item, block(0.05, 2, deep, dark), end * (across / 2 - 0.025), 1, 0);
+        set(item, block(across, 2, 0.03, dark), 0, 1, -deep / 2 + 0.015);
+        for (let shelf = 0; shelf < 5; shelf += 1) {
+          const y = 0.04 + shelf * 0.48;
+          set(item, block(across - 0.1, 0.04, deep, dark), 0, y, 0);
+          if (shelf === 4) continue;
+          let bx = -across / 2 + 0.1;
+          for (let book = 0; bx < across / 2 - 0.15; book += 1) {
+            const thick = 0.05 + hash(seed + shelf * 13 + book) * 0.07;
+            const tall = 0.22 + hash(seed * 2 + shelf * 7 + book) * 0.14;
+            set(item, block(thick, tall, deep - 0.08, solid(pick(FABRIC, shelf * 11 + book))), bx + thick / 2, y + 0.02 + tall / 2, 0.02);
+            bx += thick + 0.01;
+          }
+        }
+        label(item, "A shelf of books people have carried aboard");
+      } else if (piece.kind === "bench") {
+        set(item, block(across, 0.08, deep, wood), 0, 0.45, 0);
+        for (const end of [-1, 1]) set(item, block(0.08, 0.42, deep - 0.1, solid(metal)), end * (across / 2 - 0.2), 0.21, 0);
+        set(item, block(across - 0.3, 0.07, deep - 0.15, fabric), 0, 0.525, 0);
+        label(item, "A bench, a cushion on it");
+      } else if (piece.kind === "cushions") {
+        for (let bag = 0; bag < 4; bag += 1) {
+          const bx = (bag % 2 === 0 ? -1 : 1) * across * 0.25;
+          const bz = (bag < 2 ? -1 : 1) * deep * 0.25;
+          const cushion = set(item, block(0.62, 0.3, 0.62, solid(BUNTING[(bag + seed) % BUNTING.length])), bx, 0.15, bz);
+          cushion.rotation.y = hash(seed + bag) * 0.8;
+          set(item, block(0.5, 0.1, 0.5, solid(tinted(BUNTING[(bag + seed) % BUNTING.length], "#ffffff", 0.25))), bx, 0.33, bz).rotation.y = cushion.rotation.y;
+        }
+        label(item, "Cushions for story time");
+      }
+    } else if (piece.line) {
+      // Strung across the room, wall to wall, sagging in the middle.
+      const { x, z0, z1, y } = piece.line;
+      const heightAt = (z: number) => deckY + y - 0.9 * (1 - ((2 * (z - z0)) / (z1 - z0) - 1) ** 2);
+      const points = Array.from({ length: 41 }, (_, step) => {
+        const z = z0 + ((z1 - z0) * step) / 40;
+        return new THREE.Vector3(x, heightAt(z), z);
+      });
+      scene.add(inert(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color: "#4a4050" }))));
+      const tint = new THREE.Color();
+      if (piece.kind === "bunting") {
+        const positions: number[] = [];
+        const colors: number[] = [];
+        for (let fz = z0 + 0.3, flag = 0; fz < z1 - 0.2; fz += 0.55, flag += 1) {
+          const left = heightAt(fz - 0.17);
+          const right = heightAt(fz + 0.17);
+          positions.push(x, left, fz - 0.17, x, right, fz + 0.17, x, (left + right) / 2 - 0.4, fz);
+          tint.set(BUNTING[(flag + seed) % BUNTING.length]);
+          for (let corner = 0; corner < 3; corner += 1) colors.push(tint.r, tint.g, tint.b);
+        }
+        const flags = new THREE.BufferGeometry();
+        flags.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+        flags.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+        flags.computeVertexNormals();
+        scene.add(inert(new THREE.Mesh(flags, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }))));
+      } else {
+        const bulbs: THREE.BufferGeometry[] = [];
+        for (let bz = z0 + 0.2, bulb = 0; bz < z1 - 0.1; bz += 0.45, bulb += 1) {
+          const geometry = new THREE.BoxGeometry(0.09, 0.11, 0.09);
+          geometry.translate(x, heightAt(bz) - 0.07, bz);
+          tint.set(BULBS[(bulb + seed) % BULBS.length]);
+          const rgb = [tint.r, tint.g, tint.b];
+          geometry.setAttribute("color", new THREE.Float32BufferAttribute(Array.from({ length: geometry.attributes.position.count * 3 }, (_, index) => rgb[index % 3]), 3));
+          bulbs.push(geometry);
+        }
+        const bulbMaterial = new THREE.MeshBasicMaterial({ vertexColors: true });
+        scene.add(inert(new THREE.Mesh(mergeGeometries(bulbs), bulbMaterial)));
+        animated.push((time) => { bulbMaterial.color.setScalar(0.82 + 0.18 * Math.sin(time * 0.0016 + seed)); });
+      }
+    }
+  }
 
   // ---- The crew at work: everyone has a place and something to do there (ark-walk-crew). ----
   type Point = { x: number; z: number };
@@ -2281,6 +2654,12 @@ export default function ArkWalk(props: ArkWalkProps) {
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     const layout = buildWalkLayout(initial.rooms.map((room) => ({ kind: room.kind, label: room.label, online: room.online })));
+    // People make the ship theirs: the more aboard, the more is put up. ?qa=1&people=N previews a crew of N.
+    const preview = search.has("qa") && search.has("people") ? Number(search.get("people")) : null;
+    const decor = planDecor(layout, preview ?? initial.crew.length, {
+      children: preview !== null || initial.crew.some((member) => member.ageGroup === "child"),
+    });
+    furnishLayout(layout, decor);
     for (const deck of layout.decks) {
       for (const room of deck.compartments) if (room.kind === "chamber") room.label = initial.heart.name;
     }
@@ -2299,12 +2678,12 @@ export default function ArkWalk(props: ArkWalkProps) {
     const scene = new THREE.Scene();
     const space = new THREE.Color(PALETTE.space).lerp(new THREE.Color(initial.worldAccent || "#6a6290"), 0.04);
     scene.background = space;
-    scene.fog = new THREE.Fog(space, 18, 70);
-    scene.add(new THREE.AmbientLight("#8a84b8", 0.85));
-    scene.add(new THREE.HemisphereLight(tinted("#c9b6ff", initial.worldAccent || "#c9b6ff", 0.3), "#3a2a1a", 0.6));
+    scene.fog = new THREE.Fog(tinted("#3d3852", initial.worldAccent || "#3d3852", 0.08), 45, 170);
+    scene.add(new THREE.AmbientLight("#aea8c6", 1));
+    scene.add(new THREE.HemisphereLight(tinted("#f4eeff", initial.worldAccent || "#f4eeff", 0.15), "#5a4a40", 0.7));
 
     const camera = new THREE.PerspectiveCamera(72, 1, 0.05, 1000);
-    const ship = buildShip(scene, layout, initial, () => propsRef.current);
+    const ship = buildShip(scene, layout, initial, () => propsRef.current, decor);
     let soundscape: Soundscape | null = null;
     const heart = layout.heart;
     const lookup = new Map(ship.interactables.map((item) => [item.object, item]));
