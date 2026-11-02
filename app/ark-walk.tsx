@@ -2628,7 +2628,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
   // ---- Soldiers in their kit: the best the Armory has ready, as far as it goes (the look only). ----
   const SOLDIER_ROLES = new Set(["security", "soldier"]);
   const armoryStock = props.armory?.unlocked ? props.armory.items : [];
-  const left = new Map(armoryStock.map((item) => [item.id, item.ready]));
+  let left = new Map(armoryStock.map((item) => [item.id, item.ready]));
   const issue = (kind: "weapon" | "armor") => {
     const item = armoryStock
       .filter((candidate) => candidate.kind === kind && (left.get(candidate.id) ?? 0) > 0)
@@ -2647,10 +2647,8 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
 
   // ---- The crew at work: everyone has a place and something to do there (ark-walk-crew). ----
   type Point = { x: number; z: number };
-  const awayIds = new Set(props.recon?.away ? props.recon.crewIds : []);
   const roomOnline = (kind: WalkRoomKind) => layout.decks.some((deck) => deck.compartments.some((room) => room.kind === kind && room.online));
   const areaOpen = (area: string) => layout.decks.some((deck) => deck.sideRooms.some((room) => room.id === area && room.open));
-  const plan = planCrew(props.crew, roomOnline, awayIds, areaOpen);
   const where = (kind: WalkRoomKind, deckHint?: number) => {
     const decks = deckHint === undefined ? layout.decks.map((_, index) => index) : [deckHint];
     for (const deck of decks) {
@@ -2697,199 +2695,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     for (const limb of person.limbs) limb.rotation.set(0, 0, 0);
     person.head.rotation.set(0, 0, 0);
   };
-  for (const placement of plan.placed) {
-    const { member, spot } = placement;
-    const place = where(placement.room, spot.deck);
-    if (!place) continue;
-    const { deck: deckNumber, room } = place;
-    const floor = layout.decks[deckNumber].floorY;
-    const person = blockyPerson(member.id, member.role, member.ageGroup);
-    kitOut(person, member.role, spot.activity === "aim");
-    const group = person.group;
-    scene.add(group);
-    crowd.push({ person, deck: deckNumber });
-    const doing = spot.activity === "train" && member.training === "security" ? "training to be a soldier" : DOING[spot.activity];
-    label(group, `${member.name} · ${roleName(member.role)} · ${doing}`);
-    const from = { x: room.x0 + spot.at.x, z: spot.at.z };
-    const to = spot.to ? { x: room.x0 + spot.to.x, z: spot.to.z } : null;
-    const seed = hash(member.id.length * 7.1 + placement.index * 3.3) * 10;
-    const speaking = placement.index % 2;
-    const [leftArm, rightArm, leftLeg, rightLeg] = person.limbs;
-    let waveStart = -Infinity;
-
-    if (LYING.has(spot.activity)) {
-      // On their back along the bed, head towards the look direction.
-      group.rotation.order = "YXZ";
-      group.rotation.set(-Math.PI / 2, Math.atan2(-spot.look.x, -spot.look.z), 0);
-      const lying = (time: number) => {
-        group.position.set(from.x - spot.look.x * 0.85, floor + (spot.y ?? 0) + 0.16 + Math.sin(time * 0.0015 + seed) * 0.015, from.z - spot.look.z * 0.85);
-      };
-      lying(0);
-      animated.push((time) => lying(time));
-      continue;
-    }
-    if (SEATED.has(spot.activity)) {
-      if (spot.activity === "train") {
-        // A VR headset over the eyes, lit in the simulator's colour.
-        const visor = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.14, 0.1), glow(SIDE_COLOR.simulator));
-        visor.position.set(0, 0.26, 0.24);
-        person.head.add(visor);
-      }
-      leftLeg.rotation.x = -1.5;
-      rightLeg.rotation.x = -1.5;
-      group.position.set(from.x, floor + (spot.y ?? 0) - person.hip, from.z);
-      face(group, spot.look.x, spot.look.z);
-      animated.push((time) => {
-        const t = time / 1000 + seed;
-        if (spot.activity === "study") {
-          const lookingUp = t % 9 < 2;
-          leftArm.rotation.x = -1.2;
-          rightArm.rotation.x = lookingUp ? -1.1 : -1.25 + Math.sin(t * 9) * 0.06;
-          person.head.rotation.x = lookingUp ? -0.05 : 0.38;
-        } else if (spot.activity === "eat") {
-          const bite = t % 4 < 0.9;
-          leftArm.rotation.x = -0.9;
-          rightArm.rotation.x = bite ? -2.3 : -0.95;
-          person.head.rotation.y = Math.sin(t * 0.5) * 0.45;
-          person.head.rotation.x = bite ? -0.1 : 0.1;
-        } else if (spot.activity === "train") {
-          // Headset on, fighting something only they can see.
-          leftArm.rotation.x = -1.3 + Math.sin(t * 2.3) * 0.15;
-          rightArm.rotation.x = -1.45 + Math.sin(t * 3.1 + 1) * 0.12 + (t % 1.4 < 0.1 ? 0.15 : 0);
-          person.head.rotation.y = Math.sin(t * 0.9) * 0.5;
-        } else if (spot.activity === "pilot") {
-          leftArm.rotation.x = -1.3 + Math.sin(t * 3) * 0.05;
-          rightArm.rotation.x = -1.3 + Math.sin(t * 2.3 + 1) * 0.08;
-          person.head.rotation.y = Math.sin(t * 0.3) * 0.25;
-        } else {
-          // Waiting on the lounge bench, chatting with the one beside them.
-          const talking = Math.floor(t / 3.2 + speaking) % 2 === 0;
-          leftArm.rotation.x = -0.55;
-          rightArm.rotation.x = talking ? -0.9 + Math.sin(t * 5) * 0.25 : -0.55;
-          person.head.rotation.y = (speaking ? -1 : 1) * 0.55;
-        }
-      });
-      continue;
-    }
-
-    face(group, spot.look.x, spot.look.z);
-    group.position.set(from.x, floor, from.z);
-    let crate: THREE.Mesh | null = null;
-    if (spot.activity === "carry") {
-      crate = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.45, 0.45), crateMaterial);
-      crate.position.set(0, 1.05, 0.42);
-      group.add(crate);
-    }
-    animated.push((time, drone) => {
-      const t = time / 1000 + seed;
-      relax(person);
-      let standing = true;
-      let facing = spot.look;
-      if (to) {
-        const speed = { carry: 1, tend: 0.4, teach: 0.5, guard: 0.8 }[spot.activity as string] ?? 0.9;
-        const pause = { carry: 1.2, tend: 4, teach: 4, guard: 3 }[spot.activity as string] ?? 3;
-        const step = beat(time, from, to, speed, pause, seed);
-        group.position.set(step.x, floor, step.z);
-        if (step.moving) {
-          standing = false;
-          facing = { x: step.dx, z: step.dz };
-          stride(person, time * 0.009 * Math.max(0.6, speed), 0.5);
-        }
-        if (crate) {
-          // Crates go from the belt to the stack; the walk back is empty-handed.
-          crate.visible = step.out;
-          if (step.out) {
-            leftArm.rotation.x = -1.25;
-            rightArm.rotation.x = -1.25;
-          }
-        }
-        if (!step.moving && spot.activity === "teach" && step.rest > 0.5) {
-          // Turn to the board and point at it, then back to the class.
-          facing = { x: -spot.look.x, z: -spot.look.z };
-          rightArm.rotation.x = -1.7;
-        } else if (!step.moving && spot.activity === "teach") {
-          rightArm.rotation.x = -0.6 + Math.sin(t * 4) * 0.3;
-          leftArm.rotation.x = -0.4;
-        } else if (!step.moving && spot.activity === "tend") {
-          leftArm.rotation.x = -0.9 + Math.sin(t * 1.3) * 0.25;
-          rightArm.rotation.x = -1 + Math.sin(t * 1.1 + 1) * 0.25;
-          person.head.rotation.x = 0.25;
-        } else if (!step.moving && spot.activity === "inspect") {
-          person.head.rotation.x = 0.2;
-          person.head.rotation.y = Math.sin(t * 0.8) * 0.4;
-          rightArm.rotation.x = step.rest > 0.4 && step.rest < 0.7 ? -1.4 : 0;
-        } else if (!step.moving && spot.activity === "guard") {
-          leftArm.rotation.x = 0.4;
-          rightArm.rotation.x = 0.4;
-          person.head.rotation.y = Math.sin(t * 0.6) * 0.6;
-        }
-      } else if (spot.activity === "type") {
-        leftArm.rotation.x = -1.15 + Math.sin(t * 14) * 0.06;
-        rightArm.rotation.x = -1.15 + Math.sin(t * 14 + 1.7) * 0.06;
-        person.head.rotation.x = 0.15;
-      } else if (spot.activity === "fix") {
-        leftArm.rotation.x = -0.9;
-        rightArm.rotation.x = -1.3 - Math.abs(Math.sin(t * 6)) * 0.9;
-        person.head.rotation.x = 0.2;
-      } else if (spot.activity === "heal") {
-        leftArm.rotation.x = -0.5;
-        rightArm.rotation.x = t % 8 < 3 ? -1.2 + Math.sin(t * 12) * 0.05 : -0.5;
-        person.head.rotation.x = 0.3;
-        group.rotation.x = 0.08;
-      } else if (spot.activity === "guard") {
-        leftArm.rotation.x = 0.4;
-        rightArm.rotation.x = 0.4;
-        person.head.rotation.y = Math.sin(t * 0.5) * 0.7;
-      } else if (spot.activity === "talk" || spot.activity === "point") {
-        // Partners take turns: one talks with their hands while the other nods.
-        const talking = Math.floor(t / 3.2 + speaking) % 2 === 0;
-        if (talking) {
-          leftArm.rotation.x = -0.5 + Math.sin(t * 5) * 0.3;
-          rightArm.rotation.x = spot.activity === "point" && t % 6 < 2 ? -1.55 : -0.6 + Math.sin(t * 4 + 1) * 0.35;
-          leftArm.rotation.z = -0.15;
-          person.head.rotation.x = Math.sin(t * 6) * 0.05;
-        } else {
-          person.head.rotation.x = 0.08 + Math.max(0, Math.sin(t * 2.4)) * 0.12;
-        }
-      } else if (spot.activity === "cook") {
-        // Stirring a pot, eyes on it.
-        leftArm.rotation.x = -0.9;
-        rightArm.rotation.x = -1.15 + Math.sin(t * 6) * 0.22;
-        rightArm.rotation.z = Math.sin(t * 6 + 1.2) * 0.18;
-        person.head.rotation.x = 0.32;
-      } else if (spot.activity === "aim") {
-        // Levelled down the range, a shot every second or so; the target flashes as it lands.
-        const shot = (t * 0.8) % 1;
-        rightArm.rotation.x = -1.52 + (shot < 0.08 ? 0.14 : 0);
-        leftArm.rotation.x = -1.4;
-        leftArm.rotation.z = -0.45;
-        const lane = range.find((candidate) => Math.abs(candidate.z - from.z) < 0.6);
-        if (lane) {
-          lane.bolt.visible = shot < 0.06;
-          lane.flash.visible = shot > 0.03 && shot < 0.16;
-        }
-      }
-      if (spot.activity !== "heal") group.rotation.x = 0;
-
-      // Someone not hard at work notices the drone and waves.
-      const dx = drone.x - group.position.x;
-      const dz = drone.z - group.position.z;
-      const near = drone.deck === deckNumber && Math.hypot(dx, dz) < 3.2;
-      const free = standing && ["talk", "point", "guard", "inspect", "tend", "teach", "heal"].includes(spot.activity);
-      if (near && free && time - waveStart > 25_000) waveStart = time;
-      if (time - waveStart < 1_800) {
-        facing = { x: dx, z: dz };
-        rightArm.rotation.set(0, 0, 2.5 + Math.sin(time * 0.012) * 0.3);
-      } else if (drone.deck === deckNumber && Math.hypot(dx, dz) < 5 && free) {
-        // Otherwise they glance at it as it goes by.
-        const turn = Math.atan2(dx, dz) - group.rotation.y;
-        person.head.rotation.y = Math.max(-0.9, Math.min(0.9, Math.atan2(Math.sin(turn), Math.cos(turn))));
-      }
-      face(group, facing.x, facing.z);
-    });
-  }
-
-  // ---- Off-duty crew walking the decks; they stop for the drone rather than walk through it. ----
+  // Off-duty crew walk these loops; they stop for the drone rather than walk through it.
   const routes: { deck: number; points: Point[] }[] = (() => {
     const [upper, lower] = layout.decks;
     const lane = 1.2;
@@ -2915,40 +2721,275 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       { deck: 0, points: loop([{ x: upperChamber.x1 - 1.2, z: lane }, { x: upperEnd.x1 - 6.5, z: lane }], [{ x: upperEnd.x1 - 6.5, z: -lane }, { x: upperChamber.x1 - 1.2, z: -lane }]) },
     ];
   })();
-  plan.roaming.forEach((member, index) => {
-    const route = routes[index % routes.length];
-    const deckFloor = layout.decks[route.deck].floorY;
-    const person = blockyPerson(member.id, member.role, member.ageGroup);
-    kitOut(person, member.role, false);
-    scene.add(person.group);
-    crowd.push({ person, deck: route.deck });
-    label(person.group, `${member.name} · ${roleName(member.role)} · walking the deck`);
-    const lengths = route.points.map((point, at) => {
-      const next = route.points[(at + 1) % route.points.length];
-      return Math.hypot(next.x - point.x, next.z - point.z);
-    });
-    const total = lengths.reduce((sum, length) => sum + length, 0);
-    let travelled = hash(index * 5.3 + 1) * total;
-    animated.push((time, drone) => {
-      // Find where along the route they are, and stop if the drone is in the way.
-      let distance = travelled % total;
-      let leg = 0;
-      while (distance > lengths[leg]) distance -= lengths[leg++];
-      const a = route.points[leg];
-      const b = route.points[(leg + 1) % route.points.length];
-      const amount = lengths[leg] > 0 ? distance / lengths[leg] : 0;
-      const x = a.x + (b.x - a.x) * amount;
-      const z = a.z + (b.z - a.z) * amount;
-      const dx = b.x - a.x;
-      const dz = b.z - a.z;
-      const toDrone = { x: drone.x - x, z: drone.z - z };
-      const blocked = drone.deck === route.deck && Math.hypot(toDrone.x, toDrone.z) < 1.4 && toDrone.x * dx + toDrone.z * dz > 0;
-      if (!blocked) travelled += drone.dt * 1.25;
-      person.group.position.set(x, deckFloor, z);
-      face(person.group, blocked ? toDrone.x : dx, blocked ? toDrone.z : dz);
-      stride(person, time * 0.0085, blocked ? 0 : 0.5);
-    });
+
+  /*
+   * The crew live in a layer of their own, rebuilt whenever who is aboard or what they
+   * are doing changes: a civilian sent to the simulator's pods, a trainee who finishes,
+   * someone wounded, rescued, or away on the surface.
+   */
+  const crewLayer = new THREE.Group();
+  scene.add(crewLayer);
+  const crewAnimated: Updater[] = [];
+  animated.push((time, drone) => {
+    for (const update of crewAnimated) update(time, drone);
   });
+  const crewLabels = new Set<Interactable>();
+  const crewLabel = (object: THREE.Object3D, text: string) => {
+    const item: Interactable = { kind: "label", object, label: text };
+    interactables.push(item);
+    crewLabels.add(item);
+  };
+  const placeCrew = (members: readonly WalkCrewMember[], awayIds: ReadonlySet<string>) => {
+    const plan = planCrew(members, roomOnline, awayIds, areaOpen);
+    left = new Map(armoryStock.map((item) => [item.id, item.ready]));
+    for (const placement of plan.placed) {
+      const { member, spot } = placement;
+      const place = where(placement.room, spot.deck);
+      if (!place) continue;
+      const { deck: deckNumber, room } = place;
+      const floor = layout.decks[deckNumber].floorY;
+      const person = blockyPerson(member.id, member.role, member.ageGroup);
+      kitOut(person, member.role, spot.activity === "aim");
+      const group = person.group;
+      crewLayer.add(group);
+      crowd.push({ person, deck: deckNumber });
+      const doing = spot.activity === "train" && member.training === "security" ? "training to be a soldier" : DOING[spot.activity];
+      crewLabel(group, `${member.name} · ${roleName(member.role)} · ${doing}`);
+      const from = { x: room.x0 + spot.at.x, z: spot.at.z };
+      const to = spot.to ? { x: room.x0 + spot.to.x, z: spot.to.z } : null;
+      const seed = hash(member.id.length * 7.1 + placement.index * 3.3) * 10;
+      const speaking = placement.index % 2;
+      const [leftArm, rightArm, leftLeg, rightLeg] = person.limbs;
+      let waveStart = -Infinity;
+
+      if (LYING.has(spot.activity)) {
+        // On their back along the bed, head towards the look direction.
+        group.rotation.order = "YXZ";
+        group.rotation.set(-Math.PI / 2, Math.atan2(-spot.look.x, -spot.look.z), 0);
+        const lying = (time: number) => {
+          group.position.set(from.x - spot.look.x * 0.85, floor + (spot.y ?? 0) + 0.16 + Math.sin(time * 0.0015 + seed) * 0.015, from.z - spot.look.z * 0.85);
+        };
+        lying(0);
+        crewAnimated.push((time) => lying(time));
+        continue;
+      }
+      if (SEATED.has(spot.activity)) {
+        if (spot.activity === "train") {
+          // A VR headset over the eyes, lit in the simulator's colour.
+          const visor = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.14, 0.1), glow(SIDE_COLOR.simulator));
+          visor.position.set(0, 0.26, 0.24);
+          person.head.add(visor);
+        }
+        leftLeg.rotation.x = -1.5;
+        rightLeg.rotation.x = -1.5;
+        group.position.set(from.x, floor + (spot.y ?? 0) - person.hip, from.z);
+        face(group, spot.look.x, spot.look.z);
+        crewAnimated.push((time) => {
+          const t = time / 1000 + seed;
+          if (spot.activity === "study") {
+            const lookingUp = t % 9 < 2;
+            leftArm.rotation.x = -1.2;
+            rightArm.rotation.x = lookingUp ? -1.1 : -1.25 + Math.sin(t * 9) * 0.06;
+            person.head.rotation.x = lookingUp ? -0.05 : 0.38;
+          } else if (spot.activity === "eat") {
+            const bite = t % 4 < 0.9;
+            leftArm.rotation.x = -0.9;
+            rightArm.rotation.x = bite ? -2.3 : -0.95;
+            person.head.rotation.y = Math.sin(t * 0.5) * 0.45;
+            person.head.rotation.x = bite ? -0.1 : 0.1;
+          } else if (spot.activity === "train") {
+            // Headset on, fighting something only they can see.
+            leftArm.rotation.x = -1.3 + Math.sin(t * 2.3) * 0.15;
+            rightArm.rotation.x = -1.45 + Math.sin(t * 3.1 + 1) * 0.12 + (t % 1.4 < 0.1 ? 0.15 : 0);
+            person.head.rotation.y = Math.sin(t * 0.9) * 0.5;
+          } else if (spot.activity === "pilot") {
+            leftArm.rotation.x = -1.3 + Math.sin(t * 3) * 0.05;
+            rightArm.rotation.x = -1.3 + Math.sin(t * 2.3 + 1) * 0.08;
+            person.head.rotation.y = Math.sin(t * 0.3) * 0.25;
+          } else {
+            // Waiting on the lounge bench, chatting with the one beside them.
+            const talking = Math.floor(t / 3.2 + speaking) % 2 === 0;
+            leftArm.rotation.x = -0.55;
+            rightArm.rotation.x = talking ? -0.9 + Math.sin(t * 5) * 0.25 : -0.55;
+            person.head.rotation.y = (speaking ? -1 : 1) * 0.55;
+          }
+        });
+        continue;
+      }
+
+      face(group, spot.look.x, spot.look.z);
+      group.position.set(from.x, floor, from.z);
+      let crate: THREE.Mesh | null = null;
+      if (spot.activity === "carry") {
+        crate = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.45, 0.45), crateMaterial);
+        crate.position.set(0, 1.05, 0.42);
+        group.add(crate);
+      }
+      crewAnimated.push((time, drone) => {
+        const t = time / 1000 + seed;
+        relax(person);
+        let standing = true;
+        let facing = spot.look;
+        if (to) {
+          const speed = { carry: 1, tend: 0.4, teach: 0.5, guard: 0.8 }[spot.activity as string] ?? 0.9;
+          const pause = { carry: 1.2, tend: 4, teach: 4, guard: 3 }[spot.activity as string] ?? 3;
+          const step = beat(time, from, to, speed, pause, seed);
+          group.position.set(step.x, floor, step.z);
+          if (step.moving) {
+            standing = false;
+            facing = { x: step.dx, z: step.dz };
+            stride(person, time * 0.009 * Math.max(0.6, speed), 0.5);
+          }
+          if (crate) {
+            // Crates go from the belt to the stack; the walk back is empty-handed.
+            crate.visible = step.out;
+            if (step.out) {
+              leftArm.rotation.x = -1.25;
+              rightArm.rotation.x = -1.25;
+            }
+          }
+          if (!step.moving && spot.activity === "teach" && step.rest > 0.5) {
+            // Turn to the board and point at it, then back to the class.
+            facing = { x: -spot.look.x, z: -spot.look.z };
+            rightArm.rotation.x = -1.7;
+          } else if (!step.moving && spot.activity === "teach") {
+            rightArm.rotation.x = -0.6 + Math.sin(t * 4) * 0.3;
+            leftArm.rotation.x = -0.4;
+          } else if (!step.moving && spot.activity === "tend") {
+            leftArm.rotation.x = -0.9 + Math.sin(t * 1.3) * 0.25;
+            rightArm.rotation.x = -1 + Math.sin(t * 1.1 + 1) * 0.25;
+            person.head.rotation.x = 0.25;
+          } else if (!step.moving && spot.activity === "inspect") {
+            person.head.rotation.x = 0.2;
+            person.head.rotation.y = Math.sin(t * 0.8) * 0.4;
+            rightArm.rotation.x = step.rest > 0.4 && step.rest < 0.7 ? -1.4 : 0;
+          } else if (!step.moving && spot.activity === "guard") {
+            leftArm.rotation.x = 0.4;
+            rightArm.rotation.x = 0.4;
+            person.head.rotation.y = Math.sin(t * 0.6) * 0.6;
+          }
+        } else if (spot.activity === "type") {
+          leftArm.rotation.x = -1.15 + Math.sin(t * 14) * 0.06;
+          rightArm.rotation.x = -1.15 + Math.sin(t * 14 + 1.7) * 0.06;
+          person.head.rotation.x = 0.15;
+        } else if (spot.activity === "fix") {
+          leftArm.rotation.x = -0.9;
+          rightArm.rotation.x = -1.3 - Math.abs(Math.sin(t * 6)) * 0.9;
+          person.head.rotation.x = 0.2;
+        } else if (spot.activity === "heal") {
+          leftArm.rotation.x = -0.5;
+          rightArm.rotation.x = t % 8 < 3 ? -1.2 + Math.sin(t * 12) * 0.05 : -0.5;
+          person.head.rotation.x = 0.3;
+          group.rotation.x = 0.08;
+        } else if (spot.activity === "guard") {
+          leftArm.rotation.x = 0.4;
+          rightArm.rotation.x = 0.4;
+          person.head.rotation.y = Math.sin(t * 0.5) * 0.7;
+        } else if (spot.activity === "talk" || spot.activity === "point") {
+          // Partners take turns: one talks with their hands while the other nods.
+          const talking = Math.floor(t / 3.2 + speaking) % 2 === 0;
+          if (talking) {
+            leftArm.rotation.x = -0.5 + Math.sin(t * 5) * 0.3;
+            rightArm.rotation.x = spot.activity === "point" && t % 6 < 2 ? -1.55 : -0.6 + Math.sin(t * 4 + 1) * 0.35;
+            leftArm.rotation.z = -0.15;
+            person.head.rotation.x = Math.sin(t * 6) * 0.05;
+          } else {
+            person.head.rotation.x = 0.08 + Math.max(0, Math.sin(t * 2.4)) * 0.12;
+          }
+        } else if (spot.activity === "cook") {
+          // Stirring a pot, eyes on it.
+          leftArm.rotation.x = -0.9;
+          rightArm.rotation.x = -1.15 + Math.sin(t * 6) * 0.22;
+          rightArm.rotation.z = Math.sin(t * 6 + 1.2) * 0.18;
+          person.head.rotation.x = 0.32;
+        } else if (spot.activity === "aim") {
+          // Levelled down the range, a shot every second or so; the target flashes as it lands.
+          const shot = (t * 0.8) % 1;
+          rightArm.rotation.x = -1.52 + (shot < 0.08 ? 0.14 : 0);
+          leftArm.rotation.x = -1.4;
+          leftArm.rotation.z = -0.45;
+          const lane = range.find((candidate) => Math.abs(candidate.z - from.z) < 0.6);
+          if (lane) {
+            lane.bolt.visible = shot < 0.06;
+            lane.flash.visible = shot > 0.03 && shot < 0.16;
+          }
+        }
+        if (spot.activity !== "heal") group.rotation.x = 0;
+
+        // Someone not hard at work notices the drone and waves.
+        const dx = drone.x - group.position.x;
+        const dz = drone.z - group.position.z;
+        const near = drone.deck === deckNumber && Math.hypot(dx, dz) < 3.2;
+        const free = standing && ["talk", "point", "guard", "inspect", "tend", "teach", "heal"].includes(spot.activity);
+        if (near && free && time - waveStart > 25_000) waveStart = time;
+        if (time - waveStart < 1_800) {
+          facing = { x: dx, z: dz };
+          rightArm.rotation.set(0, 0, 2.5 + Math.sin(time * 0.012) * 0.3);
+        } else if (drone.deck === deckNumber && Math.hypot(dx, dz) < 5 && free) {
+          // Otherwise they glance at it as it goes by.
+          const turn = Math.atan2(dx, dz) - group.rotation.y;
+          person.head.rotation.y = Math.max(-0.9, Math.min(0.9, Math.atan2(Math.sin(turn), Math.cos(turn))));
+        }
+        face(group, facing.x, facing.z);
+      });
+    }
+
+    plan.roaming.forEach((member, index) => {
+      const route = routes[index % routes.length];
+      const deckFloor = layout.decks[route.deck].floorY;
+      const person = blockyPerson(member.id, member.role, member.ageGroup);
+      kitOut(person, member.role, false);
+      crewLayer.add(person.group);
+      crowd.push({ person, deck: route.deck });
+      crewLabel(person.group, `${member.name} · ${roleName(member.role)} · walking the deck`);
+      const lengths = route.points.map((point, at) => {
+        const next = route.points[(at + 1) % route.points.length];
+        return Math.hypot(next.x - point.x, next.z - point.z);
+      });
+      const total = lengths.reduce((sum, length) => sum + length, 0);
+      let travelled = hash(index * 5.3 + 1) * total;
+      crewAnimated.push((time, drone) => {
+        // Find where along the route they are, and stop if the drone is in the way.
+        let distance = travelled % total;
+        let leg = 0;
+        while (distance > lengths[leg]) distance -= lengths[leg++];
+        const a = route.points[leg];
+        const b = route.points[(leg + 1) % route.points.length];
+        const amount = lengths[leg] > 0 ? distance / lengths[leg] : 0;
+        const x = a.x + (b.x - a.x) * amount;
+        const z = a.z + (b.z - a.z) * amount;
+        const dx = b.x - a.x;
+        const dz = b.z - a.z;
+        const toDrone = { x: drone.x - x, z: drone.z - z };
+        const blocked = drone.deck === route.deck && Math.hypot(toDrone.x, toDrone.z) < 1.4 && toDrone.x * dx + toDrone.z * dz > 0;
+        if (!blocked) travelled += drone.dt * 1.25;
+        person.group.position.set(x, deckFloor, z);
+        face(person.group, blocked ? toDrone.x : dx, blocked ? toDrone.z : dz);
+        stride(person, time * 0.0085, blocked ? 0 : 0.5);
+      });
+    });
+    return plan;
+  };
+  /** Take the crew layer apart and place everyone again, as they are now. */
+  const recrew = (members: readonly WalkCrewMember[], awayIds: ReadonlySet<string>) => {
+    const shared = new Set<THREE.Material>([...solidCache.values(), ...(headMaterial ? [headMaterial] : [])]);
+    crewLayer.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      mesh.geometry?.dispose();
+      const materials = Array.isArray(mesh.material) ? mesh.material : mesh.material ? [mesh.material] : [];
+      for (const material of materials) if (!shared.has(material)) material.dispose();
+    });
+    crewLayer.clear();
+    crewAnimated.length = 0;
+    crowd.length = 0;
+    for (let index = interactables.length - 1; index >= 0; index -= 1) {
+      if (crewLabels.has(interactables[index])) interactables.splice(index, 1);
+    }
+    crewLabels.clear();
+    placeCrew(members, awayIds);
+  };
+  // The rooms behind the halls are furnished for the crew as they are when the drone wakes.
+  const plan = placeCrew(props.crew, new Set(props.recon?.away ? props.recon.crewIds : []));
 
   // ---- The rooms behind the halls: the crew's cabins and their galley, the Armory. ----
   const sideLabels = new Map<string, string>();
@@ -3930,7 +3971,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
   }
 
   return {
-    interactables, animated, notices, heartGroup, heartTarget, heartLight, gimbals, obstacles, stage, soundPlaces, baySound,
+    interactables, animated, notices, heartGroup, heartTarget, heartLight, gimbals, obstacles, stage, soundPlaces, baySound, recrew,
     hullOpen: () => hullOpen,
     sideLabel: (id: string) => sideLabels.get(id) ?? id,
   };
@@ -4069,6 +4110,26 @@ export default function ArkWalk(props: ArkWalkProps) {
     let soundscape: Soundscape | null = null;
     const heart = layout.heart;
     const lookup = new Map(ship.interactables.map((item) => [item.object, item]));
+    // The crew change as the game does (someone sent to the simulator's pods, a trainee who
+    // finishes, a rescue); their layer is rebuilt when they do. The QA demo crew stays put.
+    const liveCrew = !(qaMode && search.get("crew") === "demo");
+    const crewKey = (current: ArkWalkProps) => JSON.stringify([
+      current.crew.map((member) => [member.id, member.name, member.role, member.training ?? null, member.resting ?? false, member.ageGroup ?? null]),
+      current.recon?.away ? current.recon.crewIds : [],
+    ]);
+    let lastCrewKey = crewKey(initial);
+    let crewChecked = 0;
+    const followCrew = (now: number) => {
+      if (!liveCrew || now - crewChecked < 1000) return;
+      crewChecked = now;
+      const current = propsRef.current;
+      const key = crewKey(current);
+      if (key === lastCrewKey) return;
+      lastCrewKey = key;
+      ship.recrew(current.crew, new Set(current.recon?.away ? current.recon.crewIds : []));
+      lookup.clear();
+      for (const item of ship.interactables) lookup.set(item.object, item);
+    };
 
     // The Null reaches the drone's feed. ?qa=1&null=trace|elevated|severe previews it.
     const qaNull = search.has("qa") ? search.get("null") : null;
@@ -4395,6 +4456,7 @@ export default function ArkWalk(props: ArkWalkProps) {
       const dt = Math.min(0.05, (now - previous) / 1000);
       previous = now;
       const deck = layout.decks[deckIndex];
+      followCrew(now);
       if (sim) {
         // In the simulation the ship goes quiet and the jungle is all there is.
         const forward = (keys.has("w") || keys.has("arrowup") ? 1 : 0) - (keys.has("s") || keys.has("arrowdown") ? 1 : 0);
