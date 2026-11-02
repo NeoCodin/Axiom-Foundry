@@ -36,6 +36,19 @@ export const ROOM_ACTION_IDS = [
 
 export type RoomActionId = (typeof ROOM_ACTION_IDS)[number];
 
+/** What AXIOM's drone does when it searches a room, as the player reads it. */
+export const ROOM_ACTION_LABELS: Record<RoomActionId, string> = {
+  "inspect-foundation-seam": "Inspect the foundation seam",
+  "play-orphaned-voiceprint": "Play the orphaned voiceprint",
+  "confront-lyra-with-checksum": "Confront Lyra with the checksum",
+  "ask-sena-about-registry": "Ask Sena about the registry",
+  "show-aro-keel-assay": "Show Aro the keel assay",
+  "ask-oren-to-compare-voiceprints": "Ask Oren to compare the voiceprints",
+  "review-ilyran-causal-order": "Review the Ilyran causal order",
+  "compare-memory-and-seed-cycles": "Compare the memory and seed cycles",
+  "ask-cass-about-the-next-crossing": "Ask Cass about the next crossing",
+};
+
 export const ARCHIVE_ACTION_IDS = [
   "restore-construction-manifest",
   "cross-index-axiom-telemetry",

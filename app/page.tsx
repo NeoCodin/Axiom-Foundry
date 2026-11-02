@@ -195,9 +195,10 @@ import {
   getDiscoveredFragments,
   getDoctrineAvailability,
   getNextArchiveDiscovery,
+  getRoomInvestigation,
   syncAutomaticDiscoveries,
 } from "./discovery-engine";
-import { type DoctrineId, type RoomId } from "./discovery-content";
+import { ROOM_ACTION_LABELS, type DoctrineId, type RoomId } from "./discovery-content";
 import {
   chooseDoctrine,
   getRoomUpgradeCost,
@@ -839,6 +840,10 @@ export default function Home() {
   const nextArchiveDiscovery = useMemo(
     () => getNextArchiveDiscovery(game.living.discoveredLore),
     [game.living.discoveredLore],
+  );
+  const roomInvestigation = useMemo(
+    () => getRoomInvestigation(game.living.discoveredLore, game.living.rooms),
+    [game.living.discoveredLore, game.living.rooms],
   );
   const vacuumTapsBought = game.tiers[0].bought;
   const unlockedLoreIds = useMemo(() => {
@@ -2322,7 +2327,12 @@ export default function Home() {
       {
         ...current,
         living: grantLivingFoundryRewards(current.living, {
-          loreIds: addDiscovery(current.living.discoveredLore, fragment.id),
+          // The new record may be the evidence a waiting one needed.
+          loreIds: syncAutomaticDiscoveries(
+            addDiscovery(current.living.discoveredLore, fragment.id),
+            current.missions.worldsSaved,
+            current.settings.tutorialComplete,
+          ),
         }),
         researchStock: {
           ...current.researchStock,
@@ -2333,6 +2343,27 @@ export default function Home() {
         },
       },
       `Archive cross-index complete: ${fragment.title}. The comparison exposed ${traceReward} Null Traces.`,
+    );
+  };
+
+  // A drone searches the room the story points at (the Lore Archive's "room to search").
+  const handleRoomInvestigation = () => {
+    const current = gameRef.current;
+    const lead = getRoomInvestigation(current.living.discoveredLore, current.living.rooms);
+    if (!lead?.ready) return;
+    const roomName = ROOM_DEFINITIONS.find((room) => room.id === lead.roomId)?.name ?? "room";
+    commitGameState(
+      {
+        ...current,
+        living: grantLivingFoundryRewards(current.living, {
+          loreIds: syncAutomaticDiscoveries(
+            addDiscovery(current.living.discoveredLore, lead.fragment.id),
+            current.missions.worldsSaved,
+            current.settings.tutorialComplete,
+          ),
+        }),
+      },
+      `${roomName} searched: ${lead.fragment.title}.`,
     );
   };
 
@@ -2784,6 +2815,7 @@ export default function Home() {
         }}
         onOpenHelp={() => openManual(primaryView)}
         onOpenLore={() => setLoreOpen(true)}
+        loreLeads={(nextArchiveDiscovery ? 1 : 0) + (roomInvestigation?.ready ? 1 : 0)}
         onSave={() => persistGame("Saved")}
         onOpenBackup={() => setSaveTransferOpen(true)}
         onOpenDirective={() => {
@@ -4148,6 +4180,19 @@ export default function Home() {
           laws={archiveLaws}
           worldsSaved={game.missions.worldsSaved}
           onCrossIndex={handleArchiveInvestigation}
+          roomInvestigation={roomInvestigation ? {
+            roomName: ROOM_DEFINITIONS.find((room) => room.id === roomInvestigation.roomId)?.name ?? "Ark",
+            actionLabel: ROOM_ACTION_LABELS[roomInvestigation.actionId],
+            ready: roomInvestigation.ready,
+            level: roomInvestigation.level,
+            needed: roomInvestigation.needed,
+            reinforceCost: Number.isFinite(getRoomUpgradeCost(game.living, roomInvestigation.roomId)) ? getRoomUpgradeCost(game.living, roomInvestigation.roomId) : null,
+            canReinforce: game.living.salvage >= getRoomUpgradeCost(game.living, roomInvestigation.roomId),
+          } : null}
+          onInvestigateRoom={handleRoomInvestigation}
+          onReinforceLeadRoom={() => {
+            if (roomInvestigation) handleUpgradeLivingRoom(roomInvestigation.roomId);
+          }}
           onReplayOrientation={replayTour}
           onClose={() => setLoreOpen(false)}
         />

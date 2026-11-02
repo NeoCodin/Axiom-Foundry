@@ -72,6 +72,28 @@ export function getNextRoomDiscovery(
   );
 }
 
+/**
+ * The room search the story is waiting on, if any: the room-action record whose
+ * evidence is all in, its room, and whether that room is open and reinforced
+ * enough to search yet (level 0 is still sealed). Without this the chain stops
+ * at the first room record and everything after it, both harder endings included,
+ * can never be found.
+ */
+export function getRoomInvestigation(
+  discoveryIds: readonly string[],
+  rooms: readonly { id: RoomId; level: number }[],
+) {
+  const discovered = new Set(discoveryIds);
+  for (const fragment of DISCOVERY_FRAGMENTS) {
+    const unlock = fragment.unlock;
+    if (discovered.has(fragment.id) || unlock.kind !== "room-action" || !requirementsMet(discovered, fragment)) continue;
+    const level = rooms.find((room) => room.id === unlock.roomId)?.level ?? 0;
+    const needed = unlock.repeat ?? 1;
+    return { fragment, roomId: unlock.roomId, actionId: unlock.actionId, level, needed, ready: level >= needed };
+  }
+  return null;
+}
+
 export function getNextArchiveDiscovery(discoveryIds: readonly string[]) {
   const discovered = new Set(discoveryIds);
   return (
