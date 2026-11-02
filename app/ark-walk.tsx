@@ -14,6 +14,7 @@ import {
   DOOR_HALF_WIDTH,
   DOOR_HEIGHT,
   INNER_WALL,
+  isWalkable,
   LIFT_RADIUS,
   liftAt,
   moveWithin,
@@ -182,6 +183,35 @@ const DRONE_RADIUS = 0.35;
 /** How close the drone may come to a person (its radius plus theirs). */
 const PERSON_RADIUS = 0.75;
 const LIFT_SECONDS = 1.4;
+
+/**
+ * Where the drone was when AXIOM last stepped back to the console, so the walk
+ * picks up there instead of at the stern. Kept in this browser only; a spot the
+ * ship no longer allows (a room sealed since, the launch bay) is ignored.
+ */
+const SPOT_KEY = "axiom-foundry-drone-spot-v1";
+type DroneSpot = { deck: number; x: number; z: number; yaw: number; pitch: number };
+function readSpot(layout: WalkLayout): DroneSpot | null {
+  try {
+    const spot = JSON.parse(window.localStorage.getItem(SPOT_KEY) ?? "null") as Partial<DroneSpot> | null;
+    if (!spot || ![spot.deck, spot.x, spot.z, spot.yaw, spot.pitch].every((value) => typeof value === "number" && Number.isFinite(value))) return null;
+    const { deck, x, z, yaw, pitch } = spot as DroneSpot;
+    const floor = layout.decks[deck];
+    if (!floor || !isWalkable(floor, x, z, DRONE_RADIUS)) return null;
+    const { bay } = layout.dock;
+    if (deck === layout.decks.length - 1 && x >= bay.x0 && x <= bay.x1 && z >= bay.z0 && z <= bay.z1) return null;
+    return { deck, x, z, yaw, pitch };
+  } catch {
+    return null;
+  }
+}
+function writeSpot(spot: DroneSpot) {
+  try {
+    window.localStorage.setItem(SPOT_KEY, JSON.stringify(spot));
+  } catch {
+    // Storage blocked: the walk starts at the stern next time.
+  }
+}
 /** The Law-Heart's radius at each stage, from Dormant Seed to Transcendent Star. */
 const STAR_RADII = [1, 1.4, 1.7, 1.9, 2.1, 2.3, 2.5];
 const HULL = 0.3;
@@ -4249,11 +4279,14 @@ export default function ArkWalk(props: ArkWalkProps) {
     resize();
     window.addEventListener("resize", resize);
 
-    let deckIndex = layout.spawn.deck;
-    let x = layout.spawn.x;
-    let z = layout.spawn.z;
-    let yaw = layout.spawn.yaw;
-    let pitch = 0;
+    const resumed = readSpot(layout);
+    let deckIndex = resumed?.deck ?? layout.spawn.deck;
+    let x = resumed?.x ?? layout.spawn.x;
+    let z = resumed?.z ?? layout.spawn.z;
+    let yaw = resumed?.yaw ?? layout.spawn.yaw;
+    let pitch = resumed?.pitch ?? 0;
+    // Mid-lift, the drone counts as already on the deck it was riding to.
+    const rememberSpot = () => writeSpot({ deck: travel ? travel.to : deckIndex, x, z, yaw, pitch });
     let eyeY = layout.decks[deckIndex].floorY + EYE_HEIGHT;
     let travel: { to: number; fromY: number; start: number } | null = null;
     let lastX = x;
@@ -5008,7 +5041,11 @@ export default function ArkWalk(props: ArkWalkProps) {
     };
     frame = window.requestAnimationFrame(tick);
 
+    window.addEventListener("pagehide", rememberSpot);
+
     return () => {
+      rememberSpot();
+      window.removeEventListener("pagehide", rememberSpot);
       window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", resize);
       renderer.domElement.removeEventListener("click", onClick);
