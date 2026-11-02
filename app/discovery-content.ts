@@ -421,7 +421,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
       requires: ["lyra.private-amendment"],
     },
     excerpt: [
-      "Vesper has crossed this route forty-three times. Helion begins every record. Vesper ends every record.",
+      "The Ark has crossed this route forty-three times. Helion begins every record. Vesper ends every record.",
       "After each crossing, world outcomes, Foreman identity, and Lyra's memory are rewritten to FIRST CAMPAIGN.",
     ],
     contradiction: "The campaign is a repeated experiment whose observer is reset with it.",
