@@ -15,6 +15,9 @@ export type SimAudio = {
   dry(): void;
   reload(): void;
   pickup(): void;
+  jump(): void;
+  /** Feet back on the ground; strength 0 to 1 by how hard. */
+  land(strength: number): void;
   wave(): void;
   hurt(): void;
   death(): void;
@@ -180,6 +183,15 @@ export function createSimAudio(): SimAudio | null {
     pickup() {
       voice({ type: "triangle", path: [[0, 660]], peak: 0.07, attack: 0.005, decay: 0.1 });
       voice({ type: "triangle", at: 0.09, path: [[0, 990]], peak: 0.07, attack: 0.005, decay: 0.18 });
+    },
+    jump() {
+      // The sim-body's push off: a short rising breath of air.
+      hiss({ filter: ["bandpass", 1_100, 1.5], peak: 0.035, attack: 0.01, decay: 0.12 });
+      voice({ type: "sine", path: [[0, 180], [0.1, 260]], peak: 0.04, attack: 0.005, decay: 0.1 });
+    },
+    land(strength) {
+      voice({ type: "sine", path: [[0, 110], [0.12, 45]], peak: 0.1 + strength * 0.14, attack: 0.003, decay: 0.14 });
+      hiss({ filter: ["lowpass", 600, 1], peak: 0.04 + strength * 0.06, attack: 0.003, decay: 0.12 });
     },
     wave() {
       for (const [at, pitch] of [[0, 440], [0.22, 660], [0.44, 440], [0.66, 660]] as const) {

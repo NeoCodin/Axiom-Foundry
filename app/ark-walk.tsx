@@ -4377,7 +4377,7 @@ export default function ArkWalk(props: ArkWalkProps) {
         return;
       }
       if (sim) {
-        // Q leaves the simulation for the ship; R reloads; the rest moves.
+        // Q leaves the simulation for the ship; R reloads; Space jumps; the rest moves.
         if (key === "q") {
           event.preventDefault();
           leaveSim();
@@ -4414,6 +4414,7 @@ export default function ArkWalk(props: ArkWalkProps) {
         sounding: () => soundscape !== null,
         signal: () => signal,
         sim: () => sim?.state ?? null,
+        simEye: () => sim?.camera.position.y ?? null,
         simStart: (difficulty: SimDifficulty = "soldier") => startSim(difficulty),
         place(deck: number, px: number, pz: number, look = yaw, tilt = 0) {
           deckIndex = deck;
@@ -4461,7 +4462,7 @@ export default function ArkWalk(props: ArkWalkProps) {
         // In the simulation the ship goes quiet and the jungle is all there is.
         const forward = (keys.has("w") || keys.has("arrowup") ? 1 : 0) - (keys.has("s") || keys.has("arrowdown") ? 1 : 0);
         const strafe = (keys.has("d") || keys.has("arrowright") ? 1 : 0) - (keys.has("a") || keys.has("arrowleft") ? 1 : 0);
-        if (!simPaused) sim.update(dt, { forward, strafe, sprint: keys.has("shift"), firing }, now);
+        if (!simPaused) sim.update(dt, { forward, strafe, sprint: keys.has("shift"), firing, jump: keys.has(" ") }, now);
         soundscape?.update({ x: 1e6, y: 0, z: 1e6, yaw, deck: deckIndex, speed: 0 });
         renderer.render(sim.scene, sim.camera);
         drawSimHud();
@@ -4706,7 +4707,7 @@ export default function ArkWalk(props: ArkWalkProps) {
         </div>
         <span ref={simScoreRef} className="ark-sim-score">Wave 1</span>
         <p ref={simPausedRef} className="ark-sim-paused" hidden>Paused · click to go back in · Q to leave</p>
-        <p className="ark-sim-help">Click to fire · R reload · WASD move · Shift run · Q leave</p>
+        <p className="ark-sim-help">Click to fire · R reload · WASD move · Space jump · Shift run · Q leave</p>
       </div>
       {simScreen?.phase === "menu" && (
         <div className="ark-sim-panel" role="dialog" aria-label="Combat simulation">

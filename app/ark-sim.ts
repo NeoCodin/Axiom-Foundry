@@ -22,7 +22,7 @@ import {
   type SimState,
 } from "./ark-sim-rules";
 
-export type SimInput = { forward: number; strafe: number; sprint: boolean; firing: boolean };
+export type SimInput = { forward: number; strafe: number; sprint: boolean; firing: boolean; jump: boolean };
 
 export type SimHud = {
   health: number;
@@ -48,6 +48,11 @@ const EYE = 1.6;
 const WALK = 5;
 const RUN = 8.5;
 const BODY = 0.4;
+/** A jump's lift-off speed and the simulation's gravity: about a metre of air at the top. */
+const JUMP = 5.4;
+const GRAVITY = 14;
+/** How far the feet follow the ground up or down without leaving it: slopes, and a rock's edge. */
+const STEP = 0.3;
 
 function seeded(seed: number) {
   let state = seed;
@@ -155,7 +160,8 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
   scene.add(ground);
 
   // ---- The jungle: trees with canopies, palms, boulders, undergrowth and glowing flowers. ----
-  type Obstacle = { x: number; z: number; r: number };
+  /** Something in the way: a trunk reaches the canopy, a boulder only as high as its top. */
+  type Obstacle = { x: number; z: number; r: number; top: number };
   const obstacles: Obstacle[] = [];
   const trunks: { matrix: THREE.Matrix4; color: string }[] = [];
   const leaves: { matrix: THREE.Matrix4; color: string }[] = [];
@@ -186,7 +192,7 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
         const turn = (frond / 6) * Math.PI * 2;
         leaves.push({ matrix: matrix(topX + Math.sin(turn) * 1.3, y + height - 0.2, z + Math.cos(turn) * 1.3, 0.7, 0.12, 2.8, turn, 0.35), color: LEAF[frond % LEAF.length] });
       }
-      if (reach < ARENA_RADIUS) obstacles.push({ x, z, r: 0.45 });
+      if (reach < ARENA_RADIUS) obstacles.push({ x, z, r: 0.45, top: Infinity });
     } else if (kind < 0.85) {
       // A broadleaf: a thick trunk and a canopy of blocks.
       const height = 4 + random() * 5;
@@ -204,13 +210,14 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
         const length = 1.5 + random() * 2.5;
         leaves.push({ matrix: matrix(x + (random() - 0.5) * 2.4, y + height - length / 2, z + (random() - 0.5) * 2.4, 0.08, length, 0.08), color: "#3f7a2a" });
       }
-      if (reach < ARENA_RADIUS) obstacles.push({ x, z, r: thick / 2 + 0.2 });
+      if (reach < ARENA_RADIUS) obstacles.push({ x, z, r: thick / 2 + 0.2, top: Infinity });
     } else {
       // A boulder, mossed over.
       const size = 1 + random() * 1.8;
       trunks.push({ matrix: matrix(x, y + size * 0.35, z, size * 1.3, size * 0.9, size, random() * Math.PI), color: "#6a6a5a" });
       leaves.push({ matrix: matrix(x, y + size * 0.82, z, size * 1.1, 0.2, size * 0.8, random() * Math.PI), color: "#4f7a34" });
-      if (reach < ARENA_RADIUS) obstacles.push({ x, z, r: size * 0.65 });
+      // Small enough ones can be jumped onto and stood on.
+      if (reach < ARENA_RADIUS) obstacles.push({ x, z, r: size * 0.65, top: y + size * 0.82 + 0.1 });
     }
   }
   const unitBox = keep(new THREE.BoxGeometry(1, 1, 1));
@@ -418,6 +425,18 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
   let marker = 0;
   let shake = 0;
   let bob = 0;
+  // The sim-body's feet: how high they are, how fast they rise or fall, and the jolt of landing.
+  let feet = groundAt(0, 0);
+  let rise = 0;
+  let landing = 0;
+  /** What the feet stand on here: the ground, or the top of a boulder underfoot. */
+  const floorAt = (x: number, z: number) => {
+    let floor = groundAt(x, z);
+    for (const obstacle of obstacles) {
+      if (obstacle.top < Infinity && obstacle.top > floor && Math.hypot(x - obstacle.x, z - obstacle.z) < obstacle.r) floor = obstacle.top;
+    }
+    return floor;
+  };
   let banner: { text: string; until: number } | null = { text: `Simulation online · ${SIM_DIFFICULTIES[difficulty].label}`, until: 2.6 };
   let audio: SimAudio | null = null;
   const raycaster = new THREE.Raycaster();
@@ -468,30 +487,53 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
     audio ??= createSimAudio();
     const player = state.player;
     if (player.alive) {
-      // Walk or run, pushed out of trunks and boulders, held inside the simulation.
+      // Walk or run.
       const speed = input.sprint ? RUN : WALK;
       const length = Math.hypot(input.forward, input.strafe);
       if (length > 0) {
         const forwardX = -Math.sin(yaw);
         const forwardZ = -Math.cos(yaw);
-        let x = player.x + ((input.forward * forwardX + input.strafe * -forwardZ) / length) * speed * dt;
-        let z = player.z + ((input.forward * forwardZ + input.strafe * forwardX) / length) * speed * dt;
-        for (const obstacle of obstacles) {
-          const apart = Math.hypot(x - obstacle.x, z - obstacle.z);
-          const room = obstacle.r + BODY;
-          if (apart < room && apart > 0.0001) {
-            x = obstacle.x + ((x - obstacle.x) / apart) * room;
-            z = obstacle.z + ((z - obstacle.z) / apart) * room;
+        player.x += ((input.forward * forwardX + input.strafe * -forwardZ) / length) * speed * dt;
+        player.z += ((input.forward * forwardZ + input.strafe * forwardX) / length) * speed * dt;
+        if (rise === 0) bob += dt * (input.sprint ? 13 : 9);
+      }
+      // Every frame, moving or falling: kept out of trunks and of any boulder not below the
+      // feet, and held inside the simulation.
+      for (const obstacle of obstacles) {
+        if (feet >= obstacle.top - STEP) continue;
+        const apart = Math.hypot(player.x - obstacle.x, player.z - obstacle.z);
+        const room = obstacle.r + BODY;
+        if (apart < room && apart > 0.0001) {
+          player.x = obstacle.x + ((player.x - obstacle.x) / apart) * room;
+          player.z = obstacle.z + ((player.z - obstacle.z) / apart) * room;
+        }
+      }
+      const reach = Math.hypot(player.x, player.z);
+      if (reach > ARENA_RADIUS - 0.6) {
+        player.x *= (ARENA_RADIUS - 0.6) / reach;
+        player.z *= (ARENA_RADIUS - 0.6) / reach;
+      }
+
+      // Jumping: up about a metre, onto a rock if one is low enough, and down again.
+      const floor = floorAt(player.x, player.z);
+      // On the ground, the feet follow it up and down slopes and over a step; off a ledge, they fall.
+      if (rise === 0 && feet - floor < STEP) feet = floor;
+      const standing = rise === 0 && feet === floor;
+      if (standing && input.jump) {
+        rise = JUMP;
+        audio?.jump();
+      }
+      if (!standing || rise !== 0) {
+        rise -= GRAVITY * dt;
+        feet += rise * dt;
+        if (feet <= floor) {
+          if (rise < -4) {
+            landing = Math.min(1, -rise / 9);
+            audio?.land(landing);
           }
+          feet = floor;
+          rise = 0;
         }
-        const reach = Math.hypot(x, z);
-        if (reach > ARENA_RADIUS - 0.6) {
-          x *= (ARENA_RADIUS - 0.6) / reach;
-          z *= (ARENA_RADIUS - 0.6) / reach;
-        }
-        player.x = x;
-        player.z = z;
-        bob += dt * (input.sprint ? 13 : 9);
       }
       if (input.firing) pull();
       stepSim(state, dt, random);
@@ -626,6 +668,7 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
     hurt = Math.max(0, hurt - dt * 1.6);
     marker = Math.max(0, marker - dt * 5);
     shake = Math.max(0, shake - dt * 4);
+    landing = Math.max(0, landing - dt * 4);
     flashFor -= dt;
     tracerFor -= dt;
     flash.visible = flashFor > 0;
@@ -634,7 +677,9 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
     if (tracerFor <= -0.05) spark.visible = false;
     const sway = reducedMotion ? 0 : Math.sin(bob) * 0.03;
     const jolt = shake * 0.05;
-    camera.position.set(player.x, groundAt(player.x, player.z) + EYE + Math.abs(sway) * 0.5, player.z);
+    // A hard landing dips the view for a moment.
+    const sink = reducedMotion ? 0 : landing * 0.22;
+    camera.position.set(player.x, feet + EYE + Math.abs(sway) * 0.5 - sink, player.z);
     camera.rotation.set(pitch + recoil * 0.025 + (Math.random() - 0.5) * jolt, yaw + (Math.random() - 0.5) * jolt, 0);
     const reloading = player.reloadDone !== null ? 1 - (player.reloadDone - state.time) / CARBINE.reload : null;
     const dip = reloading !== null ? Math.sin(Math.min(1, reloading) * Math.PI) : 0;
