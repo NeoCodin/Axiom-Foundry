@@ -45,6 +45,7 @@ export type SideRoomKind =
   | "galley"
   | "armory"
   | "briefing"
+  | "simulator"
   | "stores"
   | "workshop"
   | "lab"
@@ -133,7 +134,8 @@ export const WINDOWS: Partial<Record<WalkRoomKind, { port?: readonly number[]; s
   support: { starboard: [2.5, 6.7, 14.8] },
   education: { starboard: [2.5, 6, 9.5, 13] },
   // The dock's back wall is the Armory's, with the recon board on it.
-  hangar: { port: [3.5, 7.5] },
+  // The stretch past the lounge window is the combat simulator's wall.
+  hangar: { port: [3.5] },
   chamber: { port: [3, 9.5, 16], starboard: [3, 9.5, 16] },
 };
 
@@ -220,6 +222,7 @@ export const SIDE_ROOM_PLANS: Partial<Record<WalkRoomKind, readonly SideRoomPlan
     { id: "galley", kind: "galley", label: "Galley", from: 12.3, to: 17, ...behind(5.6), height: 3.4, door: 14.65, doorHalf: 0.9 },
   ],
   hangar: [
+    sideRoom("simulator", "Combat simulator", 5.2, 9.4, 9.6, 5.2, 7.3),
     { id: "armory", kind: "armory", label: "Armory", from: 9.6, to: 24.6, ...behind(9.6), height: 5.2, door: 11, doorHalf: 1.1 },
     sideRoom("briefing", "Briefing room", 24.8, 30.4, 9.6, 5.2, 25.9),
   ],
@@ -251,6 +254,14 @@ function sideFurniture(room: Box & { kind: SideRoomKind }): Box[] {
       ];
     case "briefing":
       return [{ x0: x0 + 1.6, x1: x0 + 4, z0: z0 + 3.6, z1: z0 + 6 }]; // the map table
+    case "simulator":
+      return [
+        { x0: x0 + 0.15, x1: x0 + 1.15, z0: z0 + 0.6, z1: z0 + 2.6 }, // four VR pods along the side walls
+        { x0: x0 + 0.15, x1: x0 + 1.15, z0: z0 + 3.2, z1: z0 + 5.2 },
+        { x0: x1 - 1.15, x1: x1 - 0.15, z0: z0 + 0.6, z1: z0 + 2.6 },
+        { x0: x1 - 1.15, x1: x1 - 0.15, z0: z0 + 3.2, z1: z0 + 5.2 },
+        { x0: x0 + 1.6, x1: x1 - 1.6, z0: z0 + 0.1, z1: z0 + 0.7 }, // the console under the screen
+      ];
     case "stores":
       return [
         { x0: x0 + 0.1, x1: x0 + 1, z0: z0 + 0.3, z1: z1 - 2 }, // shelving

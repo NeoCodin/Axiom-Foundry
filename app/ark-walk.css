@@ -168,3 +168,262 @@
   font-size: 24px;
   letter-spacing: 0.08em;
 }
+
+/* The combat simulation (ark-sim): its own display replaces the drone's while AXIOM is in it. */
+.ark-walk.is-simulating .ark-walk-hud {
+  display: none;
+}
+
+.ark-sim-hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-family: var(--font-ui);
+}
+
+.ark-sim-hud[hidden],
+.ark-sim-banner[hidden],
+.ark-sim-paused[hidden] {
+  display: none;
+}
+
+.ark-sim-hurt {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  box-shadow: inset 0 0 160px 60px rgb(255 60 60 / 0.85);
+}
+
+.ark-sim-crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin: -2px 0 0 -2px;
+  background: #fff4e0;
+  box-shadow:
+    -9px 0 0 #fff4e0, -13px 0 0 #fff4e0, 9px 0 0 #fff4e0, 13px 0 0 #fff4e0,
+    0 -9px 0 #fff4e0, 0 -13px 0 #fff4e0, 0 9px 0 #fff4e0, 0 13px 0 #fff4e0;
+  filter: drop-shadow(0 0 1px #10140e) drop-shadow(0 0 1px #10140e);
+}
+
+.ark-sim-marker {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  border: 3px solid #ffe34a;
+  opacity: 0;
+  transform: rotate(45deg);
+}
+
+.ark-sim-banner {
+  position: absolute;
+  top: 22%;
+  left: 50%;
+  margin: 0;
+  color: #fff4e0;
+  font-family: var(--font-display);
+  font-size: 40px;
+  letter-spacing: 0.1em;
+  text-shadow: 3px 3px 0 #07081a;
+  text-transform: uppercase;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.ark-sim-vitals,
+.ark-sim-ammo,
+.ark-sim-score {
+  position: absolute;
+  display: grid;
+  gap: 6px;
+  padding: 10px 14px;
+  border: 6px solid transparent;
+  border-image: var(--b-plate-base) 7 fill / 14px / 4px stretch;
+  color: #efe6d2;
+}
+
+.ark-sim-vitals {
+  bottom: 24px;
+  left: 24px;
+}
+
+.ark-sim-ammo {
+  right: 24px;
+  bottom: 24px;
+  justify-items: end;
+}
+
+.ark-sim-score {
+  top: 24px;
+  left: 24px;
+  font-family: var(--font-display);
+  font-size: 18px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ark-sim-label {
+  color: #b4aecb;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Health in stepped cells, green to amber to red as it falls. */
+.ark-sim-health {
+  position: relative;
+  display: block;
+  width: 280px;
+  height: 18px;
+  background: #2b2433;
+  outline: 2px solid #07081a;
+}
+
+.ark-sim-health i {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc((100% - 4px) * var(--sim-health, 1));
+  background: repeating-linear-gradient(90deg, var(--sim-health-color, #7cdc5a) 0 12px, transparent 12px 14px);
+}
+
+.ark-sim-health[data-state="low"] {
+  --sim-health-color: #ffb347;
+}
+
+.ark-sim-health[data-state="critical"] {
+  --sim-health-color: #ff695c;
+}
+
+.ark-sim-rounds {
+  font-family: var(--font-display);
+  font-size: 30px;
+  letter-spacing: 0.04em;
+}
+
+.ark-sim-reload {
+  position: relative;
+  display: block;
+  width: 140px;
+  height: 4px;
+  background: #2b2433;
+}
+
+.ark-sim-reload i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(100% * var(--sim-reload, 0));
+  background: #9ac4ff;
+}
+
+.ark-sim-paused {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin: 0;
+  padding: 12px 18px;
+  border: 6px solid transparent;
+  border-image: var(--b-plate-active) 7 fill / 14px / 4px stretch;
+  color: #fff4e0;
+  font-size: 16px;
+  transform: translate(-50%, -50%);
+}
+
+.ark-sim-help {
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  margin: 0;
+  color: #d8d2e4;
+  font-size: 13px;
+  text-shadow: 2px 2px 0 #07081a;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.ark-sim-panel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  gap: 14px;
+  width: min(620px, calc(100% - 48px));
+  padding: 22px 26px;
+  border: 6px solid transparent;
+  border-image: var(--b-plate-active) 7 fill / 14px / 4px stretch;
+  color: #efe6d2;
+  transform: translate(-50%, -50%);
+}
+
+.ark-sim-panel h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ark-sim-panel p {
+  margin: 0;
+  color: #d8d2e4;
+}
+
+.ark-sim-levels {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.game-shell .ark-walk .ark-sim-panel button {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  padding: 12px;
+  border: 6px solid transparent;
+  border-image: var(--b-plate-base) 7 fill / 14px / 4px stretch;
+  background: none;
+  color: #efe6d2;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.game-shell .ark-walk .ark-sim-panel button:hover,
+.game-shell .ark-walk .ark-sim-panel button:focus-visible {
+  border-image: var(--b-plate-active) 7 fill / 14px / 4px stretch;
+}
+
+.ark-sim-panel button strong {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ark-sim-panel button small {
+  color: #b4aecb;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.game-shell .ark-walk .ark-sim-panel button.ark-sim-leave {
+  justify-self: start;
+}
+
+.ark-sim-final {
+  font-family: var(--font-display);
+  font-size: 44px;
+  letter-spacing: 0.04em;
+}
+
+.ark-sim-best {
+  color: #ffd27a;
+}

@@ -39,10 +39,11 @@ export type Activity =
   | "guard" // standing watch, or walking a beat
   | "lounge" // seated on a bench, chatting
   | "cook" // at the galley stoves
-  | "aim"; // on the Armory's firing range
+  | "aim" // on the Armory's firing range
+  | "train"; // in a combat simulator pod, headset on
 
 /** Activities done sitting or lying down. */
-export const SEATED: ReadonlySet<Activity> = new Set(["study", "eat", "pilot", "lounge"]);
+export const SEATED: ReadonlySet<Activity> = new Set(["study", "eat", "pilot", "lounge", "train"]);
 export const LYING: ReadonlySet<Activity> = new Set(["sleep", "patient"]);
 
 export type Spot = {
@@ -90,6 +91,7 @@ const sideRoom = (section: WalkRoomKind, id: string) => SIDE_ROOM_PLANS[section]
 const GALLEY = sideRoom("habitation", "galley");
 const ARMORY = sideRoom("hangar", "armory");
 const BRIEFING = sideRoom("hangar", "briefing");
+const SIMULATOR = sideRoom("hangar", "simulator");
 const STORES = sideRoom("fabrication", "stores");
 const WORKSHOP = sideRoom("fabrication", "workshop");
 const LAB = sideRoom("research", "lab");
@@ -183,6 +185,10 @@ export const ROOM_SPOTS: Record<WalkRoomKind, readonly Spot[]> = {
     { activity: "aim", at: point(ARMORY.from + 3.6, ARMORY.z0 + 0.9), look: point(1, 0), for: SOLDIERS, area: "armory" },
     { activity: "fix", at: point(ARMORY.from + 1.6, ARMORY.z0 + 4.7), look: point(-1, 0), for: SOLDIERS, area: "armory" },
     { activity: "type", at: point(6, DOCK_WALL_Z - 2.1), look: point(0, 1) },
+    // Soldiers drill in the combat simulator, seated in its pods.
+    ...[[0.65, 1.6, 1], [SIMULATOR.to - SIMULATOR.from - 0.65, 4.2, -1]].map(([x, z, facing]): Spot => ({
+      activity: "train", at: point(SIMULATOR.from + x, SIMULATOR.z0 + z), look: point(facing, 0), y: 0.5, for: SOLDIERS, area: "simulator",
+    })),
     { activity: "guard", at: point(3, -2.4), to: point(24, -2.4), look: point(0, 1) },
     { activity: "aim", at: point(ARMORY.from + 3.6, ARMORY.z0 + 1.9), look: point(1, 0), for: SOLDIERS, area: "armory" },
     { activity: "type", at: point(ARMORY.from + 7.3, ARMORY.z0 + 6.9), look: point(0, -1), for: SOLDIERS, area: "armory" },

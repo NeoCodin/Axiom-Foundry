@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
@@ -49,6 +49,8 @@ import {
   type CrewFace,
 } from "./ark-walk-art";
 import { createSoundscape, type BaySound, type Soundscape, type SoundPlace } from "./ark-walk-audio";
+import { bestSimScore, createSimWorld } from "./ark-sim";
+import { SIM_DIFFICULTIES, type SimDifficulty } from "./ark-sim-rules";
 import { demoCrew, LYING, planCrew, SEATED, type Activity, type WalkCrewMember } from "./ark-walk-crew";
 import { furnishLayout, planDecor, type DecorPiece, type WallSpot } from "./ark-walk-decor";
 import { createNullFeed, misreadLabel, type NullClass, type NullFeed } from "./ark-walk-null";
@@ -236,6 +238,7 @@ const SIDE_COLOR: Record<string, string> = {
   galley: "#f2a03a",
   armory: "#d8503e",
   briefing: "#ee7a3c",
+  simulator: "#d85ac8",
   stores: "#c8955a",
   workshop: "#e07a3a",
   lab: "#9a7df0",
@@ -254,6 +257,7 @@ const SIDE_FLOOR: Record<string, string> = {
   farm: "support",
   infirmary: "support",
   briefing: "bridge",
+  simulator: "armory",
 };
 
 /** Each compartment's own colour: the bands painted round its walls, its door signs, its lit skirting. */
@@ -665,7 +669,9 @@ type Interactable =
       prompt?: () => string;
     }
   | { kind: "heart"; object: THREE.Object3D }
-  | { kind: "label"; object: THREE.Object3D; label: string };
+  | { kind: "label"; object: THREE.Object3D; label: string }
+  /** The combat simulator's console: E takes AXIOM into the training jungle. */
+  | { kind: "sim"; object: THREE.Object3D; label: string };
 
 type Drone = { x: number; z: number; deck: number; dt: number };
 type Updater = (time: number, drone: Drone) => void;
@@ -2656,6 +2662,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     lounge: "waiting for a flight",
     cook: "cooking for everyone",
     aim: "on the firing range",
+    train: "fighting in the simulator",
   };
   const crateMaterial = solid(PALETTE.wood);
   /** Walking a beat between two points with a stop at each end; where they are now. */
@@ -2704,6 +2711,12 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       continue;
     }
     if (SEATED.has(spot.activity)) {
+      if (spot.activity === "train") {
+        // A VR headset over the eyes, lit in the simulator's colour.
+        const visor = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.14, 0.1), glow(SIDE_COLOR.simulator));
+        visor.position.set(0, 0.26, 0.24);
+        person.head.add(visor);
+      }
       leftLeg.rotation.x = -1.5;
       rightLeg.rotation.x = -1.5;
       group.position.set(from.x, floor + (spot.y ?? 0) - person.hip, from.z);
@@ -2721,6 +2734,11 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
           rightArm.rotation.x = bite ? -2.3 : -0.95;
           person.head.rotation.y = Math.sin(t * 0.5) * 0.45;
           person.head.rotation.x = bite ? -0.1 : 0.1;
+        } else if (spot.activity === "train") {
+          // Headset on, fighting something only they can see.
+          leftArm.rotation.x = -1.3 + Math.sin(t * 2.3) * 0.15;
+          rightArm.rotation.x = -1.45 + Math.sin(t * 3.1 + 1) * 0.12 + (t % 1.4 < 0.1 ? 0.15 : 0);
+          person.head.rotation.y = Math.sin(t * 0.9) * 0.5;
         } else if (spot.activity === "pilot") {
           leftArm.rotation.x = -1.3 + Math.sin(t * 3) * 0.05;
           rightArm.rotation.x = -1.3 + Math.sin(t * 2.3 + 1) * 0.08;
@@ -3614,6 +3632,64 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         });
         break;
       }
+      case "simulator": {
+        // VR pods along both walls, the jungle on the big screen, and the console that takes
+        // AXIOM into the simulation too.
+        const podColor = solid(tinted(paint, PALETTE.dark, 0.35));
+        for (const [px, pz, facing] of [[x0 + 0.65, z0 + 1.6, 1], [x0 + 0.65, z0 + 4.2, 1], [x1 - 0.65, z0 + 1.6, -1], [x1 - 0.65, z0 + 4.2, -1]] as const) {
+          put(1, 0.3, 2, solid(metal), px, 0.15, pz);
+          put(0.8, 0.12, 0.9, podColor, px + facing * 0.05, 0.5, pz);
+          const back = put(0.8, 0.9, 0.12, podColor, px - facing * 0.38, 0.95, pz);
+          back.rotation.z = facing * 0.35;
+          back.rotation.y = Math.PI / 2;
+          const canopy = inert(new THREE.Mesh(new THREE.TorusGeometry(0.75, 0.04, 4, 16, Math.PI), ghost(tinted(paint, "#ffffff", 0.3), 0.7)));
+          canopy.position.set(px, y0 + 0.4, pz);
+          canopy.rotation.y = Math.PI / 2;
+          scene.add(canopy);
+          put(0.06, 0.06, 1.8, glow(paint), px + facing * 0.48, 0.32, pz);
+        }
+        // A grid of light on the floor between them, the simulation's own.
+        for (let line = 0; line < 5; line += 1) put(width - 2.6, 0.012, 0.03, glow(tinted(paint, PALETTE.dark, 0.2)), cx, 0.008, z0 + 1 + line * 1.4);
+        for (const lx of [cx - 0.5, cx, cx + 0.5]) put(0.03, 0.012, 5.6, glow(tinted(paint, PALETTE.dark, 0.2)), lx, 0.008, z0 + 3.8);
+        // The big screen: the jungle the crew are fighting in.
+        put(3.2, 1.9, 0.08, solid(PALETTE.dark), cx, 2.6, z0 + 0.04);
+        const jungle = picture(3, 1.7, artTexture(60, 34, (context) => {
+          for (let y = 0; y < 34; y += 1) {
+            context.fillStyle = y < 14 ? (y < 7 ? "#2d4f6a" : "#4f7a6a") : "#3f6a4c";
+            context.fillRect(0, y, 60, 1);
+          }
+          context.fillStyle = "#f2ecd8";
+          context.fillRect(8, 4, 5, 5);
+          for (let tree = 0; tree < 9; tree += 1) {
+            const tx = 2 + tree * 7;
+            context.fillStyle = "#2a4a24";
+            context.fillRect(tx, 8 + (tree % 3) * 2, 6, 8);
+            context.fillStyle = "#3a2a1e";
+            context.fillRect(tx + 2, 16 + (tree % 3) * 2, 2, 10);
+          }
+          context.fillStyle = "#3b1f4f";
+          context.fillRect(30, 22, 9, 5);
+          context.fillRect(37, 20, 4, 4);
+          context.fillStyle = "#ffe34a";
+          context.fillRect(39, 21, 1, 1);
+          context.fillStyle = "#ff8ae0";
+          context.fillRect(0, 33, 60, 1);
+          context.fillRect(29, 15, 1, 5);
+          context.fillRect(27, 17, 5, 1);
+        }));
+        hang(jungle, cx, 2.6, z0 + 0.09);
+        // The console under it, a headset waiting on it.
+        const desk = put(width - 3.2, 0.9, 0.6, solid(metal), cx, 0.45, z0 + 0.4);
+        put(width - 3.1, 0.05, 0.62, solid(metalLight), cx, 0.92, z0 + 0.4);
+        put(0.4, 0.14, 0.2, glow(paint), cx, 1.02, z0 + 0.42);
+        const panel = put(0.9, 0.36, 0.05, glow(tinted(paint, "#ffffff", 0.2)), cx, 1.25, z0 + 0.69);
+        panel.rotation.x = -0.4;
+        interactables.push({ kind: "sim", object: desk, label: "Combat simulator" });
+        interactables.push({ kind: "sim", object: panel, label: "Combat simulator" });
+        interactables.push({ kind: "sim", object: jungle, label: "Combat simulator" });
+        hear("servers", cx, z0 + 1);
+        break;
+      }
     }
   }
 
@@ -3849,6 +3925,20 @@ export default function ArkWalk(props: ArkWalkProps) {
   const roomRef = useRef<HTMLElement>(null);
   const signalRef = useRef<HTMLSpanElement>(null);
   const lostRef = useRef<HTMLParagraphElement>(null);
+  const simHealthRef = useRef<HTMLSpanElement>(null);
+  const simAmmoRef = useRef<HTMLSpanElement>(null);
+  const simReloadRef = useRef<HTMLSpanElement>(null);
+  const simScoreRef = useRef<HTMLSpanElement>(null);
+  const simBannerRef = useRef<HTMLParagraphElement>(null);
+  const simHurtRef = useRef<HTMLSpanElement>(null);
+  const simMarkerRef = useRef<HTMLSpanElement>(null);
+  const simPausedRef = useRef<HTMLParagraphElement>(null);
+  const simControlRef = useRef<{ start(difficulty: SimDifficulty): void; again(): void; menu(): void; leave(): void } | null>(null);
+  const [simScreen, setSimScreen] = useState<
+    | { phase: "menu" | "playing" }
+    | { phase: "over"; difficulty: SimDifficulty; score: number; kills: number; wave: number; best: number; record: boolean }
+    | null
+  >(null);
   const propsRef = useRef(props);
   useEffect(() => {
     propsRef.current = props;
@@ -3939,6 +4029,8 @@ export default function ArkWalk(props: ArkWalkProps) {
     feedScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), feedMaterial));
     const feedCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
+    // The combat simulation, while AXIOM is in it (set up below, with the controls).
+    let sim: ReturnType<typeof createSimWorld> | null = null;
     const resize = () => {
       const width = Math.max(1, Math.floor(mount.clientWidth / PIXEL_SCALE));
       const height = Math.max(1, Math.floor(mount.clientHeight / PIXEL_SCALE));
@@ -3947,6 +4039,7 @@ export default function ArkWalk(props: ArkWalkProps) {
       feedMaterial.uniforms.resolution.value.set(width, height);
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
+      sim?.resize(width / height);
     };
     resize();
     window.addEventListener("resize", resize);
@@ -3970,6 +4063,91 @@ export default function ArkWalk(props: ArkWalkProps) {
     let strikeFlash = 0;
 
     const locked = () => document.pointerLockElement === renderer.domElement;
+    // ---- The combat simulation: AXIOM steps into the crew's training jungle (ark-sim). ----
+    let simDifficulty: SimDifficulty = "soldier";
+    let simMenu = false;
+    let simPaused = false;
+    let simOver = false;
+    let firing = false;
+    const startSim = (difficulty: SimDifficulty) => {
+      sim?.dispose();
+      simDifficulty = difficulty;
+      sim = createSimWorld(difficulty, { reducedMotion });
+      sim.resize(camera.aspect);
+      simMenu = false;
+      simPaused = false;
+      simOver = false;
+      firing = false;
+      keys.clear();
+      root.classList.add("is-simulating");
+      setSimScreen({ phase: "playing" });
+      unlockPulseAudio();
+      Promise.resolve(renderer.domElement.requestPointerLock()).catch(() => {});
+    };
+    const leaveSim = () => {
+      sim?.dispose();
+      sim = null;
+      simMenu = false;
+      firing = false;
+      keys.clear();
+      root.classList.remove("is-simulating");
+      setSimScreen(null);
+    };
+    const openSim = () => {
+      if (document.pointerLockElement === renderer.domElement) document.exitPointerLock();
+      keys.clear();
+      simMenu = true;
+      setSimScreen({ phase: "menu" });
+    };
+    simControlRef.current = {
+      start: startSim,
+      again: () => startSim(simDifficulty),
+      menu: () => {
+        sim?.dispose();
+        sim = null;
+        root.classList.remove("is-simulating");
+        openSim();
+      },
+      leave: leaveSim,
+    };
+    /** The simulation's heads-up display, written straight to the page each frame. */
+    const drawSimHud = () => {
+      if (!sim) return;
+      const hud = sim.hud();
+      const share = Math.max(0, hud.health / hud.maxHealth);
+      if (simHealthRef.current) {
+        simHealthRef.current.style.setProperty("--sim-health", share.toFixed(3));
+        simHealthRef.current.dataset.state = share > 0.5 ? "good" : share > 0.25 ? "low" : "critical";
+      }
+      if (simAmmoRef.current) {
+        simAmmoRef.current.textContent = hud.reloading !== null ? "Reloading" : `${hud.magazine} / ${Number.isFinite(hud.reserve) ? hud.reserve : "∞"}`;
+      }
+      simReloadRef.current?.style.setProperty("--sim-reload", hud.reloading === null ? "0" : hud.reloading.toFixed(3));
+      if (simScoreRef.current) simScoreRef.current.textContent = `Wave ${Math.max(1, hud.wave)} · ${hud.kills} down · ${hud.score} pts`;
+      if (simBannerRef.current) {
+        simBannerRef.current.textContent = hud.banner ?? "";
+        simBannerRef.current.hidden = hud.banner === null;
+      }
+      simHurtRef.current?.style.setProperty("opacity", hud.hurt.toFixed(3));
+      simMarkerRef.current?.style.setProperty("opacity", hud.marker.toFixed(3));
+      if (simPausedRef.current) simPausedRef.current.hidden = !simPaused;
+      if (!hud.alive && !simOver) {
+        simOver = true;
+        firing = false;
+        if (document.pointerLockElement === renderer.domElement) document.exitPointerLock();
+        const previousBest = bestSimScore(simDifficulty);
+        setSimScreen({
+          phase: "over",
+          difficulty: simDifficulty,
+          score: hud.score,
+          kills: hud.kills,
+          wave: hud.wave,
+          best: bestSimScore(simDifficulty, hud.score),
+          record: hud.score > previousBest,
+        });
+      }
+    };
+
     const setPrompt = (text: string) => {
       if (text === lastPrompt || !promptRef.current) return;
       lastPrompt = text;
@@ -3995,11 +4173,20 @@ export default function ArkWalk(props: ArkWalkProps) {
         const room = target.room;
         propsRef.current.onClose();
         room.onActivate();
+      } else if (target.kind === "sim") {
+        openSim();
       }
     };
 
     const onClick = () => {
       unlockPulseAudio();
+      if (sim) {
+        // In the simulation a click takes the mouse back, ending a pause; holding it fires.
+        if (!locked() && !simOver) Promise.resolve(renderer.domElement.requestPointerLock()).catch(() => {});
+        simPaused = false;
+        return;
+      }
+      if (simMenu) return;
       if (!locked()) {
         // Some browsers refuse to lock the mouse; dragging still looks around (see onMouseMove).
         Promise.resolve(renderer.domElement.requestPointerLock()).catch(() => {});
@@ -4007,15 +4194,45 @@ export default function ArkWalk(props: ArkWalkProps) {
       }
       if (target?.kind === "heart" && !standingLift) activate();
     };
-    const onPointerLockChange = () => root.classList.toggle("is-piloting", locked());
+    const onPointerLockChange = () => {
+      root.classList.toggle("is-piloting", locked());
+      // Letting go of the mouse mid-fight pauses the simulation until a click takes it back.
+      if (sim && !simOver) simPaused = !locked();
+    };
+    const onMouseDown = (event: MouseEvent) => {
+      if (sim && event.button === 0 && !simPaused && !simOver) firing = true;
+    };
+    const onMouseUp = () => {
+      firing = false;
+    };
     const onMouseMove = (event: MouseEvent) => {
       // Look with the locked mouse, or by dragging with the left button held.
       if (!locked() && !(event.buttons & 1 && event.target === renderer.domElement)) return;
+      if (sim) {
+        sim.look(event.movementX, event.movementY);
+        return;
+      }
       yaw -= event.movementX * 0.0024;
       pitch = Math.max(-1.25, Math.min(1.25, pitch - event.movementY * 0.0024));
     };
     const onKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
+      if (simMenu && !sim) {
+        if (key === "q" || key === "escape") leaveSim();
+        return;
+      }
+      if (sim) {
+        // Q leaves the simulation for the ship; R reloads; the rest moves.
+        if (key === "q") {
+          event.preventDefault();
+          leaveSim();
+        } else if (key === "r") sim.reload();
+        else if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright", "shift", " "].includes(key)) {
+          event.preventDefault();
+          keys.add(key);
+        }
+        return;
+      }
       if (key === "q" || (key === "escape" && !locked())) {
         event.preventDefault();
         propsRef.current.onClose();
@@ -4041,6 +4258,8 @@ export default function ArkWalk(props: ArkWalkProps) {
         layout,
         sounding: () => soundscape !== null,
         signal: () => signal,
+        sim: () => sim?.state ?? null,
+        simStart: (difficulty: SimDifficulty = "soldier") => startSim(difficulty),
         place(deck: number, px: number, pz: number, look = yaw, tilt = 0) {
           deckIndex = deck;
           x = px;
@@ -4052,6 +4271,8 @@ export default function ArkWalk(props: ArkWalkProps) {
     }
 
     renderer.domElement.addEventListener("click", onClick);
+    renderer.domElement.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("mouseup", onMouseUp);
     document.addEventListener("pointerlockchange", onPointerLockChange);
     document.addEventListener("mousemove", onMouseMove);
     window.addEventListener("keydown", onKeyDown);
@@ -4080,6 +4301,16 @@ export default function ArkWalk(props: ArkWalkProps) {
       const dt = Math.min(0.05, (now - previous) / 1000);
       previous = now;
       const deck = layout.decks[deckIndex];
+      if (sim) {
+        // In the simulation the ship goes quiet and the jungle is all there is.
+        const forward = (keys.has("w") || keys.has("arrowup") ? 1 : 0) - (keys.has("s") || keys.has("arrowdown") ? 1 : 0);
+        const strafe = (keys.has("d") || keys.has("arrowright") ? 1 : 0) - (keys.has("a") || keys.has("arrowleft") ? 1 : 0);
+        if (!simPaused) sim.update(dt, { forward, strafe, sprint: keys.has("shift"), firing }, now);
+        soundscape?.update({ x: 1e6, y: 0, z: 1e6, yaw, deck: deckIndex, speed: 0 });
+        renderer.render(sim.scene, sim.camera);
+        drawSimHud();
+        return;
+      }
 
       if (travel) {
         // Carried up or down the lift column; no steering until it arrives.
@@ -4201,6 +4432,7 @@ export default function ArkWalk(props: ArkWalkProps) {
       else if (!target) setPrompt("");
       else if (target.kind === "heart") setPrompt(`E · strike ${propsRef.current.heart.name}`);
       else if (target.kind === "label") setPrompt(target.label);
+      else if (target.kind === "sim") setPrompt("E · step into the combat simulation");
       else if (target.prompt) setPrompt(target.prompt());
       else if (!target.online) setPrompt(`${target.label} is dormant`);
       else if (target.room?.interactive) setPrompt(`E · open ${target.label}`);
@@ -4250,6 +4482,12 @@ export default function ArkWalk(props: ArkWalkProps) {
       window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", resize);
       renderer.domElement.removeEventListener("click", onClick);
+      renderer.domElement.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("mouseup", onMouseUp);
+      sim?.dispose();
+      root.classList.remove("is-simulating");
+      setSimScreen(null);
+      simControlRef.current = null;
       document.removeEventListener("pointerlockchange", onPointerLockChange);
       document.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("keydown", onKeyDown);
@@ -4296,6 +4534,55 @@ export default function ArkWalk(props: ArkWalkProps) {
           Click to take the drone · WASD to move · mouse to look · E to use and ride lifts · Shift to hurry · Q to return
         </p>
       </div>
+      <div className="ark-sim-hud" hidden={simScreen?.phase !== "playing" && simScreen?.phase !== "over"}>
+        <span ref={simHurtRef} className="ark-sim-hurt" aria-hidden="true" />
+        <span className="ark-sim-crosshair" aria-hidden="true" />
+        <span ref={simMarkerRef} className="ark-sim-marker" aria-hidden="true" />
+        <p ref={simBannerRef} className="ark-sim-banner" hidden />
+        <div className="ark-sim-vitals">
+          <span className="ark-sim-label">Sim-body</span>
+          <span ref={simHealthRef} className="ark-sim-health" data-state="good" role="img" aria-label="Health"><i /></span>
+        </div>
+        <div className="ark-sim-ammo">
+          <span className="ark-sim-label">Arc Carbine · training</span>
+          <span ref={simAmmoRef} className="ark-sim-rounds">24 / 96</span>
+          <span ref={simReloadRef} className="ark-sim-reload" aria-hidden="true"><i /></span>
+        </div>
+        <span ref={simScoreRef} className="ark-sim-score">Wave 1</span>
+        <p ref={simPausedRef} className="ark-sim-paused" hidden>Paused · click to go back in · Q to leave</p>
+        <p className="ark-sim-help">Click to fire · R reload · WASD move · Shift run · Q leave</p>
+      </div>
+      {simScreen?.phase === "menu" && (
+        <div className="ark-sim-panel" role="dialog" aria-label="Combat simulation">
+          <h2>Combat simulation</h2>
+          <p>A jungle that never was, full of things that scream. Crew train here before they fight; AXIOM can step in too.</p>
+          <div className="ark-sim-levels">
+            {(Object.keys(SIM_DIFFICULTIES) as SimDifficulty[]).map((level) => (
+              <button key={level} type="button" onClick={() => simControlRef.current?.start(level)}>
+                <strong>{SIM_DIFFICULTIES[level].label}</strong>
+                <small>{SIM_DIFFICULTIES[level].blurb}</small>
+                <small className="ark-sim-best">Best · {bestSimScore(level)}</small>
+              </button>
+            ))}
+          </div>
+          <button type="button" className="ark-sim-leave" onClick={() => simControlRef.current?.leave()}>Back to the ship · Q</button>
+        </div>
+      )}
+      {simScreen?.phase === "over" && (
+        <div className="ark-sim-panel" role="dialog" aria-label="Simulation ended">
+          <h2>Simulation ended</h2>
+          <p className="ark-sim-result">
+            {SIM_DIFFICULTIES[simScreen.difficulty].label} · wave {Math.max(1, simScreen.wave)} · {simScreen.kills} aliens down
+          </p>
+          <p className="ark-sim-final">{simScreen.score} pts</p>
+          <p className="ark-sim-best">{simScreen.record ? "A new best on this device" : `Best · ${simScreen.best}`}</p>
+          <div className="ark-sim-levels">
+            <button type="button" onClick={() => simControlRef.current?.again()}><strong>Run it again</strong></button>
+            <button type="button" onClick={() => simControlRef.current?.menu()}><strong>Change difficulty</strong></button>
+            <button type="button" onClick={() => simControlRef.current?.leave()}><strong>Back to the ship</strong></button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
