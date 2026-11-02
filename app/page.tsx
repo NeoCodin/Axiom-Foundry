@@ -153,6 +153,7 @@ import {
 } from "./game-engine";
 import { WORLD_VISUALS } from "./world-visuals";
 import { AxiomEye } from "./axiom-eye";
+import { switchChannel } from "./channel-switch";
 import { MachineGlyph } from "./machine-glyphs";
 import { NullInterference } from "./null-interference";
 import { useUiSounds } from "./use-ui-sounds";
@@ -478,6 +479,33 @@ export default function Home() {
   // tab order, -1 = leftward, 0 = not directional) - drives which side the
   // incoming screen slides in from, for swipes AND taps alike.
   const [navDirection, setNavDirection] = useState<0 | 1 | -1>(0);
+  // The drone view: open in the world's accent colour, or null; and the page to come back to.
+  const [walkAccent, setWalkAccent] = useState<string | null>(null);
+  const walkReturnRef = useRef<PrimaryView | null>(null);
+  const viewRef = useRef(primaryView);
+  const openArkWalkRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    viewRef.current = primaryView;
+  }, [primaryView]);
+  useEffect(() => {
+    // E opens the drone from any page, on a PC; inside the drone, E is the drone's own.
+    const desktop = window.matchMedia("(min-width: 1024px) and (hover: hover) and (pointer: fine)");
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== "e" || event.repeat || event.ctrlKey || event.metaKey || event.altKey || !desktop.matches) return;
+      if (event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable='true']")) return;
+      if (document.querySelector(".ark-walk")) return;
+      openArkWalkRef.current();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    // Fetch the drone view ahead of time on a PC, so changing channel never waits on a download.
+    const prefetch = window.setTimeout(() => {
+      if (desktop.matches) void import("./ark-walk");
+    }, 4000);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.clearTimeout(prefetch);
+    };
+  }, []);
   const [foundryConsoleTab, setFoundryConsoleTab] =
     useState<FoundryConsoleTab>("chain");
   const [researchEntry, setResearchEntry] = useState<{
@@ -2489,6 +2517,35 @@ export default function Home() {
     window.setTimeout(() => persistGame("Destination introduction saved"), 0);
   };
 
+  // ---- The drone view (Walk the Ark, PC only): open from any page by its button or E, and
+  // switched to and from like a television channel. Q in the drone comes back to where you were.
+  const arkWalkAvailable = !(campaignWorldIndex === 0 && !coldWakeStatus.arkOverviewAvailable);
+  const openArkWalk = () => {
+    if (!arkWalkAvailable || walkAccent || destinationIntroduction) return;
+    const from = primaryView;
+    switchChannel(() => {
+      walkReturnRef.current = from === "deck" ? null : from;
+      if (from !== "deck") {
+        setNavDirection(0);
+        setPrimaryView("deck");
+      }
+      const shell = document.querySelector(".game-shell");
+      setWalkAccent(shell ? getComputedStyle(shell).getPropertyValue("--world-accent").trim() || "#6a6290" : "#6a6290");
+    });
+  };
+  const closeArkWalk = () => {
+    switchChannel(() => {
+      setWalkAccent(null);
+      const back = walkReturnRef.current;
+      walkReturnRef.current = null;
+      // A console used inside the drone may already have opened another page; that wins.
+      if (back && viewRef.current === "deck") setPrimaryView(back);
+    });
+  };
+  useEffect(() => {
+    openArkWalkRef.current = openArkWalk;
+  });
+
   const handlePrimaryNavigation = (view: PrimaryView) => {
     if (destinationIntroduction) {
       if (view === destinationIntroduction.view) openDestinationIntroduction();
@@ -2978,6 +3035,12 @@ export default function Home() {
         guidedView={guidedDestinationView}
         onNavigate={handlePrimaryNavigation}
       />
+      {arkWalkAvailable && primaryView !== "deck" && !walkAccent && (
+        <button type="button" className="drone-feed-launch" aria-keyshortcuts="E" onClick={openArkWalk}>
+          <span className="drone-feed-eye" aria-hidden="true"><AxiomEye /></span>
+          Walk the Ark · E
+        </button>
+      )}
 
       {destinationIntroduction && (
         <>
@@ -3173,6 +3236,9 @@ export default function Home() {
           lawHeartMachines={game.tiers.map((tier, index) => ({ name: GENERATORS[index].name, count: tier.bought }))}
           lawHeartDrones={lawHeartDroneFrames}
           nullInterference={{ classification: nullSaturation.classification, intensity: nullSaturation.visualIntensity }}
+          walkAccent={walkAccent}
+          onOpenWalk={openArkWalk}
+          onCloseWalk={closeArkWalk}
           armory={{
             unlocked: armoryUnlocked,
             items: ARMORY_ITEM_DEFINITIONS.map((item) => ({

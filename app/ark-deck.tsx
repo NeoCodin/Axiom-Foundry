@@ -1,6 +1,6 @@
 "use client";
 
-import { lazy, Suspense, useState, type CSSProperties } from "react";
+import { lazy, Suspense, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import {
   BeaconReadinessList,
@@ -132,6 +132,10 @@ export type ArkDeckProps = {
   simulator?: ArkWalkSimulator;
   /** The world's Null saturation, which also reaches the drone's camera. */
   nullInterference?: { classification: "quiet" | "trace" | "elevated" | "severe"; intensity: number };
+  /** The drone view, open (in the world's accent) or not; the page opens and closes it, changing channel. */
+  walkAccent?: string | null;
+  onOpenWalk?: () => void;
+  onCloseWalk?: () => void;
   onUpgradeSupport?: (key: LifeSupportKey) => void;
   onOpenView: (view: ArkViewId) => void;
 };
@@ -208,10 +212,12 @@ function ArkDeck({
   armory,
   simulator,
   nullInterference,
+  walkAccent = null,
+  onOpenWalk,
+  onCloseWalk,
   onUpgradeSupport,
   onOpenView,
 }: ArkDeckProps) {
-  const [walkAccent, setWalkAccent] = useState<string | null>(null);
   const beaconAvailable = beaconReadiness.ready;
   const normalizedWorldProgress = clamp(worldProgress);
   const normalizedResearchProgress = clamp(researchProgress);
@@ -492,12 +498,10 @@ function ArkDeck({
         <button
           type="button"
           className="ark-walk-launch"
-          onClick={() => {
-            const shell = document.querySelector(".game-shell");
-            setWalkAccent(shell ? getComputedStyle(shell).getPropertyValue("--world-accent").trim() || "#6a6290" : "#6a6290");
-          }}
+          aria-keyshortcuts="E"
+          onClick={() => onOpenWalk?.()}
         >
-          Walk the Ark
+          Walk the Ark · E
         </button>
         <ArkCutaway {...cutawayProps} />
         {walkAccent && createPortal(
@@ -542,7 +546,7 @@ function ArkDeck({
               simulator={simulator}
               beatPeriodMs={getPulseProfile(lifetimeAxioms).periodMs}
               onStrike={onStrikeLawHeart}
-              onClose={() => setWalkAccent(null)}
+              onClose={() => onCloseWalk?.()}
             />
           </Suspense>,
           document.querySelector(".game-shell") ?? document.body,

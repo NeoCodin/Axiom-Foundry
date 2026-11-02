@@ -204,6 +204,16 @@ export function playBulkhead() {
   noiseBurst(output, when, { filter: "bandpass", frequency: 900, q: 0.7, peak: 0.03, attack: 0.01, decay: 0.16 });
 }
 
+/** Changing channel on an old set: the switch's click, a burst of snow, the new picture's hum settling. */
+export function playChannelSwitch() {
+  const output = ready();
+  if (!output) return;
+  const when = output.context.currentTime;
+  tone(output, when, { type: "square", from: 1400, to: 900, glide: 0.01, peak: 0.035, attack: 0.001, decay: 0.03 });
+  noiseBurst(output, when + 0.2, { filter: "highpass", frequency: 1800, peak: 0.06, attack: 0.02, decay: 0.18 });
+  tone(output, when + 0.32, { type: "sine", from: 62, to: 50, glide: 0.2, peak: 0.05, attack: 0.02, decay: 0.24 });
+}
+
 /** Null interference: a crackle of static, stepped like a failing signal. */
 export function playNullStatic(intensity: number) {
   const output = ready();
