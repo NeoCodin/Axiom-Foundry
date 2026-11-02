@@ -22,7 +22,21 @@ import {
   type SimState,
 } from "./ark-sim-rules";
 
-export type SimInput = { forward: number; strafe: number; sprint: boolean; firing: boolean; jump: boolean };
+/** The simulation modes: waves of aliens in the jungle, or a rescue from a ruined building. */
+export type SimMode = "swarm" | "extraction";
+
+export type SimInput = {
+  forward: number;
+  strafe: number;
+  sprint: boolean;
+  firing: boolean;
+  jump: boolean;
+  /** Extraction's extra hands: the right button aims; C and F are held keys, switched on each press. */
+  aim?: boolean;
+  crouch?: boolean;
+  interact?: boolean;
+  light?: boolean;
+};
 
 export type SimHud = {
   health: number;
@@ -42,6 +56,33 @@ export type SimHud = {
   /** A hit landed, fading from 1. */
   marker: number;
   banner: string | null;
+  /** Extraction only: the objective, where AXIOM is, what E would do and how far along, and how close it is to being seen. */
+  objective?: string;
+  location?: string;
+  prompt?: string | null;
+  progress?: number | null;
+  spotted?: number;
+  alarm?: boolean;
+  /** 0 to 1: a Hollowed close by, corrupting the view. */
+  glitch?: number;
+  aiming?: boolean;
+  stance?: string;
+  survivors?: readonly ("held" | "following" | "safe" | "lost")[];
+  /** Set once a mission is over, for the results panel. */
+  result?: { success: boolean; title: string; lines: string[] } | null;
+};
+
+/** What the drone view needs of any simulation, whichever mode is running. */
+export type SimWorld = {
+  scene: THREE.Scene;
+  camera: THREE.PerspectiveCamera;
+  state: unknown;
+  look(dx: number, dy: number): void;
+  reload(): void;
+  update(dt: number, input: SimInput, now: number): void;
+  resize(aspect: number): void;
+  hud(): SimHud;
+  dispose(): void;
 };
 
 const EYE = 1.6;
@@ -745,8 +786,8 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
 }
 
 /** The best score on this device, per difficulty; the simulation keeps nothing in the game's save. */
-export function bestSimScore(difficulty: SimDifficulty, score?: number) {
-  const key = `axiom-foundry-sim-best-${difficulty}`;
+export function bestSimScore(difficulty: SimDifficulty, score?: number, mode: SimMode = "swarm") {
+  const key = mode === "swarm" ? `axiom-foundry-sim-best-${difficulty}` : `axiom-foundry-sim-best-${mode}-${difficulty}`;
   let best = 0;
   try {
     best = Number(window.localStorage.getItem(key)) || 0;
