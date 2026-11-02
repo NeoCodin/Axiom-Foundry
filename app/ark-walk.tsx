@@ -75,6 +75,8 @@ import { AxiomEye } from "./axiom-eye";
 import { CIVILIAN_COLOR, CREW_ROLE_COLORS, getCrewHead } from "./crew-portrait";
 import { playBulkhead, playDash, playMurmur, playNullStatic, playPulseStrike, playRecordFound, schedulePulseBeat, unlockPulseAudio } from "./law-heart-audio";
 import { fragmentOf, placeState, RECORD_PLACES, recordLines, recordSpot, type RecordPlace } from "./ark-walk-records";
+import { switchChannel } from "./channel-switch";
+import PelagosView from "./pelagos-view";
 import "./ark-walk.css";
 
 /*
@@ -770,7 +772,9 @@ type Interactable =
   /** The combat simulator's console: E takes AXIOM into the training jungle. */
   | { kind: "sim"; object: THREE.Object3D; label: string }
   /** A place where one of the story's records is kept: E reads it, or searches for it. */
-  | { kind: "record"; object: THREE.Object3D; place: RecordPlace; deck: number };
+  | { kind: "record"; object: THREE.Object3D; place: RecordPlace; deck: number }
+  /** The way down to the world below: E flies the drone to Pelagos (the reclamation prototype). */
+  | { kind: "planet"; object: THREE.Object3D; label: string };
 
 type Drone = { x: number; z: number; deck: number; dt: number };
 type Updater = (time: number, drone: Drone) => void;
@@ -1822,7 +1826,8 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     laidUp.group.rotation.y = Math.PI / 2;
     laidUp.ramp.rotation.x = 0.42;
     scene.add(laidUp.group);
-    label(laidUp.group, "Recon ship two · laid up for repairs");
+    // The second ship is the way down for the reclamation prototype.
+    interactables.push({ kind: "planet", object: laidUp.group, label: "Recon ship two · E · fly the drone down to Pelagos (prototype)" });
     const serviceDrone = droneModel(PALETTE.amber);
     scene.add(serviceDrone);
     const flyer = reconShip(true);
@@ -4345,6 +4350,9 @@ function SimulatorPods({ simulator }: { simulator: ArkWalkSimulator }) {
 export default function ArkWalk(props: ArkWalkProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  // The drone is down on Pelagos: the ship's view sleeps under it.
+  const [planetOpen, setPlanetOpen] = useState(false);
+  const planetOpenRef = useRef(false);
   const promptRef = useRef<HTMLParagraphElement>(null);
   const roomRef = useRef<HTMLElement>(null);
   const signalRef = useRef<HTMLSpanElement>(null);
@@ -4976,6 +4984,16 @@ export default function ArkWalk(props: ArkWalkProps) {
       }
     };
 
+    /** Board the second recon ship: the drone's feed changes channel to Pelagos. */
+    const openPlanet = () => {
+      if (document.pointerLockElement === renderer.domElement) document.exitPointerLock();
+      keys.clear();
+      switchChannel(() => {
+        planetOpenRef.current = true;
+        setPlanetOpen(true);
+      });
+    };
+
     const activate = () => {
       if (travel) return;
       if (standingLift) {
@@ -5002,6 +5020,8 @@ export default function ArkWalk(props: ArkWalkProps) {
         talkTo(target);
       } else if (target.kind === "record") {
         visitRecord(target);
+      } else if (target.kind === "planet") {
+        openPlanet();
       }
     };
 
@@ -5068,6 +5088,8 @@ export default function ArkWalk(props: ArkWalkProps) {
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
+      // Down on Pelagos, the district's own view has the keys.
+      if (planetOpenRef.current) return;
       const key = event.key.toLowerCase();
       if (simMenu && !sim) {
         if (key === "q" || key === "escape") leaveSim();
@@ -5130,6 +5152,8 @@ export default function ArkWalk(props: ArkWalkProps) {
           const state = recordState(place);
           return { id: place.id, deck: spot?.deck ?? null, x: spot?.x ?? null, z: spot?.z ?? null, visible: state.visible, found: state.found.map((fragment) => fragment.id), search: state.search, crossIndex: state.crossIndex };
         }),
+        /** Straight down to Pelagos, as boarding the second recon ship does. */
+        planet: () => openPlanet(),
         /** Where the drone is, and how wide it sees (wider mid-dash). */
         where: () => ({ deck: deckIndex, x, z, yaw, fov: camera.fov }),
         /** Everyone aboard the drone can talk to: where they are, and whether they are free. */
@@ -5183,6 +5207,10 @@ export default function ArkWalk(props: ArkWalkProps) {
       const deck = layout.decks[deckIndex];
       followCrew(now);
       followRecords(now);
+      if (planetOpenRef.current) {
+        soundscape?.update({ x: 1e6, y: 0, z: 1e6, yaw, deck: deckIndex, speed: 0 });
+        return;
+      }
       if (sim) {
         // In the simulation the ship goes quiet and the jungle is all there is.
         const forward = (keys.has("w") || keys.has("arrowup") ? 1 : 0) - (keys.has("s") || keys.has("arrowdown") ? 1 : 0);
@@ -5344,6 +5372,7 @@ export default function ArkWalk(props: ArkWalkProps) {
       else if (target.kind === "person") setPrompt(conversation ? "" : target.mood === "talk" ? `${target.label} · E to talk` : target.mood === "busy" ? `${target.label} · busy` : target.label);
       else if (target.kind === "sim") setPrompt("E · step into the combat simulation");
       else if (target.kind === "record") setPrompt(conversation ? "" : recordPrompt(target.place));
+      else if (target.kind === "planet") setPrompt(target.label);
       else if (target.prompt) setPrompt(target.prompt());
       else if (!target.online) setPrompt(`${target.label} is dormant`);
       else if (target.room?.interactive) setPrompt(`E · open ${target.label}`);
@@ -5430,6 +5459,14 @@ export default function ArkWalk(props: ArkWalkProps) {
 
   return (
     <div ref={rootRef} className="ark-walk" role="dialog" aria-modal="true" aria-label="Walk the Ark: maintenance drone view">
+      {planetOpen && (
+        <PelagosView
+          onLeave={() => switchChannel(() => {
+            planetOpenRef.current = false;
+            setPlanetOpen(false);
+          })}
+        />
+      )}
       <div ref={mountRef} className="ark-walk-viewport" />
       <div className="ark-walk-hud">
         <div className="ark-walk-status">
