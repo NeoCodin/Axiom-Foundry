@@ -883,6 +883,20 @@ export default function Home() {
     () => getRoomInvestigation(game.living.discoveredLore, game.living.rooms),
     [game.living.discoveredLore, game.living.rooms],
   );
+  // The search as the Lore Archive and the drone view both offer it.
+  const roomLead = roomInvestigation ? (() => {
+    const cost = getRoomUpgradeCost(game.living, roomInvestigation.roomId);
+    return {
+      recordId: roomInvestigation.fragment.id,
+      roomName: ROOM_DEFINITIONS.find((room) => room.id === roomInvestigation.roomId)?.name ?? "Ark",
+      actionLabel: ROOM_ACTION_LABELS[roomInvestigation.actionId],
+      ready: roomInvestigation.ready,
+      level: roomInvestigation.level,
+      needed: roomInvestigation.needed,
+      reinforceCost: Number.isFinite(cost) ? cost : null,
+      canReinforce: game.living.salvage >= cost,
+    };
+  })() : null;
   const vacuumTapsBought = game.tiers[0].bought;
   const unlockedLoreIds = useMemo(() => {
     const ids = new Set<string>([
@@ -3281,6 +3295,16 @@ export default function Home() {
           nullInterference={{ classification: nullSaturation.classification, intensity: nullSaturation.visualIntensity }}
           walkAccent={walkAccent}
           talkContext={{ worldId: campaignWorld.id, worldsSaved: game.missions.worldsSaved, discovered: game.living.discoveredLore }}
+          records={{
+            discovered: game.living.discoveredLore,
+            search: roomLead,
+            crossIndex: nextArchiveDiscovery ? { recordId: nextArchiveDiscovery.id, title: nextArchiveDiscovery.title } : null,
+            onSearch: handleRoomInvestigation,
+            onReinforce: () => {
+              if (roomInvestigation) handleUpgradeLivingRoom(roomInvestigation.roomId);
+            },
+            onCrossIndex: handleArchiveInvestigation,
+          }}
           onOpenWalk={openArkWalk}
           onCloseWalk={closeArkWalk}
           armory={{
@@ -4364,15 +4388,7 @@ export default function Home() {
           laws={archiveLaws}
           worldsSaved={game.missions.worldsSaved}
           onCrossIndex={handleArchiveInvestigation}
-          roomInvestigation={roomInvestigation ? {
-            roomName: ROOM_DEFINITIONS.find((room) => room.id === roomInvestigation.roomId)?.name ?? "Ark",
-            actionLabel: ROOM_ACTION_LABELS[roomInvestigation.actionId],
-            ready: roomInvestigation.ready,
-            level: roomInvestigation.level,
-            needed: roomInvestigation.needed,
-            reinforceCost: Number.isFinite(getRoomUpgradeCost(game.living, roomInvestigation.roomId)) ? getRoomUpgradeCost(game.living, roomInvestigation.roomId) : null,
-            canReinforce: game.living.salvage >= getRoomUpgradeCost(game.living, roomInvestigation.roomId),
-          } : null}
+          roomInvestigation={roomLead}
           onInvestigateRoom={handleRoomInvestigation}
           onReinforceLeadRoom={() => {
             if (roomInvestigation) handleUpgradeLivingRoom(roomInvestigation.roomId);

@@ -226,6 +226,16 @@ export function playChannelSwitch() {
   tone(output, when + 0.32, { type: "sine", from: 62, to: 50, glide: 0.2, peak: 0.05, attack: 0.02, decay: 0.24 });
 }
 
+/** A record found aboard: a low struck note, a fifth above it, and a breath of static. */
+export function playRecordFound() {
+  const output = ready();
+  if (!output) return;
+  const when = output.context.currentTime;
+  tone(output, when, { type: "sine", from: 196, to: 196, glide: 0.01, peak: 0.08, attack: 0.01, decay: 1.4 });
+  tone(output, when + 0.12, { type: "triangle", from: 294, to: 290, glide: 1, peak: 0.035, attack: 0.02, decay: 1.2 });
+  noiseBurst(output, when, { filter: "highpass", frequency: 3200, peak: 0.02, attack: 0.05, decay: 0.6 });
+}
+
 /** The drone's dash: a valve's click, the thrusters' rush, a low push under it. */
 export function playDash() {
   const output = ready();

@@ -8,7 +8,7 @@ import {
 import { ArkCutaway, type ArkCutawayRoom, type ArkCutawayRoomKind } from "./ark-cutaway";
 import { ArkPixelWorld } from "./ark-pixel-world";
 
-import type { ArkWalkArmory, ArkWalkRecon, ArkWalkSimulator } from "./ark-walk";
+import type { ArkWalkArmory, ArkWalkRecon, ArkWalkRecords, ArkWalkSimulator } from "./ark-walk";
 import type { TalkContext, TalkProfile } from "./crew-talk";
 import type { BeaconReadiness } from "./beacon-readiness-engine";
 import type { RoomId } from "./discovery-content";
@@ -137,6 +137,8 @@ export type ArkDeckProps = {
   nullInterference?: { classification: "quiet" | "trace" | "elevated" | "severe"; intensity: number };
   /** Where the Ark is in its story, for what the crew talk about in the drone view. */
   talkContext?: TalkContext;
+  /** The story's records, set out in their places in the drone view. */
+  records?: ArkWalkRecords;
   /** The drone view, open (in the world's accent) or not; the page opens and closes it, changing channel. */
   walkAccent?: string | null;
   onOpenWalk?: () => void;
@@ -217,6 +219,7 @@ function ArkDeck({
   armory,
   simulator,
   talkContext,
+  records,
   nullInterference,
   walkAccent = null,
   onOpenWalk,
@@ -552,6 +555,7 @@ function ArkDeck({
               armory={armory}
               simulator={simulator}
               talkContext={talkContext}
+              records={records}
               beatPeriodMs={getPulseProfile(lifetimeAxioms).periodMs}
               onStrike={onStrikeLawHeart}
               onClose={() => onCloseWalk?.()}

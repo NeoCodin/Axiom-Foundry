@@ -206,6 +206,18 @@
   color: #dcd6f0;
 }
 
+/* A record's own words: where it came from in small capitals, the text like an old printout. */
+.ark-walk-subtitle[data-speaker="record"] strong {
+  color: #d9c79a;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ark-walk-subtitle[data-speaker="record"] span {
+  color: #ece4cc;
+}
+
 /* What AXIOM can say next: numbered, the highlighted one on a lit plate. */
 .ark-walk-choices {
   display: grid;

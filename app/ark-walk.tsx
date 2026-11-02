@@ -73,7 +73,8 @@ import { furnishLayout, planDecor, type DecorPiece, type WallSpot } from "./ark-
 import { createNullFeed, misreadLabel, type NullClass, type NullFeed } from "./ark-walk-null";
 import { AxiomEye } from "./axiom-eye";
 import { CIVILIAN_COLOR, CREW_ROLE_COLORS, getCrewHead } from "./crew-portrait";
-import { playBulkhead, playDash, playMurmur, playNullStatic, playPulseStrike, schedulePulseBeat, unlockPulseAudio } from "./law-heart-audio";
+import { playBulkhead, playDash, playMurmur, playNullStatic, playPulseStrike, playRecordFound, schedulePulseBeat, unlockPulseAudio } from "./law-heart-audio";
+import { fragmentOf, placeState, RECORD_PLACES, recordLines, recordSpot, type RecordPlace } from "./ark-walk-records";
 import "./ark-walk.css";
 
 /*
@@ -151,6 +152,28 @@ export type ArkWalkSimulator = {
   onDrill: (seconds: number) => void;
 };
 
+/** The story's records as the Ark keeps them, and what the drone can do about them. */
+export type ArkWalkRecords = {
+  /** Every record found so far. */
+  discovered: readonly string[];
+  /** The room search the story is waiting on, if any, and whether its room is ready for it. */
+  search: {
+    recordId: string;
+    roomName: string;
+    actionLabel: string;
+    ready: boolean;
+    level: number;
+    needed: number;
+    reinforceCost: number | null;
+    canReinforce: boolean;
+  } | null;
+  /** The comparison the Memory Archive can make now, if any. */
+  crossIndex: { recordId: string; title: string } | null;
+  onSearch: () => void;
+  onReinforce: () => void;
+  onCrossIndex: () => void;
+};
+
 export type ArkWalkProps = {
   worldName: string;
   worldAccent: string;
@@ -164,6 +187,8 @@ export type ArkWalkProps = {
   simulator?: ArkWalkSimulator;
   /** Where the Ark is in its story, for what the crew talk about. */
   talkContext?: TalkContext;
+  /** The story's records, set out in their places aboard. */
+  records?: ArkWalkRecords;
   beatPeriodMs: number;
   onStrike?: () => void;
   onClose: () => void;
@@ -743,7 +768,9 @@ type Interactable =
   /** Someone aboard: E talks to them, or gets a word in passing if they are busy; sleepers are left be. */
   | { kind: "person"; object: THREE.Object3D; label: string; member: WalkCrewMember; mood: "talk" | "busy" | "asleep" }
   /** The combat simulator's console: E takes AXIOM into the training jungle. */
-  | { kind: "sim"; object: THREE.Object3D; label: string };
+  | { kind: "sim"; object: THREE.Object3D; label: string }
+  /** A place where one of the story's records is kept: E reads it, or searches for it. */
+  | { kind: "record"; object: THREE.Object3D; place: RecordPlace; deck: number };
 
 type Drone = { x: number; z: number; deck: number; dt: number };
 type Updater = (time: number, drone: Drone) => void;
@@ -4039,6 +4066,212 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     ...dynamicObstacles.map((obstacle) => obstacle()).filter((obstacle): obstacle is Obstacle => obstacle !== null),
   ];
 
+  // ---- The story's records, kept where they happened aboard (ark-walk-records). ----
+  const recordLayer = new THREE.Group();
+  scene.add(recordLayer);
+  const recordAnimated: Updater[] = [];
+  animated.push((time, drone) => {
+    for (const update of recordAnimated) update(time, drone);
+  });
+  const recordItems = new Set<Interactable>();
+  const recordGlow = tinted(accent, "#ffffff", 0.45);
+  /** A screenful of record text, rows of pixel words, for the plates and the archive. */
+  const recordText = canvasTexture(32, 24, (context) => {
+    context.fillStyle = "#07060c";
+    context.fillRect(0, 0, 32, 24);
+    context.fillStyle = recordGlow;
+    for (let row = 0; row < 7; row += 1) {
+      for (let at = 2; at < 30;) {
+        const word = 2 + Math.floor(hash(row * 9.1 + at) * 5);
+        context.fillRect(at, 2 + row * 3, Math.min(word, 30 - at), 1);
+        at += word + 1;
+      }
+    }
+  });
+  recordText.wrapS = THREE.ClampToEdgeWrapping;
+  recordText.wrapT = THREE.ClampToEdgeWrapping;
+  const placeRecords = (records: ArkWalkRecords | undefined) => {
+    for (const place of RECORD_PLACES) {
+      const spot = recordSpot(place, layout);
+      if (!spot) continue;
+      const state = placeState(place, records?.discovered ?? [], records?.search?.recordId ?? null, Boolean(records?.crossIndex));
+      if (!state.visible) continue;
+      const lit = state.found.length > 0;
+      const calling = state.search || state.crossIndex;
+      const group = new THREE.Group();
+      group.position.set(spot.x, spot.y, spot.z);
+      // Built facing +z, then turned to face into its room.
+      if (place.mount !== "floor") group.rotation.y = Math.atan2(spot.normal.x, spot.normal.z);
+      recordLayer.add(group);
+      const part = (geometry: THREE.BufferGeometry, material: THREE.Material, x: number, y: number, z: number) => {
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.position.set(x, y, z);
+        group.add(mesh);
+        return mesh;
+      };
+      // The light of a place: steady once read, breathing while it waits for the drone.
+      const aura = ghost(recordGlow, lit ? 0.55 : 0.3);
+      if (calling) recordAnimated.push((time) => {
+        aura.opacity = 0.25 + 0.5 * (0.5 + 0.5 * Math.sin(time * 0.004));
+      });
+      const screen = () => new THREE.MeshBasicMaterial({ map: recordText });
+      switch (place.form) {
+        case "seam": {
+          // A crack across the deck plate with light coming up through it; once searched, a plate lifted out beside it.
+          for (let step = 0; step < 8; step += 1) {
+            const at = { x: (hash(step * 3.7) - 0.5) * 0.35, z: -2.1 + step * 0.6, turn: (hash(step * 5.3) - 0.5) * 0.6 };
+            const edge = part(new THREE.BoxGeometry(0.2, 0.014, 0.7), solid(PALETTE.dark), at.x, 0.012, at.z);
+            const crack = part(new THREE.BoxGeometry(0.06, 0.03, 0.66), aura, at.x, 0.02, at.z);
+            edge.rotation.y = at.turn;
+            crack.rotation.y = at.turn;
+          }
+          if (lit) {
+            part(new THREE.BoxGeometry(1.1, 0.02, 0.9), solid(PALETTE.dark), 0.75, 0.012, 0.3);
+            const plate = part(new THREE.BoxGeometry(1.1, 0.06, 0.9), solid(metalLight), 1.55, 0.3, 0.3);
+            plate.rotation.z = 0.55;
+          }
+          break;
+        }
+        case "plate": {
+          // A wall screen in a frame, dark until its record is found, with a lit sill.
+          part(new THREE.BoxGeometry(1.5, 1, 0.08), solid(metal), 0, 0, 0.04);
+          part(new THREE.BoxGeometry(1.36, 0.86, 0.02), lit ? screen() : solid(PALETTE.dark), 0, 0, 0.09);
+          part(new THREE.BoxGeometry(1.5, 0.05, 0.1), aura, 0, -0.55, 0.05);
+          break;
+        }
+        case "case": {
+          // A niche in the wall behind glass, lit along its top; what was found stands inside.
+          part(new THREE.BoxGeometry(0.9, 0.9, 0.06), solid(PALETTE.dark), 0, 0, 0.03);
+          for (const [w, h, x, y] of [[0.96, 0.06, 0, 0.45], [0.96, 0.06, 0, -0.45], [0.06, 0.9, -0.45, 0], [0.06, 0.9, 0.45, 0]]) {
+            part(new THREE.BoxGeometry(w, h, 0.4), solid(metalLight), x, y, 0.2);
+          }
+          part(new THREE.BoxGeometry(0.78, 0.03, 0.3), aura, 0, 0.4, 0.2);
+          part(new THREE.PlaneGeometry(0.84, 0.84), glassMaterial, 0, 0, 0.4);
+          if (lit) {
+            const shine = lambert(recordGlow, { emissive: recordGlow, emissiveIntensity: 0.6 });
+            switch (place.item) {
+              case "salt": {
+                // A core cut from the keel, crusted with salt, and seven repairs to the same fracture.
+                const core = part(new THREE.CylinderGeometry(0.07, 0.07, 0.6, 8), solid("#d6cfc0"), 0, -0.12, 0.2);
+                core.rotation.z = Math.PI / 2;
+                for (let weld = 0; weld < 7; weld += 1) {
+                  const ring = part(new THREE.CylinderGeometry(0.078, 0.078, 0.014, 8), glow("#ffb070"), -0.09 + weld * 0.03, -0.12, 0.2);
+                  ring.rotation.z = Math.PI / 2;
+                }
+                break;
+              }
+              case "prism": {
+                const prism = part(new THREE.OctahedronGeometry(0.17), shine, 0, -0.05, 0.2);
+                recordAnimated.push((time) => { prism.rotation.y = time * 0.0006; });
+                break;
+              }
+              case "pollen": {
+                part(new THREE.CylinderGeometry(0.06, 0.06, 0.3, 10), ghost("#ffffff", 0.25), 0, -0.1, 0.2);
+                for (let speck = 0; speck < 6; speck += 1) part(new THREE.BoxGeometry(0.02, 0.02, 0.02), glow("#ffd890"), (hash(speck) - 0.5) * 0.07, -0.2 + speck * 0.035, 0.2 + (hash(speck + 9) - 0.5) * 0.06);
+                break;
+              }
+              case "relay": {
+                part(new THREE.BoxGeometry(0.36, 0.22, 0.2), solid(metal), 0, -0.18, 0.2);
+                part(new THREE.CylinderGeometry(0.01, 0.01, 0.3, 4), solid(metalLight), 0.12, 0.08, 0.2);
+                const blink = part(new THREE.BoxGeometry(0.04, 0.04, 0.02), glow("#ff6a4a"), -0.1, -0.13, 0.31);
+                recordAnimated.push((time) => { blink.visible = Math.floor(time / 900) % 2 === 0; });
+                break;
+              }
+              case "bloom": {
+                // The bloom sample: a jar with a dark that breathes in it.
+                part(new THREE.CylinderGeometry(0.13, 0.13, 0.05, 12), solid(metalLight), 0, -0.3, 0.2);
+                part(new THREE.CylinderGeometry(0.13, 0.13, 0.05, 12), solid(metalLight), 0, 0.1, 0.2);
+                part(new THREE.CylinderGeometry(0.12, 0.12, 0.36, 12), ghost(recordGlow, 0.22), 0, -0.1, 0.2);
+                const dark = part(new THREE.SphereGeometry(0.095, 10, 8), new THREE.MeshBasicMaterial({ color: "#000000" }), 0, -0.1, 0.2);
+                recordAnimated.push((time) => { dark.scale.setScalar(0.85 + 0.15 * Math.sin(time * 0.0013)); });
+                break;
+              }
+              case "origin": {
+                // The origin coordinates as a hologram: a ship-sized absence, turning.
+                const holo = part(new THREE.IcosahedronGeometry(0.17), new THREE.MeshBasicMaterial({ color: recordGlow, wireframe: true }), 0, -0.05, 0.2);
+                recordAnimated.push((time) => { holo.rotation.y = -time * 0.0009; holo.rotation.x = time * 0.0004; });
+                break;
+              }
+            }
+          }
+          break;
+        }
+        case "vault": {
+          // The Recalibration Vault's door: a round hatch, wheel and bolts; the voiceprint player beside it.
+          const door = part(new THREE.CylinderGeometry(1.15, 1.15, 0.3, 20), solid(metal), 0, 0.2, 0.15);
+          door.rotation.x = Math.PI / 2;
+          part(new THREE.TorusGeometry(1.2, 0.08, 6, 24), solid(metalLight), 0, 0.2, 0.3);
+          part(new THREE.TorusGeometry(0.4, 0.05, 6, 16), solid(metalLight), 0, 0.2, 0.36);
+          for (let spoke = 0; spoke < 3; spoke += 1) {
+            const bar = part(new THREE.BoxGeometry(0.8, 0.06, 0.06), solid(metalLight), 0, 0.2, 0.36);
+            bar.rotation.z = (spoke * Math.PI) / 3;
+          }
+          for (let bolt = 0; bolt < 8; bolt += 1) {
+            const angle = (bolt * Math.PI) / 4;
+            part(new THREE.BoxGeometry(0.12, 0.12, 0.1), solid(PALETTE.dark), Math.cos(angle) * 0.95, 0.2 + Math.sin(angle) * 0.95, 0.33);
+          }
+          // Low on its left, clear of the window above it and the wall rib past the door.
+          part(new THREE.BoxGeometry(0.36, 0.5, 0.12), solid(metal), -1.42, -0.62, 0.06);
+          for (let slot = 0; slot < 4; slot += 1) part(new THREE.BoxGeometry(0.26, 0.035, 0.02), solid(PALETTE.dark), -1.42, -0.45 - slot * 0.08, 0.13);
+          part(new THREE.BoxGeometry(0.1, 0.1, 0.04), aura, -1.42, -0.8, 0.13);
+          break;
+        }
+        case "terminal": {
+          // The Memory Archive: a tall screen of records, Lyra's voice-line under it, a ledge.
+          part(new THREE.BoxGeometry(1.4, 1.7, 0.1), solid(metal), 0, 0.25, 0.05);
+          part(new THREE.BoxGeometry(1.24, 1, 0.02), screen(), 0, 0.5, 0.11);
+          const bars = Array.from({ length: 9 }, (_, index) => part(new THREE.BoxGeometry(0.08, 0.2, 0.02), aura, -0.48 + index * 0.12, -0.25, 0.11));
+          recordAnimated.push((time) => {
+            bars.forEach((bar, index) => {
+              bar.scale.y = 0.3 + (calling ? 1.2 : 0.4) * Math.abs(Math.sin(time * 0.003 + index * 0.7));
+            });
+          });
+          part(new THREE.BoxGeometry(1.4, 0.06, 0.3), solid(metalLight), 0, -0.55, 0.15);
+          break;
+        }
+        case "scar": {
+          // Forty-three tally marks cut into the plating, and a long gouge under them that catches the light once read.
+          const cut = solid(PALETTE.dark);
+          for (let mark = 0; mark < 43; mark += 1) {
+            const tally = Math.floor(mark / 5);
+            const within = mark % 5;
+            const x = -1.25 + tally * 0.3 + Math.min(within, 3) * 0.045;
+            if (within === 4) {
+              const slash = part(new THREE.BoxGeometry(0.025, 0.4, 0.02), cut, x - 0.07, 0.25, 0.014);
+              slash.rotation.z = 1;
+            } else {
+              part(new THREE.BoxGeometry(0.025, 0.32, 0.02), cut, x, 0.25 + (hash(mark) - 0.5) * 0.04, 0.012);
+            }
+          }
+          const gouge = part(new THREE.BoxGeometry(2.5, 0.035, 0.02), lit ? aura : cut, 0, -0.2, 0.012);
+          gouge.rotation.z = -0.05;
+          break;
+        }
+      }
+      const item: Interactable = { kind: "record", object: group, place, deck: spot.deck };
+      interactables.push(item);
+      recordItems.add(item);
+    }
+  };
+  /** Take the records apart and set them out again, as the story stands now. */
+  const rerecord = (records: ArkWalkRecords | undefined) => {
+    const shared = new Set<THREE.Material>([...solidCache.values(), glassMaterial]);
+    recordLayer.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      mesh.geometry?.dispose();
+      const materials = Array.isArray(mesh.material) ? mesh.material : mesh.material ? [mesh.material] : [];
+      for (const material of materials) if (!shared.has(material)) material.dispose();
+    });
+    recordLayer.clear();
+    recordAnimated.length = 0;
+    for (let index = interactables.length - 1; index >= 0; index -= 1) {
+      if (recordItems.has(interactables[index])) interactables.splice(index, 1);
+    }
+    recordItems.clear();
+    placeRecords(records);
+  };
+  placeRecords(props.records);
+
   // The core's roar, heard from both decks of the gallery; the bay's alarms and engines.
   soundPlaces.push({ kind: "star", x: heart.x, y: heart.y, z: heart.z, deck: null, online: true });
   const dockRoom = layout.decks[1].compartments.find((compartment) => compartment.kind === "hangar");
@@ -4048,7 +4281,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
   }
 
   return {
-    interactables, animated, notices, heartGroup, heartTarget, heartLight, gimbals, obstacles, stage, soundPlaces, baySound, recrew,
+    interactables, animated, notices, heartGroup, heartTarget, heartLight, gimbals, obstacles, stage, soundPlaces, baySound, recrew, rerecord,
     /** Keep someone facing the drone until then (ms), while it talks with them. */
     attend: (id: string, until: number) => attention.set(id, until),
     talkers: () => talkers,
@@ -4226,6 +4459,23 @@ export default function ArkWalk(props: ArkWalkProps) {
       if (key === lastCrewKey) return;
       lastCrewKey = key;
       ship.recrew(current.crew, new Set(current.recon?.away ? current.recon.crewIds : []));
+      lookup.clear();
+      for (const item of ship.interactables) lookup.set(item.object, item);
+    };
+    // A record found (here or at the console), a room reinforced: the places aboard follow.
+    const recordsKey = (current: ArkWalkProps) => {
+      const records = current.records;
+      return JSON.stringify([records?.discovered ?? [], records?.search ? [records.search.recordId, records.search.ready, records.search.level] : null, records?.crossIndex?.recordId ?? null]);
+    };
+    let lastRecordsKey = recordsKey(initial);
+    let recordsChecked = 0;
+    const followRecords = (now: number) => {
+      if (now - recordsChecked < 500) return;
+      recordsChecked = now;
+      const key = recordsKey(propsRef.current);
+      if (key === lastRecordsKey) return;
+      lastRecordsKey = key;
+      ship.rerecord(propsRef.current.records);
       lookup.clear();
       for (const item of ship.interactables) lookup.set(item.object, item);
     };
@@ -4449,11 +4699,13 @@ export default function ArkWalk(props: ArkWalkProps) {
     const profileOf = (member: WalkCrewMember) => member.talk ?? standInProfile(member.name, member.role, member.ageGroup);
     /** What AXIOM has already asked each person about, so fresh questions come first. */
     const asked = new Map<string, Set<TalkTopic>>();
-    type Said = { speaker: string; text: string };
+    /** A line on screen; a record's own words are shown as a record, not a voice. */
+    type Said = { speaker: string; text: string; record?: boolean };
     let conversation: {
-      member: WalkCrewMember;
+      /** Who AXIOM is talking with; none while it reads a record. */
+      member?: WalkCrewMember;
       object: THREE.Object3D;
-      profile: TalkProfile;
+      profile?: TalkProfile;
       /** Lines still to show; E moves on. Then whatever comes next: a choice, or the end. */
       queue: Said[];
       then: (() => void) | null;
@@ -4465,18 +4717,18 @@ export default function ArkWalk(props: ArkWalkProps) {
     let nextOverheard = 0;
     const pairHeardAt = new Map<string, number>();
     const talkerPosition = new THREE.Vector3();
-    const showSubtitle = (speaker: string, text: string, hint: string, seconds: number, loudness = 1) => {
+    const showSubtitle = (speaker: string, text: string, hint: string, seconds: number, loudness = 1, record = false) => {
       const box = subtitleRef.current;
       if (!box) return;
       const [who, words, more] = Array.from(box.children) as HTMLElement[];
       who.textContent = speaker;
       words.textContent = text;
       more.textContent = hint;
-      box.dataset.speaker = speaker === "AXIOM" ? "axiom" : "crew";
+      box.dataset.speaker = speaker === "AXIOM" ? "axiom" : record ? "record" : "crew";
       box.hidden = false;
       subtitleUntil = performance.now() + seconds * 1000;
-      // AXIOM speaks through the drone's own speaker: no murmur under its lines.
-      if (speaker !== "AXIOM") playMurmur(loudness);
+      // AXIOM speaks through the drone's own speaker, and records are read, not heard: no murmur under either.
+      if (speaker !== "AXIOM" && !record) playMurmur(loudness);
     };
     const hideSubtitle = () => {
       if (subtitleRef.current) subtitleRef.current.hidden = true;
@@ -4498,7 +4750,7 @@ export default function ArkWalk(props: ArkWalkProps) {
       }));
     };
     const endConversation = () => {
-      if (conversation) ship.attend(conversation.member.id, performance.now() + 1_200);
+      if (conversation?.member) ship.attend(conversation.member.id, performance.now() + 1_200);
       conversation = null;
       hideSubtitle();
       drawChoices();
@@ -4506,7 +4758,7 @@ export default function ArkWalk(props: ArkWalkProps) {
     const showQueued = () => {
       if (!conversation) return;
       const line = conversation.queue[0];
-      showSubtitle(line.speaker, line.text, "E · continue", 600);
+      showSubtitle(line.speaker, line.text, "E · continue", 600, 1, line.record);
     };
     /** Say these lines one press of E at a time, then carry on with what comes next. */
     const say = (lines: Said[], then: () => void) => {
@@ -4528,8 +4780,9 @@ export default function ArkWalk(props: ArkWalkProps) {
     };
     /** What AXIOM can ask: fresh questions first, then the ones already asked, and a way to leave. */
     const offerQuestions = () => {
-      if (!conversation) return;
-      const { member, profile } = conversation;
+      const member = conversation?.member;
+      const profile = conversation?.profile;
+      if (!member || !profile) return;
       const before = asked.get(member.id) ?? new Set<TalkTopic>();
       const all = exchanges(profile, talkContext());
       const ordered = [...all.filter((exchange) => !before.has(exchange.topic)), ...all.filter((exchange) => before.has(exchange.topic))].slice(0, 4);
@@ -4552,8 +4805,8 @@ export default function ArkWalk(props: ArkWalkProps) {
     };
     /** How AXIOM answers back, and how they take it. */
     const offerReplies = (exchange: TalkExchange) => {
-      if (!conversation) return;
-      const name = conversation.member.name;
+      const name = conversation?.member?.name;
+      if (!name) return;
       offer(exchange.replies.map((reply) => ({
         label: reply.say,
         pick: () => say([{ speaker: "AXIOM", text: reply.say }, { speaker: name, text: reply.reaction }], offerQuestions),
@@ -4602,6 +4855,91 @@ export default function ArkWalk(props: ArkWalkProps) {
       ship.attend(item.member.id, now + 600_000);
       say([{ speaker: item.member.name, text: greeting(profile, Math.floor(now / 7_000), talkContext()) }], offerQuestions);
     };
+    // ---- The story's records, kept where they happened aboard: E reads them, or searches for one. ----
+    const recordState = (place: RecordPlace) => {
+      const records = propsRef.current.records;
+      return placeState(place, records?.discovered ?? [], records?.search?.recordId ?? null, Boolean(records?.crossIndex));
+    };
+    /** Read a record aloud, one line per press of E; then back to what else is here. */
+    const readRecord = (place: RecordPlace, id: string, fresh: boolean) => {
+      const fragment = fragmentOf(id);
+      if (!fragment || !conversation) return;
+      if (fresh) playRecordFound();
+      say(recordLines(fragment).map((line) => ({ ...line, record: line.speaker !== "AXIOM" })), () => {
+        const more = recordOptions(place).filter((option) => !option.label.startsWith(fragment.title));
+        if (more.length > 0 && !fresh) offerRecords(place);
+        else endConversation();
+      });
+    };
+    /** What E can do at a place, most pressing first: search, reinforce, compare, then read what is kept here. */
+    const recordOptions = (place: RecordPlace) => {
+      const records = propsRef.current.records;
+      const state = recordState(place);
+      const options: { label: string; pick: () => void }[] = [];
+      const search = records?.search;
+      if (records && search && state.search) {
+        if (search.ready) {
+          options.push({ label: search.actionLabel, pick: () => {
+            records.onSearch();
+            readRecord(place, search.recordId, true);
+          } });
+        } else if (search.level > 0 && search.reinforceCost !== null && search.canReinforce) {
+          options.push({ label: `Reinforce the ${search.roomName} · ${search.reinforceCost} Salvage`, pick: () => {
+            records.onReinforce();
+            playBulkhead();
+            endConversation();
+          } });
+        }
+      }
+      const compare = records?.crossIndex;
+      if (records && compare && state.crossIndex) {
+        options.push({ label: `Cross-index: ${compare.title}`, pick: () => {
+          records.onCrossIndex();
+          readRecord(place, compare.recordId, true);
+        } });
+      }
+      for (const fragment of [...state.found].reverse()) {
+        options.push({ label: fragment.title, pick: () => readRecord(place, fragment.id, false) });
+      }
+      return options;
+    };
+    const offerRecords = (place: RecordPlace) => {
+      const options = recordOptions(place);
+      const state = recordState(place);
+      const kept = state.found.length === 0 ? "" : state.found.length === 1 ? "One record is kept here." : `${state.found.length} records are kept here.`;
+      const waiting = state.search ? "Something here is waiting to be searched." : state.crossIndex ? "A record is ready to compare." : "";
+      showSubtitle(place.label, [kept, waiting].filter(Boolean).join(" "), "", 600, 1, true);
+      offer([...options, { label: "That's all.", pick: endConversation }], `Choose · 1–${options.length + 1} or ↑↓ and E`);
+    };
+    const visitRecord = (item: Extract<Interactable, { kind: "record" }>) => {
+      const options = recordOptions(item.place);
+      if (options.length === 0) return;
+      overheard = null;
+      keys.clear();
+      conversation = { object: item.object, queue: [], then: null, menu: null, selected: 0 };
+      if (options.length === 1) options[0].pick();
+      else offerRecords(item.place);
+    };
+    /** What the drone's prompt says at a place. */
+    const recordPrompt = (place: RecordPlace) => {
+      const records = propsRef.current.records;
+      const state = recordState(place);
+      const search = records?.search;
+      if (search && state.search) {
+        if (search.ready) return `E · ${search.actionLabel.toLowerCase()}`;
+        if (search.level === 0) return `${place.label} · sealed until more worlds are restored`;
+        if (search.reinforceCost !== null && search.canReinforce) return `E · reinforce the ${search.roomName} to search here · ${search.reinforceCost} Salvage`;
+        return `${place.label} · the ${search.roomName} needs reinforcing to level ${search.needed}${search.reinforceCost !== null ? ` (${search.reinforceCost} Salvage)` : ""}`;
+      }
+      if (state.crossIndex) return `E · ${place.label} · a record is ready to compare`;
+      if (state.found.length === 1) return `E · read: ${state.found[0].title}`;
+      if (state.found.length > 1) return `E · ${place.label} · ${state.found.length} records`;
+      if (place.form === "vault") return `${place.label} · sealed`;
+      if (place.form === "case") return "An empty case";
+      if (place.form === "plate") return "A dark panel";
+      return place.label;
+    };
+
     /** Each frame: end a conversation the drone has left, play what it overhears, clear old subtitles. */
     const followTalk = (now: number) => {
       if (conversation) {
@@ -4662,6 +5000,8 @@ export default function ArkWalk(props: ArkWalkProps) {
         openSim();
       } else if (target.kind === "person") {
         talkTo(target);
+      } else if (target.kind === "record") {
+        visitRecord(target);
       }
     };
 
@@ -4784,6 +5124,12 @@ export default function ArkWalk(props: ArkWalkProps) {
         sim: () => sim?.state ?? null,
         simEye: () => sim?.camera.position.y ?? null,
         simStart: (difficulty: SimDifficulty = "soldier", mode: SimMode = "swarm") => startSim(difficulty, mode),
+        /** The story's places aboard: where each is, and what it holds now. */
+        records: () => RECORD_PLACES.map((place) => {
+          const spot = recordSpot(place, layout);
+          const state = recordState(place);
+          return { id: place.id, deck: spot?.deck ?? null, x: spot?.x ?? null, z: spot?.z ?? null, visible: state.visible, found: state.found.map((fragment) => fragment.id), search: state.search, crossIndex: state.crossIndex };
+        }),
         /** Where the drone is, and how wide it sees (wider mid-dash). */
         where: () => ({ deck: deckIndex, x, z, yaw, fov: camera.fov }),
         /** Everyone aboard the drone can talk to: where they are, and whether they are free. */
@@ -4836,6 +5182,7 @@ export default function ArkWalk(props: ArkWalkProps) {
       previous = now;
       const deck = layout.decks[deckIndex];
       followCrew(now);
+      followRecords(now);
       if (sim) {
         // In the simulation the ship goes quiet and the jungle is all there is.
         const forward = (keys.has("w") || keys.has("arrowup") ? 1 : 0) - (keys.has("s") || keys.has("arrowdown") ? 1 : 0);
@@ -4964,16 +5311,16 @@ export default function ArkWalk(props: ArkWalkProps) {
       target = null;
       const item = hit ? resolve(hit.object) : null;
       if (item && hit) {
-        const reach = item.kind === "heart" ? 14 : item.kind === "console" ? 4.5 : 10;
+        const reach = item.kind === "heart" ? 14 : item.kind === "console" || item.kind === "record" ? 4.5 : 10;
         if (hit.distance <= reach) target = item;
       }
       const facingTowards = (toX: number, toZ: number) =>
         (toX * Math.cos(yaw) - toZ * Math.sin(yaw)) / Math.max(Math.hypot(toX, toZ), 0.001);
       if (!target) {
-        // Desks sit below eye level: standing close and facing one is enough to use it.
+        // Desks sit below eye level (and a seam is in the floor): standing close and facing one is enough to use it.
         let nearest = 3.4;
         for (const candidate of ship.interactables) {
-          if (candidate.kind !== "console" || candidate.deck !== deckIndex) continue;
+          if ((candidate.kind !== "console" && candidate.kind !== "record") || candidate.deck !== deckIndex) continue;
           candidate.object.getWorldPosition(consolePosition);
           const distance = Math.hypot(consolePosition.x - x, consolePosition.z - z);
           if (distance < nearest && facingTowards(consolePosition.x - x, consolePosition.z - z) > 0.8) {
@@ -4996,6 +5343,7 @@ export default function ArkWalk(props: ArkWalkProps) {
       else if (target.kind === "label") setPrompt(target.label);
       else if (target.kind === "person") setPrompt(conversation ? "" : target.mood === "talk" ? `${target.label} · E to talk` : target.mood === "busy" ? `${target.label} · busy` : target.label);
       else if (target.kind === "sim") setPrompt("E · step into the combat simulation");
+      else if (target.kind === "record") setPrompt(conversation ? "" : recordPrompt(target.place));
       else if (target.prompt) setPrompt(target.prompt());
       else if (!target.online) setPrompt(`${target.label} is dormant`);
       else if (target.room?.interactive) setPrompt(`E · open ${target.label}`);
