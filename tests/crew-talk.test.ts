@@ -4,9 +4,12 @@ import {
   TALK_COVERAGE,
   busyLine,
   chatter,
+  exchanges,
+  farewell,
+  greeting,
+  restingLine,
   rumours,
   standInProfile,
-  talkTopics,
   type TalkContext,
   type TalkProfile,
 } from "../app/crew-talk.ts";
@@ -28,7 +31,9 @@ const person = (extra: Partial<TalkProfile> = {}): TalkProfile => ({
   traits: ["signal-ear"],
   ...extra,
 });
-const said = (topics: string[][]) => topics.flat().join(" ");
+const topics = (profile: TalkProfile, context = early) => exchanges(profile, context).map((exchange) => exchange.topic);
+const answer = (profile: TalkProfile, topic: string, context = early) =>
+  exchanges(profile, context).find((exchange) => exchange.topic === topic)?.answer.join(" ") ?? "";
 
 test("every world, background, nature and job has something to say", () => {
   for (const world of ["pelagos", "viridia", "cinder", "nox", "vesper", "ark", "unknown"]) assert.ok(TALK_COVERAGE.homes.includes(world), world);
@@ -37,43 +42,52 @@ test("every world, background, nature and job has something to say", () => {
   for (const role of [...PROFESSIONAL_ROLES, "civilian"]) assert.ok(TALK_COVERAGE.roles.includes(role), role);
 });
 
-test("a survivor talks about home, their old work, their nature and their job, one topic at a time", () => {
-  const topics = talkTopics(person(), early);
-  assert.ok(topics.length >= 4);
-  assert.ok(topics.every((topic) => topic.length >= 1 && topic.length <= 3));
-  const all = said(topics);
-  assert.match(all, /Viridia|forest|leaves/, "home");
-  assert.match(all, /records/, "their old work");
-  assert.match(all, /static/, "their nature");
-  assert.match(all, /Analysis Core/, "their job");
-  assert.notDeepEqual(talkTopics(person({ name: "Tobin Ash", origin: "cinder" }), early), topics, "different people, different things");
+test("AXIOM can ask about home, their old work, how they are and their work aboard, and answer back two ways", () => {
+  assert.deepEqual(topics(person()), ["home", "work", "self", "job"]);
+  for (const exchange of exchanges(person(), early)) {
+    assert.ok(exchange.ask.endsWith("?") || exchange.ask.endsWith("."), exchange.ask);
+    assert.ok(exchange.answer.length >= 1);
+    assert.equal(exchange.replies.length, 2, `${exchange.topic}: two ways to answer back`);
+    for (const reply of exchange.replies) assert.ok(reply.say && reply.reaction);
+  }
+  assert.match(answer(person(), "home"), /Viridia|forest|leaves/);
+  assert.match(answer(person(), "work"), /records/);
+  assert.match(answer(person(), "self"), /static/);
+  assert.match(answer(person(), "job"), /Analysis Core/);
+  assert.notEqual(answer(person({ name: "Tobin Ash", origin: "cinder" }), "home"), answer(person(), "home"), "different people, different things");
 });
 
-test("the Altered speak in their own words; children and the hurt talk differently", () => {
+test("the Altered can be asked about the Null; children and the hurt talk differently", () => {
   for (const alteration of SURVIVOR_ALTERATIONS) {
-    assert.ok(said(talkTopics(person({ alterationId: alteration.id }), early)).includes(alteration.perspective), alteration.id);
+    const profile = person({ alterationId: alteration.id });
+    assert.equal(topics(profile)[0], "altered", alteration.id);
+    assert.ok(answer(profile, "altered").includes(alteration.perspective), alteration.id);
   }
-  const child = said(talkTopics(person({ ageGroup: "child", role: "civilian" }), early));
-  assert.doesNotMatch(child, /Analysis Core|records out of/, "a child has no job to talk about");
-  const resting = talkTopics(person({ resting: true }), early);
-  assert.equal(resting.length, 1);
-  assert.match(resting[0][0], /rest|soon/);
+  const child = person({ ageGroup: "child", role: "civilian", name: "Pip Marsh" });
+  assert.deepEqual(topics(child), ["home", "play"], "a child has no job to talk about");
+  assert.match(greeting(child, 0), /Hi|Hello/);
+  assert.match(restingLine(person(), 0), /rest|soon/);
 });
 
 test("rumours follow the records the Ark has found, newest first", () => {
   assert.deepEqual(rumours(early), []);
+  assert.ok(!topics(person()).includes("rumour"), "nothing to whisper about yet");
   const later = { ...early, discovered: ["helion.impossible-registry", "fabrication.preconcordance-keel"] };
   assert.match(rumours(later)[0], /seam/);
-  assert.match(said(talkTopics(person(), later)), /seam in the Fabrication floor/);
+  assert.match(answer(person(), "rumour", later), /seam in the Fabrication floor/);
 });
 
-test("the rare survivors give up their secrets slowly, and the forty-third keeps his longest", () => {
+test("the rare survivors are asked about their secret first, and the forty-third keeps his longest", () => {
   for (const hook of RARE_SURVIVOR_HOOKS) {
-    assert.ok(talkTopics(person({ storyHookId: hook.id, name: hook.name }), early)[0].length >= 1, hook.id);
+    const first = exchanges(person({ storyHookId: hook.id, name: hook.name }), early)[0];
+    assert.equal(first.topic, "secret", hook.id);
+    assert.equal(first.replies.length, 2);
   }
   const tovan = person({ storyHookId: "forty-third-foreman", name: "Tovan Rees" });
-  assert.doesNotMatch(said(talkTopics(tovan, { ...early, worldsSaved: 5 })), /Forty-three/);
-  assert.match(said(talkTopics(tovan, { ...early, worldsSaved: 6, discovered: ["vesper.revision-ledger"] })), /Forty-three/);
+  assert.equal(greeting(tovan, 0), "Foreman.");
+  assert.doesNotMatch(answer(tovan, "secret", { ...early, worldsSaved: 5 }), /Forty-three/);
+  assert.match(answer(tovan, "secret", { ...early, worldsSaved: 6, discovered: ["vesper.revision-ledger"] }), /Forty-three/);
+  assert.match(farewell(tovan, 0).reaction, /Foreman/);
 });
 
 test("busy crew say a word in passing; two crew have a short exchange", () => {

@@ -53,7 +53,20 @@ import { createOpsWorld } from "./ark-ops";
 import { bestSimScore, createSimWorld, type SimMode, type SimWorld } from "./ark-sim";
 import { OPS_DIFFICULTIES } from "./ark-ops-rules";
 import { DRILL_CAP_SECONDS, SIM_DIFFICULTIES, type SimDifficulty } from "./ark-sim-rules";
-import { busyLine, chatter, standInProfile, talkTopics, type TalkContext, type TalkLine } from "./crew-talk";
+import {
+  busyLine,
+  chatter,
+  exchanges,
+  farewell,
+  greeting,
+  restingLine,
+  standInProfile,
+  type TalkContext,
+  type TalkExchange,
+  type TalkLine,
+  type TalkProfile,
+  type TalkTopic,
+} from "./crew-talk";
 import { demoCrew, LYING, planCrew, SEATED, type Activity, type WalkCrewMember } from "./ark-walk-crew";
 import { furnishLayout, planDecor, type DecorPiece, type WallSpot } from "./ark-walk-decor";
 import { createNullFeed, misreadLabel, type NullClass, type NullFeed } from "./ark-walk-null";
@@ -4077,6 +4090,7 @@ export default function ArkWalk(props: ArkWalkProps) {
   const simMarkerRef = useRef<HTMLSpanElement>(null);
   const simPausedRef = useRef<HTMLParagraphElement>(null);
   const subtitleRef = useRef<HTMLDivElement>(null);
+  const choicesRef = useRef<HTMLOListElement>(null);
   const simSurvivorsRef = useRef<HTMLSpanElement>(null);
   const simSpottedRef = useRef<HTMLDivElement>(null);
   const simActionRef = useRef<HTMLParagraphElement>(null);
@@ -4392,8 +4406,19 @@ export default function ArkWalk(props: ArkWalkProps) {
     // ---- Talking with the crew: E to talk, subtitles at the bottom; pairs overheard as the drone passes. ----
     const talkContext = (): TalkContext => propsRef.current.talkContext ?? { worldId: "", worldsSaved: 0, discovered: [] };
     const profileOf = (member: WalkCrewMember) => member.talk ?? standInProfile(member.name, member.role, member.ageGroup);
-    const topicsHeard = new Map<string, number>();
-    let conversation: { member: WalkCrewMember; object: THREE.Object3D; lines: string[]; index: number } | null = null;
+    /** What AXIOM has already asked each person about, so fresh questions come first. */
+    const asked = new Map<string, Set<TalkTopic>>();
+    type Said = { speaker: string; text: string };
+    let conversation: {
+      member: WalkCrewMember;
+      object: THREE.Object3D;
+      profile: TalkProfile;
+      /** Lines still to show; E moves on. Then whatever comes next: a choice, or the end. */
+      queue: Said[];
+      then: (() => void) | null;
+      menu: { label: string; pick: () => void }[] | null;
+      selected: number;
+    } | null = null;
     let overheard: { lines: TalkLine[]; index: number; next: number; x: number; z: number } | null = null;
     let subtitleUntil = 0;
     let nextOverheard = 0;
@@ -4406,40 +4431,135 @@ export default function ArkWalk(props: ArkWalkProps) {
       who.textContent = speaker;
       words.textContent = text;
       more.textContent = hint;
+      box.dataset.speaker = speaker === "AXIOM" ? "axiom" : "crew";
       box.hidden = false;
       subtitleUntil = performance.now() + seconds * 1000;
-      playMurmur(loudness);
+      // AXIOM speaks through the drone's own speaker: no murmur under its lines.
+      if (speaker !== "AXIOM") playMurmur(loudness);
     };
     const hideSubtitle = () => {
       if (subtitleRef.current) subtitleRef.current.hidden = true;
       subtitleUntil = 0;
     };
-    const sayNext = () => {
-      if (!conversation) return;
-      const last = conversation.index === conversation.lines.length - 1;
-      showSubtitle(conversation.member.name, conversation.lines[conversation.index], last ? "E · done" : "E · more", 600);
-      ship.attend(conversation.member.id, performance.now() + 60_000);
+    /** The choices AXIOM has, drawn above the subtitle with the highlighted one marked. */
+    const drawChoices = () => {
+      const list = choicesRef.current;
+      if (!list) return;
+      const menu = conversation?.menu ?? null;
+      list.hidden = !menu;
+      if (!menu || !conversation) return;
+      const selected = conversation.selected;
+      list.replaceChildren(...menu.map((option, index) => {
+        const item = document.createElement("li");
+        item.textContent = option.label;
+        item.dataset.selected = index === selected ? "true" : "false";
+        return item;
+      }));
     };
     const endConversation = () => {
       if (conversation) ship.attend(conversation.member.id, performance.now() + 1_200);
       conversation = null;
       hideSubtitle();
+      drawChoices();
+    };
+    const showQueued = () => {
+      if (!conversation) return;
+      const line = conversation.queue[0];
+      showSubtitle(line.speaker, line.text, "E · continue", 600);
+    };
+    /** Say these lines one press of E at a time, then carry on with what comes next. */
+    const say = (lines: Said[], then: () => void) => {
+      if (!conversation) return;
+      conversation.queue = lines;
+      conversation.then = then;
+      conversation.menu = null;
+      drawChoices();
+      showQueued();
+    };
+    const offer = (options: { label: string; pick: () => void }[], hint: string) => {
+      if (!conversation) return;
+      conversation.menu = options;
+      conversation.selected = 0;
+      const box = subtitleRef.current;
+      const hintElement = box?.children[2] as HTMLElement | undefined;
+      if (hintElement) hintElement.textContent = hint;
+      drawChoices();
+    };
+    /** What AXIOM can ask: fresh questions first, then the ones already asked, and a way to leave. */
+    const offerQuestions = () => {
+      if (!conversation) return;
+      const { member, profile } = conversation;
+      const before = asked.get(member.id) ?? new Set<TalkTopic>();
+      const all = exchanges(profile, talkContext());
+      const ordered = [...all.filter((exchange) => !before.has(exchange.topic)), ...all.filter((exchange) => before.has(exchange.topic))].slice(0, 4);
+      offer([
+        ...ordered.map((exchange) => ({
+          label: exchange.ask,
+          pick: () => {
+            asked.set(member.id, new Set([...(asked.get(member.id) ?? []), exchange.topic]));
+            say([{ speaker: "AXIOM", text: exchange.ask }, ...exchange.answer.map((text) => ({ speaker: member.name, text }))], () => offerReplies(exchange));
+          },
+        })),
+        {
+          label: "That's all.",
+          pick: () => {
+            const goodbye = farewell(profile, Math.floor(performance.now() / 7_000));
+            say([{ speaker: "AXIOM", text: goodbye.say }, { speaker: member.name, text: goodbye.reaction }], endConversation);
+          },
+        },
+      ], "Ask · 1–5 or ↑↓ and E");
+    };
+    /** How AXIOM answers back, and how they take it. */
+    const offerReplies = (exchange: TalkExchange) => {
+      if (!conversation) return;
+      const name = conversation.member.name;
+      offer(exchange.replies.map((reply) => ({
+        label: reply.say,
+        pick: () => say([{ speaker: "AXIOM", text: reply.say }, { speaker: name, text: reply.reaction }], offerQuestions),
+      })), "Answer · 1–2 or ↑↓ and E");
+    };
+    /** Keys while talking: E (or Enter) moves on or picks; numbers pick; up and down choose; Q or Esc ends it. */
+    const conversationKey = (key: string) => {
+      if (!conversation) return;
+      const menu = conversation.menu;
+      if (key === "q" || key === "escape") {
+        endConversation();
+      } else if (menu && /^[1-9]$/.test(key)) {
+        menu[Number(key) - 1]?.pick();
+      } else if (menu && (key === "arrowup" || key === "w")) {
+        conversation.selected = (conversation.selected + menu.length - 1) % menu.length;
+        drawChoices();
+      } else if (menu && (key === "arrowdown" || key === "s")) {
+        conversation.selected = (conversation.selected + 1) % menu.length;
+        drawChoices();
+      } else if (key === "e" || key === "enter") {
+        if (menu) menu[conversation.selected]?.pick();
+        else {
+          conversation.queue.shift();
+          if (conversation.queue.length > 0) showQueued();
+          else {
+            const next = conversation.then;
+            conversation.then = null;
+            next?.();
+          }
+        }
+      }
     };
     const talkTo = (item: Extract<Interactable, { kind: "person" }>) => {
       overheard = null;
       if (item.mood === "asleep") return;
       const now = performance.now();
       const profile = profileOf(item.member);
-      if (item.mood === "busy") {
-        showSubtitle(item.member.name, busyLine(profile, Math.floor(now / 5_000)), "", 2.8);
+      if (item.mood === "busy" || profile.resting || item.member.resting) {
+        showSubtitle(item.member.name, item.mood === "busy" ? busyLine(profile, Math.floor(now / 5_000)) : restingLine(profile, Math.floor(now / 5_000)), "", 2.8);
         ship.attend(item.member.id, now + 2_600);
         return;
       }
-      const topics = talkTopics(profile, talkContext());
-      const heard = topicsHeard.get(item.member.id) ?? 0;
-      topicsHeard.set(item.member.id, heard + 1);
-      conversation = { member: item.member, object: item.object, lines: topics[heard % topics.length], index: 0 };
-      sayNext();
+      // The drone holds still while it talks.
+      keys.clear();
+      conversation = { member: item.member, object: item.object, profile, queue: [], then: null, menu: null, selected: 0 };
+      ship.attend(item.member.id, now + 600_000);
+      say([{ speaker: item.member.name, text: greeting(profile, Math.floor(now / 7_000)) }], offerQuestions);
     };
     /** Each frame: end a conversation the drone has left, play what it overhears, clear old subtitles. */
     const followTalk = (now: number) => {
@@ -4479,13 +4599,6 @@ export default function ArkWalk(props: ArkWalkProps) {
 
     const activate = () => {
       if (travel) return;
-      // Mid-conversation, E moves it on.
-      if (conversation) {
-        conversation.index += 1;
-        if (conversation.index >= conversation.lines.length) endConversation();
-        else sayNext();
-        return;
-      }
       if (standingLift) {
         // Ride the grav-lift to the other deck.
         unlockPulseAudio();
@@ -4571,6 +4684,12 @@ export default function ArkWalk(props: ArkWalkProps) {
           event.preventDefault();
           keys.add(key);
         }
+        return;
+      }
+      if (conversation) {
+        // Talking: the keys steer the conversation, and the drone holds still.
+        event.preventDefault();
+        if (!event.repeat) conversationKey(key);
         return;
       }
       if (key === "q" || (key === "escape" && !locked())) {
@@ -4888,10 +5007,13 @@ export default function ArkWalk(props: ArkWalkProps) {
         <button type="button" className="ark-walk-exit" onClick={() => props.onClose()}>Return to console · Q</button>
         <span className="ark-walk-crosshair" aria-hidden="true" />
         <p ref={promptRef} className="ark-walk-prompt" aria-live="polite" />
-        <div ref={subtitleRef} className="ark-walk-subtitle" aria-live="polite" hidden>
-          <strong />
-          <span />
-          <small />
+        <div className="ark-walk-talk">
+          <ol ref={choicesRef} className="ark-walk-choices" aria-label="What AXIOM says" hidden />
+          <div ref={subtitleRef} className="ark-walk-subtitle" aria-live="polite" hidden>
+            <strong />
+            <span />
+            <small />
+          </div>
         </div>
         <p className="ark-walk-intro">
           Click to take the drone · WASD to move · mouse to look · E to use and ride lifts · Shift to hurry · Q to return

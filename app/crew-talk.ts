@@ -188,33 +188,156 @@ function alterationLines(id: string): string[] | null {
   return [alteration.perspective, `I get by with ${need.replace(/\.$/, "")}.`];
 }
 
+/** What AXIOM can ask about. */
+export type TalkTopic = "secret" | "altered" | "home" | "work" | "rumour" | "self" | "job" | "play";
+/** Something AXIOM says back, and how they take it. */
+export type TalkReply = { say: string; reaction: string };
+/** One thing to ask: AXIOM's question, their answer, and two ways AXIOM can answer back. */
+export type TalkExchange = { topic: TalkTopic; ask: string; answer: string[]; replies: readonly TalkReply[] };
+
+const REPLIES: Record<Exclude<TalkTopic, "secret">, readonly TalkReply[]> = {
+  home: [
+    { say: "We'll find somewhere new. I'll do everything I can.", reaction: "You can't promise that. But thank you for trying." },
+    { say: "Tell me about it. I'd like to remember it for you.", reaction: "…It had a sound in the mornings. I'll describe it to you some time." },
+  ],
+  work: [
+    { say: "The ship could use that.", reaction: "Then put me somewhere it matters." },
+    { say: "You don't have to be what you were.", reaction: "I know. I'm just not sure who else to be yet." },
+  ],
+  self: [
+    { say: "If you need anything, ask any drone. They're all me.", reaction: "That's a lot of you." },
+    { say: "You're safer here than you feel.", reaction: "I'll take your word for it. For now." },
+  ],
+  rumour: [
+    { say: "I don't know if it's true. I'm trying to find out.", reaction: "Tell me when you do. Please." },
+    { say: "Rumours travel fast on a small ship.", reaction: "So does the truth, AXIOM. Eventually." },
+  ],
+  altered: [
+    { say: "Then we'll make sure you have it.", reaction: "People always say that. You might actually mean it." },
+    { say: "You're still you.", reaction: "I know. It helps to hear someone else say it." },
+  ],
+  job: [
+    { say: "Rest while you can.", reaction: "Resting is harder than working, up here." },
+    { say: "I'll keep the machines kind to you.", reaction: "Kind machines. Now I've heard everything." },
+  ],
+  play: [
+    { say: "Stay where the lights are on.", reaction: "I know where the dark bits are. I'm careful." },
+    { say: "Want to help me check the ship?", reaction: "Yes! Can I ride on the drone?" },
+  ],
+};
+const CHILD_HOME: readonly TalkReply[] = [
+  { say: "We'll find somewhere new.", reaction: "With trees? I want trees." },
+  { say: "What do you remember?", reaction: "A blue door. And somebody singing. That's all." },
+];
+
+/** The rare survivors' own questions, and what AXIOM can say to what they tell it. */
+const SECRETS: Record<string, { ask: string; replies: readonly TalkReply[] }> = {
+  "pelagos-cartographer": {
+    ask: "Where did you learn those coastlines?",
+    replies: [
+      { say: "I'll compare them with the archive.", reaction: "Do. Then tell me which of us is wrong." },
+      { say: "Some maps are memories.", reaction: "Then whose memory is this?" },
+    ],
+  },
+  "axiom-voiceprint": {
+    ask: "Why do my doors open for you?",
+    replies: [
+      { say: "Your voice is in my oldest records.", reaction: "That should frighten me more than it does." },
+      { say: "I'll find out why.", reaction: "Find out gently. Please." },
+    ],
+  },
+  "impossible-forgemark": {
+    ask: "Tell me about the seal on your tools.",
+    replies: [
+      { say: "That room is sealed to me too.", reaction: "Then we're both locked out of something." },
+      { say: "I'll open it when I can.", reaction: "Take me with you when you do." },
+    ],
+  },
+  "forty-third-foreman": {
+    ask: "Why do you call me Foreman?",
+    replies: [
+      { say: "I'm AXIOM. I've never been a Foreman.", reaction: "No. But someone always is." },
+      { say: "Call me whatever helps.", reaction: "Foreman, then. It sits right." },
+    ],
+  },
+  "null-lullaby": {
+    ask: "Will you sing me your song?",
+    replies: [
+      { say: "It's a good song.", reaction: "Everyone says it's sad. It isn't. It's waiting." },
+      { say: "Where did you learn it?", reaction: "I didn't learn it. I just had it." },
+    ],
+  },
+};
+
+const GREETINGS = ["Oh. AXIOM. Hello.", "The drone again. Hello, AXIOM.", "AXIOM. Is something wrong?", "Hello. I wasn't sure you could hear us down here."];
+const CHILD_GREETINGS = ["Hi! Are you the whole ship?", "Hello, drone! Hello, AXIOM!"];
+
+/** How they greet the drone when it stops to talk. */
+export function greeting(profile: TalkProfile, seed: number) {
+  if (profile.storyHookId === "forty-third-foreman") return "Foreman.";
+  if (profile.ageGroup === "child") return pick(CHILD_GREETINGS, hash(profile.name) + seed);
+  if (profile.ageGroup === "elder") return "Ah. The ship comes to visit.";
+  return pick(GREETINGS, hash(profile.name) + seed);
+}
+
+/** How AXIOM takes its leave, and how they see it off. */
+export function farewell(profile: TalkProfile, seed: number): TalkReply {
+  const say = pick(["Thank you. I'll let you get back to it.", "I'll check on you again.", "Thank you for talking with me."], seed);
+  if (profile.storyHookId === "forty-third-foreman") return { say, reaction: "Until next time, Foreman." };
+  if (profile.ageGroup === "child") return { say, reaction: "Bye, AXIOM! Come back!" };
+  return { say, reaction: pick(["Any time, AXIOM.", "Look after the ship.", "Come back soon. It's nice to be asked."], hash(profile.name) + seed) };
+}
+
 /**
- * Everything someone has to say to AXIOM, one topic at a time; each topic is a
- * line or two said together. The drone view moves to the next topic on each
- * conversation, so talking to someone again gets something new.
+ * Everything AXIOM can ask someone about, in the order it is worth asking:
+ * their secret if they carry one, what the Null did to them, home, their old
+ * work, the rumours going round, how they are, and their work aboard. Each
+ * comes with their answer and two ways AXIOM can answer back.
  */
-export function talkTopics(profile: TalkProfile, context: TalkContext): string[][] {
+export function exchanges(profile: TalkProfile, context: TalkContext): TalkExchange[] {
   const seed = hash(profile.name);
-  if (profile.resting) return [[pick(RESTING, seed)]];
-  const topics: string[][] = [];
+  const list: TalkExchange[] = [];
   const secret = profile.storyHookId ? secretLines(profile.storyHookId, context) : null;
-  if (secret) topics.push(secret);
-  topics.push([pick(HOME[profile.origin] ?? HOME.unknown, seed)]);
-  if (profile.ageGroup === "child") {
-    topics.push([pick(CHILD, seed)], [pick(CHILD, seed + 1)]);
-  } else {
-    if (profile.alterationId) {
-      const altered = alterationLines(profile.alterationId);
-      if (altered) topics.push(altered);
-    }
-    const [newest] = rumours(context, 1);
-    if (newest) topics.push([newest]);
-    if (profile.ageGroup === "elder") topics.push([pick(ELDER, seed)]);
-    if (WORK[profile.backgroundId]) topics.push([WORK[profile.backgroundId]]);
-    for (const trait of profile.traits.slice(0, 2)) if (NATURE[trait]) topics.push([NATURE[trait]]);
-    topics.push([(ROLE_TALK[profile.role] ?? ROLE_TALK.civilian).idle]);
+  const special = profile.storyHookId ? SECRETS[profile.storyHookId] : undefined;
+  if (secret && special) list.push({ topic: "secret", ask: special.ask, answer: secret, replies: special.replies });
+  const child = profile.ageGroup === "child";
+  if (!child && profile.alterationId) {
+    const altered = alterationLines(profile.alterationId);
+    if (altered) list.push({ topic: "altered", ask: "What has the Null changed for you?", answer: altered, replies: REPLIES.altered });
   }
-  return topics;
+  list.push({
+    topic: "home",
+    ask: child ? "Do you remember home?" : "Where were you, before all this?",
+    answer: [pick(HOME[profile.origin] ?? HOME.unknown, seed)],
+    replies: child ? CHILD_HOME : REPLIES.home,
+  });
+  if (child) {
+    list.push({ topic: "play", ask: "What are you up to?", answer: [pick(CHILD, seed)], replies: REPLIES.play });
+    return list;
+  }
+  if (WORK[profile.backgroundId]) list.push({ topic: "work", ask: "What did you do, before?", answer: [WORK[profile.backgroundId]], replies: REPLIES.work });
+  const heard = rumours(context, 1);
+  if (heard.length > 0) list.push({ topic: "rumour", ask: "Have you heard anything strange?", answer: heard, replies: REPLIES.rumour });
+  const nature = profile.traits.map((trait) => NATURE[trait]).find(Boolean);
+  list.push({
+    topic: "self",
+    ask: "How are you holding up?",
+    answer: [profile.ageGroup === "elder" ? pick(ELDER, seed) : nature ?? "I'm here. That's more than most can say."],
+    replies: REPLIES.self,
+  });
+  const role = ROLE_TALK[profile.role] ?? ROLE_TALK.civilian;
+  list.push({
+    topic: "job",
+    ask: profile.role === "civilian" ? "Do you have a place aboard yet?" : "How's the work aboard?",
+    answer: [role.idle],
+    replies: REPLIES.job,
+  });
+  return list;
+}
+
+/** What the wounded manage to say from their beds. */
+export function restingLine(profile: TalkProfile, seed: number) {
+  return pick(RESTING, hash(profile.name) + seed);
 }
 
 /** A word in passing from someone hard at work. */
@@ -224,7 +347,7 @@ export function busyLine(profile: TalkProfile, seed: number) {
 }
 
 const ASKS = ["Where were you, before the shuttle?", "Do you miss it? Home?", "What did you do, back home?"];
-const REPLIES = [
+const CHATTER_REPLIES = [
   "Same sky up here for both of us now.",
   "I'd have liked to see that.",
   "We had nothing like that where I'm from.",
@@ -256,13 +379,13 @@ export function chatter(a: TalkProfile, b: TalkProfile, context: TalkContext, se
   if (kind === 2 && a.ageGroup !== "child" && b.ageGroup !== "child") {
     return [
       { speaker: firstName(a), text: (ROLE_TALK[a.role] ?? ROLE_TALK.civilian).idle },
-      { speaker: firstName(b), text: pick(REPLIES, seed + hash(a.name)) },
+      { speaker: firstName(b), text: pick(CHATTER_REPLIES, seed + hash(a.name)) },
     ];
   }
   return [
     { speaker: firstName(a), text: pick(ASKS, seed) },
     { speaker: firstName(b), text: pick(HOME[b.origin] ?? HOME.unknown, hash(b.name)) },
-    { speaker: firstName(a), text: pick(REPLIES, seed + 1) },
+    { speaker: firstName(a), text: pick(CHATTER_REPLIES, seed + 1) },
   ];
 }
 
