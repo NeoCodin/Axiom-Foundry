@@ -4,6 +4,7 @@ import {
   TALK_COVERAGE,
   busyLine,
   chatter,
+  crewMood,
   exchanges,
   farewell,
   greeting,
@@ -73,8 +74,39 @@ test("rumours follow the records the Ark has found, newest first", () => {
   assert.deepEqual(rumours(early), []);
   assert.ok(!topics(person()).includes("rumour"), "nothing to whisper about yet");
   const later = { ...early, discovered: ["helion.impossible-registry", "fabrication.preconcordance-keel"] };
-  assert.match(rumours(later)[0], /seam/);
-  assert.match(answer(person(), "rumour", later), /seam in the Fabrication floor/);
+  assert.match(rumours(later)[0], /Fabrication floor/);
+  assert.match(rumours(later)[1], /beacon knew this ship/);
+  assert.match(answer(person(), "rumour", later), /older than the way it was made/);
+});
+
+test("the crew grow wary of the drone as the truth comes out", () => {
+  const at = (discovered: string[]): TalkContext => ({ ...early, discovered });
+  const grateful = at(["lyra.official-brief", "helion.impossible-registry"]);
+  const uneasy = at(["helion.impossible-registry", "archive.construction-zero"]);
+  const guarded = at(["helion.impossible-registry", "archive.suppressed-correlation"]);
+  const haunted = at(["vesper.revision-ledger"]);
+  assert.equal(crewMood(grateful), "grateful", "one odd record is just a story");
+  assert.equal(crewMood(uneasy), "uneasy");
+  assert.equal(crewMood(guarded), "guarded", "once it is plain the Foundry feeds the Null");
+  assert.equal(crewMood(haunted), "haunted");
+  assert.equal(crewMood(at(["archive.lyra-composite-index"])), "haunted", "or once Lyra's making is out");
+
+  const greetings = (context: TalkContext) => new Set(Array.from({ length: 12 }, (_, seed) => greeting(person(), seed, context)));
+  assert.ok([...greetings(grateful)].some((line) => /Thank you|hello back|light/.test(line)));
+  assert.ok([...greetings(guarded)].some((line) => /check|wasn't saying/.test(line)));
+  assert.ok([...greetings(haunted)].some((line) => /still AXIOM|how many times|Which one/.test(line)));
+  for (const line of greetings(haunted)) assert.ok(!greetings(grateful).has(line), "the warmth is gone by then");
+
+  const child = person({ ageGroup: "child", role: "civilian", name: "Pip Marsh" });
+  assert.match(greeting(child, 0, grateful), /Hi|Hello/);
+  assert.match(greeting(child, 0, haunted), /whispering about you/, "children still talk, and say what they hear");
+  assert.equal(greeting(person({ storyHookId: "forty-third-foreman", name: "Tovan Rees" }), 0, haunted), "Foreman.");
+  assert.match(farewell(person(), 0, haunted).reaction, /forget|remember/);
+
+  const overheard = (context: TalkContext) =>
+    Array.from({ length: 16 }, (_, seed) => chatter(person(), person({ name: "Tobin Ash" }), context, seed).map((line) => line.text).join(" ")).join(" ");
+  assert.doesNotMatch(overheard(grateful), /drone's listening|hears everything/, "nobody lowers their voice yet");
+  assert.match(overheard(guarded), /listening|hears everything|feeding/);
 });
 
 test("the rare survivors are asked about their secret first, and the forty-third keeps his longest", () => {
@@ -96,6 +128,6 @@ test("busy crew say a word in passing; two crew have a short exchange", () => {
   assert.ok(pair.length >= 2 && pair.length <= 3);
   assert.deepEqual([...new Set(pair.map((line) => line.speaker))].sort(), ["Ama", "Tobin"]);
   const gossip = chatter(person(), person({ name: "Tobin Ash" }), { ...early, discovered: ["helion.impossible-registry"] }, 1);
-  assert.match(gossip[0].text, /Have you heard\? .*registry/);
+  assert.match(gossip[0].text, /Have you heard\? .*beacon knew this ship/);
   assert.ok(standInProfile("Crew 3", "engineer").origin.length > 0, "the QA crew can talk too");
 });

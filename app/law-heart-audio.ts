@@ -226,6 +226,16 @@ export function playChannelSwitch() {
   tone(output, when + 0.32, { type: "sine", from: 62, to: 50, glide: 0.2, peak: 0.05, attack: 0.02, decay: 0.24 });
 }
 
+/** The drone's dash: a valve's click, the thrusters' rush, a low push under it. */
+export function playDash() {
+  const output = ready();
+  if (!output) return;
+  const when = output.context.currentTime;
+  tone(output, when, { type: "square", from: 2200, to: 1600, glide: 0.01, peak: 0.02, attack: 0.001, decay: 0.02 });
+  noiseBurst(output, when + 0.01, { filter: "bandpass", frequency: 1100, q: 0.7, peak: 0.07, attack: 0.02, decay: 0.3 });
+  tone(output, when + 0.01, { type: "sine", from: 150, to: 55, glide: 0.28, peak: 0.07, attack: 0.008, decay: 0.32 });
+}
+
 /** Null interference: a crackle of static, stepped like a failing signal. */
 export function playNullStatic(intensity: number) {
   const output = ready();

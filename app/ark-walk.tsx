@@ -72,7 +72,7 @@ import { furnishLayout, planDecor, type DecorPiece, type WallSpot } from "./ark-
 import { createNullFeed, misreadLabel, type NullClass, type NullFeed } from "./ark-walk-null";
 import { AxiomEye } from "./axiom-eye";
 import { CIVILIAN_COLOR, CREW_ROLE_COLORS, getCrewHead } from "./crew-portrait";
-import { playBulkhead, playMurmur, playNullStatic, playPulseStrike, schedulePulseBeat, unlockPulseAudio } from "./law-heart-audio";
+import { playBulkhead, playDash, playMurmur, playNullStatic, playPulseStrike, schedulePulseBeat, unlockPulseAudio } from "./law-heart-audio";
 import "./ark-walk.css";
 
 /*
@@ -173,6 +173,11 @@ const EYE_HEIGHT = 1.6;
 // A drone, not a person: quick, and quicker still when hurried.
 const SPEED = 6;
 const SPRINT = 11;
+/** Space fires the thrusters: hardest at once, spent in a third of a second (about four metres), then a moment to recharge. */
+const DASH_SPEED = 26;
+const DASH_SECONDS = 0.32;
+const DASH_COOLDOWN = 0.9;
+const FOV = 72;
 const DRONE_RADIUS = 0.35;
 /** How close the drone may come to a person (its radius plus theirs). */
 const PERSON_RADIUS = 0.75;
@@ -4169,7 +4174,7 @@ export default function ArkWalk(props: ArkWalkProps) {
     scene.add(new THREE.AmbientLight("#aea8c6", 1));
     scene.add(new THREE.HemisphereLight(tinted("#f4eeff", initial.worldAccent || "#f4eeff", 0.15), "#5a4a40", 0.7));
 
-    const camera = new THREE.PerspectiveCamera(72, 1, 0.05, 1000);
+    const camera = new THREE.PerspectiveCamera(FOV, 1, 0.05, 1000);
     const ship = buildShip(scene, layout, initial, () => propsRef.current, decor);
     let soundscape: Soundscape | null = null;
     const heart = layout.heart;
@@ -4261,6 +4266,9 @@ export default function ArkWalk(props: ArkWalkProps) {
     let lastBars = -1;
     let lastLost = false;
     let strikeFlash = 0;
+    /** A thruster burst under way: which way, and when it fired. */
+    let dash: { dx: number; dz: number; start: number } | null = null;
+    let dashReady = 0;
 
     const locked = () => document.pointerLockElement === renderer.domElement;
     // ---- The combat simulation: AXIOM steps into the crew's training jungle (ark-sim). ----
@@ -4503,7 +4511,7 @@ export default function ArkWalk(props: ArkWalkProps) {
         {
           label: "That's all.",
           pick: () => {
-            const goodbye = farewell(profile, Math.floor(performance.now() / 7_000));
+            const goodbye = farewell(profile, Math.floor(performance.now() / 7_000), talkContext());
             say([{ speaker: "AXIOM", text: goodbye.say }, { speaker: member.name, text: goodbye.reaction }], endConversation);
           },
         },
@@ -4559,7 +4567,7 @@ export default function ArkWalk(props: ArkWalkProps) {
       keys.clear();
       conversation = { member: item.member, object: item.object, profile, queue: [], then: null, menu: null, selected: 0 };
       ship.attend(item.member.id, now + 600_000);
-      say([{ speaker: item.member.name, text: greeting(profile, Math.floor(now / 7_000)) }], offerQuestions);
+      say([{ speaker: item.member.name, text: greeting(profile, Math.floor(now / 7_000), talkContext()) }], offerQuestions);
     };
     /** Each frame: end a conversation the drone has left, play what it overhears, clear old subtitles. */
     const followTalk = (now: number) => {
@@ -4668,6 +4676,24 @@ export default function ArkWalk(props: ArkWalkProps) {
       yaw -= event.movementX * 0.0024;
       pitch = Math.max(-1.25, Math.min(1.25, pitch - event.movementY * 0.0024));
     };
+    /** Which way the keys are steering: forward and sideways, each -1, 0 or 1. */
+    const steering = () => ({
+      forward: (keys.has("w") || keys.has("arrowup") ? 1 : 0) - (keys.has("s") || keys.has("arrowdown") ? 1 : 0),
+      strafe: (keys.has("d") || keys.has("arrowright") ? 1 : 0) - (keys.has("a") || keys.has("arrowleft") ? 1 : 0),
+    });
+    /** Space: a burst the way the drone is steering, or straight ahead if it isn't. */
+    const startDash = (now: number) => {
+      if (travel || now < dashReady) return;
+      const steer = steering();
+      const forward = steer.forward || steer.strafe ? steer.forward : 1;
+      const length = Math.hypot(forward, steer.strafe);
+      const fx = Math.cos(yaw);
+      const fz = -Math.sin(yaw);
+      dash = { dx: ((forward * fx) + (steer.strafe * -fz)) / length, dz: ((forward * fz) + (steer.strafe * fx)) / length, start: now };
+      dashReady = now + DASH_COOLDOWN * 1000;
+      playDash();
+    };
+
     const onKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
       if (simMenu && !sim) {
@@ -4702,7 +4728,12 @@ export default function ArkWalk(props: ArkWalkProps) {
         activate();
         return;
       }
-      if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright", "shift", " "].includes(key)) {
+      if (key === " ") {
+        event.preventDefault();
+        if (!event.repeat) startDash(performance.now());
+        return;
+      }
+      if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright", "shift"].includes(key)) {
         event.preventDefault();
         keys.add(key);
       }
@@ -4720,6 +4751,8 @@ export default function ArkWalk(props: ArkWalkProps) {
         sim: () => sim?.state ?? null,
         simEye: () => sim?.camera.position.y ?? null,
         simStart: (difficulty: SimDifficulty = "soldier", mode: SimMode = "swarm") => startSim(difficulty, mode),
+        /** Where the drone is, and how wide it sees (wider mid-dash). */
+        where: () => ({ deck: deckIndex, x, z, yaw, fov: camera.fov }),
         /** Everyone aboard the drone can talk to: where they are, and whether they are free. */
         people: () => ship.interactables.flatMap((item) => {
           if (item.kind !== "person") return [];
@@ -4787,6 +4820,7 @@ export default function ArkWalk(props: ArkWalkProps) {
       }
       followTalk(now);
 
+      let burst = 0;
       if (travel) {
         // Carried up or down the lift column; no steering until it arrives.
         const progress = Math.min(1, (now - travel.start) / (LIFT_SECONDS * 1000));
@@ -4799,19 +4833,24 @@ export default function ArkWalk(props: ArkWalkProps) {
         }
       } else {
         // Movement relative to where the drone faces, sliding along walls.
-        let forward = 0;
-        let strafe = 0;
-        if (keys.has("w") || keys.has("arrowup")) forward += 1;
-        if (keys.has("s") || keys.has("arrowdown")) forward -= 1;
-        if (keys.has("d") || keys.has("arrowright")) strafe += 1;
-        if (keys.has("a") || keys.has("arrowleft")) strafe -= 1;
+        const { forward, strafe } = steering();
+        let dx = 0;
+        let dz = 0;
         if (forward || strafe) {
           const length = Math.hypot(forward, strafe);
           const speed = (keys.has("shift") ? SPRINT : SPEED) * dt;
           const fx = Math.cos(yaw);
           const fz = -Math.sin(yaw);
-          const dx = ((forward * fx) + (strafe * -fz)) / length * speed;
-          const dz = ((forward * fz) + (strafe * fx)) / length * speed;
+          dx = ((forward * fx) + (strafe * -fz)) / length * speed;
+          dz = ((forward * fz) + (strafe * fx)) / length * speed;
+        }
+        // A dash shoves hardest at first and fades out.
+        burst = dash ? Math.max(0, 1 - (now - dash.start) / (DASH_SECONDS * 1000)) : 0;
+        if (dash && burst > 0) {
+          dx += dash.dx * DASH_SPEED * burst * dt;
+          dz += dash.dz * DASH_SPEED * burst * dt;
+        } else dash = null;
+        if (dx || dz) {
           // People, a docked ship and a shut blast door are solid too: refuse any step into one.
           const nearby = ship.obstacles().filter((obstacle) => obstacle.deck === deckIndex);
           const clear = (next: { x: number; z: number }) => nearby.every((obstacle) => {
@@ -4824,12 +4863,21 @@ export default function ArkWalk(props: ArkWalkProps) {
             const after = Math.hypot(next.x - obstacle.x, next.z - obstacle.z);
             return after >= obstacle.radius || after >= Math.hypot(x - obstacle.x, z - obstacle.z);
           });
-          const step = [
-            moveWithin(deck, x, z, dx, dz, DRONE_RADIUS),
-            moveWithin(deck, x, z, dx, 0, DRONE_RADIUS),
-            moveWithin(deck, x, z, 0, dz, DRONE_RADIUS),
-          ].find(clear);
-          if (step) ({ x, z } = step);
+          // In short steps, so a dash can't carry the drone through anything thin.
+          const steps = Math.ceil(Math.hypot(dx, dz) / 0.25);
+          for (let index = 0; index < steps; index += 1) {
+            const step = [
+              moveWithin(deck, x, z, dx / steps, dz / steps, DRONE_RADIUS),
+              moveWithin(deck, x, z, dx / steps, 0, DRONE_RADIUS),
+              moveWithin(deck, x, z, 0, dz / steps, DRONE_RADIUS),
+            ].find(clear);
+            if (!step || (step.x === x && step.z === z)) {
+              // Up against something: the burst is spent.
+              dash = null;
+              break;
+            }
+            ({ x, z } = step);
+          }
         }
         eyeY = deck.floorY + EYE_HEIGHT;
       }
@@ -4842,6 +4890,12 @@ export default function ArkWalk(props: ArkWalkProps) {
       else if (signal.began === "snow" || signal.began === "split") playNullStatic(nullLevel.intensity * 0.4);
 
       const hover = reducedMotion ? 0 : Math.sin(now * 0.002) * 0.03;
+      // The view stretches a little as the thrusters fire.
+      const fov = FOV + (reducedMotion ? 0 : burst * 9);
+      if (camera.fov !== fov) {
+        camera.fov = fov;
+        camera.updateProjectionMatrix();
+      }
       camera.position.set(x, eyeY + hover, z);
       camera.rotation.set(pitch + signal.jolt.pitch, yaw - Math.PI / 2 + signal.jolt.yaw, 0, "YXZ");
 
@@ -5016,7 +5070,7 @@ export default function ArkWalk(props: ArkWalkProps) {
           </div>
         </div>
         <p className="ark-walk-intro">
-          Click to take the drone · WASD to move · mouse to look · E to use and ride lifts · Shift to hurry · Q to return
+          Click to take the drone · WASD to move · mouse to look · E to use and ride lifts · Shift to hurry · Space to dash · Q to return
         </p>
       </div>
       <div ref={simHudRef} className="ark-sim-hud" hidden={simScreen?.phase !== "playing" && simScreen?.phase !== "over"}>

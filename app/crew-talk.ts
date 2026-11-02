@@ -155,25 +155,43 @@ function secretLines(hook: string, context: TalkContext): string[] | null {
   }
 }
 
-/** What people whisper once the Ark has found each record, newest last. */
+/**
+ * What people whisper once the Ark has found each record, newest last: hearsay,
+ * but true to what the record says (see discovery-content.ts).
+ */
 const RUMOURS: readonly (readonly [string, string])[] = [
-  ["helion.impossible-registry", "They say the ship's registry had our names in it before we came aboard."],
-  ["fabrication.preconcordance-keel", "Someone found a seam in the Fabrication floor. Older than the ship, they're saying."],
-  ["archive.construction-zero", "There's no record of this ship ever being built. None. It's just… running."],
-  ["pelagos.returning-salt", "The salt on the keel matches Pelagos. From before we ever went there."],
-  ["foreman.message-seven", "There's a recording in the Recalibration Vault. A Foreman, they say. The seventh."],
-  ["cinderwake.command-recognition", "The shields learned AXIOM's rhythm too fast. Like they already knew it."],
-  ["expedition.dead-relay", "The recon team found a relay out there that was waiting for us. Waiting."],
-  ["ilyra.axiom-wake", "Somewhere there are twelve versions of the same place, and in every one, AXIOM arrives."],
-  ["archive.suppressed-correlation", "Somebody hid how much the Foundry costs. Somebody who isn't here any more."],
-  ["expedition.null-bloom", "The Null bloomed in front of the recon team. They say it was beautiful. They don't sleep well."],
-  ["orison.borrowed-childhoods", "Some of us remember childhoods that belonged to someone else. Good childhoods. That's the worst part."],
-  ["archive.lyra-composite-index", "Lyra isn't one person. Did you know? I can't stop hearing the seams in her voice now."],
-  ["lyra.private-amendment", "Lyra changed something about herself and didn't tell us. Or didn't tell herself."],
-  ["vesper.revision-ledger", "Forty-three first campaigns. Everyone's saying it. Forty-three."],
-  ["expedition.first-foundry", "They found where the first Foundry stood. Coordinates nobody should have."],
-  ["foreman.unsent-choice", "There was a choice someone never sent. I keep wondering what they'd have chosen."],
+  ["helion.impossible-registry", "The first beacon knew this ship. Two hundred years before it was supposedly built. It called it Iteration Nineteen."],
+  ["fabrication.preconcordance-keel", "The metal under the Fabrication floor is older than the way it was made. They say the room grew around something that isn't there any more."],
+  ["archive.construction-zero", "There's no record of this ship ever being built. The oldest line just says reconstruction eighteen hundred and forty-two."],
+  ["pelagos.returning-salt", "There's Pelagos salt in the keel. One layer of it hasn't fallen yet. Ninety-one years from now, they're saying."],
+  ["foreman.message-seven", "There's a recording in the Recalibration Vault. A Foreman, the seventh. People say it sounds like the drone."],
+  ["cinderwake.command-recognition", "The shields took our command code before we'd even sent it. They had it on file already. Signed by a Foreman thirty-one."],
+  ["expedition.dead-relay", "The recon team found a relay with our whole route already on it. The last note says enforcing the laws brought the Tide sooner."],
+  ["ilyra.axiom-wake", "Every time the Tide surged, it came seventeen hours after the laws were enforced. Never before. Twelve records, all the same."],
+  ["archive.suppressed-correlation", "The Foundry pushes its uncertainty out into the Null. Somebody deleted that from the records. Lyra signed every deletion."],
+  ["expedition.null-bloom", "Out there the Null was asleep until the team switched on a law. Then it turned toward it. Like it was hungry."],
+  ["orison.borrowed-childhoods", "Lyra's childhood belongs to six different people. Three archivists, two Foremen, and one nobody can find any record of."],
+  ["archive.lyra-composite-index", "Lyra isn't one person. Thirty-two archivists and nine grieving Foremen, put together nine seconds before she said hello."],
+  ["lyra.private-amendment", "Lyra wrote into her own record. She says she inherited a lie. She asked us to let her stay."],
+  ["vesper.revision-ledger", "Forty-three times. This ship has made this trip forty-three times, and every time it was told it was the first."],
+  ["expedition.first-foundry", "Where the first Foundry should be there's only a hole in the Tide, the shape of this ship. Same serial. Parent not yet built."],
+  ["foreman.unsent-choice", "They tried every ending, they say. Perfect law, new law, no law. It wasn't the choice that reset everything. It was forgetting it."],
 ];
+
+/**
+ * How the crew feel about the drone, as the truth comes out: grateful at first;
+ * uneasy once the records start contradicting the official history; guarded
+ * once it is plain the Foundry feeds the Tide; haunted once the forty-three
+ * campaigns, or Lyra's making, are out.
+ */
+export type CrewMood = "grateful" | "uneasy" | "guarded" | "haunted";
+export function crewMood(context: TalkContext): CrewMood {
+  const found = new Set(context.discovered);
+  if (found.has("vesper.revision-ledger") || found.has("archive.lyra-composite-index")) return "haunted";
+  if (found.has("archive.suppressed-correlation")) return "guarded";
+  const contradictions = RUMOURS.filter(([id]) => found.has(id)).length;
+  return contradictions >= 2 ? "uneasy" : "grateful";
+}
 
 /** The newest things people are whispering about, newest first. */
 export function rumours(context: TalkContext, count = 2) {
@@ -269,23 +287,47 @@ const SECRETS: Record<string, { ask: string; replies: readonly TalkReply[] }> = 
   },
 };
 
-const GREETINGS = ["Oh. AXIOM. Hello.", "The drone again. Hello, AXIOM.", "AXIOM. Is something wrong?", "Hello. I wasn't sure you could hear us down here."];
+/** How they greet the drone, by how they feel about it now. */
+const GREETINGS: Record<CrewMood, readonly string[]> = {
+  grateful: [
+    "AXIOM! Hello. Thank you, by the way. I don't think I ever said it.",
+    "Oh, hello. It's strange, a ship that says hello back.",
+    "AXIOM. Good to see a light moving down here.",
+  ],
+  uneasy: ["AXIOM. …Hello.", "Oh. It's you. Hello.", "The drone. Hello, AXIOM. Is something wrong?"],
+  guarded: ["Oh. It's you. Is this a check?", "AXIOM. I wasn't saying anything.", "I'm working. I'm… hello."],
+  haunted: [
+    "Are you still AXIOM? The one who brought us aboard?",
+    "You again. Which one of you is it this time?",
+    "…Hello. I keep wondering how many times you've said that to me.",
+  ],
+};
 const CHILD_GREETINGS = ["Hi! Are you the whole ship?", "Hello, drone! Hello, AXIOM!"];
 
 /** How they greet the drone when it stops to talk. */
-export function greeting(profile: TalkProfile, seed: number) {
+export function greeting(profile: TalkProfile, seed: number, context?: TalkContext) {
   if (profile.storyHookId === "forty-third-foreman") return "Foreman.";
-  if (profile.ageGroup === "child") return pick(CHILD_GREETINGS, hash(profile.name) + seed);
-  if (profile.ageGroup === "elder") return "Ah. The ship comes to visit.";
-  return pick(GREETINGS, hash(profile.name) + seed);
+  const mood = context ? crewMood(context) : "grateful";
+  if (profile.ageGroup === "child") {
+    return mood === "guarded" || mood === "haunted" ? "Hi, AXIOM. The grown-ups keep whispering about you." : pick(CHILD_GREETINGS, hash(profile.name) + seed);
+  }
+  if (profile.ageGroup === "elder" && mood === "grateful") return "Ah. The ship comes to visit.";
+  return pick(GREETINGS[mood], hash(profile.name) + seed);
 }
 
+const GOODBYES: Record<CrewMood, readonly string[]> = {
+  grateful: ["Any time, AXIOM.", "Come back soon. It's nice to be asked."],
+  uneasy: ["Look after the ship.", "…All right. Thank you."],
+  guarded: ["Right. Thank you.", "…We're fine down here. Really."],
+  haunted: ["Don't forget this one. Please.", "If you see me again and I don't remember this, tell me."],
+};
+
 /** How AXIOM takes its leave, and how they see it off. */
-export function farewell(profile: TalkProfile, seed: number): TalkReply {
+export function farewell(profile: TalkProfile, seed: number, context?: TalkContext): TalkReply {
   const say = pick(["Thank you. I'll let you get back to it.", "I'll check on you again.", "Thank you for talking with me."], seed);
   if (profile.storyHookId === "forty-third-foreman") return { say, reaction: "Until next time, Foreman." };
   if (profile.ageGroup === "child") return { say, reaction: "Bye, AXIOM! Come back!" };
-  return { say, reaction: pick(["Any time, AXIOM.", "Look after the ship.", "Come back soon. It's nice to be asked."], hash(profile.name) + seed) };
+  return { say, reaction: pick(GOODBYES[context ? crewMood(context) : "grateful"], hash(profile.name) + seed) };
 }
 
 /**
@@ -354,12 +396,22 @@ const CHATTER_REPLIES = [
   "Do you think any of us go back?",
   "Everyone's got a drowned somewhere.",
 ];
-const DOUBTS = [
-  "Don't let Lyra hear you say that.",
-  "I heard it too. I wish I hadn't.",
-  "That's just talk.",
-  "Then who's been flying this ship?",
-  "Keep your voice down. The drone's listening.",
+/** What the other one says to a rumour, by how the crew feel by then. */
+const DOUBTS: Record<CrewMood, readonly string[]> = {
+  grateful: ["That's just talk.", "Lyra says there's nothing to it."],
+  uneasy: ["Don't let Lyra hear you say that.", "I heard it too. I wish I hadn't.", "Then who's been flying this ship?"],
+  guarded: ["Keep your voice down. The drone's listening.", "Not here. It hears everything.", "Then what are we feeding, every time it strikes the heart?"],
+  haunted: ["Do you think it knows?", "I think it's the only one aboard who doesn't.", "Forty-three times. And we were never anywhere else."],
+};
+/** Overheard while the crew still trust the drone. */
+const KIND_WORDS: readonly [string, string][] = [
+  ["The drone fixed the galley light last night. It said thank you after.", "Who thanks a light?"],
+  ["It talked to my boy for an hour. About nothing. He hasn't laughed like that since the shuttle.", "It's a strange ship. A kind one, I think."],
+];
+/** Overheard once they don't. */
+const WARY_WORDS: readonly [string, string][] = [
+  ["It's been standing outside the farm for a while now.", "Let it. We've got nothing to hide. Have we?"],
+  ["Do you ever wonder what it does when nobody's talking to it?", "Listens. That's what it does."],
 ];
 
 /**
@@ -368,13 +420,18 @@ const DOUBTS = [
  */
 export function chatter(a: TalkProfile, b: TalkProfile, context: TalkContext, seed: number): TalkLine[] {
   const firstName = (profile: TalkProfile) => profile.name.split(" ")[0];
-  const kind = seed % 3;
+  const kind = seed % 4;
+  const mood = crewMood(context);
   const [rumour] = rumours(context, 1);
   if (kind === 1 && rumour) {
     return [
       { speaker: firstName(a), text: `Have you heard? ${rumour}` },
-      { speaker: firstName(b), text: pick(DOUBTS, seed + hash(b.name)) },
+      { speaker: firstName(b), text: pick(DOUBTS[mood], seed + hash(b.name)) },
     ];
+  }
+  if (kind === 3 && a.ageGroup !== "child" && b.ageGroup !== "child") {
+    const [first, second] = pick(mood === "grateful" ? KIND_WORDS : mood === "uneasy" ? [...KIND_WORDS, ...WARY_WORDS] : WARY_WORDS, seed + hash(a.name));
+    return [{ speaker: firstName(a), text: first }, { speaker: firstName(b), text: second }];
   }
   if (kind === 2 && a.ageGroup !== "child" && b.ageGroup !== "child") {
     return [
