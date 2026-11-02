@@ -1036,8 +1036,8 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
   });
 
   /** A hull side: thick panels round its openings, the room's wall inside and the ship's skin out. */
-  const hullSide = (room: WalkCompartment, y0: number, side: number, openings: Rect[], thick = HULL) => {
-    for (const piece of wallPieces(room.x0, room.x1, room.height, openings)) {
+  const hullSide = (room: WalkCompartment, y0: number, side: number, openings: Rect[], thick = HULL, tall = room.height) => {
+    for (const piece of wallPieces(room.x0, room.x1, tall, openings)) {
       const w = piece.a1 - piece.a0;
       const h = piece.y1 - piece.y0;
       const inner = wallCut(room.kind, room.height, w, piece.y0, h, side < 0 ? piece.a0 / 2 : -piece.a1 / 2);
@@ -1153,7 +1153,8 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
             ...(dock && side === 1 ? [...windows, { a0: layout.dock.opening.x0, a1: layout.dock.opening.x1, y0: 0.4, y1: 5.2 }] : windows),
             ...sideDoors,
           ];
-          hullSide(room, y0, side, openings, sideDoors.length > 0 ? INNER_WALL : HULL);
+          // Downstairs the hull runs on up to the deck above, leaving no gap over the ceiling.
+          hullSide(room, y0, side, openings, sideDoors.length > 0 ? INNER_WALL : HULL, upper ? room.height : Math.max(room.height, UPPER_FLOOR));
           for (const pane of windows) hullWindow(y0, pane, side);
           openingsBySide.set(side, openings);
         }
@@ -2954,6 +2955,12 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     ceiling.position.set(cx, y0 + room.height, cz);
     scene.add(floor, ceiling);
     put(doorWidth, 0.06, INNER_WALL + 0.02, floorMaterial(SIDE_FLOOR[key] ?? key, doorWidth, INNER_WALL), doorX, -0.03, wallZ);
+    // Hull plating under the floor and over the ceiling, so from outside, through another
+    // room's window, the room is a solid block and not a doll's house seen from below.
+    const shellDepth = depth + HULL + INNER_WALL - 0.05;
+    const shellZ = room.z0 - HULL + shellDepth / 2;
+    put(width + 0.8, 0.3, shellDepth, hullSkin, cx, -0.16, shellZ);
+    put(width + 0.8, 0.3, shellDepth, hullSkin, cx, room.height + 0.16, shellZ);
 
     // Its walls: a partition shared with the room beside it, or a thick end wall.
     const before = deck.sideRooms.find((other) => Math.abs(other.x1 - (room.x0 - 0.2)) < 0.01);
