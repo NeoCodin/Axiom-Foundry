@@ -3,11 +3,12 @@
  * something to do there, from their job, their health, their training and their age:
  * engineers at the press and the racks, researchers at the screens, the wounded in the
  * sick bay with a doctor beside them, trainees at the Learning Deck desks while the
- * teacher walks the board, the off-duty eating together or talking in pairs. Pure
- * planning; ark-walk.tsx animates it.
+ * teacher walks the board, the off-duty eating together or talking in pairs, cooking
+ * in the galley or asleep in their cabins, soldiers at the Armory's range and bench.
+ * Pure planning; ark-walk.tsx animates it.
  */
 
-import { CORE_HALF_Z, DOCK_WALL_Z, HALF_DEPTH, towardWalls, type WalkRoomKind } from "./ark-walk-layout.ts";
+import { CORE_HALF_Z, DOCK_WALL_Z, HALF_DEPTH, SIDE_ROOM_PLANS, towardWalls, type WalkRoomKind } from "./ark-walk-layout.ts";
 
 export type WalkCrewMember = {
   id: string;
@@ -36,7 +37,9 @@ export type Activity =
   | "heal" // standing at a sick-bay bed
   | "pilot" // seated at the helm
   | "guard" // standing watch, or walking a beat
-  | "lounge"; // seated on a bench, chatting
+  | "lounge" // seated on a bench, chatting
+  | "cook" // at the galley stoves
+  | "aim"; // on the Armory's firing range
 
 /** Activities done sitting or lying down. */
 export const SEATED: ReadonlySet<Activity> = new Set(["study", "eat", "pilot", "lounge"]);
@@ -58,6 +61,8 @@ export type Spot = {
   pair?: string;
   /** For the two-storey chamber: which deck the spot is on (0 upper, 1 lower). */
   deck?: number;
+  /** In a room behind the hall (a cabin, the galley, the Armory): only used while it is open. */
+  area?: string;
 };
 
 /** Where each profession works aboard; everyone else lives in Habitation. */
@@ -72,12 +77,19 @@ export const ROLE_ROOM: Record<string, WalkRoomKind> = {
   navigator: "bridge",
   security: "hangar",
   soldier: "hangar",
+  // Civilians keep the common room: the lockers and the galley.
+  civilian: "habitation",
 };
 
 const w = (z: number) => towardWalls(z);
 const point = (x: number, z: number) => ({ x, z });
 const ENGINEERS = ["engineer", "technician", "fabricator"];
 const GALLERY_Z = -(CORE_HALF_Z + 1.4);
+const SOLDIERS = ["security", "soldier"];
+const sideRoom = (section: WalkRoomKind, id: string) => SIDE_ROOM_PLANS[section]!.find((plan) => plan.id === id)!;
+const GALLEY = sideRoom("habitation", "galley");
+const ARMORY = sideRoom("hangar", "armory");
+const CABINS = SIDE_ROOM_PLANS.habitation!.filter((plan) => plan.kind === "cabin");
 
 /** Every room's places, best first. Furniture is drawn against 7 m walls and pushed out (w). */
 export const ROOM_SPOTS: Record<WalkRoomKind, readonly Spot[]> = {
@@ -129,16 +141,23 @@ export const ROOM_SPOTS: Record<WalkRoomKind, readonly Spot[]> = {
     { activity: "talk", at: point(7, 3.2), look: point(1, 0), pair: "habitation-b" },
     { activity: "talk", at: point(7.9, 3.2), look: point(-1, 0), pair: "habitation-b" },
     { activity: "type", at: point(3, w(5.6)), look: point(0, 1) },
-    { activity: "sleep", at: point(2.4, w(-5.85)), look: point(-1, 0), y: 0.84 },
-    { activity: "sleep", at: point(8.9, w(-5.85)), look: point(-1, 0), y: 0.84 },
-    { activity: "sleep", at: point(2.4, w(-5.85)), look: point(-1, 0), y: 2.04 },
-    { activity: "sleep", at: point(8.9, w(-5.85)), look: point(-1, 0), y: 2.04 },
+    { activity: "cook", at: point(GALLEY.from + 1.5, GALLEY.z0 + 1.5), look: point(0, -1), area: "galley" },
+    { activity: "cook", at: point(GALLEY.to - 1.5, GALLEY.z0 + 1.5), look: point(0, -1), area: "galley" },
+    // Two to a cabin, in its bunk, head to the far wall.
+    ...CABINS.flatMap((cabin) => [0.74, 1.94].map((y): Spot => ({
+      activity: "sleep", at: point(cabin.from + 0.6, cabin.z0 + 1.6), look: point(0, -1), y, area: cabin.id,
+    }))),
   ],
   // The dock is laid out at full width already.
   hangar: [
-    { activity: "type", at: point(6, DOCK_WALL_Z - 2.1), look: point(0, 1) },
     { activity: "guard", at: point(9.3, DOCK_WALL_Z - 0.7), look: point(0, -1) },
+    { activity: "aim", at: point(ARMORY.from + 3.6, ARMORY.z0 + 0.9), look: point(1, 0), for: SOLDIERS, area: "armory" },
+    { activity: "fix", at: point(ARMORY.from + 1.6, ARMORY.z0 + 4.7), look: point(-1, 0), for: SOLDIERS, area: "armory" },
+    { activity: "type", at: point(6, DOCK_WALL_Z - 2.1), look: point(0, 1) },
     { activity: "guard", at: point(3, -2.4), to: point(24, -2.4), look: point(0, 1) },
+    { activity: "aim", at: point(ARMORY.from + 3.6, ARMORY.z0 + 1.9), look: point(1, 0), for: SOLDIERS, area: "armory" },
+    { activity: "type", at: point(ARMORY.from + 7.3, ARMORY.z0 + 6.9), look: point(0, -1), for: SOLDIERS, area: "armory" },
+    { activity: "inspect", at: point(ARMORY.from + 3.4, ARMORY.z1 - 1.4), to: point(ARMORY.from + 12, ARMORY.z1 - 1.4), look: point(0, 1), for: SOLDIERS, area: "armory" },
     { activity: "lounge", at: point(2.5, -(HALF_DEPTH - 0.7)), look: point(0, 1), y: 0.45, pair: "lounge" },
     { activity: "lounge", at: point(4.5, -(HALF_DEPTH - 0.7)), look: point(0, 1), y: 0.45, pair: "lounge" },
   ],
@@ -181,12 +200,15 @@ export function planCrew(
   crew: readonly WalkCrewMember[],
   online: (room: WalkRoomKind) => boolean,
   away: ReadonlySet<string> = new Set(),
+  areaOpen: (area: string) => boolean = () => true,
 ): CrewPlan {
   const taken = new Set<string>();
   const placed: Placement[] = [];
   const free = (room: WalkRoomKind, accept: (spot: Spot) => boolean) =>
     online(room)
-      ? ROOM_SPOTS[room].map((spot, index) => ({ spot, index })).filter(({ spot, index }) => !taken.has(`${room}:${index}`) && accept(spot))
+      ? ROOM_SPOTS[room]
+        .map((spot, index) => ({ spot, index }))
+        .filter(({ spot, index }) => !taken.has(`${room}:${index}`) && (!spot.area || areaOpen(spot.area)) && accept(spot))
       : [];
   const take = (member: WalkCrewMember, room: WalkRoomKind, slot: { spot: Spot; index: number }) => {
     taken.add(`${room}:${slot.index}`);

@@ -8,7 +8,7 @@ import {
 import { ArkCutaway, type ArkCutawayRoom, type ArkCutawayRoomKind } from "./ark-cutaway";
 import { ArkPixelWorld } from "./ark-pixel-world";
 
-import type { ArkWalkRecon } from "./ark-walk";
+import type { ArkWalkArmory, ArkWalkRecon } from "./ark-walk";
 import type { BeaconReadiness } from "./beacon-readiness-engine";
 import type { RoomId } from "./discovery-content";
 import {
@@ -126,6 +126,8 @@ export type ArkDeckProps = {
   lawHeartDrones?: readonly LawHeartDroneFrame[];
   /** The recon ship, for the drone view's dock: in its bay, or away with an expedition. */
   recon?: ArkWalkRecon;
+  /** The Armory's stock and work, for the drone view's Armory and its soldiers' kit. */
+  armory?: ArkWalkArmory;
   /** The world's Null saturation, which also reaches the drone's camera. */
   nullInterference?: { classification: "quiet" | "trace" | "elevated" | "severe"; intensity: number };
   onUpgradeSupport?: (key: LifeSupportKey) => void;
@@ -201,6 +203,7 @@ function ArkDeck({
   lawHeartMachines = [],
   lawHeartDrones = [],
   recon,
+  armory,
   nullInterference,
   onUpgradeSupport,
   onOpenView,
@@ -532,6 +535,7 @@ function ArkDeck({
               }}
               recon={recon}
               nullInterference={nullInterference}
+              armory={armory}
               beatPeriodMs={getPulseProfile(lifetimeAxioms).periodMs}
               onStrike={onStrikeLawHeart}
               onClose={() => setWalkAccent(null)}

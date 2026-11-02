@@ -56,7 +56,7 @@ test("a dormant room sends its people to Habitation", () => {
 });
 
 test("every place someone stands or walks is clear floor", () => {
-  const layout = buildWalkLayout(everyRoom);
+  const layout = buildWalkLayout(everyRoom, { residents: 99, armory: true });
   for (const [room, spots] of Object.entries(ROOM_SPOTS) as [WalkRoomKind, (typeof ROOM_SPOTS)[WalkRoomKind]][]) {
     for (const spot of spots) {
       if (SEATED.has(spot.activity) || LYING.has(spot.activity)) continue;

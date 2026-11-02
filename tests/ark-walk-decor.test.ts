@@ -16,13 +16,15 @@ import {
 } from "../app/ark-walk-layout.ts";
 
 const everyRoom = [...new Set([...UPPER_DECK, ...LOWER_DECK])].map((kind) => ({ kind, label: kind, online: true }));
+/** Every cabin lived in and the Armory open, so every room behind a hall is tested. */
+const everything = { residents: 99, armory: true };
 const key = (piece: DecorPiece) => `${piece.deck}:${piece.room}:${piece.seed}:${piece.kind}`;
 const overlaps = (a: Box, b: Box) => a.x0 < b.x1 && a.x1 > b.x0 && a.z0 < b.z1 && a.z1 > b.z0;
 const grow = (box: Box, by: number): Box => ({ x0: box.x0 - by, x1: box.x1 + by, z0: box.z0 - by, z1: box.z1 + by });
 const blocking = (piece: DecorPiece) => piece.floor && !["rug", "cushions", "mat"].includes(piece.kind);
 
 test("an empty ship is bare, and every new arrival only adds to what is up", () => {
-  const layout = buildWalkLayout(everyRoom);
+  const layout = buildWalkLayout(everyRoom, everything);
   assert.equal(decorBudget(0), 0);
   assert.deepEqual(planDecor(layout, 0), []);
   let before: string[] = [];
@@ -45,11 +47,11 @@ test("dormant rooms stay bare, and only children draw", () => {
   const pieces = planDecor(layout, 160);
   assert.ok(!pieces.some((piece) => piece.room === "education"));
   assert.ok(!pieces.some((piece) => piece.kind === "drawings"), "no children, no drawings");
-  assert.ok(planDecor(buildWalkLayout(everyRoom), 160, { children: true }).some((piece) => piece.kind === "drawings"));
+  assert.ok(planDecor(buildWalkLayout(everyRoom, everything), 160, { children: true }).some((piece) => piece.kind === "drawings"));
 });
 
 test("furniture keeps clear of the walkway, the doorways, the crew and what was already there", () => {
-  const layout = buildWalkLayout(everyRoom);
+  const layout = buildWalkLayout(everyRoom, everything);
   const marks = crewFootprints(layout);
   for (const piece of decorSlots(layout).filter(blocking)) {
     const deck = layout.decks[piece.deck];
@@ -68,7 +70,7 @@ test("furniture keeps clear of the walkway, the doorways, the crew and what was 
 });
 
 test("with everything put up, every room and everywhere the crew stand can still be reached", () => {
-  const layout = furnishLayout(buildWalkLayout(everyRoom), decorSlots(layout0()));
+  const layout = furnishLayout(buildWalkLayout(everyRoom, everything), decorSlots(layout0()));
   const step = 0.15;
   const radius = 0.35;
   const reach = (deck: WalkDeck, start: { x: number; z: number }) => {
@@ -103,7 +105,7 @@ test("with everything put up, every room and everywhere the crew stand can still
 });
 
 test("art hangs clear of windows, ribs, doorways, furniture tops, pipes and each other", () => {
-  const layout = buildWalkLayout(everyRoom);
+  const layout = buildWalkLayout(everyRoom, everything);
   const walls = decorSlots(layout).filter((piece) => piece.wall);
   for (const piece of walls) {
     const spot = piece.wall!;
@@ -121,6 +123,9 @@ test("art hangs clear of windows, ribs, doorways, furniture tops, pipes and each
         assert.ok(to <= window.from || from >= window.to, `${where}: clear of the window`);
       }
       for (const rib of wallRibs(room)) assert.ok(to <= rib - 0.2 || from >= rib + 0.2, `${where}: between the ribs`);
+      for (const behind of layout.decks[piece.deck].sideRooms.filter((sideRoom) => sideRoom.section === room.kind && spot.plane < 0)) {
+        assert.ok(to <= behind.door.x0 - 0.3 || from >= behind.door.x1 + 0.3, `${where}: clear of the door to the ${behind.label}`);
+      }
     } else {
       assert.ok(Math.min(Math.abs(from), Math.abs(to)) >= DOOR_HALF_WIDTH + 0.5 && Math.sign(from) === Math.sign(to), `${where}: clear of the doorway`);
       assert.ok(Math.max(Math.abs(from), Math.abs(to)) <= layout.halfDepth - 0.5, `${where}: clear of the hull`);
@@ -139,5 +144,5 @@ test("art hangs clear of windows, ribs, doorways, furniture tops, pipes and each
 });
 
 function layout0() {
-  return buildWalkLayout(everyRoom);
+  return buildWalkLayout(everyRoom, everything);
 }

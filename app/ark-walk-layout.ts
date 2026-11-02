@@ -9,6 +9,11 @@
  * the drone between them. The lower deck ends in the recon dock: a gallery,
  * and behind a pressure wall the sealed launch bay that the recon ship leaves
  * from when a team goes down to the planet.
+ *
+ * The cutaway is a slice; the ship is deeper than it. Behind some halls' port
+ * walls are rooms of their own, through doors: the crew's cabins and the galley
+ * behind Habitation, the Armory behind the Recon Dock. A room nobody uses yet
+ * stays sealed.
  */
 
 export type WalkRoomKind =
@@ -33,12 +38,28 @@ export type WalkCompartment = {
   height: number;
 };
 
+export type SideRoomKind = "cabin" | "galley" | "armory";
+
+/** A room behind a hall's port wall. z0 is its far wall, z1 the hall's side. */
+export type SideRoom = Box & {
+  id: string;
+  kind: SideRoomKind;
+  label: string;
+  /** The hall it opens off. */
+  section: WalkRoomKind;
+  open: boolean;
+  height: number;
+  /** The doorway through the hall's wall. */
+  door: Box;
+};
+
 export type WalkDeck = {
   label: string;
   floorY: number;
   compartments: WalkCompartment[];
   doorways: Box[];
   blockers: Box[];
+  sideRooms: SideRoom[];
   length: number;
 };
 
@@ -97,8 +118,8 @@ export const WINDOWS: Partial<Record<WalkRoomKind, { port?: readonly number[]; s
   bridge: { port: [8, 11.5], starboard: [8, 11.5] },
   support: { starboard: [2.5, 6.7, 14.8] },
   education: { starboard: [2.5, 6, 9.5, 13] },
-  // The dock's back wall keeps a bare stretch in the middle for the recon board.
-  hangar: { port: [3.5, 7.5, 21.5, 26] },
+  // The dock's back wall is the Armory's, with the recon board on it.
+  hangar: { port: [3.5, 7.5, 26.5] },
   chamber: { port: [3, 9.5, 16], starboard: [3, 9.5, 16] },
 };
 
@@ -128,7 +149,74 @@ function againstWall(box: Box): Box {
 /** The pressure wall between the dock's gallery and its launch bay, across the ship. */
 export const DOCK_WALL_Z = HALF_DEPTH - 5;
 /** The recon status board on the dock's back wall: centre and width, from the dock's stern end. */
-export const DOCK_BOARD = { at: 14.5, width: 5 } as const;
+export const DOCK_BOARD = { at: 19, width: 5 } as const;
+
+/** The wall between a hall and the rooms behind it, and how tall those rooms' doors are. */
+export const INNER_WALL = 0.4;
+export const SIDE_DOOR_HEIGHT = 2.7;
+/** How many people must be aboard before each cabin is lived in. */
+export const CABIN_OPENS_AT = [1, 6, 14] as const;
+
+export type SideRoomPlan = {
+  id: string;
+  kind: SideRoomKind;
+  label: string;
+  /** Along the hall, from its stern end. */
+  from: number;
+  to: number;
+  /** Across the ship: the far wall, and the hall's side. */
+  z0: number;
+  z1: number;
+  height: number;
+  /** The door's centre along the hall, and half its width. */
+  door: number;
+  doorHalf: number;
+};
+
+const behind = (depth: number) => ({ z0: -(HALF_DEPTH + INNER_WALL + depth), z1: -(HALF_DEPTH + INNER_WALL) });
+const cabin = (index: number, from: number): SideRoomPlan => ({
+  id: `cabin-${index}`, kind: "cabin", label: "Quarters", from, to: from + 3.9, ...behind(5.6), height: 3.4, door: from + 1.95, doorHalf: 0.75,
+});
+
+/** The rooms behind each hall, stern to bow. */
+export const SIDE_ROOM_PLANS: Partial<Record<WalkRoomKind, readonly SideRoomPlan[]>> = {
+  habitation: [
+    cabin(0, 0),
+    cabin(1, 4.1),
+    cabin(2, 8.2),
+    { id: "galley", kind: "galley", label: "Galley", from: 12.3, to: 17, ...behind(5.6), height: 3.4, door: 14.65, doorHalf: 0.9 },
+  ],
+  hangar: [
+    { id: "armory", kind: "armory", label: "Armory", from: 9.6, to: 24.6, ...behind(9.6), height: 5.2, door: 11, doorHalf: 1.1 },
+  ],
+};
+
+/** The furniture in a room behind a hall, in deck coordinates. */
+function sideFurniture(room: Box & { kind: SideRoomKind }): Box[] {
+  const { x0, x1, z0, z1 } = room;
+  switch (room.kind) {
+    case "cabin":
+      return [
+        { x0: x0 + 0.1, x1: x0 + 1.1, z0: z0 + 0.5, z1: z0 + 2.7 }, // the bunk
+        { x0: x1 - 0.75, x1: x1 - 0.1, z0: z0 + 0.5, z1: z0 + 1.7 }, // the desk
+        { x0: x1 - 0.7, x1: x1 - 0.1, z0: z1 - 1.7, z1: z1 - 0.7 }, // the wardrobe
+      ];
+    case "galley":
+      return [
+        { x0: x0 + 0.1, x1: x1 - 0.1, z0: z0 + 0.05, z1: z0 + 0.75 }, // stoves and sinks along the far wall
+        { x0: x0 + 1.2, x1: x1 - 1.2, z0: z0 + 2.3, z1: z0 + 3.1 }, // the island
+        { x0: x0 + 0.05, x1: x0 + 0.85, z0: z1 - 1.6, z1: z1 - 0.6 }, // the cold store
+      ];
+    case "armory":
+      return [
+        { x0: x0 + 4.6, x1: x1 - 0.1, z0: z0 + 0.1, z1: z0 + 2.5 }, // the firing range, behind its glass
+        ...[0, 1, 2].map((rack) => ({ x0: x0 + 3 + rack * 3.2, x1: x0 + 5.8 + rack * 3.2, z0: z1 - 0.7, z1: z1 - 0.1 })), // weapon racks
+        ...[3.6, 5.4, 7.2].map((at) => ({ x0: x1 - 1.3, x1: x1 - 0.2, z0: z0 + at - 0.5, z1: z0 + at + 0.5 })), // armour stands
+        { x0: x0 + 0.1, x1: x0 + 1.1, z0: z0 + 3.2, z1: z0 + 6.2 }, // the repair bench
+        { x0: x0 + 6, x1: x0 + 8.6, z0: z0 + 4, z1: z0 + 6.4 }, // the forge cradle and its console
+      ];
+  }
+}
 /** The recon dock's plan, in metres from its stern end (x) and across the ship (z). */
 const DOCK = { wallZ: DOCK_WALL_Z, doorFrom: 10, doorTo: 14, padX: 6.5, parkedX: 19, padZ: (DOCK_WALL_Z + 0.4 + HALF_DEPTH) / 2 } as const;
 
@@ -169,9 +257,8 @@ function furniture(kind: WalkRoomKind, upper: boolean, x0: number, x1: number): 
       // The sealed core room fills the middle on both decks.
       return [{ x0: cx - CORE_HALF_X, x1: cx + CORE_HALF_X, z0: -CORE_HALF_Z, z1: CORE_HALF_Z }];
     case "habitation":
+      // People sleep in their cabins now; the hall is their common room.
       return [
-        { x0: x0 + 1, x1: x0 + 6, z0: -6.9, z1: -4.8 }, // bunks
-        { x0: x0 + 7.5, x1: x0 + 12.5, z0: -6.9, z1: -4.8 },
         { x0: x1 - 5.4, x1: x1 - 1.8, z0: 2.4, z1: 4.4 }, // the mess table and its chairs
         { x0: x0 + 1, x1: x0 + 5, z0: 6.2, z1: 6.9 }, // lockers
       ];
@@ -218,10 +305,12 @@ function buildDeck(
   order: readonly WalkRoomKind[],
   upper: boolean,
   byKind: ReadonlyMap<WalkRoomKind, { label: string; online: boolean }>,
+  opens: (plan: SideRoomPlan) => boolean,
 ): WalkDeck {
   const compartments: WalkCompartment[] = [];
   const doorways: Box[] = [];
   const blockers: Box[] = [];
+  const sideRooms: SideRoom[] = [];
   let x = 0;
   order.forEach((kind, index) => {
     const room = byKind.get(kind);
@@ -239,20 +328,47 @@ function buildDeck(
     // The chamber and the dock are laid out at full width; the rest is pushed out to the walls.
     const pieces = furniture(kind, upper, x0, x1);
     blockers.push(...(kind === "chamber" || kind === "hangar" ? pieces : pieces.map(againstWall)));
+    const online = kind === "chamber" ? true : room?.online ?? false;
+    for (const plan of SIDE_ROOM_PLANS[kind] ?? []) {
+      const side: SideRoom = {
+        id: plan.id,
+        kind: plan.kind,
+        label: plan.label,
+        section: kind,
+        open: online && opens(plan),
+        x0: x0 + plan.from,
+        x1: x0 + plan.to,
+        z0: plan.z0,
+        z1: plan.z1,
+        height: plan.height,
+        door: { x0: x0 + plan.door - plan.doorHalf, x1: x0 + plan.door + plan.doorHalf, z0: plan.z1, z1: -HALF_DEPTH },
+      };
+      sideRooms.push(side);
+      blockers.push(...sideFurniture(side));
+    }
     x = x1;
     if (index < order.length - 1) {
       doorways.push({ x0: x, x1: x + BULKHEAD, z0: -DOOR_HALF_WIDTH, z1: DOOR_HALF_WIDTH });
       x += BULKHEAD;
     }
   });
-  return { label: upper ? "Upper deck" : "Lower deck", floorY: upper ? UPPER_FLOOR : 0, compartments, doorways, blockers, length: x };
+  return { label: upper ? "Upper deck" : "Lower deck", floorY: upper ? UPPER_FLOOR : 0, compartments, doorways, blockers, sideRooms, length: x };
 }
 
+/**
+ * The ship for this crew: cabins are lived in once enough people are aboard, the
+ * galley whenever Habitation is, and the Armory once it has been unlocked.
+ */
 export function buildWalkLayout(
   rooms: readonly { kind: WalkRoomKind; label: string; online: boolean }[],
+  { residents = 0, armory = false }: { residents?: number; armory?: boolean } = {},
 ): WalkLayout {
   const byKind = new Map(rooms.map((room) => [room.kind, room]));
-  const decks = [buildDeck(UPPER_DECK, true, byKind), buildDeck(LOWER_DECK, false, byKind)];
+  const opens = (plan: SideRoomPlan) => {
+    if (plan.kind === "cabin") return residents >= (CABIN_OPENS_AT[Number(plan.id.split("-")[1])] ?? Infinity);
+    return plan.kind === "armory" ? armory : true;
+  };
+  const decks = [buildDeck(UPPER_DECK, true, byKind, opens), buildDeck(LOWER_DECK, false, byKind, opens)];
   const chamber = decks[0].compartments.find((compartment) => compartment.kind === "chamber")!;
   const dock = decks[1].compartments.find((compartment) => compartment.kind === "hangar")!;
   const cx = (chamber.x0 + chamber.x1) / 2;
@@ -314,7 +430,12 @@ export function isWalkable(deck: WalkDeck, x: number, z: number, radius = 0.3) {
       inside({ x0: compartment.x0, x1: compartment.x1, z0: -HALF_DEPTH, z1: HALF_DEPTH }, x, z, radius),
     ) ||
     // A doorway is passable along its whole thickness; the margin applies across it only.
-    deck.doorways.some((door) => x >= door.x0 - radius && x <= door.x1 + radius && z >= door.z0 + radius && z <= door.z1 - radius);
+    deck.doorways.some((door) => x >= door.x0 - radius && x <= door.x1 + radius && z >= door.z0 + radius && z <= door.z1 - radius) ||
+    // The rooms behind the halls, through their doors, unless they are sealed.
+    deck.sideRooms.some((room) => room.open && (
+      inside(room, x, z, radius) ||
+      (x >= room.door.x0 + radius && x <= room.door.x1 - radius && z >= room.door.z0 - radius && z <= room.door.z1 + radius)
+    ));
   if (!open) return false;
   return !deck.blockers.some((box) => inside(box, x, z, -radius));
 }
@@ -329,6 +450,11 @@ export function moveWithin(deck: WalkDeck, x: number, z: number, dx: number, dz:
 
 export function compartmentAt(deck: WalkDeck, x: number) {
   return deck.compartments.find((compartment) => x >= compartment.x0 && x <= compartment.x1) ?? null;
+}
+
+/** The room behind a hall that the drone is in, if any. */
+export function sideRoomAt(deck: WalkDeck, x: number, z: number) {
+  return deck.sideRooms.find((room) => x >= room.x0 && x <= room.x1 && z >= room.z0 && z <= room.z1) ?? null;
 }
 
 /** The grav-lift the drone is standing in, if any. */

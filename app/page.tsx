@@ -3134,12 +3134,37 @@ export default function Home() {
           lawHeartMachines={game.tiers.map((tier, index) => ({ name: GENERATORS[index].name, count: tier.bought }))}
           lawHeartDrones={lawHeartDroneFrames}
           nullInterference={{ classification: nullSaturation.classification, intensity: nullSaturation.visualIntensity }}
+          armory={{
+            unlocked: armoryUnlocked,
+            items: ARMORY_ITEM_DEFINITIONS.map((item) => ({
+              id: item.id,
+              kind: item.kind,
+              tier: item.tier,
+              name: item.name,
+              mark: game.armory.marks[item.id],
+              ready: armoryQuotes[item.id].ready,
+              damaged: armoryQuotes[item.id].damaged,
+            })),
+            project: activeArmoryProject
+              ? { name: activeArmoryProject.itemName, targetMark: activeArmoryProject.targetMark, progress: activeArmoryProject.progress }
+              : null,
+            onOpen: () => handlePrimaryNavigation("armory"),
+          }}
           recon={game.expeditions.active ? {
             away: true,
             site: EXPEDITION_SITE_DEFINITIONS.find((site) => site.id === game.expeditions.active?.siteId)?.name ?? null,
             crewIds: game.expeditions.active.crewIds,
             sinceLaunch: game.expeditions.clockSeconds - game.expeditions.active.startedAtSeconds,
             remaining: Math.max(0, game.expeditions.active.startedAtSeconds + game.expeditions.active.durationSeconds - game.expeditions.clockSeconds),
+            gear: game.expeditions.active.loadout.map((entry) => ({
+              crewId: entry.crewId,
+              weapon: entry.weaponId
+                ? { tier: ARMORY_ITEM_DEFINITIONS.find((item) => item.id === entry.weaponId)!.tier, mark: game.armory.marks[entry.weaponId] }
+                : null,
+              armor: entry.armorId
+                ? { tier: ARMORY_ITEM_DEFINITIONS.find((item) => item.id === entry.armorId)!.tier, mark: game.armory.marks[entry.armorId] }
+                : null,
+            })),
           } : { away: false, site: null, crewIds: [], sinceLaunch: 0, remaining: 0 }}
           onUpgradeSupport={handleUpgradeSupport}
           onOpenView={handleOpenArkView}

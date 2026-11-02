@@ -12,6 +12,9 @@ import {
   moveWithin,
   dockMoment,
   wallPieces,
+  HALF_DEPTH,
+  INNER_WALL,
+  sideRoomAt,
   type WalkDeck,
 } from "../app/ark-walk-layout.ts";
 
@@ -171,4 +174,51 @@ test("a wall is split round its windows with nothing missing and nothing doubled
     }
   }
   assert.deepEqual(wallPieces(0, 5, 3, []), [{ a0: 0, a1: 5, y0: 0, y1: 3 }]);
+});
+
+test("rooms behind the halls open through their doors, and sealed ones stay shut", () => {
+  const open = buildWalkLayout(rooms, { residents: 99, armory: true });
+  const shut = buildWalkLayout(rooms, { residents: 0, armory: false });
+  for (const [deckIndex, deck] of open.decks.entries()) {
+    for (const room of deck.sideRooms) {
+      const doorX = (room.door.x0 + room.door.x1) / 2;
+      // Straight in from the hall, through the door, to the middle of the room.
+      for (let z = -HALF_DEPTH + 1; z >= room.z1 - 1.2; z -= 0.1) {
+        assert.ok(isWalkable(deck, doorX, z, 0.35), `${room.id} on deck ${deckIndex}: open at ${z.toFixed(1)}`);
+      }
+      assert.equal(sideRoomAt(deck, doorX, room.z1 - 1)?.id, room.id);
+      assert.ok(!isWalkable(deck, room.door.x0 - 0.6, room.z1 + INNER_WALL / 2, 0.3), `${room.id}: the wall beside its door is solid`);
+      const sealed = shut.decks[deckIndex].sideRooms.find((candidate) => candidate.id === room.id)!;
+      if (!sealed.open) {
+        assert.ok(!isWalkable(shut.decks[deckIndex], doorX, room.z1 + INNER_WALL / 2, 0.3), `${room.id}: a sealed door stays shut`);
+        assert.ok(!isWalkable(shut.decks[deckIndex], doorX, room.z1 - 1.5, 0.3), `${room.id}: a sealed room can't be entered`);
+      }
+    }
+  }
+});
+
+test("cabins are lived in as people come aboard; the Armory opens once unlocked", () => {
+  const open = (residents: number, armory = false) =>
+    buildWalkLayout(rooms, { residents, armory }).decks.flatMap((deck) => deck.sideRooms).filter((room) => room.open).map((room) => room.id);
+  assert.deepEqual(open(0), ["galley"]);
+  assert.deepEqual(open(1), ["cabin-0", "galley"]);
+  assert.deepEqual(open(6), ["cabin-0", "cabin-1", "galley"]);
+  assert.deepEqual(open(14, true), ["cabin-0", "cabin-1", "cabin-2", "galley", "armory"]);
+  const dormant = buildWalkLayout(rooms.map((room) => (room.kind === "habitation" ? { ...room, online: false } : room)), { residents: 99 });
+  assert.ok(dormant.decks[0].sideRooms.every((room) => !room.open), "a dormant hall's rooms are dark");
+});
+
+test("the rooms behind a hall sit behind its wall, inside its length, and never overlap", () => {
+  const layout = buildWalkLayout(rooms, { residents: 99, armory: true });
+  for (const deck of layout.decks) {
+    for (const room of deck.sideRooms) {
+      const hall = deck.compartments.find((compartment) => compartment.kind === room.section)!;
+      assert.ok(room.x0 >= hall.x0 && room.x1 <= hall.x1, `${room.id} stays within its hall's length`);
+      assert.ok(room.z1 <= -HALF_DEPTH - INNER_WALL + 1e-9 && room.z0 < room.z1, `${room.id} is behind the wall`);
+      assert.ok(room.door.x0 >= room.x0 && room.door.x1 <= room.x1, `${room.id}'s door opens into it`);
+      for (const other of deck.sideRooms) {
+        if (other !== room) assert.ok(room.x1 <= other.x0 || room.x0 >= other.x1, `${room.id} and ${other.id} do not overlap`);
+      }
+    }
+  }
 });

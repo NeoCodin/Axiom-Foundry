@@ -13,9 +13,12 @@ import {
   dockMoment,
   DOOR_HALF_WIDTH,
   DOOR_HEIGHT,
+  INNER_WALL,
   LIFT_RADIUS,
   liftAt,
   moveWithin,
+  SIDE_DOOR_HEIGHT,
+  sideRoomAt,
   towardWalls,
   UPPER_FLOOR,
   wallPieces,
@@ -27,7 +30,9 @@ import {
   type DockMoment,
   type DockScene,
   type Rect,
+  type SideRoom,
   type WalkCompartment,
+  type WalkDeck,
   type WalkLayout,
   type WalkRoomKind,
 } from "./ark-walk-layout";
@@ -96,6 +101,19 @@ export type ArkWalkRecon = {
   sinceLaunch: number;
   /** Game seconds until the team is due back. */
   remaining: number;
+  /** What each member of the team was issued from the Armory. */
+  gear?: readonly { crewId: string; weapon: ArkWalkGear | null; armor: ArkWalkGear | null }[];
+};
+
+/** A piece of gear: which of the three of its kind (1 to 3), and its Mark (1 to 4). */
+export type ArkWalkGear = { tier: number; mark: number };
+
+/** The Armory's stock and work, for the drone view's Armory and the soldiers' kit. */
+export type ArkWalkArmory = {
+  unlocked: boolean;
+  items: readonly { id: string; kind: "weapon" | "armor"; tier: number; name: string; mark: number; ready: number; damaged: number }[];
+  project: { name: string; targetMark: number; progress: number } | null;
+  onOpen?: () => void;
 };
 
 export type ArkWalkProps = {
@@ -107,6 +125,7 @@ export type ArkWalkProps = {
   recon?: ArkWalkRecon;
   /** The world's Null saturation, as the console shows it: it reaches the drone's feed too. */
   nullInterference?: { classification: NullClass; intensity: number };
+  armory?: ArkWalkArmory;
   beatPeriodMs: number;
   onStrike?: () => void;
   onClose: () => void;
@@ -208,6 +227,15 @@ const FEED_FRAGMENT = `
 
 /** The deck lamps: a warm white, not the amber of the trim lights. */
 const LAMP = "#ffeccc";
+
+/** The rooms behind the halls: each cabin painted by the people who live in it, the galley warm, the Armory red. */
+const SIDE_COLOR: Record<string, string> = {
+  "cabin-0": "#e2786a",
+  "cabin-1": "#7d8cf0",
+  "cabin-2": "#7cc35a",
+  galley: "#f2a03a",
+  armory: "#d8503e",
+};
 
 /** Each compartment's own colour: the bands painted round its walls, its door signs, its lit skirting. */
 const ROOM_COLOR: Record<WalkRoomKind, string> = {
@@ -446,6 +474,161 @@ function stride(person: Person, phase: number, amount: number) {
   person.limbs[3].rotation.x = swing;
 }
 
+/** A piece of Armory gear as the drone sees it: which of the three of its kind, and its Mark. */
+type GearPiece = { tier: number; mark: number };
+/** Trim by Mark: none at I, then white, gold, and the pale sheen of impossible materials. */
+const MARK_TRIM: readonly (string | null)[] = [null, null, "#e9e4da", "#d9b65e", "#f0e6ff"];
+const ROMAN = ["", "I", "II", "III", "IV"];
+
+function gearMaterial(color: string, glowing = false) {
+  return glowing ? new THREE.MeshBasicMaterial({ color }) : new THREE.MeshLambertMaterial({ color, flatShading: true });
+}
+
+/** A weapon, standing upright: its long axis is y, its business end up. */
+function weaponModel(gear: GearPiece) {
+  const group = new THREE.Group();
+  const part = (w: number, h: number, d: number, color: string, x: number, y: number, z: number, glowing = false) => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), gearMaterial(color, glowing));
+    mesh.position.set(x, y, z);
+    group.add(mesh);
+    return mesh;
+  };
+  const trim = MARK_TRIM[gear.mark] ?? null;
+  if (gear.tier <= 1) {
+    // Kinetic Pike: a collapsible impulse staff.
+    part(0.05, 1.5, 0.05, "#6a6f80", 0, 0, 0);
+    part(0.07, 0.3, 0.07, "#2b2433", 0, -0.2, 0);
+    part(0.12, 0.22, 0.12, "#ffb347", 0, 0.82, 0, true);
+    if (trim) part(0.07, 0.05, 0.07, trim, 0, 0.66, 0);
+  } else if (gear.tier === 2) {
+    // Arc Carbine: a directed-discharge rifle with its coils lit.
+    part(0.1, 0.62, 0.14, "#3a3f4e", 0, 0, 0);
+    part(0.05, 0.3, 0.05, "#5a546e", 0, 0.45, 0);
+    for (const y of [0.12, 0.22, 0.32]) part(0.13, 0.04, 0.16, "#9ac4ff", 0, y, 0, true);
+    part(0.08, 0.16, 0.1, "#2b2433", 0, -0.12, 0.1);
+    part(0.09, 0.2, 0.12, "#3a3f4e", 0, -0.36, 0);
+    if (trim) part(0.11, 0.04, 0.15, trim, 0, -0.05, 0);
+  } else {
+    // Null Lance: a black blade with an edge of enforced absence.
+    part(0.07, 1.6, 0.07, "#120f1c", 0, 0, 0);
+    part(0.02, 1.2, 0.09, "#b48cff", 0.04, 0.15, 0, true);
+    part(0.2, 0.05, 0.12, "#3b3552", 0, -0.3, 0);
+    if (trim) part(0.08, 0.05, 0.08, trim, 0, -0.5, 0);
+  }
+  return group;
+}
+
+/**
+ * Dress a person in Armory gear: armour on their body and limbs, a weapon slung on
+ * their back or, on the range, held levelled in their hands. The face stays visible
+ * except under the Aegis Frame's sealed helmet.
+ */
+function gearUp(person: Person, armor: GearPiece | null, weapon: GearPiece | null, held = false) {
+  const [leftArm, rightArm, leftLeg, rightLeg] = person.limbs;
+  const add = (parent: THREE.Object3D, w: number, h: number, d: number, material: THREE.Material, x: number, y: number, z: number) => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
+    mesh.position.set(x, y, z);
+    parent.add(mesh);
+    return mesh;
+  };
+  if (armor?.tier === 1) {
+    // Composite Weave: a padded mesh vest, shoulder and knee pads.
+    const weave = gearMaterial("#56604f");
+    const quilt = gearMaterial("#434c3e");
+    add(person.group, 0.6, 0.5, 0.36, weave, 0, 1.17, 0);
+    for (const y of [1.05, 1.17, 1.29]) add(person.group, 0.61, 0.025, 0.37, quilt, 0, y, 0);
+    for (const arm of [leftArm, rightArm]) add(arm, 0.2, 0.12, 0.24, weave, 0, -0.04, 0);
+    for (const leg of [leftLeg, rightLeg]) add(leg, 0.22, 0.12, 0.06, quilt, 0, -0.42, 0.13);
+  } else if (armor?.tier === 2) {
+    // Reactive Shell: segmented plate, pauldrons, shin guards, an open-faced helmet.
+    const plate = gearMaterial("#8d94a8");
+    const seam = gearMaterial("#3a3f4e");
+    add(person.group, 0.58, 0.54, 0.34, seam, 0, 1.15, 0);
+    [1.33, 1.15, 0.97].forEach((y, index) => add(person.group, 0.62 - index * 0.03, 0.16, 0.38, plate, 0, y, 0));
+    for (const arm of [leftArm, rightArm]) add(arm, 0.26, 0.16, 0.3, plate, 0, 0, 0);
+    for (const leg of [leftLeg, rightLeg]) add(leg, 0.22, 0.3, 0.08, plate, 0, -0.5, 0.13);
+    add(person.head, 0.52, 0.14, 0.5, plate, 0, 0.47, 0);
+    for (const side of [-1, 1]) add(person.head, 0.06, 0.34, 0.46, plate, side * 0.25, 0.3, 0);
+    add(person.head, 0.5, 0.06, 0.06, seam, 0, 0.41, 0.24);
+  } else if (armor?.tier === 3) {
+    // Aegis Frame: a powered exoframe, Null-lit at its seams, with a sealed helmet.
+    const frame = gearMaterial("#3b3552");
+    const lit = gearMaterial("#b48cff", true);
+    add(person.group, 0.7, 0.68, 0.44, frame, 0, 1.15, 0);
+    for (const x of [-0.18, 0.18]) add(person.group, 0.03, 0.5, 0.01, lit, x, 1.15, 0.225);
+    add(person.group, 0.46, 0.52, 0.22, frame, 0, 1.2, -0.32);
+    add(person.group, 0.16, 0.16, 0.02, lit, 0, 1.25, -0.435);
+    for (const arm of [leftArm, rightArm]) {
+      add(arm, 0.26, 0.2, 0.3, frame, 0, 0, 0);
+      add(arm, 0.2, 0.36, 0.24, frame, 0, -0.34, 0);
+    }
+    for (const leg of [leftLeg, rightLeg]) add(leg, 0.26, 0.6, 0.3, frame, 0, -0.42, 0.01);
+    add(person.head, 0.54, 0.54, 0.54, frame, 0, 0.24, 0);
+    add(person.head, 0.44, 0.08, 0.02, lit, 0, 0.26, 0.275);
+  }
+  const trim = armor ? MARK_TRIM[armor.mark] ?? null : null;
+  if (armor && trim) add(person.group, 0.08, 0.48, 0.02, gearMaterial(trim), 0.16, 1.15, armor.tier === 3 ? 0.225 : 0.195);
+  if (weapon) {
+    const model = weaponModel(weapon);
+    if (held) {
+      // Levelled down the range: along the raised arm, past the hand.
+      model.rotation.x = Math.PI;
+      model.position.set(0, -0.62, 0.06);
+      rightArm.add(model);
+    } else {
+      // Slung across the back.
+      model.position.set(0, 1.12, -0.24);
+      model.rotation.z = 0.75;
+      person.group.add(model);
+    }
+  }
+}
+
+/** A plain dummy for an armour stand, shaped like the crew so the same gear fits it. */
+function mannequin(): Person {
+  const material = gearMaterial("#7a7490");
+  const group = new THREE.Group();
+  const limb = (x: number, y: number, length: number) => {
+    const pivot = new THREE.Group();
+    pivot.position.set(x, y, 0);
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.17, length, 0.2), material);
+    mesh.position.y = -length / 2;
+    pivot.add(mesh);
+    group.add(pivot);
+    return pivot;
+  };
+  const arms = [-0.36, 0.36].map((x) => limb(x, 1.42, 0.62));
+  const legs = [-0.12, 0.12].map((x) => limb(x, 0.82, 0.8));
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.62, 0.3), material);
+  torso.position.y = 1.12;
+  const head = new THREE.Group();
+  head.position.y = 1.52;
+  const dome = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.42, 0.36), material);
+  dome.position.y = 0.22;
+  head.add(dome);
+  group.add(torso, head);
+  group.scale.setScalar(0.94);
+  return { group, limbs: [...arms, ...legs], head, hip: 0.82 };
+}
+
+/** A stocked Armory for the QA sandbox: ?qa=1&armory=demo. */
+function demoArmory(): ArkWalkArmory {
+  const item = (id: string, kind: "weapon" | "armor", tier: number, name: string, mark: number, ready: number, damaged: number) =>
+    ({ id, kind, tier, name, mark, ready, damaged });
+  return {
+    unlocked: true,
+    items: [
+      item("kinetic-pike", "weapon", 1, "Kinetic Pike", 2, 4, 1),
+      item("arc-carbine", "weapon", 2, "Arc Carbine", 1, 3, 1),
+      item("null-lance", "weapon", 3, "Null Lance", 1, 1, 0),
+      item("composite-weave", "armor", 1, "Composite Weave", 3, 5, 0),
+      item("reactive-shell", "armor", 2, "Reactive Shell", 2, 2, 1),
+      item("aegis-frame", "armor", 3, "Aegis Frame", 1, 1, 0),
+    ],
+    project: { name: "Arc Carbine", targetMark: 2, progress: 0.64 },
+  };
+}
+
 /** Turn a figure to face along (dx, dz). */
 function face(group: THREE.Object3D, dx: number, dz: number) {
   if (Math.hypot(dx, dz) > 0.001) group.rotation.y = Math.atan2(dx, dz);
@@ -491,10 +674,10 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     ? spec.machines.slice(0, 6)
     : Array.from({ length: 6 }, (_, tier) => ({ name: `Tier ${tier + 1} machine`, count: 0, color: PALETTE.dark }));
 
-  const paintOf = (kind: WalkRoomKind) => tinted(ROOM_COLOR[kind], accent, 0.12);
-  const floorTextures = new Map<WalkRoomKind, THREE.CanvasTexture>();
+  const paintOf = (kind: string) => tinted(ROOM_COLOR[kind as WalkRoomKind] ?? SIDE_COLOR[kind] ?? PALETTE.metalLight, accent, 0.12);
+  const floorTextures = new Map<string, THREE.CanvasTexture>();
   /** Each room's floor, four metres to a tile: deck plate, planks, tiles, carpet, lino, concrete. */
-  const floorFor = (kind: WalkRoomKind) => {
+  const floorFor = (kind: string) => {
     const cached = floorTextures.get(kind);
     if (cached) return cached;
     const texture = canvasTexture(32, 32, (context) => {
@@ -559,6 +742,20 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
           for (const [x, z] of [[2, 2], [13, 2], [2, 13], [13, 13]]) px(y + x, z, "#c9a85a");
         }
         px(0, 8, "#857f98", 32, 1);
+      } else if (kind === "galley") {
+        // Kitchen tiles in a small check.
+        tiles(4, "#d8d2c4", "#5e5870", "#9a94a8");
+      } else if (kind === "armory") {
+        // Ridged rubber matting.
+        px(0, 0, "#4c4858", 32, 32);
+        for (let y = 1; y < 32; y += 3) px(0, y, "#3e3a4a", 32, 1);
+        px(0, 0, "#5e5970", 32, 1);
+        px(0, 0, "#5e5970", 1, 32);
+      } else if (kind.startsWith("cabin")) {
+        // Soft carpet in the cabin's own colour.
+        const pile = tinted(SIDE_COLOR[kind] ?? "#e2786a", "#6a6070", 0.55);
+        px(0, 0, pile, 32, 32);
+        for (let y = 0; y < 32; y += 4) for (let x = (y / 4) % 2 === 0 ? 0 : 2; x < 32; x += 4) px(x, y, tinted(pile, "#ffffff", 0.14));
       } else {
         // Diamond deck plate.
         px(0, 0, "#86838f", 32, 32);
@@ -575,14 +772,14 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     floorTextures.set(kind, texture);
     return texture;
   };
-  const floorMaterial = (kind: WalkRoomKind, w: number, d: number) => lambert("#ffffff", { map: repeated(floorFor(kind), w / 4, d / 4) });
+  const floorMaterial = (kind: string, w: number, d: number) => lambert("#ffffff", { map: repeated(floorFor(kind), w / 4, d / 4) });
   const wallTextures = new Map<string, THREE.CanvasTexture>();
   /**
    * A compartment's inner wall from the deck to its ceiling, two metres to a tile across:
    * light panels over a dark skirting, a band of the room's own colour at waist height
    * and a stripe of it up near the ceiling, so each room reads as its own place.
    */
-  const wallFor = (kind: WalkRoomKind, height: number) => {
+  const wallFor = (kind: string, height: number) => {
     const cacheKey = `${kind}:${height}`;
     const cached = wallTextures.get(cacheKey);
     if (cached) return cached;
@@ -622,7 +819,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     return texture;
   };
   /** One piece of a room's wall: w across, from y0 up h, cut from the room's painted wall. */
-  const wallCut = (kind: WalkRoomKind, height: number, w: number, y0: number, h: number, shift = 0) => {
+  const wallCut = (kind: string, height: number, w: number, y0: number, h: number, shift = 0) => {
     const texture = wallFor(kind, height).clone();
     texture.repeat.set(w / 2, h / height);
     texture.offset.set(shift, y0 / height);
@@ -820,7 +1017,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
   });
 
   /** A hull side: thick panels round its openings, the room's wall inside and the ship's skin out. */
-  const hullSide = (room: WalkCompartment, y0: number, side: number, openings: Rect[]) => {
+  const hullSide = (room: WalkCompartment, y0: number, side: number, openings: Rect[], thick = HULL) => {
     for (const piece of wallPieces(room.x0, room.x1, room.height, openings)) {
       const w = piece.a1 - piece.a0;
       const h = piece.y1 - piece.y0;
@@ -828,7 +1025,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       const faces = side > 0
         ? [hullSkin, hullSkin, hullSkin, hullSkin, hullSkin, inner]
         : [hullSkin, hullSkin, hullSkin, hullSkin, inner, hullSkin];
-      box(w, h, HULL, faces, (piece.a0 + piece.a1) / 2, y0 + (piece.y0 + piece.y1) / 2, side * (half + HULL / 2));
+      box(w, h, thick, faces, (piece.a0 + piece.a1) / 2, y0 + (piece.y0 + piece.y1) / 2, side * (half + thick / 2));
     }
   };
   /** Glass and a frame in a hull window. */
@@ -929,10 +1126,15 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
             y0: low,
             y1: high,
           })));
-          const openings = dock && side === 1
-            ? [...windows, { a0: layout.dock.opening.x0, a1: layout.dock.opening.x1, y0: 0.4, y1: 5.2 }]
-            : windows;
-          hullSide(room, y0, side, openings);
+          // Doors to the rooms behind the hall go through its port wall, which is thicker there.
+          const sideDoors: Rect[] = side < 0
+            ? deck.sideRooms.filter((sideRoom) => sideRoom.section === room.kind).map((sideRoom) => ({ a0: sideRoom.door.x0, a1: sideRoom.door.x1, y0: 0, y1: SIDE_DOOR_HEIGHT }))
+            : [];
+          const openings = [
+            ...(dock && side === 1 ? [...windows, { a0: layout.dock.opening.x0, a1: layout.dock.opening.x1, y0: 0.4, y1: 5.2 }] : windows),
+            ...sideDoors,
+          ];
+          hullSide(room, y0, side, openings, sideDoors.length > 0 ? INNER_WALL : HULL);
           for (const pane of windows) hullWindow(y0, pane, side);
           openingsBySide.set(side, openings);
         }
@@ -1085,17 +1287,6 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         put(room.x1 - core.x1 - 1.8, 0.06, 0.06, rail, (core.x1 + room.x1) / 2 - 0.9, 1, core.z1);
       } else if (room.kind === "habitation") {
         hear("mess", room.x1 - 3.6, 1, towardWalls(3.4, half));
-        // Two bunk stacks with linen and posts.
-        for (const sx of [room.x0 + 3.5, room.x0 + 10]) {
-          for (const level of [0.55, 1.75]) {
-            fit(4.6, 0.3, 1.8, solid(metal), sx, level, -5.85);
-            fit(4.4, 0.18, 1.6, solid(PALETTE.bunk), sx, level + 0.24, -5.85);
-            fit(0.7, 0.16, 1.2, solid(PALETTE.linen), sx - 1.8, level + 0.4, -5.85);
-            fit(0.1, 0.4, 1.6, solid(metalLight), sx + 2.25, level + 0.35, -5.85);
-          }
-          for (const px of [-2.3, 2.3]) for (const pz of [-6.75, -4.95]) fit(0.12, 2.4, 0.12, solid(metalLight), sx + px, 1.2, pz);
-          for (let rung = 0; rung < 5; rung += 1) fit(0.5, 0.05, 0.05, solid(metalLight), sx - 2.3, 0.4 + rung * 0.4, -4.95);
-        }
         // The mess table and chairs; the table is the habitation console.
         const tableX = room.x1 - 3.6;
         addConsole(fit(3.2, 0.14, 1.6, solid(PALETTE.wood), tableX, 0.85, 3.4));
@@ -1541,6 +1732,8 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         : ["security", "navigator", "researcher"].map((role, index) => ({ id: `recon-team-${index}`, role }));
       team = roster.map((member) => {
         const person = blockyPerson(member.id, member.role);
+        const issued = live().recon?.gear?.find((entry) => entry.crewId === member.id);
+        if (issued) gearUp(person, issued.armor, issued.weapon);
         person.group.visible = false;
         scene.add(person.group);
         return person;
@@ -2401,11 +2594,32 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     }
   }
 
+  // ---- Soldiers in their kit: the best the Armory has ready, as far as it goes (the look only). ----
+  const SOLDIER_ROLES = new Set(["security", "soldier"]);
+  const armoryStock = props.armory?.unlocked ? props.armory.items : [];
+  const left = new Map(armoryStock.map((item) => [item.id, item.ready]));
+  const issue = (kind: "weapon" | "armor") => {
+    const item = armoryStock
+      .filter((candidate) => candidate.kind === kind && (left.get(candidate.id) ?? 0) > 0)
+      .sort((a, b) => b.tier - a.tier)[0] ?? null;
+    if (item) left.set(item.id, (left.get(item.id) ?? 1) - 1);
+    return item;
+  };
+  const kitOut = (person: Person, role: string, aiming: boolean) => {
+    if (!SOLDIER_ROLES.has(role)) return;
+    const weapon = issue("weapon");
+    // On the range they shoot a carbine or better; a training carbine if that is all there is.
+    gearUp(person, issue("armor"), aiming && (!weapon || weapon.tier < 2) ? { tier: 2, mark: 1 } : weapon, aiming);
+  };
+  /** The firing range's lanes: a bolt down each and a flash on its target, set by whoever shoots there. */
+  const range: { z: number; flash: THREE.Mesh; bolt: THREE.Mesh }[] = [];
+
   // ---- The crew at work: everyone has a place and something to do there (ark-walk-crew). ----
   type Point = { x: number; z: number };
   const awayIds = new Set(props.recon?.away ? props.recon.crewIds : []);
   const roomOnline = (kind: WalkRoomKind) => layout.decks.some((deck) => deck.compartments.some((room) => room.kind === kind && room.online));
-  const plan = planCrew(props.crew, roomOnline, awayIds);
+  const areaOpen = (area: string) => layout.decks.some((deck) => deck.sideRooms.some((room) => room.id === area && room.open));
+  const plan = planCrew(props.crew, roomOnline, awayIds, areaOpen);
   const where = (kind: WalkRoomKind, deckHint?: number) => {
     const decks = deckHint === undefined ? layout.decks.map((_, index) => index) : [deckHint];
     for (const deck of decks) {
@@ -2432,6 +2646,8 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     pilot: "at the helm",
     guard: "on watch",
     lounge: "waiting for a flight",
+    cook: "cooking for everyone",
+    aim: "on the firing range",
   };
   const crateMaterial = solid(PALETTE.wood);
   /** Walking a beat between two points with a stop at each end; where they are now. */
@@ -2456,6 +2672,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     const { deck: deckNumber, room } = place;
     const floor = layout.decks[deckNumber].floorY;
     const person = blockyPerson(member.id, member.role, member.ageGroup);
+    kitOut(person, member.role, spot.activity === "aim");
     const group = person.group;
     scene.add(group);
     crowd.push({ person, deck: deckNumber });
@@ -2590,6 +2807,23 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         } else {
           person.head.rotation.x = 0.08 + Math.max(0, Math.sin(t * 2.4)) * 0.12;
         }
+      } else if (spot.activity === "cook") {
+        // Stirring a pot, eyes on it.
+        leftArm.rotation.x = -0.9;
+        rightArm.rotation.x = -1.15 + Math.sin(t * 6) * 0.22;
+        rightArm.rotation.z = Math.sin(t * 6 + 1.2) * 0.18;
+        person.head.rotation.x = 0.32;
+      } else if (spot.activity === "aim") {
+        // Levelled down the range, a shot every second or so; the target flashes as it lands.
+        const shot = (t * 0.8) % 1;
+        rightArm.rotation.x = -1.52 + (shot < 0.08 ? 0.14 : 0);
+        leftArm.rotation.x = -1.4;
+        leftArm.rotation.z = -0.45;
+        const lane = range.find((candidate) => Math.abs(candidate.z - from.z) < 0.6);
+        if (lane) {
+          lane.bolt.visible = shot < 0.06;
+          lane.flash.visible = shot > 0.03 && shot < 0.16;
+        }
       }
       if (spot.activity !== "heal") group.rotation.x = 0;
 
@@ -2641,6 +2875,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     const route = routes[index % routes.length];
     const deckFloor = layout.decks[route.deck].floorY;
     const person = blockyPerson(member.id, member.role, member.ageGroup);
+    kitOut(person, member.role, false);
     scene.add(person.group);
     crowd.push({ person, deck: route.deck });
     label(person.group, `${member.name} · ${roleName(member.role)} · walking the deck`);
@@ -2671,6 +2906,438 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     });
   });
 
+  // ---- The rooms behind the halls: the crew's cabins and their galley, the Armory. ----
+  const sideLabels = new Map<string, string>();
+  layout.decks.forEach((deck, deckIndex) => {
+    for (const room of deck.sideRooms) buildSideRoom(room, deck, deckIndex);
+  });
+
+  function buildSideRoom(room: SideRoom, deck: WalkDeck, deckIndex: number) {
+    const y0 = deck.floorY;
+    const put = (w: number, h: number, d: number, material: THREE.Material | THREE.Material[], x: number, y: number, z: number) =>
+      box(w, h, d, material, x, y0 + y, z);
+    const key = room.kind === "cabin" ? room.id : room.kind;
+    const paint = paintOf(key);
+    const width = room.x1 - room.x0;
+    const depth = room.z1 - room.z0;
+    const cx = (room.x0 + room.x1) / 2;
+    const cz = (room.z0 + room.z1) / 2;
+    const doorX = (room.door.x0 + room.door.x1) / 2;
+    const doorWidth = room.door.x1 - room.door.x0;
+    const wallZ = -(half + INNER_WALL / 2);
+    const keyOf = (other: SideRoom) => (other.kind === "cabin" ? other.id : other.kind);
+    const nth = <T,>(list: readonly T[], index: number) => list[((index % list.length) + list.length) % list.length];
+
+    // Who lives in a cabin: whoever is asleep in it, else a household from the crew.
+    const cabinIndex = room.kind === "cabin" ? Number(room.id.split("-")[1]) : -1;
+    const sleepers = plan.placed.filter((placement) => placement.spot.area === room.id).map((placement) => placement.member);
+    const household = sleepers.length > 0 ? sleepers : props.crew.filter((_, index) => index % 3 === cabinIndex).slice(0, 2);
+    const names = household.map((member) => member.name.split(" ")[0]);
+    const title = room.kind === "cabin"
+      ? (room.open ? (names.length > 0 ? `Quarters · ${names.join(" & ")}` : "Quarters") : "Unassigned quarters")
+      : room.open ? room.label : `${room.label} · sealed`;
+    sideLabels.set(room.id, title);
+
+    // Floor, ceiling, and the floor through the doorway.
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), floorMaterial(key, width, depth));
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.set(cx, y0, cz);
+    const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(width + 0.4, depth), lambert("#ffffff", { map: repeated(ceilingTexture, width / 2, depth / 2) }));
+    ceiling.rotation.x = Math.PI / 2;
+    ceiling.position.set(cx, y0 + room.height, cz);
+    scene.add(floor, ceiling);
+    put(doorWidth, 0.06, INNER_WALL + 0.02, floorMaterial(key, doorWidth, INNER_WALL), doorX, -0.03, wallZ);
+
+    // Its walls: a partition shared with the room beside it, or a thick end wall.
+    const before = deck.sideRooms.find((other) => Math.abs(other.x1 - (room.x0 - 0.2)) < 0.01);
+    const after = deck.sideRooms.some((other) => Math.abs(other.x0 - (room.x1 + 0.2)) < 0.01);
+    const sternThick = before ? 0.2 : 0.4;
+    put(sternThick, room.height, depth, [
+      wallCut(key, room.height, depth, 0, room.height),
+      before ? wallCut(keyOf(before), before.height, depth, 0, room.height) : hullSkin,
+      hullSkin, hullSkin, hullSkin, hullSkin,
+    ], room.x0 - sternThick / 2, room.height / 2, cz);
+    if (!after) {
+      put(0.4, room.height, depth, [hullSkin, wallCut(key, room.height, depth, 0, room.height), hullSkin, hullSkin, hullSkin, hullSkin], room.x1 + 0.2, room.height / 2, cz);
+    }
+    // The far wall is the hull; a cabin has a window in it.
+    const view: Rect[] = room.kind === "cabin" ? [{ a0: cx - 0.7, a1: cx + 0.7, y0: 1.1, y1: 2.3 }] : [];
+    for (const piece of wallPieces(room.x0 - (before ? 0.1 : 0.4), room.x1 + (after ? 0.1 : 0.4), room.height, view)) {
+      const w = piece.a1 - piece.a0;
+      const h = piece.y1 - piece.y0;
+      put(w, h, HULL, [hullSkin, hullSkin, hullSkin, hullSkin, wallCut(key, room.height, w, piece.y0, h), hullSkin], (piece.a0 + piece.a1) / 2, (piece.y0 + piece.y1) / 2, room.z0 - HULL / 2);
+    }
+    for (const pane of view) {
+      const glassPane = inert(new THREE.Mesh(new THREE.PlaneGeometry(pane.a1 - pane.a0, pane.y1 - pane.y0), glassMaterial));
+      glassPane.position.set(cx, y0 + (pane.y0 + pane.y1) / 2, room.z0 - HULL / 2);
+      scene.add(glassPane);
+      for (const y of [pane.y0, pane.y1]) put(pane.a1 - pane.a0 + 0.24, 0.12, 0.12, trimMaterial, cx, y, room.z0 + 0.04);
+      for (const x of [pane.a0, pane.a1]) put(0.12, pane.y1 - pane.y0, 0.12, trimMaterial, x, (pane.y0 + pane.y1) / 2, room.z0 + 0.04);
+    }
+    // The hall's wall, seen from inside, in this room's paint.
+    for (const piece of wallPieces(room.x0, room.x1, room.height, [{ a0: room.door.x0, a1: room.door.x1, y0: 0, y1: SIDE_DOOR_HEIGHT }])) {
+      const w = piece.a1 - piece.a0;
+      const h = piece.y1 - piece.y0;
+      put(w, h, 0.02, wallCut(key, room.height, w, piece.y0, h), (piece.a0 + piece.a1) / 2, (piece.y0 + piece.y1) / 2, room.z1 - 0.011);
+    }
+
+    // The door: framed in the room's colour, sliding open as the drone comes, shut fast if sealed.
+    const frame = solid(paint);
+    for (const face of [-half + 0.04, room.z1 - 0.04]) {
+      for (const edge of [room.door.x0 - 0.07, room.door.x1 + 0.07]) put(0.14, SIDE_DOOR_HEIGHT + 0.14, 0.08, frame, edge, (SIDE_DOOR_HEIGHT + 0.14) / 2, face);
+      put(doorWidth + 0.28, 0.14, 0.08, frame, doorX, SIDE_DOOR_HEIGHT + 0.07, face);
+    }
+    const leafMaterial = solid(tinted(PALETTE.metal, paint, 0.2));
+    const leaves = [-1, 1].map((sideSign) => {
+      const leaf = new THREE.Group();
+      leaf.add(new THREE.Mesh(new THREE.BoxGeometry(doorWidth / 2, SIDE_DOOR_HEIGHT, 0.08), leafMaterial));
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(doorWidth / 2, 0.12, 0.09), frame);
+      stripe.position.y = 0.3;
+      leaf.add(stripe);
+      leaf.position.set(doorX + (sideSign * doorWidth) / 4, y0 + SIDE_DOOR_HEIGHT / 2, wallZ);
+      scene.add(leaf);
+      return { leaf, sideSign };
+    });
+    put(0.12, 0.12, 0.04, glow(room.open ? PALETTE.ok : PALETTE.alert), room.door.x1 + 0.35, 1.5, -half + 0.03);
+    let opening = 0;
+    animated.push((_time, drone) => {
+      const near = room.open && drone.deck === deckIndex && Math.hypot(drone.x - doorX, drone.z - wallZ) < 2.6;
+      opening += ((near ? 1 : 0) - opening) * Math.min(1, drone.dt * 6);
+      for (const { leaf, sideSign } of leaves) leaf.position.x = doorX + sideSign * (doorWidth / 4 + (opening * doorWidth) / 2);
+    });
+    const sign = new THREE.Mesh(
+      new THREE.PlaneGeometry(Math.max(2.2, doorWidth + 0.8), 0.24),
+      new THREE.MeshBasicMaterial({ map: signTexture(title.toUpperCase(), tinted(paint, "#ffffff", 0.3)) }),
+    );
+    sign.position.set(doorX, y0 + SIDE_DOOR_HEIGHT + 0.36, -half + 0.03);
+    scene.add(sign);
+    // Beside a cabin's door, a photo of who lives there.
+    if (room.kind === "cabin" && room.open && household.length > 0) {
+      const faces = household.map((member) => getCrewHead({ id: member.id, role: member.role, ageGroup: member.ageGroup }));
+      const plate = picture(0.5, 0.3, artTexture(24, 14, (context) => {
+        context.fillStyle = "#3a2616";
+        context.fillRect(0, 0, 24, 14);
+        faces.forEach((faceHead, index) => {
+          context.fillStyle = ["#f4c8c0", "#c8d4f4"][index % 2];
+          context.fillRect(1 + index * 12, 2, 10, 10);
+          for (const pixel of faceHead.pixels) {
+            if (pixel.x - 2 < 10 && pixel.y - 2 < 10) {
+              context.fillStyle = pixel.color;
+              context.fillRect(1 + index * 12 + pixel.x - 2, 2 + pixel.y - 2, 1, 1);
+            }
+          }
+        });
+      }));
+      plate.position.set(room.door.x0 - 0.45, y0 + 1.6, -half + 0.03);
+      scene.add(plate);
+      label(plate, title);
+    }
+
+    if (!room.open) return;
+    const lamps = room.kind === "armory" ? [room.x0 + 4, room.x0 + 11] : [cx];
+    const lampColor = room.kind === "armory" ? "#e8ecff" : LAMP;
+    for (const lx of lamps) {
+      const light = new THREE.PointLight(lampColor, room.kind === "armory" ? 9 : 5, room.kind === "armory" ? 14 : 8, 1);
+      light.position.set(lx, y0 + room.height - 0.5, cz);
+      scene.add(light);
+      put(room.kind === "armory" ? 3 : 1.2, 0.05, 0.6, glow(lampColor), lx, room.height - 0.03, cz);
+    }
+
+    if (room.kind === "cabin") {
+      // A bunk for two along the stern wall, head to the window, blankets in the cabin's colour.
+      const bunkX = room.x0 + 0.6;
+      const bunkZ = room.z0 + 1.6;
+      for (const px of [room.x0 + 0.14, room.x0 + 1.06]) for (const pz of [room.z0 + 0.54, room.z0 + 2.66]) put(0.08, 2.3, 0.08, solid(metalLight), px, 1.15, pz);
+      for (const level of [0.5, 1.7]) {
+        put(1, 0.12, 2.2, solid(metal), bunkX, level, bunkZ);
+        put(0.9, 0.16, 2, solid(PALETTE.linen), bunkX, level + 0.14, bunkZ);
+        put(0.92, 0.07, 1.2, solid(tinted(paint, "#000000", 0.15)), bunkX, level + 0.25, bunkZ + 0.4);
+        put(0.6, 0.1, 0.32, solid("#ffffff"), bunkX, level + 0.27, room.z0 + 0.8);
+      }
+      for (let rung = 0; rung < 4; rung += 1) put(0.04, 0.04, 0.42, solid(metalLight), room.x0 + 1.12, 0.45 + rung * 0.4, room.z0 + 2.4);
+      // A desk with a lamp, a chair, books on a shelf, a photo of the household over it.
+      const deskX = room.x1 - 0.42;
+      const deskZ = room.z0 + 1.1;
+      put(0.65, 0.06, 1.2, solid(PALETTE.wood), deskX, 0.76, deskZ);
+      for (const dz of [-0.5, 0.5]) put(0.6, 0.73, 0.06, solid(PALETTE.wood), deskX, 0.37, deskZ + dz);
+      put(0.12, 0.16, 0.12, glow("#ffe2a8"), deskX + 0.1, 0.88, deskZ - 0.4);
+      put(0.2, 0.05, 0.28, solid(nth(["#c8605a", "#4f6ad0", "#d8a03a"], cabinIndex)), deskX, 0.81, deskZ + 0.2);
+      put(0.45, 0.06, 0.45, solid(metalLight), room.x1 - 1.1, 0.45, deskZ);
+      put(0.06, 0.5, 0.45, solid(metalLight), room.x1 - 1.33, 0.7, deskZ);
+      put(0.3, 0.04, 1.1, solid(PALETTE.wood), room.x1 - 0.18, 1.7, deskZ);
+      for (let book = 0; book < 6; book += 1) put(0.2, 0.22, 0.08, solid(nth(["#c8605a", "#4f6ad0", "#d8a03a", "#5a8a4a", "#8a5a9a"], book + cabinIndex)), room.x1 - 0.2, 1.83, deskZ - 0.4 + book * 0.15);
+      if (household.length > 0) {
+        const photo = picture(0.66, 0.45, artTexture(44, 30, (context) => paintPortraits(context, 44, 30, 7 + cabinIndex, household.map((member) => getCrewHead({ id: member.id, role: member.role, ageGroup: member.ageGroup })))));
+        photo.position.set(room.x1 - 0.42, y0 + 2.3, room.z0 + 0.02);
+        scene.add(photo);
+      }
+      // A wardrobe by the door, and a rug.
+      put(0.6, 2.2, 1, solid(tinted(PALETTE.wood, paint, 0.15)), room.x1 - 0.4, 1.1, room.z1 - 1.2);
+      put(0.02, 2, 0.02, solid(PALETTE.dark), room.x1 - 0.69, 1.1, room.z1 - 1.2);
+      const rug = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 2), lambert("#ffffff", { map: artTexture(13, 16, (context) => paintRug(context, 13, 16, 30 + cabinIndex)) }));
+      rug.rotation.x = -Math.PI / 2;
+      rug.position.set(room.x0 + 2.1, y0 + 0.015, room.z0 + 3.2);
+      scene.add(inert(rug));
+    } else if (room.kind === "galley") {
+      // Stoves and a sink along the far wall, shelves of jars above.
+      put(width - 0.2, 0.88, 0.7, solid(metal), cx, 0.44, room.z0 + 0.4);
+      put(width - 0.2, 0.05, 0.72, solid("#d8d2c4"), cx, 0.9, room.z0 + 0.4);
+      const burners: THREE.Mesh[] = [];
+      for (const bx of [room.x0 + 1.15, room.x0 + 1.75]) {
+        for (const bz of [room.z0 + 0.25, room.z0 + 0.55]) {
+          const burner = cylinder(0.11, 0.11, 0.02, glow("#ff7a3a"), bx, y0 + 0.93, bz, 10);
+          burners.push(burner);
+        }
+      }
+      const lids = [room.x0 + 1.15, room.x0 + 1.75].map((px, index) => {
+        cylinder(0.16, 0.15, 0.24, solid(metalLight), px, y0 + 1.05, room.z0 + 0.25 + index * 0.3, 10);
+        return cylinder(0.17, 0.17, 0.03, solid(metal), px, y0 + 1.19, room.z0 + 0.25 + index * 0.3, 10);
+      });
+      const steam = [0, 1, 2, 3, 4, 5].map(() => inert(put(0.08, 0.08, 0.08, ghost("#eef2ff", 0.35), room.x0 + 1.15, 1.3, room.z0 + 0.25)));
+      put(0.6, 0.04, 0.45, solid(PALETTE.dark), room.x1 - 1.45, 0.925, room.z0 + 0.4);
+      put(0.05, 0.3, 0.05, solid(metalLight), room.x1 - 1.45, 1.07, room.z0 + 0.15);
+      put(0.05, 0.05, 0.2, solid(metalLight), room.x1 - 1.45, 1.21, room.z0 + 0.24);
+      for (const shelfY of [1.7, 2.2]) {
+        put(width - 0.4, 0.05, 0.3, solid(PALETTE.wood), cx, shelfY, room.z0 + 0.17);
+        for (let jar = 0; jar < Math.floor((width - 0.6) / 0.3); jar += 1) {
+          cylinder(0.07, 0.07, 0.2, solid(nth(["#d8a03a", "#c8605a", "#7cc35a", "#e9e4da", "#8a5a3a"], jar + (shelfY > 2 ? 2 : 0))), room.x0 + 0.45 + jar * 0.3, y0 + shelfY + 0.125, room.z0 + 0.17, 6);
+        }
+      }
+      // The island, with bread and vegetables on it, and pans hanging above.
+      put(width - 2.4, 0.88, 0.8, solid(PALETTE.wood), cx, 0.44, room.z0 + 2.7);
+      put(width - 2.3, 0.05, 0.85, solid("#e9e4da"), cx, 0.9, room.z0 + 2.7);
+      for (const [dx, color, w, h] of [[-0.6, "#c8955a", 0.3, 0.12], [-0.2, "#c8955a", 0.26, 0.1], [0.25, "#7cc35a", 0.1, 0.1], [0.4, "#d8503e", 0.1, 0.1], [0.55, "#f08a2a", 0.1, 0.1]] as const) {
+        put(w, h, 0.14, solid(color), cx + dx, 0.92 + h / 2, room.z0 + 2.7);
+      }
+      put(width - 2.4, 0.04, 0.04, solid(metalLight), cx, 2.4, room.z0 + 2.7);
+      for (let pan = 0; pan < 4; pan += 1) {
+        const px = cx - 0.6 + pan * 0.4;
+        put(0.02, 0.3, 0.02, solid(metalLight), px, 2.25, room.z0 + 2.7);
+        cylinder(0.12, 0.1, 0.06, solid(pan % 2 === 0 ? PALETTE.copper : metal), px, y0 + 2.07, room.z0 + 2.7, 8).rotation.x = Math.PI / 2;
+      }
+      // The cold store by the door.
+      put(0.8, 2, 1, solid("#c8d0e0"), room.x0 + 0.45, 1, room.z1 - 1.1);
+      put(0.04, 0.5, 0.04, solid(metal), room.x0 + 0.87, 1.2, room.z1 - 0.8);
+      soundPlaces.push({ kind: "mess", x: cx, y: y0 + 1, z: cz, deck: deckIndex, online: true });
+      animated.push((time) => {
+        burners.forEach((burner, index) => { burner.visible = Math.floor(time / 200 + index) % 7 !== 0; });
+        lids.forEach((lid, index) => { lid.position.y = y0 + 1.19 + Math.max(0, Math.sin(time * 0.012 + index * 2)) * 0.02; });
+        steam.forEach((puff, index) => {
+          const rise = ((time * 0.0005) + index / 6) % 1;
+          puff.position.set(room.x0 + 1.15 + (index % 2) * 0.6 + Math.sin(rise * 6 + index) * 0.06, y0 + 1.25 + rise * 0.9, room.z0 + 0.25 + (index % 2) * 0.3);
+          puff.scale.setScalar(0.6 + rise);
+        });
+      });
+    } else if (room.kind === "armory") {
+      buildArmory(room, y0, deckIndex, put, paint);
+    }
+  }
+
+  /** The Armory: the range, the racks, the armour stands, the repair bench and the forge. */
+  function buildArmory(
+    room: SideRoom,
+    y0: number,
+    deckIndex: number,
+    put: (w: number, h: number, d: number, material: THREE.Material | THREE.Material[], x: number, y: number, z: number) => THREE.Mesh,
+    paint: string,
+  ) {
+    // The live Armory once the game has one unlocked; until then what the walk opened with (the QA stock).
+    const armoryNow = () => (live().armory?.unlocked ? live().armory : props.armory);
+    const stock = props.armory?.items ?? [];
+    const find = (kind: "weapon" | "armor", tier: number) => stock.find((item) => item.kind === kind && item.tier === tier) ?? null;
+    const describe = (item: (typeof stock)[number] | null, fallback: string) => item
+      ? `${item.name} · Mark ${ROMAN[item.mark] ?? item.mark} · ${item.ready} ready${item.damaged ? ` · ${item.damaged} awaiting repair` : ""}`
+      : `${fallback} · none made yet`;
+
+    // The firing range: two lanes behind a low wall and glass, targets at the far end.
+    const laneFrom = room.x0 + 4.6;
+    const laneTo = room.x1 - 0.1;
+    const laneLength = laneTo - laneFrom;
+    const laneMid = (laneFrom + laneTo) / 2;
+    const glassZ = room.z0 + 2.5;
+    const laneFloor = new THREE.Mesh(new THREE.PlaneGeometry(laneLength, 2.4), solid("#35313f"));
+    laneFloor.rotation.x = -Math.PI / 2;
+    laneFloor.position.set(laneMid, y0 + 0.012, room.z0 + 1.3);
+    scene.add(laneFloor);
+    put(laneLength, 0.9, 0.12, solid(metal), laneMid, 0.45, glassZ);
+    const rangeGlass = inert(new THREE.Mesh(new THREE.PlaneGeometry(laneLength, 1.8), glassMaterial));
+    rangeGlass.position.set(laneMid, y0 + 1.8, glassZ);
+    scene.add(rangeGlass);
+    put(laneLength, 0.08, 0.14, trimMaterial, laneMid, 2.7, glassZ);
+    put(1.4, 1.1, 0.06, solid(metal), laneFrom + 0.7, 0.55, room.z0 + 1.4);
+    put(0.3, 1, 2.3, solid(metal), laneFrom - 0.15, 0.5, room.z0 + 1.3);
+    put(0.1, 0.01, 2.3, glow(PALETTE.alert), laneFrom - 0.45, 0.006, room.z0 + 1.3);
+    const targetFace = lambert("#ffffff", {
+      map: canvasTexture(16, 16, (context) => {
+        [[0, "#e9e4da"], [2, "#d8503e"], [4, "#e9e4da"], [6, "#d8503e"]].forEach(([inset, color]) => {
+          context.fillStyle = color as string;
+          context.fillRect(inset as number, inset as number, 16 - 2 * (inset as number), 16 - 2 * (inset as number));
+        });
+      }),
+    });
+    for (const laneZ of [room.z0 + 0.9, room.z0 + 1.9]) {
+      put(0.06, 0.8, 0.7, [solid(metal), targetFace, solid(metal), solid(metal), solid(metal), solid(metal)], laneTo - 0.35, 1.35, laneZ);
+      put(0.04, 1.6, 0.04, solid(metalLight), laneTo - 0.3, 0.8, laneZ);
+      const flash = inert(put(0.02, 0.84, 0.74, glow("#ffe2a8"), laneTo - 0.39, 1.35, laneZ));
+      const muzzle = room.x0 + 4.4;
+      const bolt = inert(put(laneTo - 0.4 - muzzle, 0.05, 0.05, glow("#9ac4ff"), (muzzle + laneTo - 0.4) / 2, 1.38, laneZ));
+      flash.visible = false;
+      bolt.visible = false;
+      range.push({ z: laneZ, flash, bolt });
+    }
+
+    // Weapon racks along the wall by the door, one per weapon, holding what is ready.
+    ["Kinetic Pike", "Arc Carbine", "Null Lance"].forEach((fallback, rack) => {
+      const tier = rack + 1;
+      const item = find("weapon", tier);
+      const rx = room.x0 + 4.4 + rack * 3.2;
+      const panel = put(2.8, 2.2, 0.1, solid(tinted(PALETTE.metal, paint, 0.15)), rx, 1.3, room.z1 - 0.15);
+      put(2.8, 0.06, 0.4, solid(metalLight), rx, 0.25, room.z1 - 0.35);
+      const shown = Math.min(6, item?.ready ?? 0);
+      for (let slot = 0; slot < 6; slot += 1) {
+        const sx = rx - 1.05 + slot * 0.42;
+        put(0.06, 0.06, 0.18, solid(metalLight), sx, 1.95, room.z1 - 0.25);
+        if (slot >= shown || !item) continue;
+        const model = weaponModel({ tier, mark: item.mark });
+        model.position.set(sx, y0 + 1.15, room.z1 - 0.34);
+        scene.add(model);
+      }
+      label(panel, describe(item, `${fallback} rack`));
+    });
+
+    // Armour stands along the bow wall, each dummy wearing its armour if there is one ready.
+    ["Composite Weave", "Reactive Shell", "Aegis Frame"].forEach((fallback, stand) => {
+      const tier = stand + 1;
+      const item = find("armor", tier);
+      const sz = room.z0 + [3.6, 5.4, 7.2][stand];
+      const sx = room.x1 - 0.75;
+      put(0.9, 0.12, 0.9, solid(metal), sx, 0.06, sz);
+      const dummy = mannequin();
+      dummy.group.position.set(sx, y0 + 0.12, sz);
+      face(dummy.group, -1, 0);
+      if (item && item.ready > 0) gearUp(dummy, { tier, mark: item.mark }, null);
+      scene.add(dummy.group);
+      label(dummy.group, describe(item, `${fallback} stand`));
+    });
+
+    // The repair bench: damaged gear laid out, tagged, sparking while someone works at it.
+    const benchX = room.x0 + 0.6;
+    const benchZ = room.z0 + 4.7;
+    const bench = put(1, 0.9, 3, solid(PALETTE.wood), benchX, 0.45, benchZ);
+    put(1.04, 0.05, 3.04, solid(metalLight), benchX, 0.92, benchZ);
+    const broken = stock.filter((item) => item.damaged > 0);
+    const waiting = broken.reduce((sum, item) => sum + item.damaged, 0);
+    broken.slice(0, 3).forEach((item, index) => {
+      const z = benchZ - 1 + index;
+      if (item.kind === "weapon") {
+        const model = weaponModel({ tier: item.tier, mark: item.mark });
+        model.rotation.x = Math.PI / 2;
+        model.position.set(benchX, y0 + 1, z);
+        scene.add(model);
+      } else {
+        put(0.5, 0.12, 0.4, solid(item.tier === 3 ? "#3b3552" : item.tier === 2 ? "#8d94a8" : "#56604f"), benchX, 1, z);
+      }
+      put(0.3, 0.02, 0.12, solid("#2a2430"), benchX + 0.1, 1.07, z + 0.1);
+      put(0.12, 0.02, 0.08, solid("#f2c744"), benchX - 0.3, 0.96, z - 0.15);
+    });
+    label(bench, waiting > 0 ? `Repair bench · ${waiting} piece${waiting === 1 ? "" : "s"} awaiting repair` : "Repair bench · nothing waiting");
+    const fixer = plan.placed.some((placement) => placement.spot.area === room.id && placement.spot.activity === "fix");
+    const sparks = [0, 1, 2, 3, 4].map(() => inert(put(0.05, 0.05, 0.05, glow("#ffd27a"), benchX + 0.4, 1, benchZ)));
+
+    // The forge cradle: the Armory's current project turning in its beam, its progress on the console.
+    const fx = room.x0 + 7.3;
+    const fz = room.z0 + 5;
+    put(2.6, 0.3, 2, solid(metal), fx, 0.15, fz);
+    for (const [dx, dz] of [[-1.15, -0.85], [1.15, -0.85], [-1.15, 0.85], [1.15, 0.85]]) put(0.12, 2.6, 0.12, solid(metalLight), fx + dx, 1.3, fz + dz);
+    for (const dz of [-0.85, 0.85]) put(2.42, 0.1, 0.1, solid(metalLight), fx, 2.6, fz + dz);
+    for (const dx of [-1.15, 1.15]) put(0.1, 0.1, 1.8, solid(metalLight), fx + dx, 2.6, fz);
+    const beam = inert(new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 2.2, 12, 1, true), ghost("#ffb347", 0.18)));
+    beam.position.set(fx, y0 + 1.4, fz);
+    scene.add(beam);
+    const cradled = new THREE.Group();
+    cradled.position.set(fx, y0 + 1.4, fz);
+    scene.add(cradled);
+    const project = props.armory?.project ?? null;
+    const projectItem = project ? stock.find((item) => item.name === project.name) ?? null : null;
+    if (project && projectItem?.kind === "weapon") {
+      const model = weaponModel({ tier: projectItem.tier, mark: project.targetMark });
+      model.rotation.z = Math.PI / 2;
+      cradled.add(model);
+    } else if (project && projectItem) {
+      const plate = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.62, 0.36), solid(projectItem.tier === 3 ? "#3b3552" : projectItem.tier === 2 ? "#8d94a8" : "#56604f"));
+      cradled.add(plate);
+    }
+    put(0.9, 1, 0.3, solid(metal), fx, 0.5, room.z0 + 6.25);
+    const screenCanvas = document.createElement("canvas");
+    screenCanvas.width = 64;
+    screenCanvas.height = 24;
+    const screenContext = screenCanvas.getContext("2d")!;
+    const screenTexture = new THREE.CanvasTexture(screenCanvas);
+    screenTexture.magFilter = THREE.NearestFilter;
+    screenTexture.minFilter = THREE.NearestFilter;
+    screenTexture.generateMipmaps = false;
+    screenTexture.colorSpace = THREE.SRGBColorSpace;
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.84, 0.32), new THREE.MeshBasicMaterial({ map: screenTexture }));
+    screen.position.set(fx, y0 + 1.12, room.z0 + 6.41);
+    screen.rotation.x = -0.35;
+    scene.add(screen);
+    const armoryRoom: ArkWalkRoom = {
+      kind: "hangar",
+      label: "Armory",
+      online: true,
+      interactive: Boolean(props.armory?.onOpen),
+      onActivate: () => armoryNow()?.onOpen?.(),
+    };
+    interactables.push({
+      kind: "console",
+      object: screen,
+      label: "Armory",
+      room: armoryRoom,
+      online: true,
+      deck: deckIndex,
+      prompt: () => (armoryNow()?.onOpen ? "E · open the Armory" : "Armory console"),
+    });
+
+    // The room's name on the wall, and red trim along the floor.
+    const nameplate = new THREE.Mesh(new THREE.PlaneGeometry(3, 0.4), new THREE.MeshBasicMaterial({ map: signTexture("ARMORY", tinted(paint, "#ffffff", 0.2)) }));
+    nameplate.position.set(room.x0 + 0.02, y0 + 3.6, benchZ);
+    nameplate.rotation.y = Math.PI / 2;
+    scene.add(nameplate);
+    put(room.x1 - room.x0, 0.04, 0.04, glow(tinted(paint, PALETTE.dark, 0.2)), (room.x0 + room.x1) / 2, 0.04, room.z1 - 0.06);
+
+    let lastScreen = "";
+    animated.push((time) => {
+      cradled.rotation.y = time * 0.0006;
+      const now = armoryNow()?.project ?? null;
+      beam.visible = now !== null;
+      cradled.visible = now !== null;
+      sparks.forEach((spark, index) => {
+        const life = ((time * 0.004) + index / 5) % 1;
+        spark.visible = fixer && waiting > 0 && Math.floor(time / 900) % 3 !== 0;
+        spark.position.set(benchX + 0.45 + life * 0.4 * Math.cos(index * 2.1), y0 + 1 + life * 0.5 - life * life * 0.6, benchZ + life * 0.4 * Math.sin(index * 2.1));
+      });
+      const lines = now ? [`MARK ${ROMAN[now.targetMark] ?? now.targetMark} ${now.name.toUpperCase()}`, `${Math.round(now.progress * 100)}%`] : ["NO PROJECT", "THE FORGE IS IDLE"];
+      const key = lines.join("|");
+      if (key === lastScreen) return;
+      lastScreen = key;
+      screenContext.fillStyle = PALETTE.dark;
+      screenContext.fillRect(0, 0, 64, 24);
+      screenContext.textBaseline = "top";
+      screenContext.font = "bold 7px monospace";
+      screenContext.fillStyle = tinted(paint, "#ffffff", 0.3);
+      screenContext.fillText(lines[0], 3, 3, 58);
+      screenContext.fillStyle = PALETTE.light;
+      screenContext.fillText(lines[1], 3, 12, 58);
+      if (now) {
+        screenContext.fillStyle = "#3a3548";
+        screenContext.fillRect(26, 13, 34, 5);
+        screenContext.fillStyle = "#ffb347";
+        screenContext.fillRect(26, 13, Math.round(34 * Math.min(1, Math.max(0, now.progress))), 5);
+      }
+      screenTexture.needsUpdate = true;
+    });
+  }
+
   const obstacles = (): Obstacle[] => [
     ...crowd.map(({ person, deck }) => ({ deck, x: person.group.position.x, z: person.group.position.z, radius: PERSON_RADIUS })),
     ...dynamicObstacles.map((obstacle) => obstacle()).filter((obstacle): obstacle is Obstacle => obstacle !== null),
@@ -2684,7 +3351,11 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     soundPlaces.push({ kind: "bay", x: (bay.x0 + bay.x1) / 2, y: 2.5, z: (bay.z0 + bay.z1) / 2, deck: 1, online: true });
   }
 
-  return { interactables, animated, notices, heartGroup, heartTarget, heartLight, gimbals, obstacles, stage, soundPlaces, baySound, hullOpen: () => hullOpen };
+  return {
+    interactables, animated, notices, heartGroup, heartTarget, heartLight, gimbals, obstacles, stage, soundPlaces, baySound,
+    hullOpen: () => hullOpen,
+    sideLabel: (id: string) => sideLabels.get(id) ?? id,
+  };
 }
 
 export default function ArkWalk(props: ArkWalkProps) {
@@ -2705,14 +3376,19 @@ export default function ArkWalk(props: ArkWalkProps) {
     if (!mount || !root) return;
     // QA sandbox: ?qa=1&crew=demo fills the ship with every kind of crew member to look at.
     const search = new URLSearchParams(window.location.search);
-    const initial = search.has("qa") && search.get("crew") === "demo"
-      ? { ...propsRef.current, crew: demoCrew() }
-      : propsRef.current;
+    // ?qa=1&armory=demo stocks the Armory to look at.
+    const qaMode = search.has("qa");
+    const crewed = qaMode && search.get("crew") === "demo" ? { ...propsRef.current, crew: demoCrew() } : propsRef.current;
+    const initial = qaMode && search.get("armory") === "demo" ? { ...crewed, armory: demoArmory() } : crewed;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    const layout = buildWalkLayout(initial.rooms.map((room) => ({ kind: room.kind, label: room.label, online: room.online })));
-    // People make the ship theirs: the more aboard, the more is put up. ?qa=1&people=N previews a crew of N.
+    // People make the ship theirs: the more aboard, the more cabins are lived in and the more is put up.
+    // ?qa=1&people=N previews a crew of N.
     const preview = search.has("qa") && search.has("people") ? Number(search.get("people")) : null;
+    const layout = buildWalkLayout(initial.rooms.map((room) => ({ kind: room.kind, label: room.label, online: room.online })), {
+      residents: preview ?? initial.crew.length,
+      armory: Boolean(initial.armory?.unlocked),
+    });
     const decor = planDecor(layout, preview ?? initial.crew.length, {
       children: preview !== null || initial.crew.some((member) => member.ageGroup === "child"),
     });
@@ -3046,7 +3722,10 @@ export default function ArkWalk(props: ArkWalkProps) {
       else if (target.room?.interactive) setPrompt(`E · open ${target.label}`);
       else setPrompt(target.label);
 
-      const roomLabel = travel ? "Grav-lift" : `${deck.label} · ${compartmentAt(deck, x)?.label ?? "Bulkhead"}`;
+      const behindHall = travel ? null : sideRoomAt(deck, x, z);
+      const roomLabel = travel
+        ? "Grav-lift"
+        : `${deck.label} · ${behindHall ? ship.sideLabel(behindHall.id) : compartmentAt(deck, x)?.label ?? "Bulkhead"}`;
       const shownRoom = signal.misread ? misreadLabel(roomLabel, signal.seed) : roomLabel;
       if (shownRoom !== lastRoom && roomRef.current) {
         lastRoom = shownRoom;

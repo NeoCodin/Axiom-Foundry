@@ -12,6 +12,7 @@ import {
   DOCK_BOARD,
   DOCK_WALL_Z,
   DOOR_HALF_WIDTH,
+  SIDE_ROOM_PLANS,
   WINDOW_WIDTH,
   WINDOWS,
   wallRibs,
@@ -196,6 +197,8 @@ export function decorSlots(layout: WalkLayout): DecorPiece[] {
           ...offsets.map((offset) => ({ from: offset - WINDOW_WIDTH / 2, to: offset + WINDOW_WIDTH / 2 })),
           ...CROWDED.filter((crowd) => crowd.room === room.kind && crowd.side === side),
           ...(dock && side < 0 ? [{ from: DOCK_BOARD.at - DOCK_BOARD.width / 2, to: DOCK_BOARD.at + DOCK_BOARD.width / 2 }] : []),
+          // The doors to the rooms behind the hall, and the nameplates over them.
+          ...(side < 0 ? (SIDE_ROOM_PLANS[room.kind] ?? []).map((plan) => ({ from: plan.door - plan.doorHalf - 0.4, to: plan.door + plan.doorHalf + 0.4 })) : []),
         ];
         for (let bay = 0; bay < bounds.length - 1; bay += 1) {
           const from = bounds[bay] - room.x0;
