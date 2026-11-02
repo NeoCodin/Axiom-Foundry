@@ -10,6 +10,7 @@
  */
 
 import { CORE_HALF_Z, DOCK_WALL_Z, HALF_DEPTH, SIDE_ROOM_PLANS, towardWalls, type WalkRoomKind } from "./ark-walk-layout.ts";
+import type { TalkProfile } from "./crew-talk.ts";
 
 export type WalkCrewMember = {
   id: string;
@@ -23,6 +24,8 @@ export type WalkCrewMember = {
   /** Wounded: they rest in the sick bay. */
   resting?: boolean;
   ageGroup?: string | null;
+  /** Who they are, for conversation; crew without one get a stand-in. */
+  talk?: TalkProfile;
 };
 
 export type Activity =

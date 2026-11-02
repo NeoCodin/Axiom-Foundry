@@ -3198,6 +3198,17 @@ export default function Home() {
               training: training?.targetRole ?? null,
               resting: isSurvivorWounded(survivor),
               ageGroup: survivor.ageGroup,
+              talk: {
+                name: survivor.callsign || survivor.name,
+                origin: survivor.origin,
+                backgroundId: survivor.backgroundId,
+                role: survivor.role,
+                ageGroup: survivor.ageGroup,
+                traits: survivor.traits,
+                alterationId: survivor.alterationId ?? null,
+                storyHookId: survivor.storyHookId,
+                resting: isSurvivorWounded(survivor),
+              },
               rarity: rarity.id,
               rarityLabel: rarity.label,
               rarityDescription: rarity.description,
@@ -3269,6 +3280,7 @@ export default function Home() {
           lawHeartDrones={lawHeartDroneFrames}
           nullInterference={{ classification: nullSaturation.classification, intensity: nullSaturation.visualIntensity }}
           walkAccent={walkAccent}
+          talkContext={{ worldId: campaignWorld.id, worldsSaved: game.missions.worldsSaved, discovered: game.living.discoveredLore }}
           onOpenWalk={openArkWalk}
           onCloseWalk={closeArkWalk}
           armory={{

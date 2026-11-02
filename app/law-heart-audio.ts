@@ -204,6 +204,18 @@ export function playBulkhead() {
   noiseBurst(output, when, { filter: "bandpass", frequency: 900, q: 0.7, peak: 0.03, attack: 0.01, decay: 0.16 });
 }
 
+/** Someone talking, too soft to make out: a few breathy syllables under the subtitle. */
+export function playMurmur(loudness = 1) {
+  const output = ready();
+  if (!output) return;
+  const when = output.context.currentTime;
+  for (let syllable = 0; syllable < 3; syllable += 1) {
+    noiseBurst(output, when + syllable * 0.13 + Math.random() * 0.04, {
+      filter: "bandpass", frequency: 500 + Math.random() * 900, q: 5, peak: 0.02 * loudness, attack: 0.03, decay: 0.09,
+    });
+  }
+}
+
 /** Changing channel on an old set: the switch's click, a burst of snow, the new picture's hum settling. */
 export function playChannelSwitch() {
   const output = ready();

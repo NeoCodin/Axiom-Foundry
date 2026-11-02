@@ -9,6 +9,7 @@ import { ArkCutaway, type ArkCutawayRoom, type ArkCutawayRoomKind } from "./ark-
 import { ArkPixelWorld } from "./ark-pixel-world";
 
 import type { ArkWalkArmory, ArkWalkRecon, ArkWalkSimulator } from "./ark-walk";
+import type { TalkContext, TalkProfile } from "./crew-talk";
 import type { BeaconReadiness } from "./beacon-readiness-engine";
 import type { RoomId } from "./discovery-content";
 import {
@@ -43,6 +44,8 @@ export type ArkCrewPreview = {
   training?: string | null;
   /** Wounded and resting; the drone view puts them in the sick bay. */
   resting?: boolean;
+  /** Who they are, for talking with them in the drone view. */
+  talk?: TalkProfile;
   ageGroup?: string;
   rarity: string;
   rarityLabel: string;
@@ -132,6 +135,8 @@ export type ArkDeckProps = {
   simulator?: ArkWalkSimulator;
   /** The world's Null saturation, which also reaches the drone's camera. */
   nullInterference?: { classification: "quiet" | "trace" | "elevated" | "severe"; intensity: number };
+  /** Where the Ark is in its story, for what the crew talk about in the drone view. */
+  talkContext?: TalkContext;
   /** The drone view, open (in the world's accent) or not; the page opens and closes it, changing channel. */
   walkAccent?: string | null;
   onOpenWalk?: () => void;
@@ -211,6 +216,7 @@ function ArkDeck({
   recon,
   armory,
   simulator,
+  talkContext,
   nullInterference,
   walkAccent = null,
   onOpenWalk,
@@ -526,6 +532,7 @@ function ArkDeck({
                 training: member.training ?? null,
                 resting: member.resting,
                 ageGroup: member.ageGroup,
+                talk: member.talk,
               }))}
               heart={{
                 name: lawHeartSpectrum.name,
@@ -544,6 +551,7 @@ function ArkDeck({
               nullInterference={nullInterference}
               armory={armory}
               simulator={simulator}
+              talkContext={talkContext}
               beatPeriodMs={getPulseProfile(lifetimeAxioms).periodMs}
               onStrike={onStrikeLawHeart}
               onClose={() => onCloseWalk?.()}

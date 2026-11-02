@@ -53,12 +53,13 @@ import { createOpsWorld } from "./ark-ops";
 import { bestSimScore, createSimWorld, type SimMode, type SimWorld } from "./ark-sim";
 import { OPS_DIFFICULTIES } from "./ark-ops-rules";
 import { DRILL_CAP_SECONDS, SIM_DIFFICULTIES, type SimDifficulty } from "./ark-sim-rules";
+import { busyLine, chatter, standInProfile, talkTopics, type TalkContext, type TalkLine } from "./crew-talk";
 import { demoCrew, LYING, planCrew, SEATED, type Activity, type WalkCrewMember } from "./ark-walk-crew";
 import { furnishLayout, planDecor, type DecorPiece, type WallSpot } from "./ark-walk-decor";
 import { createNullFeed, misreadLabel, type NullClass, type NullFeed } from "./ark-walk-null";
 import { AxiomEye } from "./axiom-eye";
 import { CIVILIAN_COLOR, CREW_ROLE_COLORS, getCrewHead } from "./crew-portrait";
-import { playBulkhead, playNullStatic, playPulseStrike, schedulePulseBeat, unlockPulseAudio } from "./law-heart-audio";
+import { playBulkhead, playMurmur, playNullStatic, playPulseStrike, schedulePulseBeat, unlockPulseAudio } from "./law-heart-audio";
 import "./ark-walk.css";
 
 /*
@@ -147,6 +148,8 @@ export type ArkWalkProps = {
   nullInterference?: { classification: NullClass; intensity: number };
   armory?: ArkWalkArmory;
   simulator?: ArkWalkSimulator;
+  /** Where the Ark is in its story, for what the crew talk about. */
+  talkContext?: TalkContext;
   beatPeriodMs: number;
   onStrike?: () => void;
   onClose: () => void;
@@ -689,6 +692,8 @@ type Interactable =
     }
   | { kind: "heart"; object: THREE.Object3D }
   | { kind: "label"; object: THREE.Object3D; label: string }
+  /** Someone aboard: E talks to them, or gets a word in passing if they are busy; sleepers are left be. */
+  | { kind: "person"; object: THREE.Object3D; label: string; member: WalkCrewMember; mood: "talk" | "busy" | "asleep" }
   /** The combat simulator's console: E takes AXIOM into the training jungle. */
   | { kind: "sim"; object: THREE.Object3D; label: string };
 
@@ -2736,13 +2741,20 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     for (const update of crewAnimated) update(time, drone);
   });
   const crewLabels = new Set<Interactable>();
-  const crewLabel = (object: THREE.Object3D, text: string) => {
-    const item: Interactable = { kind: "label", object, label: text };
+  const crewPerson = (object: THREE.Object3D, text: string, member: WalkCrewMember, mood: "talk" | "busy" | "asleep") => {
+    const item: Interactable = { kind: "person", object, label: text, member, mood };
     interactables.push(item);
     crewLabels.add(item);
   };
+  /** Off duty: free to talk. Everyone else is working, or asleep. */
+  const FREE_TIME: ReadonlySet<Activity> = new Set(["eat", "lounge", "talk", "point", "patient"]);
+  /** Who is talking with the drone, and until when they keep facing it. */
+  const attention = new Map<string, number>();
+  /** Pairs already in conversation with each other, for the drone to overhear. */
+  const talkers: { member: WalkCrewMember; deck: number; x: number; z: number }[][] = [];
   const placeCrew = (members: readonly WalkCrewMember[], awayIds: ReadonlySet<string>) => {
     const plan = planCrew(members, roomOnline, awayIds, areaOpen);
+    const pairs = new Map<string, { member: WalkCrewMember; deck: number; x: number; z: number }[]>();
     left = new Map(armoryStock.map((item) => [item.id, item.ready]));
     for (const placement of plan.placed) {
       const { member, spot } = placement;
@@ -2756,8 +2768,12 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       crewLayer.add(group);
       crowd.push({ person, deck: deckNumber });
       const doing = spot.activity === "train" && member.training === "security" ? "training to be a soldier" : DOING[spot.activity];
-      crewLabel(group, `${member.name} · ${roleName(member.role)} · ${doing}`);
+      crewPerson(group, `${member.name} · ${roleName(member.role)} · ${doing}`, member, spot.activity === "sleep" ? "asleep" : FREE_TIME.has(spot.activity) ? "talk" : "busy");
       const from = { x: room.x0 + spot.at.x, z: spot.at.z };
+      if (spot.pair) {
+        const key = `${placement.room}:${spot.pair}`;
+        pairs.set(key, [...(pairs.get(key) ?? []), { member, deck: deckNumber, x: from.x, z: from.z }]);
+      }
       const to = spot.to ? { x: room.x0 + spot.to.x, z: spot.to.z } : null;
       const seed = hash(member.id.length * 7.1 + placement.index * 3.3) * 10;
       const speaking = placement.index % 2;
@@ -2786,7 +2802,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         rightLeg.rotation.x = -1.5;
         group.position.set(from.x, floor + (spot.y ?? 0) - person.hip, from.z);
         face(group, spot.look.x, spot.look.z);
-        crewAnimated.push((time) => {
+        crewAnimated.push((time, drone) => {
           const t = time / 1000 + seed;
           if (spot.activity === "study") {
             const lookingUp = t % 9 < 2;
@@ -2814,6 +2830,12 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
             leftArm.rotation.x = -0.55;
             rightArm.rotation.x = talking ? -0.9 + Math.sin(t * 5) * 0.25 : -0.55;
             person.head.rotation.y = (speaking ? -1 : 1) * 0.55;
+          }
+          if ((attention.get(member.id) ?? 0) > time) {
+            // Talking with the drone: they look up at it.
+            const turn = Math.atan2(drone.x - group.position.x, drone.z - group.position.z) - group.rotation.y;
+            person.head.rotation.y = Math.max(-1.1, Math.min(1.1, Math.atan2(Math.sin(turn), Math.cos(turn))));
+            person.head.rotation.x = -0.15;
           }
         });
         continue;
@@ -2932,6 +2954,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
           const turn = Math.atan2(dx, dz) - group.rotation.y;
           person.head.rotation.y = Math.max(-0.9, Math.min(0.9, Math.atan2(Math.sin(turn), Math.cos(turn))));
         }
+        if ((attention.get(member.id) ?? 0) > time) facing = { x: dx, z: dz };
         face(group, facing.x, facing.z);
       });
     }
@@ -2943,7 +2966,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       kitOut(person, member.role, false);
       crewLayer.add(person.group);
       crowd.push({ person, deck: route.deck });
-      crewLabel(person.group, `${member.name} · ${roleName(member.role)} · walking the deck`);
+      crewPerson(person.group, `${member.name} · ${roleName(member.role)} · walking the deck`, member, "talk");
       const lengths = route.points.map((point, at) => {
         const next = route.points[(at + 1) % route.points.length];
         return Math.hypot(next.x - point.x, next.z - point.z);
@@ -2963,13 +2986,17 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         const dx = b.x - a.x;
         const dz = b.z - a.z;
         const toDrone = { x: drone.x - x, z: drone.z - z };
-        const blocked = drone.deck === route.deck && Math.hypot(toDrone.x, toDrone.z) < 1.4 && toDrone.x * dx + toDrone.z * dz > 0;
+        // They stop for the drone in their way, and to talk with it.
+        const blocked = (attention.get(member.id) ?? 0) > time
+          || (drone.deck === route.deck && Math.hypot(toDrone.x, toDrone.z) < 1.4 && toDrone.x * dx + toDrone.z * dz > 0);
         if (!blocked) travelled += drone.dt * 1.25;
         person.group.position.set(x, deckFloor, z);
         face(person.group, blocked ? toDrone.x : dx, blocked ? toDrone.z : dz);
         stride(person, time * 0.0085, blocked ? 0 : 0.5);
       });
     });
+    talkers.length = 0;
+    for (const pair of pairs.values()) if (pair.length === 2) talkers.push(pair);
     return plan;
   };
   /** Take the crew layer apart and place everyone again, as they are now. */
@@ -3974,6 +4001,9 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
 
   return {
     interactables, animated, notices, heartGroup, heartTarget, heartLight, gimbals, obstacles, stage, soundPlaces, baySound, recrew,
+    /** Keep someone facing the drone until then (ms), while it talks with them. */
+    attend: (id: string, until: number) => attention.set(id, until),
+    talkers: () => talkers,
     hullOpen: () => hullOpen,
     sideLabel: (id: string) => sideLabels.get(id) ?? id,
   };
@@ -4046,6 +4076,7 @@ export default function ArkWalk(props: ArkWalkProps) {
   const simHurtRef = useRef<HTMLSpanElement>(null);
   const simMarkerRef = useRef<HTMLSpanElement>(null);
   const simPausedRef = useRef<HTMLParagraphElement>(null);
+  const subtitleRef = useRef<HTMLDivElement>(null);
   const simSurvivorsRef = useRef<HTMLSpanElement>(null);
   const simSpottedRef = useRef<HTMLDivElement>(null);
   const simActionRef = useRef<HTMLParagraphElement>(null);
@@ -4358,8 +4389,103 @@ export default function ArkWalk(props: ArkWalkProps) {
       lastPrompt = text;
       promptRef.current.textContent = text;
     };
+    // ---- Talking with the crew: E to talk, subtitles at the bottom; pairs overheard as the drone passes. ----
+    const talkContext = (): TalkContext => propsRef.current.talkContext ?? { worldId: "", worldsSaved: 0, discovered: [] };
+    const profileOf = (member: WalkCrewMember) => member.talk ?? standInProfile(member.name, member.role, member.ageGroup);
+    const topicsHeard = new Map<string, number>();
+    let conversation: { member: WalkCrewMember; object: THREE.Object3D; lines: string[]; index: number } | null = null;
+    let overheard: { lines: TalkLine[]; index: number; next: number; x: number; z: number } | null = null;
+    let subtitleUntil = 0;
+    let nextOverheard = 0;
+    const pairHeardAt = new Map<string, number>();
+    const talkerPosition = new THREE.Vector3();
+    const showSubtitle = (speaker: string, text: string, hint: string, seconds: number, loudness = 1) => {
+      const box = subtitleRef.current;
+      if (!box) return;
+      const [who, words, more] = Array.from(box.children) as HTMLElement[];
+      who.textContent = speaker;
+      words.textContent = text;
+      more.textContent = hint;
+      box.hidden = false;
+      subtitleUntil = performance.now() + seconds * 1000;
+      playMurmur(loudness);
+    };
+    const hideSubtitle = () => {
+      if (subtitleRef.current) subtitleRef.current.hidden = true;
+      subtitleUntil = 0;
+    };
+    const sayNext = () => {
+      if (!conversation) return;
+      const last = conversation.index === conversation.lines.length - 1;
+      showSubtitle(conversation.member.name, conversation.lines[conversation.index], last ? "E · done" : "E · more", 600);
+      ship.attend(conversation.member.id, performance.now() + 60_000);
+    };
+    const endConversation = () => {
+      if (conversation) ship.attend(conversation.member.id, performance.now() + 1_200);
+      conversation = null;
+      hideSubtitle();
+    };
+    const talkTo = (item: Extract<Interactable, { kind: "person" }>) => {
+      overheard = null;
+      if (item.mood === "asleep") return;
+      const now = performance.now();
+      const profile = profileOf(item.member);
+      if (item.mood === "busy") {
+        showSubtitle(item.member.name, busyLine(profile, Math.floor(now / 5_000)), "", 2.8);
+        ship.attend(item.member.id, now + 2_600);
+        return;
+      }
+      const topics = talkTopics(profile, talkContext());
+      const heard = topicsHeard.get(item.member.id) ?? 0;
+      topicsHeard.set(item.member.id, heard + 1);
+      conversation = { member: item.member, object: item.object, lines: topics[heard % topics.length], index: 0 };
+      sayNext();
+    };
+    /** Each frame: end a conversation the drone has left, play what it overhears, clear old subtitles. */
+    const followTalk = (now: number) => {
+      if (conversation) {
+        conversation.object.getWorldPosition(talkerPosition);
+        if (Math.hypot(talkerPosition.x - x, talkerPosition.z - z) > 4.5 || travel) endConversation();
+        return;
+      }
+      if (overheard) {
+        if (Math.hypot(overheard.x - x, overheard.z - z) > 9) overheard = null;
+        else if (now >= overheard.next) {
+          const line = overheard.lines[overheard.index];
+          const seconds = Math.max(2.4, line.text.length * 0.055);
+          showSubtitle(line.speaker, line.text, "", seconds, 0.6);
+          overheard.index += 1;
+          overheard.next = now + seconds * 1000 + 250;
+          if (overheard.index >= overheard.lines.length) overheard = null;
+        }
+        return;
+      }
+      if (subtitleUntil && now > subtitleUntil) hideSubtitle();
+      if (now < nextOverheard || subtitleUntil) return;
+      nextOverheard = now + 600;
+      for (const [a, b] of ship.talkers()) {
+        if (a.deck !== deckIndex) continue;
+        const midX = (a.x + b.x) / 2;
+        const midZ = (a.z + b.z) / 2;
+        if (Math.hypot(midX - x, midZ - z) > 5.5) continue;
+        const key = `${a.member.id}:${b.member.id}`;
+        if (now - (pairHeardAt.get(key) ?? -Infinity) < 60_000) continue;
+        pairHeardAt.set(key, now);
+        nextOverheard = now + 20_000;
+        overheard = { lines: chatter(profileOf(a.member), profileOf(b.member), talkContext(), Math.floor(now / 1000)), index: 0, next: now, x: midX, z: midZ };
+        break;
+      }
+    };
+
     const activate = () => {
       if (travel) return;
+      // Mid-conversation, E moves it on.
+      if (conversation) {
+        conversation.index += 1;
+        if (conversation.index >= conversation.lines.length) endConversation();
+        else sayNext();
+        return;
+      }
       if (standingLift) {
         // Ride the grav-lift to the other deck.
         unlockPulseAudio();
@@ -4380,6 +4506,8 @@ export default function ArkWalk(props: ArkWalkProps) {
         room.onActivate();
       } else if (target.kind === "sim") {
         openSim();
+      } else if (target.kind === "person") {
+        talkTo(target);
       }
     };
 
@@ -4473,6 +4601,13 @@ export default function ArkWalk(props: ArkWalkProps) {
         sim: () => sim?.state ?? null,
         simEye: () => sim?.camera.position.y ?? null,
         simStart: (difficulty: SimDifficulty = "soldier", mode: SimMode = "swarm") => startSim(difficulty, mode),
+        /** Everyone aboard the drone can talk to: where they are, and whether they are free. */
+        people: () => ship.interactables.flatMap((item) => {
+          if (item.kind !== "person") return [];
+          const at = item.object.getWorldPosition(new THREE.Vector3());
+          const deck = layout.decks.findIndex((candidate, index) => at.y >= candidate.floorY - 0.6 && (index === 0 || at.y < layout.decks[index - 1].floorY - 0.6));
+          return [{ name: item.member.name, mood: item.mood, x: at.x, z: at.z, deck }];
+        }),
         place(deck: number, px: number, pz: number, look = yaw, tilt = 0) {
           deckIndex = deck;
           x = px;
@@ -4531,6 +4666,7 @@ export default function ArkWalk(props: ArkWalkProps) {
         drawSimHud();
         return;
       }
+      followTalk(now);
 
       if (travel) {
         // Carried up or down the lift column; no steering until it arrives.
@@ -4652,6 +4788,7 @@ export default function ArkWalk(props: ArkWalkProps) {
       else if (!target) setPrompt("");
       else if (target.kind === "heart") setPrompt(`E · strike ${propsRef.current.heart.name}`);
       else if (target.kind === "label") setPrompt(target.label);
+      else if (target.kind === "person") setPrompt(conversation ? "" : target.mood === "talk" ? `${target.label} · E to talk` : target.mood === "busy" ? `${target.label} · busy` : target.label);
       else if (target.kind === "sim") setPrompt("E · step into the combat simulation");
       else if (target.prompt) setPrompt(target.prompt());
       else if (!target.online) setPrompt(`${target.label} is dormant`);
@@ -4751,6 +4888,11 @@ export default function ArkWalk(props: ArkWalkProps) {
         <button type="button" className="ark-walk-exit" onClick={() => props.onClose()}>Return to console · Q</button>
         <span className="ark-walk-crosshair" aria-hidden="true" />
         <p ref={promptRef} className="ark-walk-prompt" aria-live="polite" />
+        <div ref={subtitleRef} className="ark-walk-subtitle" aria-live="polite" hidden>
+          <strong />
+          <span />
+          <small />
+        </div>
         <p className="ark-walk-intro">
           Click to take the drone · WASD to move · mouse to look · E to use and ride lifts · Shift to hurry · Q to return
         </p>
