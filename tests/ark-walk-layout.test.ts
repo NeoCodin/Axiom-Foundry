@@ -176,9 +176,13 @@ test("a wall is split round its windows with nothing missing and nothing doubled
   assert.deepEqual(wallPieces(0, 5, 3, []), [{ a0: 0, a1: 5, y0: 0, y1: 3 }]);
 });
 
+/** Every hall awake, so every room behind one can be opened. */
+const awake = rooms.map((room) => ({ ...room, online: true }));
+
 test("rooms behind the halls open through their doors, and sealed ones stay shut", () => {
-  const open = buildWalkLayout(rooms, { residents: 99, armory: true });
+  const open = buildWalkLayout(awake, { residents: 99, armory: true });
   const shut = buildWalkLayout(rooms, { residents: 0, armory: false });
+  assert.ok(open.decks.every((deck) => deck.sideRooms.every((room) => room.open)), "with everyone aboard every room is open");
   for (const [deckIndex, deck] of open.decks.entries()) {
     for (const room of deck.sideRooms) {
       const doorX = (room.door.x0 + room.door.x1) / 2;
@@ -199,17 +203,24 @@ test("rooms behind the halls open through their doors, and sealed ones stay shut
 
 test("cabins are lived in as people come aboard; the Armory opens once unlocked", () => {
   const open = (residents: number, armory = false) =>
-    buildWalkLayout(rooms, { residents, armory }).decks.flatMap((deck) => deck.sideRooms).filter((room) => room.open).map((room) => room.id);
-  assert.deepEqual(open(0), ["galley"]);
-  assert.deepEqual(open(1), ["cabin-0", "galley"]);
-  assert.deepEqual(open(6), ["cabin-0", "cabin-1", "galley"]);
-  assert.deepEqual(open(14, true), ["cabin-0", "cabin-1", "cabin-2", "galley", "armory"]);
-  const dormant = buildWalkLayout(rooms.map((room) => (room.kind === "habitation" ? { ...room, online: false } : room)), { residents: 99 });
-  assert.ok(dormant.decks[0].sideRooms.every((room) => !room.open), "a dormant hall's rooms are dark");
+    buildWalkLayout(awake, { residents, armory }).decks.flatMap((deck) => deck.sideRooms).filter((room) => room.open).map((room) => room.id);
+  const cabins = (residents: number) => open(residents).filter((id) => id.startsWith("cabin"));
+  assert.deepEqual(cabins(0), []);
+  assert.deepEqual(cabins(1), ["cabin-0"]);
+  assert.deepEqual(cabins(6), ["cabin-0", "cabin-1"]);
+  assert.deepEqual(cabins(14), ["cabin-0", "cabin-1", "cabin-2"]);
+  assert.ok(!open(99).includes("armory") && open(0, true).includes("armory"));
+  for (const id of ["stores", "workshop", "lab", "galley", "library", "classroom", "playroom", "farm", "infirmary", "briefing"]) {
+    assert.ok(open(0).includes(id), `${id} is open whenever its hall is`);
+  }
+  const dormant = buildWalkLayout(rooms, { residents: 99 }).decks.flatMap((deck) => deck.sideRooms);
+  for (const room of dormant.filter((sideRoom) => sideRoom.section === "research" || sideRoom.section === "education")) {
+    assert.ok(!room.open, `${room.id}: a dormant hall's rooms are dark`);
+  }
 });
 
 test("the rooms behind a hall sit behind its wall, inside its length, and never overlap", () => {
-  const layout = buildWalkLayout(rooms, { residents: 99, armory: true });
+  const layout = buildWalkLayout(awake, { residents: 99, armory: true });
   for (const deck of layout.decks) {
     for (const room of deck.sideRooms) {
       const hall = deck.compartments.find((compartment) => compartment.kind === room.section)!;

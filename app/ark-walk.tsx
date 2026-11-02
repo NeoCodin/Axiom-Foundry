@@ -235,6 +235,25 @@ const SIDE_COLOR: Record<string, string> = {
   "cabin-2": "#7cc35a",
   galley: "#f2a03a",
   armory: "#d8503e",
+  briefing: "#ee7a3c",
+  stores: "#c8955a",
+  workshop: "#e07a3a",
+  lab: "#9a7df0",
+  library: "#b07c4f",
+  classroom: "#f2c744",
+  playroom: "#f08ab0",
+  farm: "#7cc35a",
+  infirmary: "#8ab4f0",
+};
+/** Floors the rooms behind the halls share with a hall; the cabins, the library and the playroom are carpeted. */
+const SIDE_FLOOR: Record<string, string> = {
+  stores: "hangar",
+  workshop: "fabrication",
+  lab: "research",
+  classroom: "education",
+  farm: "support",
+  infirmary: "support",
+  briefing: "bridge",
 };
 
 /** Each compartment's own colour: the bands painted round its walls, its door signs, its lit skirting. */
@@ -751,8 +770,8 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         for (let y = 1; y < 32; y += 3) px(0, y, "#3e3a4a", 32, 1);
         px(0, 0, "#5e5970", 32, 1);
         px(0, 0, "#5e5970", 1, 32);
-      } else if (kind.startsWith("cabin")) {
-        // Soft carpet in the cabin's own colour.
+      } else if (kind.startsWith("cabin") || kind === "library" || kind === "playroom") {
+        // Soft carpet in the room's own colour.
         const pile = tinted(SIDE_COLOR[kind] ?? "#e2786a", "#6a6070", 0.55);
         px(0, 0, pile, 32, 32);
         for (let y = 0; y < 32; y += 4) for (let x = (y / 4) % 2 === 0 ? 0 : 2; x < 32; x += 4) px(x, y, tinted(pile, "#ffffff", 0.14));
@@ -1312,11 +1331,12 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         for (let leaf = 0; leaf < 5; leaf += 1) fit(0.25, 0.5 + leaf * 0.1, 0.25, solid(PALETTE.leaf), room.x1 - 1.2 + (leaf % 3) * 0.2, 0.85 + leaf * 0.08, 6 + (leaf % 2) * 0.2);
       } else if (room.kind === "research") {
         hear("servers", room.x0 + 2.8, 1.2, towardWalls(6.25, half));
-        // A long desk under wall screens, the middle screen being the console.
-        fit(width - 2, 1, 1.4, solid(metal), cx, 0.5, -6.15);
-        const screens = [-1.5, -0.5, 0.5, 1.5].map((offset) => fit(2.2, 1.2, 0.06, glow(screenColor), cx + offset * 2.5, 2.4, -6.68));
+        // Two desks under wall screens, the door to the labs between them; the second screen is the console.
+        for (const [from, to] of [[1, 6.4], [8.6, width - 1]]) fit(to - from, 1, 1.4, solid(metal), room.x0 + (from + to) / 2, 0.5, -6.15);
+        const screenAt = [2.4, 5, 10, 12.6];
+        const screens = screenAt.map((at) => fit(2.2, 1.2, 0.06, glow(screenColor), room.x0 + at, 2.4, -6.68));
         addConsole(screens[1]);
-        for (const offset of [-1.5, -0.5, 0.5, 1.5]) fit(2.4, 1.4, 0.04, solid(PALETTE.dark), cx + offset * 2.5, 2.4, -6.72);
+        for (const at of screenAt) fit(2.4, 1.4, 0.04, solid(PALETTE.dark), room.x0 + at, 2.4, -6.72);
         // The holo-table, projecting the world below as a turning lattice.
         fitCylinder(1.2, 1.3, 1, solid(metal), cx, y0 + 0.5, 3.4, 12);
         fitCylinder(1.05, 1.05, 0.04, glow(dark ? PALETTE.dark : screenGlow), cx, y0 + 1.02, 3.4, 12);
@@ -1379,19 +1399,6 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
             });
           });
         });
-        // The sick bay: two beds at the stern end, each with a monitor keeping time.
-        for (const bedZ of [2.85, 4.25]) {
-          fit(2.4, 0.5, 1, solid(metalLight), room.x0 + 2.2, 0.25, bedZ);
-          fit(2.3, 0.2, 0.9, solid(PALETTE.linen), room.x0 + 2.2, 0.6, bedZ);
-          fit(0.45, 0.12, 0.7, solid("#ffffff"), room.x0 + 1.25, 0.76, bedZ);
-          fit(0.1, 1.5, 0.1, solid(metal), room.x0 + 0.8, 0.75, bedZ + 0.6);
-          const monitor = fit(0.5, 0.36, 0.06, glow(dark ? PALETTE.dark : "#0f2a1c"), room.x0 + 0.8, 1.55, bedZ + 0.6);
-          const trace = fit(0.4, 0.04, 0.07, glow(PALETTE.ok), room.x0 + 0.8, 1.55, bedZ + 0.6);
-          animated.push((time) => {
-            trace.visible = !dark;
-            trace.position.y = monitor.position.y + (Math.floor(time / 120) % 8 === 0 ? 0.08 : 0);
-          });
-        }
         // The atmosphere desk, the farmers' hydroponic shelves, and the recycler fan overhead.
         fit(3.4, 1, 1.4, solid(metal), room.x0 + 6.7, 0.5, 5.7);
         addConsole(fit(2.8, 0.8, 0.06, glow(screenColor), room.x0 + 6.7, 1.6, 4.97));
@@ -2939,14 +2946,14 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     sideLabels.set(room.id, title);
 
     // Floor, ceiling, and the floor through the doorway.
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), floorMaterial(key, width, depth));
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), floorMaterial(SIDE_FLOOR[key] ?? key, width, depth));
     floor.rotation.x = -Math.PI / 2;
     floor.position.set(cx, y0, cz);
     const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(width + 0.4, depth), lambert("#ffffff", { map: repeated(ceilingTexture, width / 2, depth / 2) }));
     ceiling.rotation.x = Math.PI / 2;
     ceiling.position.set(cx, y0 + room.height, cz);
     scene.add(floor, ceiling);
-    put(doorWidth, 0.06, INNER_WALL + 0.02, floorMaterial(key, doorWidth, INNER_WALL), doorX, -0.03, wallZ);
+    put(doorWidth, 0.06, INNER_WALL + 0.02, floorMaterial(SIDE_FLOOR[key] ?? key, doorWidth, INNER_WALL), doorX, -0.03, wallZ);
 
     // Its walls: a partition shared with the room beside it, or a thick end wall.
     const before = deck.sideRooms.find((other) => Math.abs(other.x1 - (room.x0 - 0.2)) < 0.01);
@@ -2960,18 +2967,21 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     if (!after) {
       put(0.4, room.height, depth, [hullSkin, wallCut(key, room.height, depth, 0, room.height), hullSkin, hullSkin, hullSkin, hullSkin], room.x1 + 0.2, room.height / 2, cz);
     }
-    // The far wall is the hull; a cabin has a window in it.
-    const view: Rect[] = room.kind === "cabin" ? [{ a0: cx - 0.7, a1: cx + 0.7, y0: 1.1, y1: 2.3 }] : [];
+    // The far wall is the hull, with a window where people would want one; the farm's are high, over its beds.
+    const windowsAt = room.kind === "cabin" || room.kind === "playroom" || room.kind === "infirmary" ? [cx] : room.kind === "farm" ? [room.x0 + 3.2, room.x0 + 9.4] : [];
+    const high = room.kind === "farm";
+    const view: Rect[] = windowsAt.map((at) => ({ a0: at - 0.7, a1: at + 0.7, y0: high ? 2.2 : 1.1, y1: high ? 3.4 : 2.3 }));
     for (const piece of wallPieces(room.x0 - (before ? 0.1 : 0.4), room.x1 + (after ? 0.1 : 0.4), room.height, view)) {
       const w = piece.a1 - piece.a0;
       const h = piece.y1 - piece.y0;
       put(w, h, HULL, [hullSkin, hullSkin, hullSkin, hullSkin, wallCut(key, room.height, w, piece.y0, h), hullSkin], (piece.a0 + piece.a1) / 2, (piece.y0 + piece.y1) / 2, room.z0 - HULL / 2);
     }
     for (const pane of view) {
+      const at = (pane.a0 + pane.a1) / 2;
       const glassPane = inert(new THREE.Mesh(new THREE.PlaneGeometry(pane.a1 - pane.a0, pane.y1 - pane.y0), glassMaterial));
-      glassPane.position.set(cx, y0 + (pane.y0 + pane.y1) / 2, room.z0 - HULL / 2);
+      glassPane.position.set(at, y0 + (pane.y0 + pane.y1) / 2, room.z0 - HULL / 2);
       scene.add(glassPane);
-      for (const y of [pane.y0, pane.y1]) put(pane.a1 - pane.a0 + 0.24, 0.12, 0.12, trimMaterial, cx, y, room.z0 + 0.04);
+      for (const y of [pane.y0, pane.y1]) put(pane.a1 - pane.a0 + 0.24, 0.12, 0.12, trimMaterial, at, y, room.z0 + 0.04);
       for (const x of [pane.a0, pane.a1]) put(0.12, pane.y1 - pane.y0, 0.12, trimMaterial, x, (pane.y0 + pane.y1) / 2, room.z0 + 0.04);
     }
     // The hall's wall, seen from inside, in this room's paint.
@@ -3034,13 +3044,15 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     }
 
     if (!room.open) return;
-    const lamps = room.kind === "armory" ? [room.x0 + 4, room.x0 + 11] : [cx];
-    const lampColor = room.kind === "armory" ? "#e8ecff" : LAMP;
+    // Lamps: two in a big room, cool white in the Armory, the pink of grow lights in the farm.
+    const big = room.kind === "armory" || width > 8;
+    const lamps = room.kind === "armory" ? [room.x0 + 4, room.x0 + 11] : big ? [room.x0 + width * 0.3, room.x0 + width * 0.7] : [cx];
+    const lampColor = room.kind === "armory" ? "#e8ecff" : room.kind === "farm" ? "#ffd0f0" : LAMP;
     for (const lx of lamps) {
-      const light = new THREE.PointLight(lampColor, room.kind === "armory" ? 9 : 5, room.kind === "armory" ? 14 : 8, 1);
+      const light = new THREE.PointLight(lampColor, room.kind === "armory" ? 9 : big ? 7 : 5, room.kind === "armory" ? 14 : big ? 12 : 8, 1);
       light.position.set(lx, y0 + room.height - 0.5, cz);
       scene.add(light);
-      put(room.kind === "armory" ? 3 : 1.2, 0.05, 0.6, glow(lampColor), lx, room.height - 0.03, cz);
+      put(big ? 3 : 1.2, 0.05, 0.6, glow(lampColor), lx, room.height - 0.03, cz);
     }
 
     if (room.kind === "cabin") {
@@ -3130,6 +3142,471 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       });
     } else if (room.kind === "armory") {
       buildArmory(room, y0, deckIndex, put, paint);
+    } else {
+      furnishRoom(room, y0, deckIndex, put, paint);
+    }
+  }
+
+  /** The other rooms behind the halls, each furnished for what it is for. */
+  function furnishRoom(
+    room: SideRoom,
+    y0: number,
+    deckIndex: number,
+    put: (w: number, h: number, d: number, material: THREE.Material | THREE.Material[], x: number, y: number, z: number) => THREE.Mesh,
+    paint: string,
+  ) {
+    const { x0, x1, z0, z1 } = room;
+    const width = x1 - x0;
+    const cx = (x0 + x1) / 2;
+    const cz = (z0 + z1) / 2;
+    const hear = (kind: SoundPlace["kind"], x: number, z: number) => soundPlaces.push({ kind, x, y: y0 + 1.2, z, deck: deckIndex, online: true });
+    const BRIGHT = ["#c8605a", "#4f6ad0", "#d8a03a", "#5a8a4a", "#8a5a9a", "#e9e4da", "#e2786a"];
+    const colorAt = (index: number) => BRIGHT[((index % BRIGHT.length) + BRIGHT.length) % BRIGHT.length];
+    type Part = { w: number; h: number; d: number; x: number; y: number; z: number; color: string };
+    /** Many small boxes as one mesh, each its own colour: books, crops, toys. y is above the deck. */
+    const merged = (parts: readonly Part[], glowing = false) => {
+      if (parts.length === 0) return null;
+      const tint = new THREE.Color();
+      const mesh = new THREE.Mesh(
+        mergeGeometries(parts.map((part) => {
+          const geometry = new THREE.BoxGeometry(part.w, part.h, part.d);
+          geometry.translate(part.x, y0 + part.y, part.z);
+          tint.set(part.color);
+          const rgb = [tint.r, tint.g, tint.b];
+          geometry.setAttribute("color", new THREE.Float32BufferAttribute(Array.from({ length: geometry.attributes.position.count * 3 }, (_, index) => rgb[index % 3]), 3));
+          return geometry;
+        })),
+        glowing ? new THREE.MeshBasicMaterial({ vertexColors: true }) : new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }),
+      );
+      scene.add(mesh);
+      return mesh;
+    };
+    /** A row of books standing on a shelf that runs along x (or along z), spines out. */
+    const books = (from: number, to: number, y: number, at: number, alongX: boolean, seed: number): Part[] => {
+      const row: Part[] = [];
+      for (let cursor = from, book = 0; cursor < to - 0.12; book += 1) {
+        const thick = 0.05 + hash(seed + book * 1.7) * 0.06;
+        const tall = 0.22 + hash(seed * 2 + book) * 0.12;
+        const color = colorAt(Math.floor(hash(seed + book * 3.3) * 7));
+        row.push(alongX
+          ? { w: thick, h: tall, d: 0.2, x: cursor + thick / 2, y: y + tall / 2, z: at, color }
+          : { w: 0.2, h: tall, d: thick, x: at, y: y + tall / 2, z: cursor + thick / 2, color });
+        cursor += thick + 0.012;
+      }
+      return row;
+    };
+    /** A picture on a wall: turn 0 faces +z (the far wall), PI/2 faces +x, -PI/2 faces -x. */
+    const hang = (mesh: THREE.Mesh, x: number, y: number, z: number, turn = 0, tilt = 0) => {
+      mesh.position.set(x, y0 + y, z);
+      mesh.rotation.set(0, turn, tilt);
+      scene.add(mesh);
+      return mesh;
+    };
+    const drawing = (seed: number) => picture(0.62, 0.5, artTexture(16, 13, (context) => paintDrawing(context, 16, 13, seed)));
+
+    switch (room.kind) {
+      case "stores": {
+        // Shelving in three rows, stacked with crates and drums, and a cargo drone fetching down the aisle.
+        const stock: Part[] = [];
+        [{ x: x0 + 0.55, from: z0 + 0.3, to: z1 - 2 }, { x: x0 + 3.25, from: z0 + 0.3, to: z0 + 5.2 }, { x: x1 - 0.55, from: z0 + 0.3, to: z1 - 2 }].forEach((row, rowIndex) => {
+          const length = row.to - row.from;
+          const mid = (row.from + row.to) / 2;
+          for (const level of [0.05, 1.25, 2.45]) stock.push({ w: 0.9, h: 0.06, d: length, x: row.x, y: level, z: mid, color: "#5a546e" });
+          for (const end of [row.from + 0.04, row.to - 0.04]) stock.push({ w: 0.9, h: 3.4, d: 0.08, x: row.x, y: 1.7, z: end, color: "#a49bba" });
+          for (let slot = 0; slot < Math.floor(length / 0.8); slot += 1) {
+            [0.05, 1.25, 2.45].forEach((level, levelIndex) => {
+              const roll = hash(rowIndex * 31 + slot * 7.3 + levelIndex * 2.1);
+              const z = row.from + 0.45 + slot * 0.8;
+              if (roll < 0.2) return;
+              stock.push(roll < 0.75
+                ? { w: 0.7, h: 0.6, d: 0.6, x: row.x, y: level + 0.33, z, color: roll < 0.5 ? "#8a5a3a" : "#9a6a3e" }
+                : { w: 0.5, h: 0.7, d: 0.5, x: row.x, y: level + 0.38, z, color: roll > 0.9 ? "#4f6ad0" : "#c8605a" });
+            });
+          }
+        });
+        const shelving = merged(stock);
+        if (shelving) label(shelving, "The ship's stores: everything salvaged and made, shelved");
+        const fetcher = droneModel(PALETTE.amber);
+        scene.add(fetcher);
+        label(fetcher, "A cargo drone fetching from the stores");
+        animated.push((time) => {
+          const t = (time * 0.00008) % 1;
+          const leg = t < 0.5 ? t * 2 : 2 - t * 2;
+          fetcher.position.set(x0 + 1.9, y0 + 2.4 + Math.sin(time * 0.003) * 0.08, z1 - 1.8 - leg * (z1 - z0 - 3));
+          fetcher.rotation.y = t < 0.5 ? Math.PI : 0;
+        });
+        break;
+      }
+      case "workshop": {
+        // The lathe, its chuck spinning, and the drill press beside it.
+        const toned = solid(tinted(PALETTE.metal, paint, 0.3));
+        put(2.6, 1, 1, solid(metal), x0 + 2.3, 0.5, z0 + 0.7);
+        put(1.8, 0.1, 0.3, solid(metalLight), x0 + 2.6, 1.05, z0 + 0.7);
+        put(0.5, 0.5, 0.6, toned, x0 + 1, 1.25, z0 + 0.7);
+        const chuckMount = new THREE.Group();
+        chuckMount.position.set(x0 + 1.4, y0 + 1.3, z0 + 0.7);
+        chuckMount.rotation.z = Math.PI / 2;
+        const chuck = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.3, 8), solid(metalLight));
+        chuckMount.add(chuck);
+        scene.add(chuckMount);
+        put(0.7, 0.2, 0.7, solid(metal), x0 + 4.8, 0.1, z0 + 0.6);
+        put(0.14, 1.9, 0.14, solid(metalLight), x0 + 4.8, 1.05, z0 + 0.35);
+        put(0.4, 0.4, 0.5, toned, x0 + 4.8, 1.8, z0 + 0.6);
+        const bit = put(0.05, 0.3, 0.05, solid(metalLight), x0 + 4.8, 1.45, z0 + 0.7);
+        // Parts bins on the stern wall.
+        const bins: Part[] = [];
+        for (let column = 0; column < 4; column += 1) {
+          for (let shelf = 0; shelf < 3; shelf += 1) bins.push({ w: 0.6, h: 0.4, d: 0.65, x: x0 + 0.45, y: 0.25 + shelf * 0.5, z: z0 + 2.9 + column * 0.75, color: colorAt(column + shelf * 2) });
+        }
+        merged(bins);
+        // The workbench along the bow wall, tools laid out, a pegboard over it.
+        const benchLength = z1 - 1.6 - (z0 + 1);
+        const benchZ = (z1 - 1.6 + z0 + 1) / 2;
+        put(0.9, 0.9, benchLength, solid(PALETTE.wood), x1 - 0.55, 0.45, benchZ);
+        put(0.92, 0.05, benchLength + 0.02, solid(metalLight), x1 - 0.55, 0.92, benchZ);
+        put(0.04, 1, benchLength, solid(tinted("#8a5a3a", paint, 0.2)), x1 - 0.04, 1.7, benchZ);
+        merged([0, 1, 2, 3, 4].map((tool) => ({
+          w: 0.08 + hash(tool + 0.5) * 0.1, h: 0.05, d: 0.3,
+          x: x1 - 0.55 + (hash(tool * 3 + 0.2) - 0.5) * 0.4, y: 0.97, z: benchZ - benchLength / 2 + 0.5 + (tool * (benchLength - 1)) / 4,
+          color: tool % 2 ? "#c8605a" : "#a49bba",
+        })));
+        // A Foundry machine half built on a turntable, its core lit in the colour of the best tier built so far.
+        const turntable = new THREE.Group();
+        turntable.position.set(x0 + 5.6, y0, z0 + 4);
+        scene.add(turntable);
+        const core = [...feeds].reverse().find((machine) => machine.count > 0)?.color ?? PALETTE.amber;
+        const fit = (w: number, h: number, d: number, material: THREE.Material, x: number, y: number, z: number) => {
+          const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
+          mesh.position.set(x, y, z);
+          turntable.add(mesh);
+          return mesh;
+        };
+        const base = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.15, 16), solid(metal));
+        base.position.y = 0.075;
+        turntable.add(base);
+        fit(1.1, 0.2, 1.1, solid(metalLight), 0, 0.25, 0);
+        for (const [dx, dz] of [[-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]]) fit(0.1, 1.4, 0.1, solid(metalLight), dx, 1, dz);
+        fit(0.06, 1.3, 1, toned, -0.55, 1, 0);
+        fit(1, 1.3, 0.06, toned, 0, 1, -0.55);
+        const glowCore = fit(0.5, 0.5, 0.5, glow(core), 0, 1, 0);
+        label(turntable, "A Foundry machine, half built");
+        // The gantry: a rail across the room and a hoist over the turntable.
+        put(width - 0.4, 0.2, 0.2, solid(metal), cx, room.height - 0.3, z0 + 4);
+        put(0.4, 0.3, 0.4, solid(PALETTE.amber), x0 + 5.6, room.height - 0.55, z0 + 4);
+        put(0.03, 1.2, 0.03, solid(PALETTE.dark), x0 + 5.6, room.height - 1.3, z0 + 4);
+        put(0.2, 0.12, 0.2, solid(metalLight), x0 + 5.6, room.height - 1.95, z0 + 4);
+        // Sparks while someone works on the machine.
+        const working = plan.placed.some((placement) => placement.spot.area === room.id && placement.spot.activity === "fix");
+        const sparks = [0, 1, 2, 3, 4, 5].map(() => inert(put(0.05, 0.05, 0.05, glow("#ffd27a"), x0 + 5.6, 1, z0 + 5)));
+        animated.push((time) => {
+          chuck.rotation.y = time * 0.02;
+          bit.position.y = y0 + 1.45 - Math.abs(Math.sin(time * 0.002)) * 0.2;
+          turntable.rotation.y = time * 0.0003;
+          glowCore.scale.setScalar(0.9 + 0.1 * Math.sin(time * 0.004));
+          sparks.forEach((spark, index) => {
+            const life = ((time * 0.004) + index / 6) % 1;
+            spark.visible = working && Math.floor(time / 800) % 3 !== 0;
+            spark.position.set(x0 + 5.6 + life * 0.5 * Math.cos(index * 1.9), y0 + 1.1 + life * 0.6 - life * life * 0.9, z0 + 4.9 + life * 0.4 * Math.sin(index * 1.9));
+          });
+        });
+        hear("conveyor", cx, cz);
+        break;
+      }
+      case "lab": {
+        // Two benches of experiments, each with glowing flasks and a microscope.
+        const flasks: Part[] = [];
+        for (const bx of [x0 + 3.75, x0 + 11.25]) {
+          put(3.5, 0.9, 1.2, solid(metalLight), bx, 0.45, z0 + 3.4);
+          put(3.56, 0.05, 1.26, solid("#e9e4da"), bx, 0.92, z0 + 3.4);
+          for (let flask = 0; flask < 6; flask += 1) {
+            const tall = 0.2 + hash(bx + flask) * 0.12;
+            flasks.push({ w: 0.12, h: tall, d: 0.12, x: bx - 1.4 + flask * 0.5, y: 0.95 + tall / 2, z: z0 + 3.4 + (flask % 2 ? 0.25 : -0.2), color: ["#9ac4ff", "#b48cff", "#7cc35a", "#f2c744", "#f08ab0", "#ff9a6a"][flask] });
+          }
+          put(0.18, 0.12, 0.26, solid(PALETTE.dark), bx + 1.45, 0.98, z0 + 3.3);
+          put(0.08, 0.36, 0.08, solid(PALETTE.dark), bx + 1.45, 1.2, z0 + 3.22);
+          put(0.12, 0.08, 0.2, solid(metalLight), bx + 1.45, 1.38, z0 + 3.3);
+        }
+        merged(flasks, true);
+        // The fume hood on the far wall.
+        put(3.5, 0.9, 0.7, solid(metal), x0 + 3.75, 0.45, z0 + 0.55);
+        put(3.5, 0.06, 0.7, solid("#d8d2c4"), x0 + 3.75, 0.93, z0 + 0.55);
+        for (const post of [x0 + 2.03, x0 + 5.47]) put(0.06, 0.9, 0.7, solid(metal), post, 1.45, z0 + 0.55);
+        put(3.5, 0.6, 0.7, solid(metal), x0 + 3.75, 2.2, z0 + 0.55);
+        hang(inert(new THREE.Mesh(new THREE.PlaneGeometry(3.4, 0.9), glassMaterial)), x0 + 3.75, 1.45, z0 + 0.9);
+        // Server racks along the stern wall, lights blinking.
+        const leds: THREE.Mesh[] = [];
+        for (let rack = 0; rack < 4; rack += 1) {
+          const rz = z0 + 0.8 + rack;
+          put(0.9, 2.4, 0.9, solid(PALETTE.dark), x0 + 0.55, 1.2, rz);
+          for (let led = 0; led < 4; led += 1) leds.push(put(0.02, 0.07, 0.07, glow(led % 2 ? PALETTE.amber : screenGlow), x0 + 1.01, 0.6 + led * 0.45, rz - 0.2 + (led % 2) * 0.4));
+        }
+        // Cases of what the Ark has found, glowing under glass.
+        const fragments: THREE.Mesh[] = [];
+        for (let display = 0; display < 3; display += 1) {
+          const caseX = x0 + 10.75 + display * 1.5;
+          const stand = put(1.4, 0.9, 0.7, solid(tinted(PALETTE.metal, paint, 0.2)), caseX, 0.45, z0 + 0.55);
+          label(stand, "Fragments the Ark has found, catalogued under glass");
+          const lid = inert(new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.4, 0.6), glassMaterial));
+          lid.position.set(caseX, y0 + 1.1, z0 + 0.55);
+          scene.add(lid);
+          for (let shard = 0; shard < 2; shard += 1) {
+            const crystal = inert(new THREE.Mesh(new THREE.OctahedronGeometry(0.11, 0), glow(shard % 2 ? "#b48cff" : tinted(accent, "#ffffff", 0.3))));
+            crystal.position.set(caseX - 0.3 + shard * 0.6, y0 + 1.08, z0 + 0.55);
+            scene.add(crystal);
+            fragments.push(crystal);
+          }
+        }
+        // The archive vault's round door, set into the bow wall.
+        const vault = new THREE.Group();
+        vault.position.set(x1 - 0.08, y0 + 1.5, cz);
+        vault.rotation.z = Math.PI / 2;
+        const slab = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 0.16, 20), solid(tinted(PALETTE.metal, paint, 0.15)));
+        const rim = new THREE.Mesh(new THREE.TorusGeometry(1.15, 0.08, 6, 24), solid(metalLight));
+        rim.rotation.x = Math.PI / 2;
+        const wheel = new THREE.Group();
+        wheel.position.y = 0.14;
+        for (const spoke of [0, Math.PI / 3, (2 * Math.PI) / 3]) {
+          const bar = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.05, 0.08), solid(metalLight));
+          bar.rotation.y = spoke;
+          wheel.add(bar);
+        }
+        wheel.add(new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.1, 10), solid(PALETTE.amber)));
+        vault.add(slab, rim, wheel);
+        scene.add(vault);
+        label(vault, "The archive vault: everything the Ark has found");
+        animated.push((time) => {
+          leds.forEach((led, index) => { led.visible = hash(Math.floor(time / 300) + index * 13.1) > 0.35; });
+          fragments.forEach((crystal, index) => {
+            crystal.rotation.y = time * 0.001 + index;
+            crystal.position.y = y0 + 1.08 + Math.sin(time * 0.002 + index) * 0.03;
+          });
+        });
+        hear("servers", x0 + 0.6, cz);
+        break;
+      }
+      case "library": {
+        // Shelves of books, floor to ceiling, along the far wall and the stern wall.
+        const shelves: Part[] = [{ w: width - 0.2, h: 2.8, d: 0.04, x: cx, y: 1.4, z: z0 + 0.12, color: "#3a2616" }];
+        const sternFrom = z0 + 0.6;
+        const sternTo = z1 - 2.8;
+        for (let level = 0; level < 5; level += 1) {
+          const y = 0.1 + level * 0.55;
+          shelves.push({ w: width - 0.2, h: 0.04, d: 0.5, x: cx, y, z: z0 + 0.35, color: "#5a3a24" });
+          shelves.push({ w: 0.5, h: 0.04, d: sternTo - sternFrom, x: x0 + 0.35, y, z: (sternFrom + sternTo) / 2, color: "#5a3a24" });
+          shelves.push(...books(x0 + 0.15, x1 - 0.15, y + 0.02, z0 + 0.32, true, level * 13 + 1));
+          shelves.push(...books(sternFrom + 0.05, sternTo - 0.05, y + 0.02, x0 + 0.32, false, 70 + level * 11));
+        }
+        const shelving = merged(shelves);
+        if (shelving) label(shelving, "The library: books carried aboard, and books written here");
+        // The reading table: lamps, open books, two chairs.
+        const tableX = x0 + 3.1;
+        const tableZ = z0 + 3;
+        put(1.8, 0.06, 1.2, solid(PALETTE.wood), tableX, 0.76, tableZ);
+        for (const dx of [-0.8, 0.8]) for (const dz of [-0.5, 0.5]) put(0.06, 0.73, 0.06, solid(PALETTE.wood), tableX + dx, 0.37, tableZ + dz);
+        for (const lampX of [tableX - 0.5, tableX + 0.5]) {
+          put(0.03, 0.3, 0.03, solid(metalLight), lampX, 0.94, tableZ - 0.35);
+          put(0.18, 0.12, 0.18, glow("#ffe2a8"), lampX, 1.12, tableZ - 0.35);
+        }
+        put(0.42, 0.02, 0.3, solid("#efe6d2"), tableX - 0.3, 0.8, tableZ + 0.25);
+        put(0.42, 0.02, 0.3, solid("#efe6d2"), tableX + 0.35, 0.8, tableZ - 0.15);
+        for (const [seatZ, back] of [[z0 + 4.15, 0.22], [z0 + 1.85, -0.22]]) {
+          put(0.45, 0.06, 0.45, solid(colorAt(2)), tableX, 0.45, seatZ);
+          put(0.45, 0.5, 0.06, solid(colorAt(2)), tableX, 0.72, seatZ + back);
+        }
+        // A globe of the world below on its stand, by the door.
+        put(0.06, 0.9, 0.06, solid(PALETTE.wood), x1 - 0.6, 0.45, z1 - 0.8);
+        const globe = inert(new THREE.Mesh(new THREE.IcosahedronGeometry(0.3, 1), solid(tinted(accent, PALETTE.dark, 0.25))));
+        globe.position.set(x1 - 0.6, y0 + 1.2, z1 - 0.8);
+        scene.add(globe);
+        animated.push((time) => { globe.rotation.y = time * 0.0005; });
+        break;
+      }
+      case "classroom": {
+        // A lesson screen on the far wall: the worlds in a row, and chalk sums.
+        const lesson = picture(2.6, 1.3, artTexture(52, 26, (context) => {
+          context.fillStyle = PALETTE.board;
+          context.fillRect(0, 0, 52, 26);
+          [[5, 6, 3, "#d8a03a"], [13, 5, 4, "#7cc35a"], [23, 4, 5, "#4f6ad0"], [34, 5, 4, "#c8605a"], [43, 6, 3, "#b48cff"]].forEach(([x, y, size, color]) => {
+            context.fillStyle = color as string;
+            context.fillRect(x as number, y as number, size as number, size as number);
+          });
+          context.fillStyle = PALETTE.chalk;
+          for (const [x, y, w] of [[4, 15, 10], [17, 15, 3], [23, 15, 6], [4, 20, 16], [26, 20, 2], [31, 20, 12]]) context.fillRect(x, y, w, 1);
+        }));
+        put(2.8, 1.5, 0.06, solid(PALETTE.wood), cx, 1.8, z0 + 0.03);
+        hang(lesson, cx, 1.8, z0 + 0.07);
+        // Six desks, each with a slate, and a chair in every colour.
+        [2.4, 4].forEach((row, rowIndex) => {
+          [1.5, 3.3, 5.1].forEach((column, columnIndex) => {
+            const dx = x0 + column;
+            const dz = z0 + row;
+            put(1.2, 0.06, 0.6, solid(PALETTE.wood), dx, 0.62, dz);
+            for (const legX of [-0.5, 0.5]) put(0.05, 0.6, 0.5, solid(PALETTE.wood), dx + legX, 0.3, dz);
+            put(0.4, 0.02, 0.26, glow(screenGlow), dx, 0.66, dz);
+            const color = colorAt(rowIndex * 3 + columnIndex);
+            put(0.4, 0.05, 0.4, solid(color), dx, 0.4, dz + 0.55);
+            put(0.4, 0.4, 0.05, solid(color), dx, 0.62, dz + 0.77);
+          });
+        });
+        // The children's work pinned to the side walls.
+        [0, 1, 2].forEach((sheet) => hang(drawing(room.x0 * 7 + sheet), x0 + 0.02, 1.7 + (sheet % 2) * 0.15, z0 + 1.6 + sheet * 1.2, Math.PI / 2, (hash(sheet + 4) - 0.5) * 0.3));
+        [0, 1].forEach((sheet) => hang(drawing(room.x0 * 5 + sheet + 9), x1 - 0.02, 1.75, z0 + 2 + sheet * 1.4, -Math.PI / 2, (hash(sheet + 8) - 0.5) * 0.3));
+        break;
+      }
+      case "playroom": {
+        // A soft rug, towers of blocks, a slide, a bear, cushions, and drawings on every wall.
+        const rug = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 3.6), lambert("#ffffff", { map: artTexture(27, 29, (context) => paintRug(context, 27, 29, 44)) }));
+        rug.rotation.x = -Math.PI / 2;
+        rug.position.set(cx - 0.3, y0 + 0.015, z0 + 3.4);
+        scene.add(inert(rug));
+        const toys: Part[] = [];
+        [[x0 + 2.4, z0 + 3, 5], [x0 + 3, z0 + 4.2, 3], [x0 + 1.9, z0 + 4.4, 2], [x0 + 3.4, z0 + 2.6, 4]].forEach(([tx, tz, count], tower) => {
+          for (let block = 0; block < count; block += 1) toys.push({ w: 0.25, h: 0.25, d: 0.25, x: tx + (hash(tower * 9 + block) - 0.5) * 0.06, y: 0.14 + block * 0.25, z: tz, color: colorAt(tower + block) });
+        });
+        // Cushions to flop on.
+        [[x0 + 1.2, z0 + 2.4], [x0 + 3.9, z0 + 3.8], [x0 + 1.5, z0 + 3.6]].forEach(([px, pz], index) => {
+          toys.push({ w: 0.55, h: 0.18, d: 0.55, x: px, y: 0.1, z: pz, color: ["#f08ab0", "#f2c744", "#7d8cf0"][index] });
+        });
+        // The crayon table and its little stools.
+        toys.push({ w: 1, h: 0.05, d: 1, x: x0 + 1.1, y: 0.5, z: z0 + 1.1, color: "#e9e4da" });
+        for (const [dx, dz] of [[-0.4, -0.4], [0.4, -0.4], [-0.4, 0.4], [0.4, 0.4]]) toys.push({ w: 0.05, h: 0.48, d: 0.05, x: x0 + 1.1 + dx, y: 0.24, z: z0 + 1.1 + dz, color: "#e9e4da" });
+        for (let crayon = 0; crayon < 5; crayon += 1) toys.push({ w: 0.12, h: 0.03, d: 0.03, x: x0 + 0.9 + crayon * 0.08, y: 0.54, z: z0 + 1.2 + (crayon % 2) * 0.1, color: colorAt(crayon) });
+        merged(toys);
+        // The slide: up the ladder, down the yellow ramp.
+        put(1, 0.1, 0.8, solid("#4f6ad0"), x1 - 0.8, 1, z0 + 0.7);
+        for (const legX of [x1 - 1.25, x1 - 0.35]) for (const legZ of [z0 + 0.35, z0 + 1.05]) put(0.06, 1, 0.06, solid(metalLight), legX, 0.5, legZ);
+        for (let rung = 0; rung < 3; rung += 1) put(1, 0.05, 0.05, solid(metalLight), x1 - 0.8, 0.25 + rung * 0.3, z0 + 0.32);
+        const ramp = put(0.8, 0.06, 1.9, solid("#f2c744"), x1 - 0.8, 0.55, z0 + 1.75);
+        ramp.rotation.x = 0.52;
+        // A toy bear, well loved.
+        const bear = new THREE.Group();
+        bear.position.set(x0 + 0.9, y0, z1 - 1.3);
+        bear.rotation.y = 0.6;
+        const fur = solid("#9a6a3e");
+        for (const [w, h, d, x, y, z] of [[0.35, 0.4, 0.3, 0, 0.2, 0], [0.28, 0.26, 0.26, 0, 0.53, 0], [0.08, 0.08, 0.06, -0.1, 0.68, 0], [0.08, 0.08, 0.06, 0.1, 0.68, 0], [0.12, 0.08, 0.06, 0, 0.5, 0.15], [0.1, 0.22, 0.1, -0.22, 0.25, 0.04], [0.1, 0.22, 0.1, 0.22, 0.25, 0.04]]) {
+          const part = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), fur);
+          part.position.set(x, y, z);
+          bear.add(part);
+        }
+        scene.add(bear);
+        label(bear, "A toy bear, well loved");
+        // Drawings on the walls.
+        [0, 1].forEach((sheet) => hang(drawing(room.x0 * 3 + sheet), x0 + 0.7 + sheet * 0.75, 1.85, z0 + 0.03, 0, (hash(sheet + 2) - 0.5) * 0.3));
+        [0, 1].forEach((sheet) => hang(drawing(room.x0 * 11 + sheet + 4), x0 + 0.02, 1.7, z0 + 3 + sheet * 1.1, Math.PI / 2, (hash(sheet + 6) - 0.5) * 0.3));
+        break;
+      }
+      case "farm": {
+        // Three raised beds: greens, tomatoes, wheat, under magenta grow lights.
+        const crops: Part[] = [];
+        const lights: Part[] = [];
+        [1.2, 3, 4.8].forEach((bedZ, bedIndex) => {
+          const z = z0 + bedZ;
+          put(width - 2, 0.6, 0.8, solid(PALETTE.wood), cx, 0.3, z);
+          put(width - 2.1, 0.04, 0.7, solid("#4a3424"), cx, 0.61, z);
+          put(width - 2, 0.06, 0.06, solid(metalLight), cx, 0.7, z - 0.42);
+          for (let plant = 0; plant < Math.floor((width - 2.2) / 0.3); plant += 1) {
+            const px = x0 + 1.2 + plant * 0.3;
+            for (const dz of [-0.17, 0.17]) {
+              const tall = (0.2 + hash(plant * 3.1 + bedIndex * 7 + dz) * 0.3) * (bedIndex === 2 ? 1.6 : 1);
+              crops.push({ w: 0.16, h: tall, d: 0.16, x: px, y: 0.63 + tall / 2, z: z + dz, color: bedIndex === 2 ? "#d8b84a" : bedIndex === 1 ? "#4a9440" : "#5fae4e" });
+              if (bedIndex === 1 && hash(plant + dz * 9) > 0.55) crops.push({ w: 0.08, h: 0.08, d: 0.08, x: px + 0.05, y: 0.63 + tall * 0.7, z: z + dz + 0.07, color: "#e8443a" });
+            }
+          }
+          lights.push({ w: width - 2.2, h: 0.06, d: 0.3, x: cx, y: 2, z, color: "#ff9adf" });
+          for (const end of [x0 + 1.2, x1 - 1.2]) put(0.02, room.height - 2.03, 0.02, solid(PALETTE.dark), end, (room.height + 2.03) / 2, z);
+        });
+        const field = merged(crops);
+        if (field) label(field, "The hydroponic farm: greens, tomatoes and wheat for the galley");
+        merged(lights, true);
+        hear("fan", cx, cz);
+        break;
+      }
+      case "infirmary": {
+        // Four beds, each with a monitor on a pole keeping time.
+        [[x0 + 0.65, z0 + 1.25], [x1 - 0.65, z0 + 1.25], [x0 + 0.65, z0 + 4.45], [x1 - 0.65, z0 + 4.45]].forEach(([bx, bz], bedIndex) => {
+          put(1, 0.5, 2.1, solid(metalLight), bx, 0.25, bz);
+          put(0.9, 0.18, 2, solid(PALETTE.linen), bx, 0.6, bz);
+          put(0.92, 0.06, 1.1, solid(tinted(paint, "#ffffff", 0.3)), bx, 0.71, bz + 0.4);
+          put(0.6, 0.1, 0.3, solid("#ffffff"), bx, 0.74, bz - 0.8);
+          const poleX = bx + (bx < cx ? 0.55 : -0.55);
+          put(0.06, 1.6, 0.06, solid(metal), poleX, 0.8, bz - 0.9);
+          const monitor = put(0.5, 0.36, 0.06, glow("#0f2a1c"), poleX, 1.55, bz - 0.9);
+          const trace = put(0.4, 0.04, 0.07, glow(PALETTE.ok), poleX, 1.55, bz - 0.9);
+          animated.push((time) => {
+            trace.position.y = monitor.position.y + (Math.floor(time / 120 + bedIndex * 3) % 8 === 0 ? 0.08 : 0);
+          });
+        });
+        // A medicine cabinet between the beds on the bow wall, marked with a green cross.
+        const cabinet = put(0.3, 1.2, 1, solid("#e9e4da"), x1 - 0.17, 1.6, z0 + 2.85);
+        put(0.02, 0.36, 0.1, glow("#5aba5a"), x1 - 0.33, 1.8, z0 + 2.85);
+        put(0.02, 0.1, 0.36, glow("#5aba5a"), x1 - 0.33, 1.8, z0 + 2.85);
+        label(cabinet, "Medicine, and what the farm grows for it");
+        break;
+      }
+      case "briefing": {
+        // The round map table: the world below turning in light, and the way down to it.
+        const tableX = x0 + 2.8;
+        const tableZ = z0 + 4.8;
+        const table = cylinder(1.2, 1.25, 0.9, solid(metal), tableX, y0 + 0.45, tableZ, 16);
+        cylinder(1.1, 1.1, 0.04, glow(tinted(accent, PALETTE.dark, 0.3)), tableX, y0 + 0.92, tableZ, 16);
+        label(table, "The briefing table: the world below, and the way down to it");
+        const world = new THREE.Group();
+        world.position.set(tableX, y0 + 1.75, tableZ);
+        scene.add(world);
+        world.add(inert(new THREE.Mesh(new THREE.IcosahedronGeometry(0.55, 1), new THREE.MeshBasicMaterial({ color: tinted(accent, "#ffffff", 0.2), wireframe: true, transparent: true, opacity: 0.8 }))));
+        const site = inert(new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.09, 0.09), glow("#ffb347")));
+        site.position.set(0.4, 0.25, 0.3);
+        world.add(site);
+        const course = inert(new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.015, 4, 32, Math.PI * 0.8), ghost("#ffb347", 0.8)));
+        course.position.set(tableX, y0 + 1.75, tableZ);
+        course.rotation.x = 1.1;
+        scene.add(course);
+        // Chairs round it, leaving room where people stand to talk it through.
+        for (const angle of [Math.PI / 3, (2 * Math.PI) / 3, (4 * Math.PI) / 3, (5 * Math.PI) / 3]) {
+          const sx = tableX + Math.cos(angle) * 1.65;
+          const sz = tableZ + Math.sin(angle) * 1.65;
+          put(0.45, 0.06, 0.45, solid(paint), sx, 0.45, sz);
+          put(0.45, 0.5, 0.06, solid(paint), sx, 0.72, sz + Math.sign(Math.sin(angle)) * 0.22);
+        }
+        // A chart of the space round the Ark on the stern wall.
+        hang(picture(2, 1.3, artTexture(32, 21, (context) => paintChart(context, 32, 21, 91, accent))), x0 + 0.02, 2.4, tableZ, Math.PI / 2);
+        // The wall screen: where the team is, and who went.
+        const screenCanvas = document.createElement("canvas");
+        screenCanvas.width = 96;
+        screenCanvas.height = 36;
+        const screenContext = screenCanvas.getContext("2d")!;
+        const screenTexture = new THREE.CanvasTexture(screenCanvas);
+        screenTexture.magFilter = THREE.NearestFilter;
+        screenTexture.minFilter = THREE.NearestFilter;
+        screenTexture.generateMipmaps = false;
+        screenTexture.colorSpace = THREE.SRGBColorSpace;
+        put(3.4, 1.4, 0.08, solid(PALETTE.dark), cx, 2.6, z0 + 0.04);
+        const screen = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.2), new THREE.MeshBasicMaterial({ map: screenTexture }));
+        hang(screen, cx, 2.6, z0 + 0.09);
+        label(screen, "The briefing screen");
+        let lastScreen = "";
+        animated.push((time) => {
+          world.rotation.y = time * 0.0004;
+          const recon = live().recon;
+          const lines = recon?.away
+            ? [`TEAM AT ${(recon.site ?? "THE SURFACE").toUpperCase()}`, `${recon.crewIds.length} ABOARD THE RECON SHIP`, `BACK IN ${Math.max(1, Math.round(recon.remaining / 60))} MIN`]
+            : ["NO TEAM IN THE FIELD", "PLAN THE NEXT LANDING", "AT THE RECON DOCK DESK"];
+          const key = lines.join("|");
+          if (key === lastScreen) return;
+          lastScreen = key;
+          screenContext.fillStyle = PALETTE.dark;
+          screenContext.fillRect(0, 0, 96, 36);
+          screenContext.textBaseline = "top";
+          screenContext.font = "bold 8px monospace";
+          screenContext.fillStyle = tinted(paint, "#ffffff", 0.3);
+          screenContext.fillText("EXPEDITION BRIEFING", 4, 2, 88);
+          screenContext.font = "7px monospace";
+          screenContext.fillStyle = PALETTE.light;
+          lines.forEach((text, index) => screenContext.fillText(text, 4, 12 + index * 8, 88));
+          screenTexture.needsUpdate = true;
+        });
+        break;
+      }
     }
   }
 

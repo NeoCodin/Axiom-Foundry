@@ -11,9 +11,11 @@
  * from when a team goes down to the planet.
  *
  * The cutaway is a slice; the ship is deeper than it. Behind some halls' port
- * walls are rooms of their own, through doors: the crew's cabins and the galley
- * behind Habitation, the Armory behind the Recon Dock. A room nobody uses yet
- * stays sealed.
+ * walls are rooms of their own, through doors: stores and a machine shop behind
+ * Fabrication, cabins and the galley behind Habitation, the labs behind the
+ * Analysis Core, a farm and the infirmary behind Life Support, a library, a
+ * classroom and a playroom behind the Learning Deck, and the Armory and a
+ * briefing room behind the Recon Dock. A room nobody uses yet stays sealed.
  */
 
 export type WalkRoomKind =
@@ -38,7 +40,19 @@ export type WalkCompartment = {
   height: number;
 };
 
-export type SideRoomKind = "cabin" | "galley" | "armory";
+export type SideRoomKind =
+  | "cabin"
+  | "galley"
+  | "armory"
+  | "briefing"
+  | "stores"
+  | "workshop"
+  | "lab"
+  | "library"
+  | "classroom"
+  | "playroom"
+  | "farm"
+  | "infirmary";
 
 /** A room behind a hall's port wall. z0 is its far wall, z1 the hall's side. */
 export type SideRoom = Box & {
@@ -119,7 +133,7 @@ export const WINDOWS: Partial<Record<WalkRoomKind, { port?: readonly number[]; s
   support: { starboard: [2.5, 6.7, 14.8] },
   education: { starboard: [2.5, 6, 9.5, 13] },
   // The dock's back wall is the Armory's, with the recon board on it.
-  hangar: { port: [3.5, 7.5, 26.5] },
+  hangar: { port: [3.5, 7.5] },
   chamber: { port: [3, 9.5, 16], starboard: [3, 9.5, 16] },
 };
 
@@ -177,9 +191,28 @@ const behind = (depth: number) => ({ z0: -(HALF_DEPTH + INNER_WALL + depth), z1:
 const cabin = (index: number, from: number): SideRoomPlan => ({
   id: `cabin-${index}`, kind: "cabin", label: "Quarters", from, to: from + 3.9, ...behind(5.6), height: 3.4, door: from + 1.95, doorHalf: 0.75,
 });
+const sideRoom = (kind: SideRoomKind, label: string, from: number, to: number, depth: number, height: number, door: number, doorHalf = 0.8): SideRoomPlan => ({
+  id: kind, kind, label, from, to, ...behind(depth), height, door, doorHalf,
+});
 
 /** The rooms behind each hall, stern to bow. */
 export const SIDE_ROOM_PLANS: Partial<Record<WalkRoomKind, readonly SideRoomPlan[]>> = {
+  // Doors go where each hall's wall is clear: past the press and the racks, between the
+  // research desks, either side of the chalkboard, past the culture tanks, beside the cargo.
+  fabrication: [
+    sideRoom("stores", "Stores", 0, 6.6, 7, 4.2, 1, 0.75),
+    sideRoom("workshop", "Machine shop", 6.8, 17, 7, 4.2, 15, 0.9),
+  ],
+  research: [sideRoom("lab", "Analysis labs", 0, 15, 7, 4, 7.5)],
+  education: [
+    sideRoom("library", "Library", 0, 5.2, 6, 3.6, 1.9),
+    sideRoom("classroom", "Classroom", 5.4, 12, 6, 3.6, 10.9),
+    sideRoom("playroom", "Playroom", 12.2, 17, 6, 3.6, 14.6),
+  ],
+  support: [
+    sideRoom("farm", "Hydroponic farm", 0, 12.6, 7, 4, 0.75, 0.6),
+    sideRoom("infirmary", "Infirmary", 12.8, 17, 7, 4, 14.9),
+  ],
   habitation: [
     cabin(0, 0),
     cabin(1, 4.1),
@@ -188,6 +221,7 @@ export const SIDE_ROOM_PLANS: Partial<Record<WalkRoomKind, readonly SideRoomPlan
   ],
   hangar: [
     { id: "armory", kind: "armory", label: "Armory", from: 9.6, to: 24.6, ...behind(9.6), height: 5.2, door: 11, doorHalf: 1.1 },
+    sideRoom("briefing", "Briefing room", 24.8, 30.4, 9.6, 5.2, 25.9),
   ],
 };
 
@@ -214,6 +248,52 @@ function sideFurniture(room: Box & { kind: SideRoomKind }): Box[] {
         ...[3.6, 5.4, 7.2].map((at) => ({ x0: x1 - 1.3, x1: x1 - 0.2, z0: z0 + at - 0.5, z1: z0 + at + 0.5 })), // armour stands
         { x0: x0 + 0.1, x1: x0 + 1.1, z0: z0 + 3.2, z1: z0 + 6.2 }, // the repair bench
         { x0: x0 + 6, x1: x0 + 8.6, z0: z0 + 4, z1: z0 + 6.4 }, // the forge cradle and its console
+      ];
+    case "briefing":
+      return [{ x0: x0 + 1.6, x1: x0 + 4, z0: z0 + 3.6, z1: z0 + 6 }]; // the map table
+    case "stores":
+      return [
+        { x0: x0 + 0.1, x1: x0 + 1, z0: z0 + 0.3, z1: z1 - 2 }, // shelving
+        { x0: x0 + 2.8, x1: x0 + 3.7, z0: z0 + 0.3, z1: z0 + 5.2 },
+        { x0: x1 - 1, x1: x1 - 0.1, z0: z0 + 0.3, z1: z1 - 2 },
+      ];
+    case "workshop":
+      return [
+        { x0: x0 + 1, x1: x0 + 3.6, z0: z0 + 0.2, z1: z0 + 1.2 }, // the lathe
+        { x0: x0 + 4.4, x1: x0 + 5.2, z0: z0 + 0.2, z1: z0 + 1 }, // the drill press
+        { x0: x0 + 0.1, x1: x0 + 0.8, z0: z0 + 2.5, z1: z0 + 5.5 }, // parts bins
+        { x0: x0 + 4.6, x1: x0 + 6.6, z0: z0 + 3, z1: z0 + 5 }, // the turntable and the machine on it
+        { x0: x1 - 1, x1: x1 - 0.1, z0: z0 + 1, z1: z1 - 1.6 }, // the workbench
+      ];
+    case "lab":
+      return [
+        { x0: x0 + 2, x1: x0 + 5.5, z0: z0 + 2.8, z1: z0 + 4 }, // benches
+        { x0: x0 + 9.5, x1: x0 + 13, z0: z0 + 2.8, z1: z0 + 4 },
+        { x0: x0 + 2, x1: x0 + 5.5, z0: z0 + 0.2, z1: z0 + 0.9 }, // the fume hood
+        { x0: x0 + 0.1, x1: x0 + 1, z0: z0 + 0.3, z1: z1 - 1.8 }, // server racks
+        { x0: x0 + 10, x1: x0 + 14.5, z0: z0 + 0.2, z1: z0 + 0.9 }, // cases of what has been found
+      ];
+    case "library":
+      return [
+        { x0: x0 + 0.1, x1: x1 - 0.1, z0: z0 + 0.1, z1: z0 + 0.6 }, // shelves
+        { x0: x0 + 0.1, x1: x0 + 0.6, z0: z0 + 0.6, z1: z1 - 2.8 },
+        { x0: x0 + 2.2, x1: x0 + 4, z0: z0 + 2.4, z1: z0 + 3.6 }, // the reading table
+      ];
+    case "classroom":
+      return [2.4, 4].map((row) => ({ x0: x0 + 0.8, x1: x1 - 0.8, z0: z0 + row - 0.3, z1: z0 + row + 0.3 })); // two rows of desks
+    case "playroom":
+      return [
+        { x0: x1 - 1.4, x1: x1 - 0.2, z0: z0 + 0.3, z1: z0 + 2.5 }, // the slide
+        { x0: x0 + 0.6, x1: x0 + 1.6, z0: z0 + 0.6, z1: z0 + 1.6 }, // the crayon table
+      ];
+    case "farm":
+      return [1.2, 3, 4.8].map((bed) => ({ x0: x0 + 1, x1: x1 - 1, z0: z0 + bed - 0.4, z1: z0 + bed + 0.4 })); // raised beds
+    case "infirmary":
+      return [
+        { x0: x0 + 0.15, x1: x0 + 1.15, z0: z0 + 0.2, z1: z0 + 2.3 }, // four beds
+        { x0: x1 - 1.15, x1: x1 - 0.15, z0: z0 + 0.2, z1: z0 + 2.3 },
+        { x0: x0 + 0.15, x1: x0 + 1.15, z0: z0 + 3.4, z1: z0 + 5.5 },
+        { x0: x1 - 1.15, x1: x1 - 0.15, z0: z0 + 3.4, z1: z0 + 5.5 },
       ];
   }
 }
@@ -264,7 +344,8 @@ function furniture(kind: WalkRoomKind, upper: boolean, x0: number, x1: number): 
       ];
     case "research":
       return [
-        { x0: x0 + 1, x1: x1 - 1, z0: -6.9, z1: -5.4 }, // desks under the wall screens
+        { x0: x0 + 1, x1: x0 + 6.4, z0: -6.9, z1: -5.4 }, // desks under the wall screens, the labs' door between them
+        { x0: x0 + 8.6, x1: x1 - 1, z0: -6.9, z1: -5.4 },
         { x0: cx - 1.4, x1: cx + 1.4, z0: 2.2, z1: 4.6 }, // the holo-table
         { x0: x0 + 1, x1: x0 + 4.6, z0: 6, z1: 6.9 }, // server racks
       ];
@@ -280,8 +361,6 @@ function furniture(kind: WalkRoomKind, upper: boolean, x0: number, x1: number): 
         { x0: x0 + 1.4, x1: x0 + 12.6, z0: -6.6, z1: -4.2 }, // four culture tanks
         { x0: x0 + 5, x1: x0 + 8.4, z0: 5, z1: 6.4 }, // the atmosphere desk
         { x0: x0 + 9.4, x1: x0 + 13.2, z0: 6.2, z1: 6.9 }, // hydroponic shelves
-        { x0: x0 + 1, x1: x0 + 3.4, z0: 2.35, z1: 3.35 }, // the two sick-bay beds
-        { x0: x0 + 1, x1: x0 + 3.4, z0: 3.75, z1: 4.75 },
       ];
     case "education":
       return [

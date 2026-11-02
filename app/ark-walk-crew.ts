@@ -89,25 +89,44 @@ const SOLDIERS = ["security", "soldier"];
 const sideRoom = (section: WalkRoomKind, id: string) => SIDE_ROOM_PLANS[section]!.find((plan) => plan.id === id)!;
 const GALLEY = sideRoom("habitation", "galley");
 const ARMORY = sideRoom("hangar", "armory");
+const BRIEFING = sideRoom("hangar", "briefing");
+const STORES = sideRoom("fabrication", "stores");
+const WORKSHOP = sideRoom("fabrication", "workshop");
+const LAB = sideRoom("research", "lab");
+const LIBRARY = sideRoom("education", "library");
+const CLASSROOM = sideRoom("education", "classroom");
+const FARM = sideRoom("support", "farm");
+const INFIRMARY = sideRoom("support", "infirmary");
+const RESEARCHERS = ["researcher"];
+/** Two lists taken one from each in turn, the rest of the longer after. */
+const interleave = <T,>(first: readonly T[], second: readonly T[]) =>
+  Array.from({ length: Math.max(first.length, second.length) }, (_, index) => [first[index], second[index]]).flat().filter((item): item is T => item !== undefined);
+const FARMERS = ["farmer"];
 const CABINS = SIDE_ROOM_PLANS.habitation!.filter((plan) => plan.kind === "cabin");
 
 /** Every room's places, best first. Furniture is drawn against 7 m walls and pushed out (w). */
 export const ROOM_SPOTS: Record<WalkRoomKind, readonly Spot[]> = {
   fabrication: [
     { activity: "type", at: point(3.5, w(-2.9)), look: point(0, -1), for: ENGINEERS },
+    { activity: "fix", at: point(WORKSHOP.from + 5.6, WORKSHOP.z0 + 5.7), look: point(0, -1), for: ENGINEERS, area: "workshop" },
     { activity: "carry", at: point(15.4, w(3.7)), to: point(3.2, w(3.9)), look: point(-1, 0) },
+    { activity: "carry", at: point(STORES.from + 1.9, STORES.z1 - 1.6), to: point(STORES.from + 1.9, STORES.z0 + 1), look: point(0, -1), for: ENGINEERS, area: "stores" },
     { activity: "inspect", at: point(7, w(-4.8)), to: point(12.2, w(-4.8)), look: point(0, -1) },
     { activity: "fix", at: point(12.4, w(1.9)), look: point(1, 1.1) },
+    { activity: "type", at: point(WORKSHOP.from + 8.6, WORKSHOP.z0 + 3), look: point(1, 0), for: ENGINEERS, area: "workshop" },
     { activity: "talk", at: point(5.6, 2.4), look: point(1, 0), pair: "fabrication" },
     { activity: "talk", at: point(6.5, 2.4), look: point(-1, 0), pair: "fabrication" },
   ],
   research: [
     { activity: "type", at: point(3.5, w(-4.8)), look: point(0, -1) },
+    { activity: "type", at: point(LAB.from + 3.75, LAB.z0 + 4.6), look: point(0, -1), for: RESEARCHERS, area: "lab" },
     { activity: "type", at: point(6, w(-4.8)), look: point(0, -1) },
+    { activity: "inspect", at: point(LAB.from + 10.2, LAB.z0 + 1.6), to: point(LAB.from + 14, LAB.z0 + 1.6), look: point(0, -1), for: RESEARCHERS, area: "lab" },
     { activity: "point", at: point(5.7, w(3.4)), look: point(1, 0), pair: "holo-table" },
     { activity: "talk", at: point(9.3, w(3.4)), look: point(-1, 0), pair: "holo-table" },
-    { activity: "type", at: point(8.5, w(-4.8)), look: point(0, -1) },
+    { activity: "type", at: point(10, w(-4.8)), look: point(0, -1) },
     { activity: "type", at: point(2.8, w(5.1)), look: point(0, 1) },
+    { activity: "type", at: point(LAB.from + 11.25, LAB.z0 + 4.6), look: point(0, -1), for: RESEARCHERS, area: "lab" },
   ],
   bridge: [
     { activity: "pilot", at: point(10.3, 0), look: point(1, 0), y: 0.66, for: ["navigator"] },
@@ -116,20 +135,30 @@ export const ROOM_SPOTS: Record<WalkRoomKind, readonly Spot[]> = {
     { activity: "type", at: point(4, w(4.9)), look: point(0, 1) },
   ],
   support: [
-    { activity: "heal", at: point(2.2, w(1.9)), look: point(0, 1), for: ["doctor"] },
+    // The wounded are nursed in the infirmary, two beds at its far wall and two by its door.
+    { activity: "heal", at: point(INFIRMARY.from + 2.1, INFIRMARY.z0 + 1.3), look: point(-1, 0), for: ["doctor"], area: "infirmary" },
     { activity: "tend", at: point(9.9, w(5.6)), to: point(11.1, w(5.6)), look: point(0, 1), for: ["farmer"] },
+    { activity: "tend", at: point(FARM.from + 2, FARM.z0 + 2.1), to: point(FARM.from + 11, FARM.z0 + 2.1), look: point(0, -1), for: FARMERS, area: "farm" },
     { activity: "type", at: point(6.7, w(4.4)), look: point(0, 1) },
     { activity: "tend", at: point(11.7, w(5.6)), to: point(12.9, w(5.6)), look: point(0, 1), for: ["farmer"] },
+    { activity: "tend", at: point(FARM.from + 2, FARM.z0 + 3.9), to: point(FARM.from + 11, FARM.z0 + 3.9), look: point(0, 1), for: FARMERS, area: "farm" },
     { activity: "inspect", at: point(2.6, w(-3.6)), to: point(11.4, w(-3.6)), look: point(0, -1) },
     // Lying figures are centred on their bed, head towards the look direction.
-    { activity: "patient", at: point(2.2, w(2.85)), look: point(-1, 0), y: 0.72 },
-    { activity: "patient", at: point(2.2, w(4.25)), look: point(-1, 0), y: 0.72 },
+    ...[[0.65, 1.25], [INFIRMARY.to - INFIRMARY.from - 0.65, 1.25], [0.65, 4.45], [INFIRMARY.to - INFIRMARY.from - 0.65, 4.45]].map(([x, z]): Spot => ({
+      activity: "patient", at: point(INFIRMARY.from + x, INFIRMARY.z0 + z), look: point(0, -1), y: 0.72, area: "infirmary",
+    })),
   ],
   education: [
     { activity: "teach", at: point(4.5, w(-4.2)), to: point(9.5, w(-4.2)), look: point(0, 1), for: ["teacher"] },
-    ...[2, 3.6, 5.2].flatMap((row) =>
-      [3, 5.67, 8.33, 11].map((deskX): Spot => ({ activity: "study", at: point(deskX, w(row + 0.55)), look: point(0, -1), y: 0.45 })),
+    // Desks in the hall and in the classroom behind it fill in turn; then the library's reading table.
+    ...interleave(
+      [2, 3.6, 5.2].flatMap((row) => [3, 5.67, 8.33, 11].map((deskX): Spot => ({ activity: "study", at: point(deskX, w(row + 0.55)), look: point(0, -1), y: 0.45 }))),
+      [2.4, 4].flatMap((row) => [1.5, 3.3, 5.1].map((deskX): Spot => ({
+        activity: "study", at: point(CLASSROOM.from + deskX, CLASSROOM.z0 + row + 0.55), look: point(0, -1), y: 0.45, area: "classroom",
+      }))),
     ),
+    { activity: "study", at: point(LIBRARY.from + 3.1, LIBRARY.z0 + 4.15), look: point(0, -1), y: 0.45, area: "library" },
+    { activity: "study", at: point(LIBRARY.from + 3.1, LIBRARY.z0 + 1.85), look: point(0, 1), y: 0.45, area: "library" },
   ],
   habitation: [
     { activity: "eat", at: point(12.6, w(2.25)), look: point(0, 1), y: 0.55 },
@@ -158,6 +187,8 @@ export const ROOM_SPOTS: Record<WalkRoomKind, readonly Spot[]> = {
     { activity: "aim", at: point(ARMORY.from + 3.6, ARMORY.z0 + 1.9), look: point(1, 0), for: SOLDIERS, area: "armory" },
     { activity: "type", at: point(ARMORY.from + 7.3, ARMORY.z0 + 6.9), look: point(0, -1), for: SOLDIERS, area: "armory" },
     { activity: "inspect", at: point(ARMORY.from + 3.4, ARMORY.z1 - 1.4), to: point(ARMORY.from + 12, ARMORY.z1 - 1.4), look: point(0, 1), for: SOLDIERS, area: "armory" },
+    { activity: "point", at: point(BRIEFING.from + 1, BRIEFING.z0 + 4.8), look: point(1, 0), pair: "briefing", area: "briefing" },
+    { activity: "talk", at: point(BRIEFING.from + 4.6, BRIEFING.z0 + 4.8), look: point(-1, 0), pair: "briefing", area: "briefing" },
     { activity: "lounge", at: point(2.5, -(HALF_DEPTH - 0.7)), look: point(0, 1), y: 0.45, pair: "lounge" },
     { activity: "lounge", at: point(4.5, -(HALF_DEPTH - 0.7)), look: point(0, 1), y: 0.45, pair: "lounge" },
   ],

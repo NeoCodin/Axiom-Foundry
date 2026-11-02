@@ -32,12 +32,14 @@ test("everyone aboard gets one place, nobody shares a spot, and conversations co
 });
 
 test("the wounded rest in the sick bay with a doctor at their side, and the rest go to their bunks", () => {
-  const crew = [member("w0", "engineer", { resting: true }), member("w1", "farmer", { resting: true }), member("w2", "civilian", { resting: true }), member("d0", "doctor")];
+  const crew = [
+    ...["engineer", "farmer", "civilian", "researcher", "soldier"].map((role, index) => member(`w${index}`, role, { resting: true })),
+    member("d0", "doctor"),
+  ];
   const plan = planCrew(crew, allOnline);
   const activity = (id: string) => plan.placed.find((placement) => placement.member.id === id)?.spot.activity;
-  assert.equal(activity("w0"), "patient");
-  assert.equal(activity("w1"), "patient");
-  assert.equal(activity("w2"), "sleep", "the sick bay has two beds");
+  for (const id of ["w0", "w1", "w2", "w3"]) assert.equal(activity(id), "patient");
+  assert.equal(activity("w4"), "sleep", "the infirmary has four beds");
   assert.equal(activity("d0"), "heal");
   const quiet = planCrew([member("d0", "doctor")], allOnline);
   assert.notEqual(quiet.placed[0]?.spot.activity, "heal", "with nobody hurt the doctor has other work");
