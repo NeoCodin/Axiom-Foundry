@@ -5076,6 +5076,8 @@ export function getManualGain(state: GameState) {
 export type PulseResonance = {
   judgement: PulseJudgement;
   coherence: number;
+  /** The length of the beat that was struck; the bonus scales with it. */
+  beatMs?: number;
 };
 
 export function getPulseCoreGain(state: GameState, resonance: PulseResonance | null = null) {
@@ -5086,6 +5088,7 @@ export function getPulseCoreGain(state: GameState, resonance: PulseResonance | n
     getResonantFlux({
       judgement: resonance.judgement,
       coherence: resonance.coherence,
+      beatMs: resonance.beatMs,
       manualGain,
       fluxPerSecond: getProductionSnapshot(state).fluxPerSecond,
     }),
