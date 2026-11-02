@@ -35,6 +35,8 @@ type GameCommandBarProps = {
   objective: HeaderObjective;
   onOpenHelp: () => void;
   onOpenLore: () => void;
+  /** Investigations waiting in the Lore Archive: a record to cross-index or a room to search. */
+  loreLeads: number;
   onSave: () => void;
   onOpenBackup: () => void;
   onOpenDirective: () => void;
@@ -47,9 +49,10 @@ export function GameCommandBar({
   axiomsLabel, resonanceLabel, operationalLoadLabel, saveStatus, ready, focusWelcome, focusFlux,
   nullSaturation,
   showAxioms, showResonance, showOperations,
-  objective, onOpenHelp, onOpenLore, onSave, onOpenBackup, onOpenDirective,
+  objective, onOpenHelp, onOpenLore, loreLeads, onSave, onOpenBackup, onOpenDirective,
   tooltipsEnabled, onToggleTooltips,
 }: GameCommandBarProps) {
+  const loreLabel = loreLeads > 0 ? `Lore archive · ${loreLeads} ${loreLeads === 1 ? "lead" : "leads"}` : "Lore archive";
   // Phone widths hide the desktop metrics/actions cells entirely, so their
   // contents re-home into this sheet behind a compact menu button. Desktop
   // never renders either (both carry the mobile-only class).
@@ -111,7 +114,7 @@ export function GameCommandBar({
               <button className="quiet-button" type="button" onClick={closeMenuAnd(onOpenHelp)}>Guide</button>
               <button className={`quiet-button tooltip-toggle ${tooltipsEnabled ? "is-on" : ""}`} type="button" aria-pressed={tooltipsEnabled} onClick={onToggleTooltips}>Hints {tooltipsEnabled ? "ON" : "OFF"}</button>
               <PulseSoundToggle className="quiet-button" />
-              <button className="quiet-button" type="button" onClick={closeMenuAnd(onOpenLore)}>Lore archive</button>
+              <button className="quiet-button" type="button" onClick={closeMenuAnd(onOpenLore)}>{loreLabel}</button>
               <button className="quiet-button" type="button" onClick={closeMenuAnd(onSave)}>Save now</button>
               <button className="quiet-button" type="button" onClick={closeMenuAnd(onOpenBackup)}>Back up / restore</button>
             </div>
@@ -129,7 +132,7 @@ export function GameCommandBar({
         <span className="header-tooltip-control" data-pixel-tooltip="Open the Field Manual for this page, resource explanations, and exact next steps."><HelpTrigger label="Open guide for this page" withLabel onClick={onOpenHelp} /></span>
         <button className={`quiet-button tooltip-toggle ${tooltipsEnabled ? "is-on" : ""}`} type="button" aria-pressed={tooltipsEnabled} onClick={onToggleTooltips}>Hints {tooltipsEnabled ? "ON" : "OFF"}</button>
         <PulseSoundToggle className="quiet-button header-sound-toggle" />
-        <button className="quiet-button" type="button" data-pixel-tooltip="Review only the transmissions, contradictions, and historical fragments AXIOM has already discovered." aria-label="Open the discovered Lore Archive" onClick={onOpenLore}>Lore archive</button>
+        <button className="quiet-button" type="button" data-pixel-tooltip="Review only the transmissions, contradictions, and historical fragments AXIOM has already discovered." aria-label={loreLeads > 0 ? `Open the Lore Archive: ${loreLeads} waiting to investigate` : "Open the discovered Lore Archive"} onClick={onOpenLore}>{loreLabel}</button>
         <button className="quiet-button" type="button" data-pixel-tooltip="Write the current game state to this device immediately. Automatic saving remains active." aria-label="Save progress on this device now" onClick={onSave}>Save now</button>
         <button className="quiet-button" type="button" data-pixel-tooltip="Copy or download a backup code for this save, or restore one from another device." aria-label="Back up or restore your save" onClick={onOpenBackup}>Backup</button>
       </div>

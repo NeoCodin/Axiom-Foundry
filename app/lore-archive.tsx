@@ -41,6 +41,19 @@ type LoreArchiveProps = {
   laws: readonly ArchiveLawEntry[];
   worldsSaved: number;
   onCrossIndex: () => void;
+  /** The room search the story is waiting on: ready to send a drone, or a lead still out of reach. */
+  roomInvestigation: {
+    roomName: string;
+    actionLabel: string;
+    ready: boolean;
+    level: number;
+    needed: number;
+    /** What reinforcing the room one more level costs, while it is short of the level the search needs. */
+    reinforceCost: number | null;
+    canReinforce: boolean;
+  } | null;
+  onInvestigateRoom: () => void;
+  onReinforceLeadRoom: () => void;
   onReplayOrientation: () => void;
   onClose: () => void;
 };
@@ -294,6 +307,9 @@ function buildRecordPages(
   causalArchive: CausalArchiveView,
   nextFragment: DiscoveryFragment | null,
   onCrossIndex: () => void,
+  roomInvestigation: LoreArchiveProps["roomInvestigation"],
+  onInvestigateRoom: () => void,
+  onReinforceLeadRoom: () => void,
 ): ArchivePage[] {
   const pages: ArchivePage[] = memoryEntries.map((entry) => ({
     id: entry.id,
@@ -334,6 +350,31 @@ function buildRecordPages(
       paragraphs: ["The Ark has enough related evidence to test one more contradiction. Cross-indexing does not reveal records that have not been earned; it compares material already recovered through play."],
       actionLabel: `Cross-index ${nextFragment.title}`,
       onAction: onCrossIndex,
+    });
+  }
+  if (roomInvestigation) {
+    const { roomName, actionLabel, ready, level, needed, reinforceCost, canReinforce } = roomInvestigation;
+    // Short of the level the search needs, the lead offers the reinforcement itself.
+    const reinforce = !ready && level > 0 && reinforceCost !== null;
+    pages.unshift({
+      id: "room-investigation",
+      category: "records",
+      tabLabel: ready ? "A room to search" : "A lead aboard",
+      title: ready ? `Something in the ${roomName}` : `A lead in the ${roomName}`,
+      source: "AXIOM archive process",
+      confidence: "unknown",
+      paragraphs: [
+        ready
+          ? `The evidence points at a physical place aboard the Ark, in the ${roomName}. A maintenance drone can search it now.`
+          : level === 0
+            ? `The evidence points at the ${roomName}, which is still sealed. It opens as more worlds are restored.`
+            : `The evidence points at the ${roomName}. Reinforce it to level ${needed} so a drone can reach what the records describe.${reinforce && !canReinforce ? ` The next reinforcement needs ${reinforceCost} Salvage.` : ""}`,
+      ],
+      ...(ready
+        ? { actionLabel: `${actionLabel} · ${roomName}`, onAction: onInvestigateRoom }
+        : reinforce && canReinforce
+          ? { actionLabel: `Reinforce the ${roomName} · ${reinforceCost} Salvage`, onAction: onReinforceLeadRoom }
+          : {}),
     });
   }
   return pages;
@@ -407,6 +448,9 @@ export function LoreArchive({
   laws,
   worldsSaved,
   onCrossIndex,
+  roomInvestigation,
+  onInvestigateRoom,
+  onReinforceLeadRoom,
   onReplayOrientation,
   onClose,
 }: LoreArchiveProps) {
@@ -414,9 +458,9 @@ export function LoreArchive({
     story: buildStoryPages(memoryEntries, fragments, causalArchive, worlds, worldsSaved),
     laws: buildLawPages(laws, worldsSaved, fragments.length, causalArchive.score),
     people: buildPeoplePages(worlds),
-    records: buildRecordPages(memoryEntries, fragments, causalArchive, nextFragment, onCrossIndex),
+    records: buildRecordPages(memoryEntries, fragments, causalArchive, nextFragment, onCrossIndex, roomInvestigation, onInvestigateRoom, onReinforceLeadRoom),
     questions: buildQuestionPages(fragments, causalArchive, worlds),
-  }), [causalArchive, fragments, laws, memoryEntries, nextFragment, onCrossIndex, worlds, worldsSaved]);
+  }), [causalArchive, fragments, laws, memoryEntries, nextFragment, onCrossIndex, onInvestigateRoom, onReinforceLeadRoom, roomInvestigation, worlds, worldsSaved]);
   const categories = Object.keys(CATEGORY_COPY) as ArchiveCategoryId[];
   const [activeCategory, setActiveCategory] = useState<ArchiveCategoryId>("story");
   const [selectedPageIds, setSelectedPageIds] = useState<Partial<Record<ArchiveCategoryId, string>>>({});

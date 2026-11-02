@@ -5865,6 +5865,10 @@ export function simulateGame(
       salvage: completed.salvage,
       loreIds: completed.discoveryId ? [completed.discoveryId] : [],
     });
+    // A record brought home can be the last evidence another one was waiting on.
+    next.living = grantLivingFoundryRewards(next.living, {
+      loreIds: syncAutomaticDiscoveries(next.living.discoveredLore, next.missions.worldsSaved, next.settings.tutorialComplete),
+    });
     next.researchStock["schematics"] = Math.min(
       1e12,
       next.researchStock["schematics"] + completed.schematics,
