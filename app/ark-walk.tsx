@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
@@ -50,7 +50,7 @@ import {
 } from "./ark-walk-art";
 import { createSoundscape, type BaySound, type Soundscape, type SoundPlace } from "./ark-walk-audio";
 import { bestSimScore, createSimWorld } from "./ark-sim";
-import { SIM_DIFFICULTIES, type SimDifficulty } from "./ark-sim-rules";
+import { DRILL_CAP_SECONDS, SIM_DIFFICULTIES, type SimDifficulty } from "./ark-sim-rules";
 import { demoCrew, LYING, planCrew, SEATED, type Activity, type WalkCrewMember } from "./ark-walk-crew";
 import { furnishLayout, planDecor, type DecorPiece, type WallSpot } from "./ark-walk-decor";
 import { createNullFeed, misreadLabel, type NullClass, type NullFeed } from "./ark-walk-null";
@@ -118,6 +118,22 @@ export type ArkWalkArmory = {
   onOpen?: () => void;
 };
 
+/**
+ * Security training, which happens in the combat simulator: who is in the pods, who
+ * could join them, and the two things its console does about it.
+ */
+export type ArkWalkSimulator = {
+  trainees: readonly { id: string; name: string; progress: number; remainingSeconds: number }[];
+  /** Idle adult civilians who could start Security training now. */
+  recruits: number;
+  freeSlots: number;
+  slots: number;
+  /** Send idle civilians into Security training, as many as the free slots take. */
+  onEnrol: () => void;
+  /** A cleared wave: every Security trainee gains this many seconds of training. */
+  onDrill: (seconds: number) => void;
+};
+
 export type ArkWalkProps = {
   worldName: string;
   worldAccent: string;
@@ -128,6 +144,7 @@ export type ArkWalkProps = {
   /** The world's Null saturation, as the console shows it: it reaches the drone's feed too. */
   nullInterference?: { classification: NullClass; intensity: number };
   armory?: ArkWalkArmory;
+  simulator?: ArkWalkSimulator;
   beatPeriodMs: number;
   onStrike?: () => void;
   onClose: () => void;
@@ -2691,7 +2708,8 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     const group = person.group;
     scene.add(group);
     crowd.push({ person, deck: deckNumber });
-    label(group, `${member.name} · ${roleName(member.role)} · ${DOING[spot.activity]}`);
+    const doing = spot.activity === "train" && member.training === "security" ? "training to be a soldier" : DOING[spot.activity];
+    label(group, `${member.name} · ${roleName(member.role)} · ${doing}`);
     const from = { x: room.x0 + spot.at.x, z: spot.at.z };
     const to = spot.to ? { x: room.x0 + spot.to.x, z: spot.to.z } : null;
     const seed = hash(member.id.length * 7.1 + placement.index * 3.3) * 10;
@@ -3918,6 +3936,52 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
   };
 }
 
+/** The simulator console's training roll: who is in the pods, how near each is to a soldier, and the intake. */
+function SimulatorPods({ simulator }: { simulator: ArkWalkSimulator }) {
+  const sending = Math.min(simulator.recruits, simulator.freeSlots);
+  return (
+    <section className="ark-sim-pods" aria-label="Security training">
+      <span className="ark-sim-label">In the pods · training to be soldiers</span>
+      {simulator.trainees.length > 0 ? (
+        <ul>
+          {simulator.trainees.map((trainee) => (
+            <li key={trainee.id}>
+              <span>{trainee.name}</span>
+              <span
+                className="ark-sim-training"
+                style={{ "--sim-training": Math.min(1, trainee.progress).toFixed(3) } as CSSProperties}
+                role="img"
+                aria-label={`${Math.floor(trainee.progress * 100)}% trained`}
+              >
+                <i />
+              </span>
+              <small>{Math.floor(trainee.progress * 100)}%</small>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p>No one is training to be a soldier.</p>
+      )}
+      <p>
+        <small>Every wave you clear is their drill: minutes of training each, up to {DRILL_CAP_SECONDS / 60} a run.</small>
+      </p>
+      {sending > 0 ? (
+        <button type="button" className="ark-sim-enrol" onClick={() => simulator.onEnrol()}>
+          <strong>Send {sending === 1 ? "an idle civilian" : `${sending} idle civilians`} to train</strong>
+        </button>
+      ) : (
+        <p>
+          <small>
+            {simulator.freeSlots === 0
+              ? `Every training slot is in use (${simulator.slots} of ${simulator.slots}).`
+              : "No idle adult civilians to send."}
+          </small>
+        </p>
+      )}
+    </section>
+  );
+}
+
 export default function ArkWalk(props: ArkWalkProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -3936,7 +4000,18 @@ export default function ArkWalk(props: ArkWalkProps) {
   const simControlRef = useRef<{ start(difficulty: SimDifficulty): void; again(): void; menu(): void; leave(): void } | null>(null);
   const [simScreen, setSimScreen] = useState<
     | { phase: "menu" | "playing" }
-    | { phase: "over"; difficulty: SimDifficulty; score: number; kills: number; wave: number; best: number; record: boolean }
+    | {
+      phase: "over";
+      difficulty: SimDifficulty;
+      score: number;
+      kills: number;
+      wave: number;
+      best: number;
+      record: boolean;
+      /** Seconds of Security training the run drilled into each trainee, and who finished. */
+      drilled: number;
+      graduates: string[];
+    }
     | null
   >(null);
   const propsRef = useRef(props);
@@ -4069,10 +4144,27 @@ export default function ArkWalk(props: ArkWalkProps) {
     let simPaused = false;
     let simOver = false;
     let firing = false;
+    // What this run's cleared waves have drilled into the Security trainees, and who finished.
+    let simDrilled = 0;
+    let simGraduates: string[] = [];
+    const drillTrainees = (_wave: number, drill: number) => {
+      const training = propsRef.current.simulator;
+      const trainees = training?.trainees ?? [];
+      if (!training || trainees.length === 0) return null;
+      if (drill <= 0) return "the trainees have had this run's full drill";
+      for (const trainee of trainees) {
+        if (trainee.remainingSeconds <= drill && !simGraduates.includes(trainee.name)) simGraduates.push(trainee.name);
+      }
+      simDrilled += drill;
+      training.onDrill(drill);
+      return `${trainees.length === 1 ? trainees[0].name : `${trainees.length} trainees`} +${Math.round(drill / 60)} min training`;
+    };
     const startSim = (difficulty: SimDifficulty) => {
       sim?.dispose();
       simDifficulty = difficulty;
-      sim = createSimWorld(difficulty, { reducedMotion });
+      simDrilled = 0;
+      simGraduates = [];
+      sim = createSimWorld(difficulty, { reducedMotion, onCleared: drillTrainees });
       sim.resize(camera.aspect);
       simMenu = false;
       simPaused = false;
@@ -4144,6 +4236,8 @@ export default function ArkWalk(props: ArkWalkProps) {
           wave: hud.wave,
           best: bestSimScore(simDifficulty, hud.score),
           record: hud.score > previousBest,
+          drilled: simDrilled,
+          graduates: [...simGraduates],
         });
       }
     };
@@ -4556,11 +4650,15 @@ export default function ArkWalk(props: ArkWalkProps) {
         <div className="ark-sim-panel" role="dialog" aria-label="Combat simulation">
           <h2>Combat simulation</h2>
           <p>A jungle that never was, full of things that scream. Crew train here before they fight; AXIOM can step in too.</p>
+          {props.simulator && <SimulatorPods simulator={props.simulator} />}
           <div className="ark-sim-levels">
             {(Object.keys(SIM_DIFFICULTIES) as SimDifficulty[]).map((level) => (
               <button key={level} type="button" onClick={() => simControlRef.current?.start(level)}>
                 <strong>{SIM_DIFFICULTIES[level].label}</strong>
                 <small>{SIM_DIFFICULTIES[level].blurb}</small>
+                {props.simulator && props.simulator.trainees.length > 0 && (
+                  <small>Each wave cleared · +{SIM_DIFFICULTIES[level].drill / 60} min training</small>
+                )}
                 <small className="ark-sim-best">Best · {bestSimScore(level)}</small>
               </button>
             ))}
@@ -4576,6 +4674,12 @@ export default function ArkWalk(props: ArkWalkProps) {
           </p>
           <p className="ark-sim-final">{simScreen.score} pts</p>
           <p className="ark-sim-best">{simScreen.record ? "A new best on this device" : `Best · ${simScreen.best}`}</p>
+          {simScreen.drilled > 0 && (
+            <p className="ark-sim-drilled">
+              Your waves drilled the trainees: +{Math.round(simScreen.drilled / 60)} min of Security training each.
+              {simScreen.graduates.length > 0 && ` Now soldiers: ${simScreen.graduates.join(", ")}.`}
+            </p>
+          )}
           <div className="ark-sim-levels">
             <button type="button" onClick={() => simControlRef.current?.again()}><strong>Run it again</strong></button>
             <button type="button" onClick={() => simControlRef.current?.menu()}><strong>Change difficulty</strong></button>

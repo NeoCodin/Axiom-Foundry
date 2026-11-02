@@ -2219,9 +2219,17 @@ export function runTrainingDoctrine(
 ) {
   const doctrine = state.trainingDoctrine;
   if (!doctrine || !state.commandTeam.leaderId) return state;
-  if (state.training.length >= state.trainingSlots) return state;
+  return fillTrainingSlots(state, doctrine, getIdleTrainingCandidates(state, doctrine, unavailableIds));
+}
+
+/** Idle crew who could start training for a profession now, best suited first. */
+function getIdleTrainingCandidates(
+  state: SurvivorSystemState,
+  role: ProfessionalRole,
+  unavailableIds: ReadonlySet<string>,
+) {
   const trainingIds = new Set(state.training.map((program) => program.survivorId));
-  const candidates = state.survivors
+  return state.survivors
     .filter(
       (survivor) =>
         survivor.assignedRole === null &&
@@ -2230,24 +2238,83 @@ export function runTrainingDoctrine(
         !unavailableIds.has(survivor.id) &&
         !state.medBayIds.includes(survivor.id) &&
         !isSurvivorWounded(survivor) &&
-        canSurvivorLearnProfession(survivor, doctrine),
+        canSurvivorLearnProfession(survivor, role),
     )
     .sort(
       (left, right) =>
-        right.aptitudes[doctrine] - left.aptitudes[doctrine] ||
+        right.aptitudes[role] - left.aptitudes[role] ||
         right.adaptability - left.adaptability,
     );
+}
+
+function fillTrainingSlots(
+  state: SurvivorSystemState,
+  role: ProfessionalRole,
+  candidates: readonly Survivor[],
+) {
   let next = state;
   for (const candidate of candidates) {
     if (next.training.length >= next.trainingSlots) break;
-    next = startSurvivorTraining(next, candidate.id, doctrine);
+    next = startSurvivorTraining(next, candidate.id, role);
   }
   return next;
 }
 
-function advanceTrainingMutable(state: SurvivorSystemState, elapsedSeconds: number) {
+/**
+ * The combat simulator's intake: idle adult civilians who could train for the
+ * role, best suited first. Elders are left out of soldiering, as AXIOM's own
+ * staffing leaves them out of it.
+ */
+export function getIdleCivilianRecruits(
+  state: SurvivorSystemState,
+  role: ProfessionalRole,
+  unavailableIds: ReadonlySet<string> = new Set(),
+) {
+  return getIdleTrainingCandidates(state, role, unavailableIds).filter(
+    (survivor) => survivor.role === "civilian" && survivor.ageGroup === "adult",
+  );
+}
+
+/** Send idle adult civilians into training for the role, as many as the free training slots take. */
+export function enrolCiviliansInTraining(
+  state: SurvivorSystemState,
+  role: ProfessionalRole,
+  unavailableIds: ReadonlySet<string> = new Set(),
+) {
+  if (!isProfessionalRole(role)) return state;
+  return fillTrainingSlots(state, role, getIdleCivilianRecruits(state, role, unavailableIds));
+}
+
+/** The most one drill can give, whatever a caller asks for. */
+const MAX_DRILL_SECONDS = 15 * 60;
+
+/**
+ * A live drill: every programme training for the role gains the drilled
+ * seconds at once (the combat simulator's waves, for Security), finishing any
+ * it carries past the line exactly as ordinary training would.
+ */
+export function drillTrainees(
+  state: SurvivorSystemState,
+  role: ProfessionalRole,
+  seconds: number,
+) {
+  const drilled = finite(seconds, 0, MAX_DRILL_SECONDS);
+  if (drilled <= 0 || !state.training.some((program) => program.targetRole === role)) {
+    return state;
+  }
+  const next = cloneSurvivorSystemState(state);
+  advanceTrainingMutable(next, drilled, role);
+  return next;
+}
+
+function advanceTrainingMutable(
+  state: SurvivorSystemState,
+  elapsedSeconds: number,
+  onlyRole: ProfessionalRole | null = null,
+) {
   const completed = new Set<string>();
   for (const program of state.training) {
+    if (onlyRole !== null && program.targetRole !== onlyRole) continue;
     program.progressSeconds = Math.min(
       program.durationSeconds,
       program.progressSeconds + elapsedSeconds,

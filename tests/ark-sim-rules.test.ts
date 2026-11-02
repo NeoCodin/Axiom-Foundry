@@ -4,6 +4,7 @@ import {
   ALIENS,
   ARENA_RADIUS,
   CARBINE,
+  DRILL_CAP_SECONDS,
   SIM_DIFFICULTIES,
   createSim,
   fireCarbine,
@@ -124,4 +125,34 @@ test("spitters keep their distance and lob acid that can be dodged", () => {
   const spitter = state.aliens[0];
   const distance = Math.hypot(spitter.x - state.player.x, spitter.z - state.player.z);
   assert.ok(distance > 5, `it keeps back (${distance.toFixed(1)} m)`);
+});
+
+test("clearing a wave drills the Security trainees: more on harder settings, capped for the run", () => {
+  assert.ok(SIM_DIFFICULTIES.recruit.drill < SIM_DIFFICULTIES.soldier.drill && SIM_DIFFICULTIES.soldier.drill < SIM_DIFFICULTIES.veteran.drill);
+  const state = createSim("soldier", seeded(8));
+  stepSim(state, 0.1, seeded(8));
+  assert.ok(!types(state).includes("cleared"), "nothing is cleared before the first wave");
+  state.events.length = 0;
+  run(state, 4);
+  assert.equal(state.wave, 1);
+  // Every alien of the wave falls.
+  state.roster = [];
+  state.aliens = [];
+  state.nextArrival = Infinity;
+  state.events.length = 0;
+  stepSim(state, 0.05, seeded(8));
+  assert.deepEqual(state.events.find((event) => event.type === "cleared"), { type: "cleared", wave: 1, drill: SIM_DIFFICULTIES.soldier.drill });
+  assert.equal(state.cleared, 1);
+  assert.equal(state.drilled, SIM_DIFFICULTIES.soldier.drill);
+
+  // Near the cap, a wave gives only what is left of it.
+  state.drilled = DRILL_CAP_SECONDS - 30;
+  state.events.length = 0;
+  run(state, 4);
+  state.roster = [];
+  state.aliens = [];
+  state.nextArrival = Infinity;
+  stepSim(state, 0.05, seeded(8));
+  assert.equal(state.events.find((event) => event.type === "cleared")?.drill, 30);
+  assert.equal(state.drilled, DRILL_CAP_SECONDS);
 });

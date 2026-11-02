@@ -228,6 +228,9 @@ import {
   setSosBeaconOnline,
   startSurvivorTraining,
   cancelSurvivorTraining,
+  drillTrainees,
+  enrolCiviliansInTraining,
+  getIdleCivilianRecruits,
   type LifeSupportKey,
   type ProfessionalRole,
   type SurvivorRole,
@@ -274,6 +277,7 @@ import {
 import { getCampaignWorld, type CampaignWorldId } from "./campaign-content";
 import {
   EXPEDITION_SITE_DEFINITIONS,
+  getDeployedCrewIds,
   getExpeditionAvailability,
   getExpeditionSitesForWorld,
   type ExpeditionSiteId,
@@ -2081,6 +2085,41 @@ export default function Home() {
     );
   };
 
+  /** Crew who cannot start training right now: away on an expedition or in the Bioadaptation Clinic. */
+  const getBusyCrewIds = (state: GameState) => new Set([
+    ...getDeployedCrewIds(state.expeditions),
+    ...(state.bioadaptation.active ? [state.bioadaptation.active.survivorId] : []),
+  ]);
+
+  // Security training happens in the combat simulator (Walk the Ark): its console
+  // sends idle civilians in, and every wave AXIOM clears there drills them.
+  const handleSimulatorEnrol = () => {
+    const current = gameRef.current;
+    const survivors = enrolCiviliansInTraining(current.survivors, "security", getBusyCrewIds(current));
+    const added = survivors.training.length - current.survivors.training.length;
+    if (added <= 0) return;
+    commitGameState(
+      { ...current, survivors },
+      `${added} civilian${added === 1 ? "" : "s"} began Security training in the combat simulator.`,
+    );
+  };
+
+  const handleSimulatorDrill = (seconds: number) => {
+    const current = gameRef.current;
+    const survivors = drillTrainees(current.survivors, "security", seconds);
+    const graduates = current.survivors.training
+      .filter((program) => !survivors.training.some((still) => still.survivorId === program.survivorId))
+      .map((program) => survivors.survivors.find((survivor) => survivor.id === program.survivorId))
+      .map((survivor) => survivor ? survivor.callsign || survivor.name : null)
+      .filter((name): name is string => name !== null);
+    commitGameState(
+      { ...current, survivors },
+      graduates.length > 0
+        ? `${graduates.join(", ")} finished Security training in the combat simulator.`
+        : "The combat simulator drilled the Security trainees.",
+    );
+  };
+
   const handleCancelTraining = (survivorId: string) => {
     const current = gameRef.current;
     commitGameState(
@@ -3149,6 +3188,24 @@ export default function Home() {
               ? { name: activeArmoryProject.itemName, targetMark: activeArmoryProject.targetMark, progress: activeArmoryProject.progress }
               : null,
             onOpen: () => handlePrimaryNavigation("armory"),
+          }}
+          simulator={{
+            trainees: game.survivors.training
+              .filter((program) => program.targetRole === "security")
+              .map((program) => {
+                const survivor = game.survivors.survivors.find((candidate) => candidate.id === program.survivorId);
+                return {
+                  id: program.survivorId,
+                  name: survivor ? survivor.callsign || survivor.name : "Trainee",
+                  progress: program.durationSeconds > 0 ? program.progressSeconds / program.durationSeconds : 1,
+                  remainingSeconds: Math.max(0, program.durationSeconds - program.progressSeconds),
+                };
+              }),
+            recruits: getIdleCivilianRecruits(game.survivors, "security", getBusyCrewIds(game)).length,
+            freeSlots: Math.max(0, game.survivors.trainingSlots - game.survivors.training.length),
+            slots: game.survivors.trainingSlots,
+            onEnrol: handleSimulatorEnrol,
+            onDrill: handleSimulatorDrill,
           }}
           recon={game.expeditions.active ? {
             away: true,

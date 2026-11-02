@@ -427,3 +427,62 @@
 .ark-sim-best {
   color: #ffd27a;
 }
+
+/* Security training happens here: who is in the pods, and how near each is to a soldier. */
+.ark-sim-pods {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 6px solid transparent;
+  border-image: var(--b-plate-base) 7 fill / 14px / 4px stretch;
+}
+
+.ark-sim-pods ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ark-sim-pods li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px 44px;
+  gap: 12px;
+  align-items: center;
+}
+
+.ark-sim-pods li small {
+  color: #ffd27a;
+  text-align: right;
+}
+
+.ark-sim-pods p small {
+  color: #b4aecb;
+  font-size: 12px;
+}
+
+.ark-sim-training {
+  position: relative;
+  display: block;
+  height: 12px;
+  background: #2b2433;
+  outline: 2px solid #07081a;
+}
+
+.ark-sim-training i {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc((100% - 4px) * var(--sim-training, 0));
+  background: repeating-linear-gradient(90deg, #ffd27a 0 8px, transparent 8px 10px);
+}
+
+.game-shell .ark-walk .ark-sim-panel button.ark-sim-enrol {
+  justify-self: start;
+}
+
+.ark-sim-panel .ark-sim-drilled {
+  color: #ffd27a;
+}

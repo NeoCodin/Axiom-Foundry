@@ -8,7 +8,7 @@ import {
 import { ArkCutaway, type ArkCutawayRoom, type ArkCutawayRoomKind } from "./ark-cutaway";
 import { ArkPixelWorld } from "./ark-pixel-world";
 
-import type { ArkWalkArmory, ArkWalkRecon } from "./ark-walk";
+import type { ArkWalkArmory, ArkWalkRecon, ArkWalkSimulator } from "./ark-walk";
 import type { BeaconReadiness } from "./beacon-readiness-engine";
 import type { RoomId } from "./discovery-content";
 import {
@@ -128,6 +128,8 @@ export type ArkDeckProps = {
   recon?: ArkWalkRecon;
   /** The Armory's stock and work, for the drone view's Armory and its soldiers' kit. */
   armory?: ArkWalkArmory;
+  /** Security training, which the drone view's combat simulator shows and drills. */
+  simulator?: ArkWalkSimulator;
   /** The world's Null saturation, which also reaches the drone's camera. */
   nullInterference?: { classification: "quiet" | "trace" | "elevated" | "severe"; intensity: number };
   onUpgradeSupport?: (key: LifeSupportKey) => void;
@@ -204,6 +206,7 @@ function ArkDeck({
   lawHeartDrones = [],
   recon,
   armory,
+  simulator,
   nullInterference,
   onUpgradeSupport,
   onOpenView,
@@ -516,7 +519,7 @@ function ArkDeck({
                 id: member.id,
                 name: member.name,
                 role: member.role,
-                training: Boolean(member.training),
+                training: member.training ?? null,
                 resting: member.resting,
                 ageGroup: member.ageGroup,
               }))}
@@ -536,6 +539,7 @@ function ArkDeck({
               recon={recon}
               nullInterference={nullInterference}
               armory={armory}
+              simulator={simulator}
               beatPeriodMs={getPulseProfile(lifetimeAxioms).periodMs}
               onStrike={onStrikeLawHeart}
               onClose={() => setWalkAccent(null)}

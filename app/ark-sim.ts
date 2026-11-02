@@ -34,6 +34,8 @@ export type SimHud = {
   wave: number;
   score: number;
   kills: number;
+  /** Waves beaten outright this run. */
+  cleared: number;
   alive: boolean;
   /** A hit taken, fading from 1. */
   hurt: number;
@@ -88,7 +90,16 @@ type AlienModel = {
   step: number;
 };
 
-export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = false }: { reducedMotion?: boolean } = {}) {
+export type SimWorldOptions = {
+  reducedMotion?: boolean;
+  /**
+   * A wave beaten outright, and the Security training it drilled. The caller hands the
+   * drill to the trainees and may name what it did, for the banner.
+   */
+  onCleared?: (wave: number, drill: number) => string | null;
+};
+
+export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = false, onCleared }: SimWorldOptions = {}) {
   const random = seeded(Math.floor(Math.random() * 1e9));
   const state: SimState = createSim(difficulty, random);
   const scene = new THREE.Scene();
@@ -491,6 +502,9 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
       if (event.type === "wave") {
         banner = { text: `Wave ${event.wave}`, until: state.time + 2 };
         audio?.wave();
+      } else if (event.type === "cleared") {
+        const done = onCleared?.(event.wave, event.drill) ?? null;
+        banner = { text: done ? `Wave ${event.wave} cleared · ${done}` : `Wave ${event.wave} cleared`, until: state.time + 2.6 };
       } else if (event.type === "scream" || event.type === "spawn") {
         const at = heard(event.x, 1.5, event.z);
         audio?.scream(event.kind, at.pan, at.gain * (event.type === "spawn" ? 0.7 : 1));
@@ -666,6 +680,7 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
         wave: state.wave,
         score: state.score,
         kills: state.kills,
+        cleared: state.cleared,
         alive: player.alive,
         hurt,
         marker,

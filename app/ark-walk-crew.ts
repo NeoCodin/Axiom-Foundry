@@ -3,8 +3,9 @@
  * something to do there, from their job, their health, their training and their age:
  * engineers at the press and the racks, researchers at the screens, the wounded in the
  * sick bay with a doctor beside them, trainees at the Learning Deck desks while the
- * teacher walks the board, the off-duty eating together or talking in pairs, cooking
- * in the galley or asleep in their cabins, soldiers at the Armory's range and bench.
+ * teacher walks the board (or, training for Security, in the combat simulator's pods),
+ * the off-duty eating together or talking in pairs, cooking in the galley or asleep in
+ * their cabins, soldiers at the Armory's range and bench.
  * Pure planning; ark-walk.tsx animates it.
  */
 
@@ -14,8 +15,11 @@ export type WalkCrewMember = {
   id: string;
   name: string;
   role: string;
-  /** In a training programme: they study on the Learning Deck. */
-  training?: boolean;
+  /**
+   * In a training programme, and for what: they study on the Learning Deck, except those
+   * training for Security, who drill in the combat simulator's pods.
+   */
+  training?: string | boolean | null;
   /** Wounded: they rest in the sick bay. */
   resting?: boolean;
   ageGroup?: string | null;
@@ -197,6 +201,10 @@ export const ROOM_SPOTS: Record<WalkRoomKind, readonly Spot[]> = {
     { activity: "talk", at: point(BRIEFING.from + 4.6, BRIEFING.z0 + 4.8), look: point(-1, 0), pair: "briefing", area: "briefing" },
     { activity: "lounge", at: point(2.5, -(HALF_DEPTH - 0.7)), look: point(0, 1), y: 0.45, pair: "lounge" },
     { activity: "lounge", at: point(4.5, -(HALF_DEPTH - 0.7)), look: point(0, 1), y: 0.45, pair: "lounge" },
+    // The simulator's other two pods: Security trainees first, any spare soldiers after.
+    ...[[0.65, 4.2, 1], [SIMULATOR.to - SIMULATOR.from - 0.65, 1.6, -1]].map(([x, z, facing]): Spot => ({
+      activity: "train", at: point(SIMULATOR.from + x, SIMULATOR.z0 + z), look: point(facing, 0), y: 0.5, for: SOLDIERS, area: "simulator",
+    })),
   ],
   // Watching the Law-Heart through the core windows from the lower gallery.
   chamber: [
@@ -215,7 +223,8 @@ export function demoCrew(): WalkCrewMember[] {
   crew[3].resting = true;
   crew[19].resting = true;
   crew[1].training = true;
-  crew[20].training = true;
+  crew[20].training = "security";
+  crew[24].training = "security";
   crew[21].ageGroup = "child";
   crew[22].ageGroup = "child";
   crew[23].ageGroup = "elder";
@@ -262,8 +271,17 @@ export function planCrew(
     if (bed) take(member, bed.spot.activity === "patient" ? "support" : "habitation", bed);
   }
   const patients = placed.some((placement) => placement.spot.activity === "patient");
+  // Security trainees next, so the soldiers do not take every pod first.
+  const podded = new Set<string>();
   for (const member of aboard) {
-    if (member.resting) continue;
+    if (member.resting || member.training !== "security") continue;
+    const pod = free("hangar", (spot) => spot.activity === "train")[0];
+    if (!pod) break;
+    take(member, "hangar", pod);
+    podded.add(member.id);
+  }
+  for (const member of aboard) {
+    if (member.resting || podded.has(member.id)) continue;
     // Trainees and children are in class.
     if (member.training || member.ageGroup === "child") {
       const desk = free("education", (spot) => spot.activity === "study")[0];

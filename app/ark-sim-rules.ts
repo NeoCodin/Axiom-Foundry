@@ -6,8 +6,11 @@
  * Waves of aliens come out of the jungle: stalkers that run you down, spitters
  * that hang back and lob acid, and brutes that take a magazine to drop. You
  * have a carbine, a health bar and what ammunition you can find; how much there
- * is, and how hard they hit, is set by the difficulty. Pure rules, advanced in
- * place; ark-sim.ts draws the jungle and ark-sim-audio.ts gives it voice.
+ * is, and how hard they hit, is set by the difficulty. Every wave AXIOM clears
+ * is a live drill for the crew training as Security in the pods around it:
+ * minutes of their training, more on harder settings, capped for each run.
+ * Pure rules, advanced in place; ark-sim.ts draws the jungle and
+ * ark-sim-audio.ts gives it voice.
  */
 
 export type SimDifficulty = "recruit" | "soldier" | "veteran";
@@ -36,6 +39,8 @@ export const SIM_DIFFICULTIES: Record<SimDifficulty, {
   /** The wave spitters, then brutes, first appear in. */
   spittersFrom: number;
   brutesFrom: number;
+  /** Seconds of Security training each cleared wave drills into the trainees. */
+  drill: number;
 }> = {
   recruit: {
     label: "Recruit",
@@ -44,6 +49,7 @@ export const SIM_DIFFICULTIES: Record<SimDifficulty, {
     firstWave: 4, growth: 2, crowd: 6, arrival: 1.6,
     reserve: Infinity, ammoDrop: 0, healthDrop: 0.15,
     spittersFrom: 3, brutesFrom: 5,
+    drill: 60,
   },
   soldier: {
     label: "Soldier",
@@ -52,6 +58,7 @@ export const SIM_DIFFICULTIES: Record<SimDifficulty, {
     firstWave: 5, growth: 3, crowd: 9, arrival: 1.1,
     reserve: 96, ammoDrop: 0.45, healthDrop: 0.1,
     spittersFrom: 2, brutesFrom: 3,
+    drill: 120,
   },
   veteran: {
     label: "Veteran",
@@ -60,8 +67,12 @@ export const SIM_DIFFICULTIES: Record<SimDifficulty, {
     firstWave: 7, growth: 4, crowd: 12, arrival: 0.8,
     reserve: 48, ammoDrop: 0.3, healthDrop: 0.06,
     spittersFrom: 1, brutesFrom: 2,
+    drill: 180,
   },
 };
+
+/** The most Security training one run can drill into the trainees, however long it lasts. */
+export const DRILL_CAP_SECONDS = 15 * 60;
 
 /** What each kind of alien is like before the difficulty touches it. */
 export const ALIENS: Record<AlienKind, {
@@ -108,6 +119,8 @@ export type SimPickup = { id: number; kind: "ammo" | "health"; x: number; z: num
 
 export type SimEvent =
   | { type: "wave"; wave: number }
+  /** A wave's last alien fell; drill is the Security training it earned the trainees. */
+  | { type: "cleared"; wave: number; drill: number }
   | { type: "spawn" | "scream" | "strike" | "kill"; kind: AlienKind; x: number; z: number }
   | { type: "spit"; x: number; z: number }
   | { type: "hit"; kind: AlienKind; x: number; z: number }
@@ -124,6 +137,9 @@ export type SimState = {
   nextArrival: number;
   score: number;
   kills: number;
+  /** Waves beaten outright, and the Security training they have drilled so far this run. */
+  cleared: number;
+  drilled: number;
   player: {
     x: number;
     z: number;
@@ -161,6 +177,8 @@ export function createSim(difficulty: SimDifficulty, random: () => number = Math
     nextArrival: BREATHER,
     score: 0,
     kills: 0,
+    cleared: 0,
+    drilled: 0,
     player: {
       x: 0,
       z: 0,
@@ -342,8 +360,16 @@ export function stepSim(state: SimState, dt: number, random: () => number = Math
     player.alive = false;
     state.events.push({ type: "death" });
   }
-  // After a wave's last alien falls, a breather before the next.
-  if (state.roster.length === 0 && state.aliens.length === 0 && state.nextArrival === Infinity) state.nextArrival = state.time + BREATHER;
+  // After a wave's last alien falls, a breather before the next, and the drill it earned.
+  if (state.roster.length === 0 && state.aliens.length === 0 && state.nextArrival === Infinity) {
+    state.nextArrival = state.time + BREATHER;
+    if (player.alive) {
+      const drill = Math.min(rules.drill, DRILL_CAP_SECONDS - state.drilled);
+      state.cleared = state.wave;
+      state.drilled += drill;
+      state.events.push({ type: "cleared", wave: state.wave, drill });
+    }
+  }
   return state;
 }
 

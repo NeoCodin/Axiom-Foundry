@@ -70,3 +70,15 @@ test("every place someone stands or walks is clear floor", () => {
     }
   }
 });
+
+test("Security trainees drill in the simulator's pods before any soldier takes one", () => {
+  // Enough soldiers to man every post in the dock, so the spare pods fill too.
+  const soldiers = Array.from({ length: 10 }, (_, index) => member(`s${index}`, "soldier"));
+  const trainees = [member("t0", "civilian", { training: "security" }), member("t1", "civilian", { training: "security" })];
+  const plan = planCrew([...soldiers, ...trainees], allOnline);
+  const podded = plan.placed.filter((placement) => placement.spot.activity === "train").map((placement) => placement.member.id);
+  assert.equal(podded.length, 4, "four pods, all in use");
+  assert.ok(podded.includes("t0") && podded.includes("t1"));
+  const elsewhere = planCrew([member("e", "civilian", { training: "engineer" })], allOnline);
+  assert.equal(elsewhere.placed[0]?.spot.activity, "study", "other trainees are still in class");
+});
