@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { CELLS, FORMS } from "../app/arc-carbine.ts";
 import {
   ALIENS,
   ARENA_RADIUS,
-  CARBINE,
   DRILL_CAP_SECONDS,
+  SIM_DOME,
   SIM_DIFFICULTIES,
   createSim,
   fireCarbine,
@@ -28,14 +29,14 @@ const run = (state: SimState, seconds: number, random = seeded(3)) => {
 };
 const types = (state: SimState) => state.events.map((event) => event.type);
 
-test("the difficulties climb: tougher, faster, harder-hitting aliens and less ammunition", () => {
+test("the difficulties climb: tougher, faster, harder-hitting aliens and fewer spare cells", () => {
   const [recruit, soldier, veteran] = [SIM_DIFFICULTIES.recruit, SIM_DIFFICULTIES.soldier, SIM_DIFFICULTIES.veteran];
   for (const key of ["toughness", "pace", "bite", "firstWave", "crowd"] as const) {
     assert.ok(recruit[key] < soldier[key] && soldier[key] < veteran[key], key);
   }
   assert.ok(recruit.playerHealth > soldier.playerHealth && soldier.playerHealth > veteran.playerHealth);
-  assert.equal(recruit.reserve, Infinity, "a recruit never runs out");
-  assert.ok(soldier.reserve > veteran.reserve);
+  assert.equal(recruit.cells, Infinity, "a recruit never runs out");
+  assert.ok(soldier.cells > veteran.cells);
   assert.ok(waveRoster("veteran", 1).length > waveRoster("recruit", 1).length);
 });
 
@@ -50,35 +51,80 @@ test("waves come out of the jungle, bigger each time, with spitters and brutes i
   assert.ok(Array.from({ length: 6 }, (_, wave) => waveRoster("soldier", wave + 2, seeded(wave))).flat().includes("spitter"));
 });
 
-test("the carbine fires a round at a time, cycles, clicks when empty, and reloads from the reserve", () => {
+test("the carbine spends its cell a shot at a time, cycles, clicks when empty, and swaps in a spare", () => {
   const state = createSim("soldier", seeded(1));
-  assert.equal(fireCarbine(state, null), true);
-  assert.equal(state.player.magazine, CARBINE.magazine - 1);
-  assert.equal(fireCarbine(state, null), false, "not faster than it cycles");
-  for (let shot = 0; shot < CARBINE.magazine * 3; shot += 1) {
-    state.time += CARBINE.interval;
+  state.player.x = 20;
+  const cost = FORMS.conservation.cost;
+  assert.ok(fireCarbine(state, null));
+  assert.equal(state.player.gun.charge, CELLS.standard.capacity - cost);
+  assert.equal(fireCarbine(state, null), null, "not faster than it cycles");
+  // Fire in bursts, letting the coils vent when they must, until the cell runs dry.
+  for (let shot = 0; shot < 80 && state.player.gun.swapUntil === null; shot += 1) {
+    state.time += FORMS.conservation.interval;
     fireCarbine(state, null);
+    if (state.player.gun.ventUntil !== null) stepSim(state, 2, seeded(1));
   }
-  assert.equal(state.player.magazine, 0);
-  assert.ok(state.player.reloadDone !== null, "an empty magazine starts a reload");
-  assert.equal(fireCarbine(state, null), false, "no firing mid-reload");
-  const reserve = state.player.reserve;
-  stepSim(state, CARBINE.reload + 0.01, seeded(1));
-  assert.equal(state.player.magazine, CARBINE.magazine);
-  assert.equal(state.player.reserve, reserve - CARBINE.magazine);
-  assert.equal(reloadCarbine(state), false, "nothing to reload when full");
+  assert.ok(state.player.gun.swapUntil !== null, "an empty cell starts a swap away from the dome");
+  assert.equal(fireCarbine(state, null), null, "no firing mid-swap");
+  const spare = state.player.gun.spare;
+  stepSim(state, CELLS.standard.swap + 0.01, seeded(1));
+  assert.equal(state.player.gun.charge, CELLS.standard.capacity);
+  assert.equal(state.player.gun.spare, spare - 1);
+  assert.equal(reloadCarbine(state), false, "nothing to swap when full");
 });
 
-test("on Recruit the ammunition never runs out", () => {
+test("under the training dome the cell fills on its own; out in the jungle it does not", () => {
+  const state = createSim("soldier", seeded(1));
+  state.player.gun.charge = 10;
+  assert.ok(Math.hypot(state.player.x - SIM_DOME.x, state.player.z - SIM_DOME.z) <= SIM_DOME.radius, "a run begins under the dome");
+  stepSim(state, 2, seeded(1));
+  assert.ok(state.player.gun.charge > 30);
+  state.player.x = 25;
+  const before = state.player.gun.charge;
+  stepSim(state, 2, seeded(1));
+  assert.equal(state.player.gun.charge, before);
+});
+
+test("firing hot overheats the coils: the carbine vents and won't fire until it has", () => {
+  const state = createSim("soldier", seeded(1));
+  let vented = false;
+  for (let shot = 0; shot < 40 && !vented; shot += 1) {
+    state.time += FORMS.conservation.interval;
+    fireCarbine(state, null);
+    vented = state.player.gun.ventUntil !== null;
+  }
+  assert.ok(vented, "sustained fire takes the coils past their limit");
+  state.time += 0.5;
+  assert.equal(fireCarbine(state, null), null);
+  stepSim(state, 2, seeded(1));
+  assert.equal(state.player.gun.ventUntil, null);
+  state.time += 1;
+  assert.ok(fireCarbine(state, null), "vented, it fires again");
+});
+
+test("on Recruit the spare cells never run out", () => {
   const state = createSim("recruit", seeded(1));
+  state.player.x = 20;
   let fired = 0;
   for (let tick = 0; tick < 6_000; tick += 1) {
-    state.time += CARBINE.interval;
+    state.time += FORMS.conservation.interval;
+    stepSim(state, 0.02, seeded(1));
     if (fireCarbine(state, null)) fired += 1;
-    if (state.player.reloadDone !== null && state.time >= state.player.reloadDone) stepSim(state, 0, seeded(1));
   }
-  assert.ok(fired > 500, `${fired} rounds and still firing`);
-  assert.equal(state.player.reserve, Infinity);
+  assert.ok(fired > (CELLS.standard.capacity / FORMS.conservation.cost) * 5, `${fired} shots, through cell after cell, and still firing`);
+  assert.equal(state.player.gun.spare, Infinity);
+});
+
+test("each bolt of a Scatter can strike, and a Lance drops a stalker in one", () => {
+  const scatter = createSim("soldier", seeded(4), { form: "transit", optic: "iron", barrel: "bare", cell: "standard" });
+  scatter.aliens.push({ id: 99, kind: "stalker", x: 0, z: 5, health: 10, maxHealth: 10, cooldown: 5, screamIn: 9, circle: 1 });
+  const shot = fireCarbine(scatter, (discharge) => Array.from({ length: discharge.bolts }, (_, bolt) => (bolt < 4 ? 99 : null)));
+  assert.equal(shot?.bolts, 7);
+  assert.equal(scatter.aliens[0].health, 10 - 4 * FORMS.transit.damage, "four of seven bolts struck");
+  const lance = createSim("soldier", seeded(4), { form: "containment", optic: "scope", barrel: "bare", cell: "standard" });
+  lance.aliens.push({ id: 7, kind: "stalker", x: 0, z: 5, health: 3, maxHealth: 3, cooldown: 5, screamIn: 9, circle: 1 });
+  fireCarbine(lance, 7);
+  assert.equal(lance.aliens.length, 0);
 });
 
 test("shooting an alien hurts it, killing it scores, and what it drops can be picked up", () => {
@@ -87,18 +133,18 @@ test("shooting an alien hurts it, killing it scores, and what it drops can be pi
   state.aliens.push({ id: 99, kind: "stalker", x: 0, z: 5, health: 2, maxHealth: 2, cooldown: 5, screamIn: 9, circle: 1 });
   fireCarbine(state, 99, () => 0.99);
   assert.equal(state.aliens[0].health, 1);
-  state.time += CARBINE.interval;
+  state.time += FORMS.conservation.interval;
   fireCarbine(state, 99, () => 0);
   assert.equal(state.aliens.length, 0);
   assert.equal(state.kills, 1);
   assert.ok(state.score >= ALIENS.stalker.score);
-  assert.equal(state.pickups[0]?.kind, "ammo", "a lucky roll drops ammunition");
-  const before = state.player.reserve;
+  assert.equal(state.pickups[0]?.kind, "cell", "a lucky roll drops a spare cell");
+  const before = state.player.gun.spare;
   state.player.x = state.pickups[0].x;
   state.player.z = state.pickups[0].z;
   stepSim(state, 0.01, seeded(4));
   assert.equal(state.pickups.length, 0);
-  assert.equal(state.player.reserve, before + CARBINE.magazine * 2);
+  assert.equal(state.player.gun.spare, before + 1);
 });
 
 test("aliens close in and strike; stand still on Veteran and the run ends", () => {

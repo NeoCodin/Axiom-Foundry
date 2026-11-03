@@ -426,6 +426,154 @@
   background: #9ac4ff;
 }
 
+/* The cell's charge: brighter while it draws power, amber while a fresh cell seats. */
+.ark-sim-reload[data-state="charging"] i {
+  background: #c9b6ff;
+  animation: ark-sim-charging 0.8s steps(2) infinite;
+}
+
+.ark-sim-reload[data-state="swap"] i {
+  background: #ffd27a;
+}
+
+@keyframes ark-sim-charging {
+  50% { opacity: 0.6; }
+}
+
+.ark-sim-cell {
+  color: #d8d2e4;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+/* The coils' heat: orange as it climbs, flashing red while they vent. */
+.ark-sim-heat {
+  position: relative;
+  display: block;
+  width: 140px;
+  height: 4px;
+  background: #2b2433;
+}
+
+.ark-sim-heat i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(100% * var(--sim-heat, 0));
+  background: #ff9a4a;
+}
+
+.ark-sim-heat[data-venting="true"] i {
+  width: 100%;
+  background: #ff4a3a;
+  animation: ark-sim-charging 0.18s steps(2) infinite;
+}
+
+/* Down the sights: a lit dot through the reflex, the scope's round view with its crosshair. */
+.ark-sim-scope,
+.ark-sim-reflex {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s;
+}
+
+.ark-sim-hud[data-sight="scope"] .ark-sim-scope,
+.ark-sim-hud[data-sight="reflex"] .ark-sim-reflex {
+  opacity: 1;
+}
+
+.ark-sim-scope {
+  background: radial-gradient(circle at center, transparent 0 min(34vh, 34vw), #05060a calc(min(34vh, 34vw) + 2px));
+}
+
+.ark-sim-scope::before,
+.ark-sim-scope::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  background: #05060a;
+  content: "";
+  transform: translate(-50%, -50%);
+}
+
+.ark-sim-scope::before {
+  width: min(68vh, 68vw);
+  height: 2px;
+}
+
+.ark-sim-scope::after {
+  width: 2px;
+  height: min(68vh, 68vw);
+}
+
+.ark-sim-reflex::before {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  background: #ff4a3a;
+  content: "";
+  transform: translate(-50%, -50%);
+}
+
+.ark-sim-hud[data-sight="scope"] .ark-sim-crosshair,
+.ark-sim-hud[data-sight="reflex"] .ark-sim-crosshair {
+  opacity: 0;
+}
+
+/* The carbine's loadout on the simulator's console: a firing law, then each attachment. */
+.ark-sim-loadout {
+  display: grid;
+  gap: 6px;
+}
+
+.ark-sim-loadout h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 15px;
+  letter-spacing: 0.06em;
+}
+
+.ark-sim-loadout > p {
+  margin: 0;
+  color: #cfc7b6;
+  font-size: 13px;
+}
+
+.ark-sim-slot {
+  display: grid;
+  grid-template-columns: 90px repeat(3, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+
+.game-shell .ark-walk .ark-sim-panel .ark-sim-slot button {
+  display: grid;
+  gap: 0;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
+.game-shell .ark-walk .ark-sim-panel .ark-sim-slot button[aria-pressed="true"] {
+  border-image: var(--b-plate-active) 7 fill / 14px / 4px stretch;
+}
+
+.game-shell .ark-walk .ark-sim-panel .ark-sim-slot button[aria-pressed="false"] {
+  opacity: 0.72;
+}
+
+.ark-sim-loadout-notes {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  color: #b9b2a2;
+  font-size: 12px;
+  list-style: none;
+}
+
 .ark-sim-paused {
   position: absolute;
   top: 50%;

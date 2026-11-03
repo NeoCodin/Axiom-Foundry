@@ -6,11 +6,13 @@
  * The Hollowed, people the Null has taken entirely (not the Altered, who are still
  * themselves), drift until something makes a sound, then stutter towards it.
  * Everyone hears: footsteps, gunfire and doors carry, softened by every wall
- * between. Pure rules, advanced in place; ark-ops.ts draws them and
+ * between, and a suppressed carbine carries far less. The shuttle's field
+ * recharges the carbine's cell, as a Lawheart's reach would. Pure rules, advanced in place; ark-ops.ts draws them and
  * ark-ops-audio.ts gives them voice.
  */
 
-import { ALIENS, CARBINE, DRILL_CAP_SECONDS, SIM_DIFFICULTIES, type SimDifficulty } from "./ark-sim-rules.ts";
+import { createCarbine, DEFAULT_LOADOUT, FORMS, pullTrigger, stepCarbine, swapCell, type Carbine, type CarbineLoadout, type Discharge } from "./arc-carbine.ts";
+import { ALIENS, DRILL_CAP_SECONDS, SIM_DIFFICULTIES, type SimDifficulty } from "./ark-sim-rules.ts";
 import {
   buildRelayStation,
   doorOpen,
@@ -38,11 +40,12 @@ export const OPS_DIFFICULTIES: Record<SimDifficulty, {
   wreckerHealth: number;
   alienSpeed: number;
   playerHealth: number;
-  reserve: number;
+  /** Spare cells carried in; Infinity never runs dry. */
+  cells: number;
 }> = {
-  recruit: { wreckers: 4, aliens: 2, hollowed: 1, aim: 0.3, damage: 8, spot: 0.55, wreckerHealth: 3, alienSpeed: 3.1, playerHealth: 150, reserve: Infinity },
-  soldier: { wreckers: 5, aliens: 3, hollowed: 2, aim: 0.42, damage: 12, spot: 0.85, wreckerHealth: 4, alienSpeed: 3.7, playerHealth: 100, reserve: 120 },
-  veteran: { wreckers: 7, aliens: 3, hollowed: 2, aim: 0.55, damage: 15, spot: 1.2, wreckerHealth: 4, alienSpeed: 4.2, playerHealth: 80, reserve: 72 },
+  recruit: { wreckers: 4, aliens: 2, hollowed: 1, aim: 0.3, damage: 8, spot: 0.55, wreckerHealth: 3, alienSpeed: 3.1, playerHealth: 150, cells: Infinity },
+  soldier: { wreckers: 5, aliens: 3, hollowed: 2, aim: 0.42, damage: 12, spot: 0.85, wreckerHealth: 4, alienSpeed: 3.7, playerHealth: 100, cells: 3 },
+  veteran: { wreckers: 7, aliens: 3, hollowed: 2, aim: 0.55, damage: 15, spot: 1.2, wreckerHealth: 4, alienSpeed: 4.2, playerHealth: 80, cells: 2 },
 };
 
 /** How fast the sim-body moves, and how far its footsteps carry (metres, through open air). */
@@ -119,7 +122,7 @@ export type OpsSurvivor = {
   moving: boolean;
 };
 
-export type OpsPickup = { id: number; kind: "ammo" | "medkit"; x: number; z: number };
+export type OpsPickup = { id: number; kind: "cell" | "medkit"; x: number; z: number };
 
 export type OpsEvent =
   | { type: "step"; who: "player" | "survivor" | OpsKind; x: number; z: number; gait: OpsGait | "skitter" | "drag" }
@@ -131,7 +134,7 @@ export type OpsEvent =
   | { type: "door"; index: number; open: boolean; x: number; z: number }
   | { type: "shout" | "bark" | "chitter" | "scream" | "whisper" | "scratch" | "strike"; id: number; kind: OpsKind; x: number; z: number }
   | { type: "skip"; id: number; x: number; z: number; fromX: number; fromZ: number }
-  | { type: "freed" | "reload" | "reloaded" | "dry" | "alarm" | "death-player" }
+  | { type: "freed" | "reload" | "reloaded" | "dry" | "vent" | "vented" | "charged" | "alarm" | "death-player" }
   | { type: "pickup"; kind: OpsPickup["kind"] }
   | { type: "extracted"; saved: number; drill: number }
   | { type: "failed"; reason: string };
@@ -159,10 +162,8 @@ export type OpsState = {
     yaw: number;
     health: number;
     maxHealth: number;
-    magazine: number;
-    reserve: number;
-    reloadDone: number | null;
-    lastShot: number;
+    /** The Arc Carbine: its cell, spares, heat and loadout. */
+    gun: Carbine;
     alive: boolean;
     crouched: boolean;
     aiming: boolean;
@@ -196,7 +197,7 @@ const wrap = (angle: number) => Math.atan2(Math.sin(angle), Math.cos(angle));
 const distance = (a: OpsPoint, b: OpsPoint) => Math.hypot(a.x - b.x, a.z - b.z);
 
 /** A fresh mission: the sim-body by the shuttle, the station manned, the survivors held. */
-export function createOps(difficulty: SimDifficulty, random: () => number = Math.random): OpsState {
+export function createOps(difficulty: SimDifficulty, random: () => number = Math.random, loadout: CarbineLoadout = DEFAULT_LOADOUT): OpsState {
   const map = buildRelayStation();
   const rules = OPS_DIFFICULTIES[difficulty];
   const state: OpsState = {
@@ -209,10 +210,7 @@ export function createOps(difficulty: SimDifficulty, random: () => number = Math
       yaw: -Math.PI / 2,
       health: rules.playerHealth,
       maxHealth: rules.playerHealth,
-      magazine: CARBINE.magazine,
-      reserve: rules.reserve,
-      reloadDone: null,
-      lastShot: -Infinity,
+      gun: createCarbine(loadout, rules.cells),
       alive: true,
       crouched: false,
       aiming: false,
@@ -264,7 +262,7 @@ export function createOps(difficulty: SimDifficulty, random: () => number = Math
       health: SURVIVOR_HEALTH, state: "held", path: [], replanIn: 0, stride: 0, moving: false,
     });
   });
-  for (const at of map.spawn.ammo) state.pickups.push({ id: state.nextId++, kind: "ammo", ...at });
+  for (const at of map.spawn.ammo) state.pickups.push({ id: state.nextId++, kind: "cell", ...at });
   for (const at of map.spawn.medkits) state.pickups.push({ id: state.nextId++, kind: "medkit", ...at });
   return state;
 }
@@ -561,43 +559,59 @@ export function opsGlitch(state: OpsState) {
   return strongest;
 }
 
-/** Start a reload, if there is room in the magazine and rounds to fill it. */
+/** How far the shuttle's field reaches from the middle of its pad, in metres: over the pad and where the sim-body sets out. */
+export const SHUTTLE_FIELD = 6;
+/** Whether the sim-body stands in the shuttle's field, where the cell draws power. */
+export function inShuttleField(state: OpsState) {
+  const pad = state.map.extraction;
+  return Math.hypot(state.player.x - (pad.x0 + pad.x1) / 2, state.player.z - (pad.z0 + pad.z1) / 2) <= SHUTTLE_FIELD;
+}
+
+/** Change the carbine's cell, if there is a spare and the seated one has room. */
 export function reloadOps(state: OpsState) {
   const player = state.player;
-  if (!player.alive || state.outcome || player.reloadDone !== null || player.magazine >= CARBINE.magazine || player.reserve <= 0) return false;
-  player.reloadDone = state.time + CARBINE.reload;
+  if (!player.alive || state.outcome || !swapCell(player.gun, state.time)) return false;
   state.events.push({ type: "reload" });
   return true;
 }
 
+/** What a bolt hit: a Wrecker, a monster, a survivor, or nothing; and whether in the head. */
+export type OpsHit = { kind: "agent" | "survivor"; id: number; head: boolean } | null;
+
 /**
- * Pull the trigger. The drawing code works out what the round would hit (a
- * Wrecker, a monster, a survivor, or nothing) and whether in the head; this
- * decides whether it fires and what it does. Everyone near enough hears it.
+ * Pull the trigger. The drawing code works out what each bolt would hit, given how
+ * many there are and how far they may stray (one hit stands for every bolt); this
+ * decides whether the carbine fires and what the bolts do. Everyone near enough
+ * hears it, fewer through a suppressor.
  */
-export function fireOps(state: OpsState, hit: { kind: "agent" | "survivor"; id: number; head: boolean } | null) {
+export function fireOps(state: OpsState, aim: OpsHit | ((discharge: Discharge) => readonly OpsHit[])): Discharge | null {
   const player = state.player;
-  if (!player.alive || state.outcome || player.reloadDone !== null || state.time - player.lastShot < CARBINE.interval) return false;
-  if (player.magazine <= 0) {
-    player.lastShot = state.time;
+  if (!player.alive || state.outcome) return null;
+  const shot = pullTrigger(player.gun, state.time);
+  if (shot === "dry") {
     state.events.push({ type: "dry" });
-    reloadOps(state);
-    return false;
+    if (player.gun.swapUntil !== null) state.events.push({ type: "reload" });
+    return null;
   }
-  player.magazine -= 1;
-  player.lastShot = state.time;
-  const struck = hit?.kind === "agent" ? state.agents.find((agent) => agent.id === hit.id && agent.alive) : undefined;
-  const friend = hit?.kind === "survivor" ? state.survivors.find((survivor) => survivor.id === hit.id) : undefined;
-  const end = struck ?? friend;
-  state.events.push({ type: "shot", who: "player", id: 0, x: player.x, z: player.z, tx: end?.x ?? player.x, tz: end?.z ?? player.z, hit: Boolean(end) });
-  noise(state, player.x, player.z, GUNFIRE, { kind: "gun", by: "player" });
-  if (struck) hurtAgent(state, struck, CARBINE.damage * (hit!.head ? 3 : 1), hit!.head, { kind: "player" }, playerPoint(state));
-  if (friend) {
-    state.events.push({ type: "hit", id: friend.id, kind: "survivor", x: friend.x, z: friend.z, head: hit!.head });
-    hurtSurvivor(state, friend, hit!.head ? 70 : 30);
+  if (typeof shot === "string") return null;
+  if (shot.vent) state.events.push({ type: "vent" });
+  const hits = typeof aim === "function" ? aim(shot) : Array.from({ length: shot.bolts }, () => aim);
+  const first = hits.find(Boolean) ?? null;
+  const target = first?.kind === "agent" ? state.agents.find((agent) => agent.id === first.id) : first?.kind === "survivor" ? state.survivors.find((survivor) => survivor.id === first.id) : undefined;
+  state.events.push({ type: "shot", who: "player", id: 0, x: player.x, z: player.z, tx: target?.x ?? player.x, tz: target?.z ?? player.z, hit: Boolean(target) });
+  noise(state, player.x, player.z, GUNFIRE * shot.noise, { kind: "gun", by: "player" });
+  for (const hit of hits) {
+    if (!hit) continue;
+    const struck = hit.kind === "agent" ? state.agents.find((agent) => agent.id === hit.id && agent.alive) : undefined;
+    const friend = hit.kind === "survivor" ? state.survivors.find((survivor) => survivor.id === hit.id) : undefined;
+    if (struck) hurtAgent(state, struck, shot.damage * (hit.head ? 3 : 1), hit.head, { kind: "player" }, playerPoint(state));
+    if (friend) {
+      state.events.push({ type: "hit", id: friend.id, kind: "survivor", x: friend.x, z: friend.z, head: hit.head });
+      hurtSurvivor(state, friend, (hit.head ? 70 : 30) * shot.damage);
+    }
   }
-  if (player.magazine === 0) reloadOps(state);
-  return true;
+  if (player.gun.charge < FORMS[player.gun.loadout.form].cost && !inShuttleField(state)) reloadOps(state);
+  return shot;
 }
 
 /** The living things a monster could go for, nearest first. */
@@ -920,12 +934,9 @@ export function stepOps(state: OpsState, dt: number, input: OpsInput, random: ()
   state.time += dt;
   const player = state.player;
 
-  if (player.reloadDone !== null && state.time >= player.reloadDone) {
-    const taken = Math.min(CARBINE.magazine - player.magazine, player.reserve);
-    player.magazine += taken;
-    if (Number.isFinite(player.reserve)) player.reserve -= taken;
-    player.reloadDone = null;
-    state.events.push({ type: "reloaded" });
+  // The carbine: a cell swap finishes, the coils cool or vent, and in the shuttle's field the cell fills.
+  for (const happened of stepCarbine(player.gun, state.time, dt, inShuttleField(state))) {
+    state.events.push({ type: happened === "swapped" ? "reloaded" : happened });
   }
 
   if (player.alive) {
@@ -984,8 +995,8 @@ export function stepOps(state: OpsState, dt: number, input: OpsInput, random: ()
     for (const pickup of [...state.pickups]) {
       if (distance(pickup, player) > 1.1) continue;
       if (pickup.kind === "medkit" && player.health >= player.maxHealth) continue;
-      if (pickup.kind === "ammo" && !Number.isFinite(player.reserve)) continue;
-      if (pickup.kind === "ammo") player.reserve += CARBINE.magazine * 2;
+      if (pickup.kind === "cell" && !Number.isFinite(player.gun.spare)) continue;
+      if (pickup.kind === "cell") player.gun.spare += 1;
       else player.health = Math.min(player.maxHealth, player.health + player.maxHealth * 0.4);
       state.pickups = state.pickups.filter((other) => other !== pickup);
       state.events.push({ type: "pickup", kind: pickup.kind });

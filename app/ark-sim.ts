@@ -2,17 +2,22 @@
  * The combat simulation's world, drawn with the drone view's renderer: a jungle
  * that never was, under a green dusk and a great pale moon, its edge a glowing
  * grid where the simulation ends. Aliens come out of the trees as voxel things
- * with lit eyes; the training carbine is in AXIOM's hands, an Arc Carbine with
- * its coils glowing. The rules are ark-sim-rules; this moves, draws and voices them.
+ * with lit eyes; the Arc Carbine is in AXIOM's hands, its coils glowing hotter as
+ * it fires and its loadout fitted (arc-carbine-model), throwing bolts of arc. The
+ * training dome over the clearing recharges its cell. The rules are ark-sim-rules;
+ * this moves, draws and voices them.
  */
 
 import * as THREE from "three";
 
+import { carbineReadout, DEFAULT_LOADOUT, OPTICS, type CarbineLoadout } from "./arc-carbine";
+import { createArcs, dressCarbine, heatColour } from "./arc-carbine-model";
 import { createSimAudio, type SimAudio } from "./ark-sim-audio";
 import {
   ARENA_RADIUS,
-  CARBINE,
   SIM_DIFFICULTIES,
+  SIM_DOME,
+  underDome,
   createSim,
   fireCarbine,
   reloadCarbine,
@@ -38,13 +43,13 @@ export type SimInput = {
   light?: boolean;
 };
 
+/** The Arc Carbine as the heads-up display shows it, and whether its cell is drawing power. */
+export type SimCarbine = ReturnType<typeof carbineReadout> & { powered: boolean };
+
 export type SimHud = {
   health: number;
   maxHealth: number;
-  magazine: number;
-  reserve: number;
-  /** Reload progress 0 to 1, or null when not reloading. */
-  reloading: number | null;
+  carbine: SimCarbine;
   wave: number;
   score: number;
   kills: number;
@@ -143,11 +148,16 @@ export type SimWorldOptions = {
    * drill to the trainees and may name what it did, for the banner.
    */
   onCleared?: (wave: number, drill: number) => string | null;
+  /** The Arc Carbine's firing law and attachments for the run. */
+  loadout?: CarbineLoadout;
 };
 
-export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = false, onCleared }: SimWorldOptions = {}) {
+/** How far a bolt fired from the hip can stray, on top of its firing law's own spread. */
+const HIP_SPREAD = 0.004;
+
+export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = false, onCleared, loadout = DEFAULT_LOADOUT }: SimWorldOptions = {}) {
   const random = seeded(Math.floor(Math.random() * 1e9));
-  const state: SimState = createSim(difficulty, random);
+  const state: SimState = createSim(difficulty, random, loadout);
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(72, 1, 0.05, 400);
   camera.rotation.order = "YXZ";
@@ -394,18 +404,19 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
   const spitGeometry = keep(new THREE.IcosahedronGeometry(0.18, 0));
   const spitMaterial = glow("#c8f04a");
   const pickupMeshes = new Map<number, THREE.Group>();
-  const buildPickup = (kind: "ammo" | "health") => {
+  const buildPickup = (kind: "cell" | "health") => {
     const group = inert(new THREE.Group());
-    if (kind === "ammo") {
-      part(group, 0.6, 0.38, 0.4, lambert("#5a6a3a"), 0, 0, 0);
-      part(group, 0.62, 0.08, 0.42, glow("#ffe34a"), 0, 0.05, 0);
+    if (kind === "cell") {
+      // A spare cell for the carbine, lit along its window.
+      part(group, 0.32, 0.5, 0.32, lambert("#3a3f4e"), 0, 0, 0);
+      part(group, 0.34, 0.3, 0.1, glow("#9ac4ff"), 0, 0, 0.13);
     } else {
       part(group, 0.5, 0.5, 0.5, lambert("#e9e4da"), 0, 0, 0);
       const cross = glow("#7cdc5a");
       part(group, 0.12, 0.34, 0.52, cross, 0, 0, 0);
       part(group, 0.12, 0.12, 0.52, cross, 0, 0, 0).scale.set(0.34, 0.12, 0.52);
     }
-    const ring = new THREE.Mesh(keep(new THREE.RingGeometry(0.5, 0.62, 16)), glow(kind === "ammo" ? "#ffe34a" : "#7cdc5a", { transparent: true, opacity: 0.6 }));
+    const ring = new THREE.Mesh(keep(new THREE.RingGeometry(0.5, 0.62, 16)), glow(kind === "cell" ? "#9ac4ff" : "#7cdc5a", { transparent: true, opacity: 0.6 }));
     ring.rotation.x = -Math.PI / 2;
     ring.position.y = -0.55;
     group.add(ring);
@@ -438,8 +449,10 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
   const coils = [-0.12, -0.02, 0.08].map((z) => part(gun, 0.15, 0.04, 0.05, glow("#9ac4ff"), 0, 0.02, z));
   part(gun, 0.08, 0.18, 0.1, lambert("#2b2433"), 0, -0.14, 0.12);
   part(gun, 0.1, 0.16, 0.22, gunBody, 0, -0.03, 0.38);
-  part(gun, 0.03, 0.05, 0.03, glow("#ff695c"), 0, 0.1, -0.1);
-  const flash = part(gun, 0.16, 0.16, 0.16, glow("#ffe9a8"), 0, 0.02, -0.68);
+  // A status light on the side, out of the way of the sights.
+  part(gun, 0.012, 0.03, 0.03, glow("#ff695c"), 0.066, 0.03, 0.02);
+  const dressed = keep(dressCarbine(gun, loadout));
+  const flash = part(gun, 0.16, 0.16, 0.16, glow("#dce8ff"), 0, 0.02, dressed.muzzle);
   flash.visible = false;
   for (const child of gun.children) child.raycast = () => {};
   gun.position.set(0.3, -0.28, -0.55);
@@ -448,9 +461,17 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
   const muzzleLight = new THREE.PointLight("#bcd8ff", 0, 8, 1.5);
   muzzleLight.position.set(0.3, -0.2, -1.1);
   camera.add(muzzleLight);
-  const tracer = inert(new THREE.Mesh(unitBox, glow("#bcd8ff", { transparent: true, opacity: 0.85 })));
-  tracer.visible = false;
-  scene.add(tracer);
+  const arcs = keep(createArcs(scene, random));
+  const coilColour = new THREE.Color();
+  // The training dome over the clearing: inside it the carbine's cell draws power.
+  const domeGeometry = keep(new THREE.SphereGeometry(SIM_DOME.radius, 24, 10, 0, Math.PI * 2, 0, Math.PI / 2));
+  const dome = inert(new THREE.Mesh(domeGeometry, glow("#c9b6ff", { transparent: true, opacity: 0.07, side: THREE.DoubleSide, depthWrite: false })));
+  dome.position.set(SIM_DOME.x, groundAt(SIM_DOME.x, SIM_DOME.z) - 0.2, SIM_DOME.z);
+  scene.add(dome);
+  const domeEdge = inert(new THREE.Mesh(keep(new THREE.RingGeometry(SIM_DOME.radius - 0.12, SIM_DOME.radius, 48)), glow("#c9b6ff", { transparent: true, opacity: 0.55, side: THREE.DoubleSide })));
+  domeEdge.rotation.x = -Math.PI / 2;
+  domeEdge.position.set(SIM_DOME.x, groundAt(SIM_DOME.x, SIM_DOME.z) + 0.05, SIM_DOME.z);
+  scene.add(domeEdge);
   const spark = inert(new THREE.Mesh(unitBox, glow("#ffe9a8")));
   spark.scale.setScalar(0.25);
   spark.visible = false;
@@ -461,7 +482,7 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
   let pitch = 0;
   let recoil = 0;
   let flashFor = 0;
-  let tracerFor = 0;
+  let aimBlend = 0;
   let hurt = 0;
   let marker = 0;
   let shake = 0;
@@ -493,40 +514,43 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
     return { pan: distance > 0.01 ? relative.normalize().dot(right) : 0, gain: Math.max(0, 1 - distance / 45) ** 1.2 };
   };
 
-  const pull = () => {
-    raycaster.setFromCamera(centre, camera);
+  /** Fire: each bolt the firing law throws strays a little, less down the sights, and strikes what it meets. */
+  const pull = (aiming: boolean) => {
     const targets: THREE.Object3D[] = [trunkMesh, ...[...models.values()].map((model) => model.group)];
-    const hit = raycaster.intersectObjects(targets, true)[0];
-    let alienId: number | null = null;
-    for (let object: THREE.Object3D | null = hit?.object ?? null; object; object = object.parent) {
-      if (typeof object.userData.alienId === "number") {
-        alienId = object.userData.alienId;
-        break;
+    const ends: THREE.Vector3[] = [];
+    let struck = false;
+    const shot = fireCarbine(state, (discharge) => Array.from({ length: discharge.bolts }, () => {
+      raycaster.setFromCamera(centre, camera);
+      const spread = discharge.spread * (aiming ? 0.5 : 1) + (aiming ? 0 : HIP_SPREAD);
+      const direction = raycaster.ray.direction;
+      direction.set(direction.x + (random() - 0.5) * spread * 2, direction.y + (random() - 0.5) * spread * 2, direction.z + (random() - 0.5) * spread * 2).normalize();
+      const hit = raycaster.intersectObjects(targets, true)[0];
+      ends.push(hit ? hit.point.clone() : raycaster.ray.at(60, new THREE.Vector3()));
+      for (let object: THREE.Object3D | null = hit?.object ?? null; object; object = object.parent) {
+        if (typeof object.userData.alienId !== "number") continue;
+        struck = true;
+        const model = models.get(object.userData.alienId);
+        if (model) model.flash = 1;
+        return object.userData.alienId as number;
       }
-    }
-    if (!fireCarbine(state, alienId, random)) return;
-    recoil = 1;
+      return null;
+    }), random);
+    if (!shot) return;
+    recoil = shot.damage > 2 || shot.bolts > 1 ? 1.7 : 1;
     flashFor = 0.05;
-    tracerFor = 0.05;
-    const end = hit ? hit.point : raycaster.ray.at(60, new THREE.Vector3());
     flash.getWorldPosition(muzzle);
-    tracer.position.copy(muzzle).add(end).multiplyScalar(0.5);
-    tracer.scale.set(0.03, 0.03, muzzle.distanceTo(end));
-    tracer.lookAt(end);
-    if (hit) {
-      spark.position.copy(hit.point);
+    for (const end of ends) arcs.fire(muzzle, end);
+    if (ends[0]) {
+      spark.position.copy(ends[0]);
       spark.visible = true;
     }
-    if (alienId !== null) {
-      marker = 1;
-      const model = models.get(alienId);
-      if (model) model.flash = 1;
-    }
+    if (struck) marker = 1;
   };
 
   const update = (dt: number, input: SimInput, now: number) => {
     audio ??= createSimAudio();
     const player = state.player;
+    const aiming = Boolean(input.aim) && player.alive;
     if (player.alive) {
       // Walk or run.
       const speed = input.sprint ? RUN : WALK;
@@ -576,7 +600,7 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
           rise = 0;
         }
       }
-      if (input.firing) pull();
+      if (input.firing) pull(aiming);
       stepSim(state, dt, random);
     }
 
@@ -611,7 +635,8 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
         hurt = 1;
         shake = reducedMotion ? 0 : 1;
         audio?.hurt();
-      } else if (event.type === "shot") audio?.gun();
+      } else if (event.type === "shot") audio?.gun(loadout.form, loadout.barrel === "suppressor");
+      else if (event.type === "vent") audio?.vent();
       else if (event.type === "dry") audio?.dry();
       else if (event.type === "reload") audio?.reload();
       else if (event.type === "pickup") audio?.pickup();
@@ -711,22 +736,35 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
     shake = Math.max(0, shake - dt * 4);
     landing = Math.max(0, landing - dt * 4);
     flashFor -= dt;
-    tracerFor -= dt;
     flash.visible = flashFor > 0;
     muzzleLight.intensity = flashFor > 0 ? 4 : 0;
-    tracer.visible = tracerFor > 0;
-    if (tracerFor <= -0.05) spark.visible = false;
+    arcs.update(dt);
+    if (flashFor <= -0.05) spark.visible = false;
+    aimBlend += ((aiming ? 1 : 0) - aimBlend) * Math.min(1, dt * 10);
     const sway = reducedMotion ? 0 : Math.sin(bob) * 0.03;
     const jolt = shake * 0.05;
     // A hard landing dips the view for a moment.
     const sink = reducedMotion ? 0 : landing * 0.22;
     camera.position.set(player.x, feet + EYE + Math.abs(sway) * 0.5 - sink, player.z);
-    camera.rotation.set(pitch + recoil * 0.025 + (Math.random() - 0.5) * jolt, yaw + (Math.random() - 0.5) * jolt, 0);
-    const reloading = player.reloadDone !== null ? 1 - (player.reloadDone - state.time) / CARBINE.reload : null;
+    camera.rotation.set(pitch + recoil * 0.025 * (1 - aimBlend * 0.5) + (Math.random() - 0.5) * jolt, yaw + (Math.random() - 0.5) * jolt, 0);
+    // Down the sights the optic draws the view in; through a scope the carbine is out of sight.
+    const fov = 72 / (1 + aimBlend * (OPTICS[loadout.optic].zoom - 1));
+    if (Math.abs(camera.fov - fov) > 0.05) {
+      camera.fov = fov;
+      camera.updateProjectionMatrix();
+    }
+    const readout = carbineReadout(player.gun, state.time);
+    const reloading = readout.swapping;
     const dip = reloading !== null ? Math.sin(Math.min(1, reloading) * Math.PI) : 0;
-    gun.position.set(0.3 + sway, -0.28 - dip * 0.18 + Math.abs(sway) * 0.4, -0.55 + recoil * 0.07);
-    gun.rotation.set(recoil * 0.12 + dip * 0.7, dip * 0.4, dip * 0.3);
-    coils.forEach((coil, index) => { coil.visible = reloading === null || Math.floor(now / 120 + index) % 2 === 0; });
+    gun.visible = !(loadout.optic === "scope" && aimBlend > 0.85);
+    gun.position.set(0.3 * (1 - aimBlend) + sway * (1 - aimBlend * 0.7), -0.28 + aimBlend * 0.165 - dip * 0.18 + Math.abs(sway) * 0.4, -0.55 - aimBlend * 0.07 + recoil * 0.07);
+    gun.rotation.set(recoil * 0.12 * (1 - aimBlend * 0.6) + dip * 0.7, dip * 0.4, dip * 0.3);
+    heatColour(readout.heat, readout.venting, now, coilColour);
+    coils.forEach((coil, index) => {
+      coil.visible = reloading === null || Math.floor(now / 120 + index) % 2 === 0;
+      (coil.material as THREE.MeshBasicMaterial).color.copy(coilColour);
+    });
+    dressed.showCharge(readout.charge);
     for (let index = 0; index < fireflyCount; index += 1) {
       const seed = fireflySeeds[index];
       const x = seed.x + Math.sin(now * 0.0003 + seed.phase) * 2;
@@ -760,9 +798,8 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
       return {
         health: player.health,
         maxHealth: player.maxHealth,
-        magazine: player.magazine,
-        reserve: player.reserve,
-        reloading: player.reloadDone !== null ? Math.min(1, 1 - (player.reloadDone - state.time) / CARBINE.reload) : null,
+        carbine: { ...carbineReadout(player.gun, state.time), powered: underDome(state) },
+        aiming: aimBlend > 0.5,
         wave: state.wave,
         score: state.score,
         kills: state.kills,

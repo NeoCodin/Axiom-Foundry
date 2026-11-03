@@ -3,8 +3,10 @@
  * relay station at night. Concrete rooms lit by the Wreckers' campfire and a few
  * lamps, the storeroom left dark, the shuttle idling on its pad in the yard and
  * the simulation's edge glowing beyond it. Wreckers, aliens, the Hollowed and the
- * survivors as blocky figures; AXIOM's carbine with a light slung under it, and
- * its sights to look down. The rules are ark-ops-rules; this moves, draws and
+ * survivors as blocky figures; AXIOM's Arc Carbine with a light slung under it,
+ * its loadout fitted (arc-carbine-model) and its sights to look down. The Wreckers'
+ * scavenged rifles fire rounds; the carbine fires bolts of arc, and the shuttle's
+ * field recharges its cell. The rules are ark-ops-rules; this moves, draws and
  * voices them.
  */
 
@@ -12,9 +14,11 @@ import * as THREE from "three";
 
 import { createOpsAudio, type OpsAudio, type OpsSound } from "./ark-ops-audio";
 import { roomAt, tileAt, wallsBetween } from "./ark-ops-map";
-import { createOps, fireOps, opsGlitch, opsObjective, opsPrompt, reloadOps, stepOps, type OpsKind } from "./ark-ops-rules";
+import { carbineReadout, DEFAULT_LOADOUT, OPTICS } from "./arc-carbine";
+import { createArcs, dressCarbine, heatColour } from "./arc-carbine-model";
+import { createOps, fireOps, inShuttleField, opsGlitch, opsObjective, opsPrompt, reloadOps, SHUTTLE_FIELD, stepOps, type OpsHit, type OpsKind } from "./ark-ops-rules";
 import type { SimHud, SimInput, SimWorldOptions } from "./ark-sim";
-import { CARBINE, SIM_DIFFICULTIES, type SimDifficulty } from "./ark-sim-rules";
+import { SIM_DIFFICULTIES, type SimDifficulty } from "./ark-sim-rules";
 
 const STAND_EYE = 1.6;
 const CROUCH_EYE = 1.0;
@@ -37,9 +41,9 @@ type Figure = {
   fallen: number;
 };
 
-export function createOpsWorld(difficulty: SimDifficulty, { reducedMotion = false, onCleared }: SimWorldOptions = {}) {
+export function createOpsWorld(difficulty: SimDifficulty, { reducedMotion = false, onCleared, loadout = DEFAULT_LOADOUT }: SimWorldOptions = {}) {
   const random = Math.random;
-  const state = createOps(difficulty, random);
+  const state = createOps(difficulty, random, loadout);
   const map = state.map;
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(72, 1, 0.05, 300);
@@ -335,9 +339,10 @@ export function createOpsWorld(difficulty: SimDifficulty, { reducedMotion = fals
   const pickups = new Map<number, THREE.Group>();
   for (const pickup of state.pickups) {
     const group = new THREE.Group();
-    if (pickup.kind === "ammo") {
-      box(group, 0.5, 0.28, 0.32, lambert("#4a5a3a"), 0, 0, 0);
-      box(group, 0.5, 0.04, 0.32, glow("#ffe34a"), 0, 0.15, 0);
+    if (pickup.kind === "cell") {
+      // A spare cell for the carbine, lit along its window.
+      box(group, 0.26, 0.4, 0.26, lambert("#3a3f4e"), 0, 0.05, 0);
+      box(group, 0.28, 0.24, 0.06, glow("#9ac4ff"), 0, 0.05, 0.11);
     } else {
       box(group, 0.4, 0.3, 0.3, lambert("#e8e4dc"), 0, 0, 0);
       // A green cross: the Ark's own mark for care.
@@ -358,11 +363,10 @@ export function createOpsWorld(difficulty: SimDifficulty, { reducedMotion = fals
   const coils = [-0.12, -0.02, 0.08].map((z) => box(gun, 0.15, 0.04, 0.05, glow("#9ac4ff"), 0, 0.02, z));
   box(gun, 0.08, 0.18, 0.1, lambert("#2b2433"), 0, -0.14, 0.12);
   box(gun, 0.1, 0.16, 0.22, gunBody, 0, -0.03, 0.38);
-  // Iron sights to look down: a post at the front, a notch at the back.
-  box(gun, 0.02, 0.06, 0.02, glow("#ffe34a"), 0, 0.11, -0.25);
-  box(gun, 0.05, 0.025, 0.02, lambert("#1a1820"), 0, 0.095, 0.18);
+  // The light slung under the barrel; the sights, the barrel piece and the cell come with the loadout.
   box(gun, 0.07, 0.07, 0.12, lambert("#1a1820"), 0, -0.09, -0.3);
-  const flash = box(gun, 0.16, 0.16, 0.16, glow("#ffe9a8"), 0, 0.02, -0.68);
+  const dressed = keep(dressCarbine(gun, loadout));
+  const flash = box(gun, 0.16, 0.16, 0.16, glow("#dce8ff"), 0, 0.02, dressed.muzzle);
   flash.visible = false;
   gun.traverse((object) => inert(object));
   camera.add(gun);
@@ -381,7 +385,15 @@ export function createOpsWorld(difficulty: SimDifficulty, { reducedMotion = fals
   type Streak = { mesh: THREE.Mesh; life: number };
   const streaks: Streak[] = [];
   const tracerMaterial = glow("#ffd9a0", { transparent: true, opacity: 0.8 });
-  const ownTracerMaterial = glow("#bcd8ff", { transparent: true, opacity: 0.85 });
+  const arcs = keep(createArcs(scene, random));
+  const coilColour = new THREE.Color();
+  // The shuttle's field over the pad: inside it the carbine's cell draws power.
+  {
+    const pad = map.extraction;
+    const field = inert(new THREE.Mesh(keep(new THREE.SphereGeometry(SHUTTLE_FIELD, 24, 10, 0, Math.PI * 2, 0, Math.PI / 2)), glow("#c9b6ff", { transparent: true, opacity: 0.06, side: THREE.DoubleSide, depthWrite: false })));
+    field.position.set((pad.x0 + pad.x1) / 2, 0, (pad.z0 + pad.z1) / 2);
+    scene.add(field);
+  }
   const streak = (from: THREE.Vector3, to: THREE.Vector3, material: THREE.Material) => {
     const mesh = inert(new THREE.Mesh(unitBox, material));
     mesh.position.copy(from).add(to).multiplyScalar(0.5);
@@ -438,35 +450,41 @@ export function createOpsWorld(difficulty: SimDifficulty, { reducedMotion = fals
   const onYard = (x: number, z: number) => tileAt(map, Math.floor(x), Math.floor(z)) === "ground";
   const figureOf = (id: number) => figures.get(id);
 
+  /** Fire: each bolt the firing law throws strays by stance and law (less down the sights) and strikes what it meets. */
   const pull = (aiming: boolean) => {
     camera.updateMatrixWorld();
     camera.getWorldPosition(origin);
-    camera.getWorldDirection(direction);
     const moving = state.player.speed > 0.5;
-    const spread = aiming ? SPREAD.aimed : moving ? SPREAD.moving : SPREAD.still;
-    direction.x += (random() - 0.5) * spread * 2;
-    direction.y += (random() - 0.5) * spread * 2;
-    direction.z += (random() - 0.5) * spread * 2;
-    direction.normalize();
-    raycaster.set(origin, direction);
+    const stance = aiming ? SPREAD.aimed : moving ? SPREAD.moving : SPREAD.still;
     const live = [...figures.values()].filter((figure) => figure.fallen === 0).map((figure) => figure.group);
-    const hit = raycaster.intersectObjects([...solids, ...live], true)[0];
-    const ref = (hit?.object.userData.ref as Ref | undefined) ?? null;
-    const head = Boolean(hit?.object.userData.head);
-    if (!fireOps(state, ref ? { ...ref, head } : null)) return;
-    recoil = 1;
+    const ends: { point: THREE.Vector3; ref: Ref | null; wall: boolean }[] = [];
+    const shot = fireOps(state, (discharge) => Array.from({ length: discharge.bolts }, (): OpsHit => {
+      camera.getWorldDirection(direction);
+      const spread = stance + discharge.spread * (aiming ? 0.5 : 1);
+      direction.set(direction.x + (random() - 0.5) * spread * 2, direction.y + (random() - 0.5) * spread * 2, direction.z + (random() - 0.5) * spread * 2).normalize();
+      raycaster.set(origin, direction);
+      const hit = raycaster.intersectObjects([...solids, ...live], true)[0];
+      const ref = (hit?.object.userData.ref as Ref | undefined) ?? null;
+      ends.push({ point: hit ? hit.point.clone() : origin.clone().addScaledVector(direction, 60), ref, wall: Boolean(hit) && !ref });
+      return ref ? { ...ref, head: Boolean(hit?.object.userData.head) } : null;
+    }));
+    if (!shot) return;
+    recoil = shot.damage > 2 || shot.bolts > 1 ? 1.7 : 1;
     flashFor = 0.05;
-    const end = hit ? hit.point : origin.clone().addScaledVector(direction, 60);
     flash.getWorldPosition(muzzle);
-    streak(muzzle, end, ownTracerMaterial);
-    if (hit) {
-      burst(hit.point, ref ? (figureOf(ref.id)?.kind === "alien" ? "#c8f04a" : "#d8504a") : "#e8e4dc", ref ? 12 : 6);
-      if (!ref) audio?.at("impact", hit.point.x, hit.point.y, hit.point.z, 0);
-    }
-    if (ref) {
-      marker = 1;
-      const figure = figureOf(ref.id);
-      if (figure) figure.flash = 1;
+    let impact = false;
+    for (const end of ends) {
+      arcs.fire(muzzle, end.point);
+      if (end.ref || end.wall) burst(end.point, end.ref ? (figureOf(end.ref.id)?.kind === "alien" ? "#c8f04a" : "#d8504a") : "#cfe0ff", end.ref ? 12 : 5);
+      if (end.wall && !impact) {
+        impact = true;
+        audio?.at("impact", end.point.x, end.point.y, end.point.z, 0);
+      }
+      if (end.ref) {
+        marker = 1;
+        const figure = figureOf(end.ref.id);
+        if (figure) figure.flash = 1;
+      }
     }
   };
 
@@ -502,7 +520,7 @@ export function createOpsWorld(difficulty: SimDifficulty, { reducedMotion = fals
         }
         case "shot":
           if (event.who === "player") {
-            audio?.gun();
+            audio?.gun(loadout.form, loadout.barrel === "suppressor");
             break;
           }
           say("rifle", event.x, 1.4, event.z);
@@ -593,6 +611,9 @@ export function createOpsWorld(difficulty: SimDifficulty, { reducedMotion = fals
           break;
         case "dry":
           audio?.dry();
+          break;
+        case "vent":
+          audio?.vent();
           break;
         case "extracted":
           audio?.extracted();
@@ -708,13 +729,20 @@ export function createOpsWorld(difficulty: SimDifficulty, { reducedMotion = fals
     const jolt = (reducedMotion ? 0 : shake * 0.05) + glitch * 0.012;
     camera.position.set(player.x, eye + Math.abs(sway), player.z);
     camera.rotation.set(pitch + recoil * 0.02 * (1 - aimBlend * 0.5) + (random() - 0.5) * jolt, yaw + (random() - 0.5) * jolt, 0);
-    const fov = 72 - aimBlend * 24 + (reducedMotion ? 0 : glitch * (random() - 0.5) * 6);
+    // Down the sights the optic draws the view in; through a scope the carbine is out of sight.
+    const fov = 72 / (1 + aimBlend * (OPTICS[loadout.optic].zoom - 1)) + (reducedMotion ? 0 : glitch * (random() - 0.5) * 6);
     if (Math.abs(camera.fov - fov) > 0.05) {
       camera.fov = fov;
       camera.updateProjectionMatrix();
     }
-    const reloading = player.reloadDone !== null ? 1 - (player.reloadDone - state.time) / CARBINE.reload : null;
+    const readout = carbineReadout(player.gun, state.time);
+    const reloading = readout.swapping;
     const dip = reloading !== null ? Math.sin(Math.min(1, reloading) * Math.PI) : 0;
+    gun.visible = !(loadout.optic === "scope" && aimBlend > 0.85);
+    arcs.update(dt);
+    heatColour(readout.heat, readout.venting, now, coilColour);
+    for (const coil of coils) (coil.material as THREE.MeshBasicMaterial).color.copy(coilColour);
+    dressed.showCharge(readout.charge);
     // Down the sights the front post sits on the centre of the view, the carbine below it.
     gun.position.set(0.3 * (1 - aimBlend) + sway, -0.28 + aimBlend * 0.165 - dip * 0.18, -0.55 - aimBlend * 0.07 + recoil * 0.06);
     gun.rotation.set(recoil * 0.1 * (1 - aimBlend * 0.6) + dip * 0.7, dip * 0.4, dip * 0.3);
@@ -816,9 +844,7 @@ export function createOpsWorld(difficulty: SimDifficulty, { reducedMotion = fals
       return {
         health: player.health,
         maxHealth: player.maxHealth,
-        magazine: player.magazine,
-        reserve: player.reserve,
-        reloading: player.reloadDone !== null ? Math.min(1, 1 - (player.reloadDone - state.time) / CARBINE.reload) : null,
+        carbine: { ...carbineReadout(player.gun, state.time), powered: inShuttleField(state) },
         wave: 0,
         score: state.score,
         kills: state.kills,

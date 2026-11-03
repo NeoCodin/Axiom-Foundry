@@ -7,6 +7,7 @@
  * scream; the Hollowed hiss static and whisper as if the words ran backwards.
  */
 
+import type { CarbineForm } from "./arc-carbine";
 import { getPulseAudioOutput, getPulseNoise } from "./law-heart-audio";
 
 export type OpsSound =
@@ -20,7 +21,10 @@ export type OpsAudio = {
   listen(x: number, y: number, z: number, yaw: number): void;
   /** A sound at a place in the building, through this many walls' worth of damping. */
   at(sound: OpsSound, x: number, y: number, z: number, walls: number): void;
-  gun(): void;
+  /** A shot from the Arc Carbine: its crack shaped by the firing law, damped by a suppressor. */
+  gun(form?: CarbineForm, suppressed?: boolean): void;
+  /** The coils venting their heat. */
+  vent(): void;
   dry(): void;
   reload(): void;
   pickup(): void;
@@ -290,11 +294,27 @@ export function createOpsAudio(): OpsAudio | null {
     at(sound, x, y, z, walls) {
       sounds[sound]({ x, y, z, walls });
     },
-    gun() {
-      voice(null, { type: "sine", path: [[0, 150], [0.1, 45]], peak: 0.3, attack: 0.003, decay: 0.12 });
-      hiss(null, { filter: ["highpass", 1_200, 0.7], peak: 0.12, attack: 0.002, decay: 0.07 });
-      voice(null, { type: "sawtooth", path: [[0, 1_800], [0.06, 300]], peak: 0.05, attack: 0.002, decay: 0.07, filter: ["bandpass", 1_500, 2] });
-      hiss(null, { at: 0.04, filter: ["lowpass", 1_000, 0.7], peak: 0.05, attack: 0.03, decay: 0.4 });
+    gun(form = "conservation", suppressed = false) {
+      // The Arc Carbine: the discharge's crack and zap as its firing law shapes it, and the room ringing after.
+      const loud = suppressed ? 0.35 : 1;
+      if (form === "containment") {
+        voice(null, { type: "sine", path: [[0, 110], [0.25, 32]], peak: 0.34 * loud, attack: 0.004, decay: 0.3 });
+        voice(null, { type: "sawtooth", path: [[0, 2_600], [0.22, 160]], peak: 0.07 * loud, attack: 0.002, decay: 0.24, filter: ["bandpass", 1_400, 1.4] });
+        hiss(null, { filter: ["highpass", 900, 0.7], peak: 0.14 * loud, attack: 0.002, decay: 0.18 });
+      } else if (form === "transit") {
+        hiss(null, { filter: ["bandpass", 1_800, 0.6], peak: 0.2 * loud, attack: 0.002, decay: 0.16 });
+        for (const at of [0, 0.02, 0.045]) voice(null, { type: "sawtooth", at, path: [[0, 1_400 + at * 8_000], [0.05, 240]], peak: 0.035 * loud, attack: 0.002, decay: 0.06, filter: ["bandpass", 1_300, 2] });
+        voice(null, { type: "sine", path: [[0, 130], [0.12, 40]], peak: 0.26 * loud, attack: 0.003, decay: 0.14 });
+      } else {
+        voice(null, { type: "sine", path: [[0, 150], [0.1, 45]], peak: 0.3 * loud, attack: 0.003, decay: 0.12 });
+        hiss(null, { filter: ["highpass", 1_200, 0.7], peak: 0.12 * loud, attack: 0.002, decay: 0.07 });
+        voice(null, { type: "sawtooth", path: [[0, 1_800], [0.06, 300]], peak: 0.06 * loud, attack: 0.002, decay: 0.07, filter: ["bandpass", 1_500, 2] });
+      }
+      hiss(null, { at: 0.04, filter: ["lowpass", 1_000, 0.7], peak: 0.05 * loud, attack: 0.03, decay: 0.4 });
+    },
+    vent() {
+      hiss(null, { filter: ["lowpass", 2_400, 0.7], peak: 0.09, attack: 0.03, decay: 1.4 });
+      voice(null, { type: "triangle", path: [[0, 700], [1.2, 220]], peak: 0.03, attack: 0.02, decay: 1.3 });
     },
     dry() {
       voice(null, { type: "square", path: [[0, 900], [0.01, 700]], peak: 0.05, attack: 0.001, decay: 0.02 });

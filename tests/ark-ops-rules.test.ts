@@ -13,6 +13,7 @@ import {
   OPS_DIFFICULTIES,
   createOps,
   fireOps,
+  inShuttleField,
   opsObjective,
   opsPrompt,
   stepOps,
@@ -84,7 +85,7 @@ test("walls stop bodies, sight and most of a sound; an open door lets them throu
 test("the difficulties climb: more Wreckers who shoot straighter and see sooner", () => {
   const [recruit, soldier, veteran] = [OPS_DIFFICULTIES.recruit, OPS_DIFFICULTIES.soldier, OPS_DIFFICULTIES.veteran];
   for (const key of ["wreckers", "aim", "damage", "spot"] as const) assert.ok(recruit[key] < soldier[key] && soldier[key] < veteran[key], key);
-  assert.equal(recruit.reserve, Infinity);
+  assert.equal(recruit.cells, Infinity);
   const state = createOps("veteran", seeded(1));
   assert.equal(state.agents.filter((agent) => agent.kind === "wrecker").length, 7);
   assert.equal(state.agents.filter((agent) => agent.kind === "hollowed").length, 2);
@@ -161,7 +162,7 @@ test("gunfire brings Wreckers to look; a crouched step behind a wall does not", 
   state.player.z = 12.5;
   run(state, 2, { forward: 1, crouched: true });
   assert.notEqual(guard.mode, "investigate", "quiet steps go unheard");
-  state.player.lastShot = -Infinity;
+  state.player.gun.lastShot = -Infinity;
   fireOps(state, null);
   assert.equal(guard.mode, "investigate");
   assert.ok(guard.goal && Math.hypot(guard.goal.x - state.player.x, guard.goal.z - state.player.z) < 0.5, "towards the sound");
@@ -224,4 +225,27 @@ test("a round in a survivor hurts them; losing AXIOM ends the mission", () => {
   run(doomed, 60);
   assert.equal(doomed.outcome, "failed");
   assert.match(doomed.failure ?? "", /sim-body/);
+});
+
+test("a suppressed carbine carries far less: the same guard never hears it", () => {
+  const state = createOps("soldier", seeded(6), { form: "conservation", optic: "iron", barrel: "suppressor", cell: "standard" });
+  const guard = alone(state, (agent) => agent.kind === "wrecker" && agent.mode === "guard");
+  state.player.x = 18.5;
+  state.player.z = 12.5;
+  run(state, 2, { forward: 1, crouched: true });
+  fireOps(state, null);
+  assert.notEqual(guard.mode, "investigate", "a damped crack goes unheard through the walls");
+});
+
+test("the shuttle's field recharges the carbine's cell; out in the station it does not", () => {
+  const state = createOps("soldier", seeded(2));
+  state.player.gun.charge = 20;
+  assert.ok(inShuttleField(state), "the sim-body starts by the shuttle");
+  run(state, 2);
+  assert.ok(state.player.gun.charge > 40, "it fills on the pad");
+  state.player.x = 20.5;
+  state.player.z = 12.5;
+  const before = state.player.gun.charge;
+  run(state, 2);
+  assert.equal(state.player.gun.charge, before);
 });

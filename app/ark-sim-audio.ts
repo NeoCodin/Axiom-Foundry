@@ -8,10 +8,14 @@
  */
 
 import { getPulseAudioOutput, getPulseNoise } from "./law-heart-audio";
+import type { CarbineForm } from "./arc-carbine";
 import type { AlienKind } from "./ark-sim-rules";
 
 export type SimAudio = {
-  gun(): void;
+  /** A shot from the Arc Carbine: its crack shaped by the firing law, damped by a suppressor. */
+  gun(form?: CarbineForm, suppressed?: boolean): void;
+  /** The coils venting their heat. */
+  vent(): void;
   dry(): void;
   reload(): void;
   pickup(): void;
@@ -167,11 +171,27 @@ export function createSimAudio(): SimAudio | null {
   later(chirp, 800);
 
   return {
-    gun() {
-      // The training carbine: a crack, a thump, and the arc's zap.
-      voice({ type: "sine", path: [[0, 150], [0.1, 45]], peak: 0.3, attack: 0.003, decay: 0.12 });
-      hiss({ filter: ["highpass", 1_200, 0.7], peak: 0.12, attack: 0.002, decay: 0.07 });
-      voice({ type: "sawtooth", path: [[0, 1_800], [0.06, 300]], peak: 0.05, attack: 0.002, decay: 0.07, filter: ["bandpass", 1_500, 2] });
+    gun(form = "conservation", suppressed = false) {
+      // The Arc Carbine: the discharge's crack and zap, as its firing law shapes it.
+      const loud = suppressed ? 0.35 : 1;
+      if (form === "containment") {
+        voice({ type: "sine", path: [[0, 110], [0.25, 32]], peak: 0.34 * loud, attack: 0.004, decay: 0.3 });
+        voice({ type: "sawtooth", path: [[0, 2_600], [0.22, 160]], peak: 0.07 * loud, attack: 0.002, decay: 0.24, filter: ["bandpass", 1_400, 1.4] });
+        hiss({ filter: ["highpass", 900, 0.7], peak: 0.14 * loud, attack: 0.002, decay: 0.18 });
+      } else if (form === "transit") {
+        hiss({ filter: ["bandpass", 1_800, 0.6], peak: 0.2 * loud, attack: 0.002, decay: 0.16 });
+        for (const at of [0, 0.02, 0.045]) voice({ type: "sawtooth", at, path: [[0, 1_400 + at * 8_000], [0.05, 240]], peak: 0.035 * loud, attack: 0.002, decay: 0.06, filter: ["bandpass", 1_300, 2] });
+        voice({ type: "sine", path: [[0, 130], [0.12, 40]], peak: 0.26 * loud, attack: 0.003, decay: 0.14 });
+      } else {
+        voice({ type: "sine", path: [[0, 150], [0.1, 45]], peak: 0.3 * loud, attack: 0.003, decay: 0.12 });
+        hiss({ filter: ["highpass", 1_200, 0.7], peak: 0.12 * loud, attack: 0.002, decay: 0.07 });
+        voice({ type: "sawtooth", path: [[0, 1_800], [0.06, 300]], peak: 0.06 * loud, attack: 0.002, decay: 0.07, filter: ["bandpass", 1_500, 2] });
+      }
+    },
+    vent() {
+      // The coils dump their heat: a long hiss and a falling whine.
+      hiss({ filter: ["lowpass", 2_400, 0.7], peak: 0.09, attack: 0.03, decay: 1.4 });
+      voice({ type: "triangle", path: [[0, 700], [1.2, 220]], peak: 0.03, attack: 0.02, decay: 1.3 });
     },
     dry() {
       voice({ type: "square", path: [[0, 900], [0.01, 700]], peak: 0.05, attack: 0.001, decay: 0.02 });

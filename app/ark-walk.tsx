@@ -55,6 +55,19 @@ import { bestSimScore, createSimWorld, type SimMode, type SimWorld } from "./ark
 import { OPS_DIFFICULTIES } from "./ark-ops-rules";
 import { DRILL_CAP_SECONDS, SIM_DIFFICULTIES, type SimDifficulty } from "./ark-sim-rules";
 import {
+  BARREL_ORDER,
+  BARRELS,
+  CELL_ORDER,
+  CELLS,
+  DEFAULT_LOADOUT,
+  FORM_ORDER,
+  FORMS,
+  OPTIC_ORDER,
+  OPTICS,
+  sanitizeLoadout,
+  type CarbineLoadout,
+} from "./arc-carbine";
+import {
   busyLine,
   chatter,
   exchanges,
@@ -4295,6 +4308,15 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
   };
 }
 
+/** The Arc Carbine's loadout, as the simulator's console offers it: a firing law, then each attachment. */
+const LOADOUT_KEY = "axiom-foundry-carbine-loadout-v1";
+const LOADOUT_PARTS: readonly { key: keyof CarbineLoadout; label: string; options: readonly { id: string; label: string; note?: string; blurb: string }[] }[] = [
+  { key: "form", label: "Firing law", options: FORM_ORDER.map((id) => ({ id, label: FORMS[id].label, note: FORMS[id].law, blurb: FORMS[id].blurb })) },
+  { key: "optic", label: "Optic", options: OPTIC_ORDER.map((id) => ({ id, label: OPTICS[id].label, blurb: OPTICS[id].blurb })) },
+  { key: "barrel", label: "Barrel", options: BARREL_ORDER.map((id) => ({ id, label: BARRELS[id].label, blurb: BARRELS[id].blurb })) },
+  { key: "cell", label: "Cell", options: CELL_ORDER.map((id) => ({ id, label: CELLS[id].label, blurb: CELLS[id].blurb })) },
+];
+
 /** The simulator's modes, as its console offers them. */
 const SIM_MODES: readonly { id: SimMode; label: string; blurb: string }[] = [
   { id: "swarm", label: "Swarm", blurb: "Hold a jungle clearing against waves of aliens." },
@@ -4359,7 +4381,9 @@ export default function ArkWalk(props: ArkWalkProps) {
   const lostRef = useRef<HTMLParagraphElement>(null);
   const simHealthRef = useRef<HTMLSpanElement>(null);
   const simAmmoRef = useRef<HTMLSpanElement>(null);
+  const simCellRef = useRef<HTMLSpanElement>(null);
   const simReloadRef = useRef<HTMLSpanElement>(null);
+  const simHeatRef = useRef<HTMLSpanElement>(null);
   const simScoreRef = useRef<HTMLSpanElement>(null);
   const simBannerRef = useRef<HTMLParagraphElement>(null);
   const simHurtRef = useRef<HTMLSpanElement>(null);
@@ -4375,6 +4399,26 @@ export default function ArkWalk(props: ArkWalkProps) {
   const simHudRef = useRef<HTMLDivElement>(null);
   const simControlRef = useRef<{ start(difficulty: SimDifficulty, mode: SimMode): void; again(): void; menu(): void; leave(): void } | null>(null);
   const [simMode, setSimMode] = useState<SimMode>("swarm");
+  // The carbine's loadout, kept on this device and carried into every run.
+  const [loadout, setLoadout] = useState<CarbineLoadout>(DEFAULT_LOADOUT);
+  const loadoutRef = useRef(loadout);
+  loadoutRef.current = loadout;
+  useEffect(() => {
+    try {
+      setLoadout(sanitizeLoadout(JSON.parse(window.localStorage.getItem(LOADOUT_KEY) ?? "null")));
+    } catch {
+      // Storage blocked or unreadable: the issue loadout.
+    }
+  }, []);
+  const chooseLoadout = (key: keyof CarbineLoadout, id: string) => {
+    const next = sanitizeLoadout({ ...loadoutRef.current, [key]: id });
+    setLoadout(next);
+    try {
+      window.localStorage.setItem(LOADOUT_KEY, JSON.stringify(next));
+    } catch {
+      // Storage blocked: the choice lasts this visit.
+    }
+  };
   const [simScreen, setSimScreen] = useState<
     | { phase: "menu" }
     | { phase: "playing"; mode: SimMode }
@@ -4592,7 +4636,7 @@ export default function ArkWalk(props: ArkWalkProps) {
       simDrilled = 0;
       simGraduates = [];
       aiming = false;
-      sim = (mode === "extraction" ? createOpsWorld : createSimWorld)(difficulty, { reducedMotion, onCleared: drillTrainees });
+      sim = (mode === "extraction" ? createOpsWorld : createSimWorld)(difficulty, { reducedMotion, onCleared: drillTrainees, loadout: loadoutRef.current });
       sim.resize(camera.aspect);
       simMenu = false;
       simPaused = false;
@@ -4639,10 +4683,19 @@ export default function ArkWalk(props: ArkWalkProps) {
         simHealthRef.current.style.setProperty("--sim-health", share.toFixed(3));
         simHealthRef.current.dataset.state = share > 0.5 ? "good" : share > 0.25 ? "low" : "critical";
       }
-      if (simAmmoRef.current) {
-        simAmmoRef.current.textContent = hud.reloading !== null ? "Reloading" : `${hud.magazine} / ${Number.isFinite(hud.reserve) ? hud.reserve : "∞"}`;
+      // The carbine: shots left in the cell (or what it is busy doing), the cell's charge or the swap's progress, the coils' heat.
+      const gun = hud.carbine;
+      if (simAmmoRef.current) simAmmoRef.current.textContent = gun.swapping !== null ? "Changing cell" : gun.venting ? "Venting" : `${gun.shots}`;
+      if (simCellRef.current) simCellRef.current.textContent = `${gun.form} · ${Number.isFinite(gun.spare) ? `${gun.spare} spare ${gun.spare === 1 ? "cell" : "cells"}` : "spare cells ∞"}${gun.powered ? " · recharging" : ""}`;
+      if (simReloadRef.current) {
+        simReloadRef.current.style.setProperty("--sim-reload", (gun.swapping ?? gun.charge).toFixed(3));
+        simReloadRef.current.dataset.state = gun.swapping !== null ? "swap" : gun.powered ? "charging" : "charge";
       }
-      simReloadRef.current?.style.setProperty("--sim-reload", hud.reloading === null ? "0" : hud.reloading.toFixed(3));
+      if (simHeatRef.current) {
+        simHeatRef.current.style.setProperty("--sim-heat", gun.heat.toFixed(3));
+        simHeatRef.current.dataset.venting = gun.venting ? "true" : "false";
+      }
+      if (simHudRef.current) simHudRef.current.dataset.sight = hud.aiming ? gun.optic : "none";
       if (simScoreRef.current) {
         simScoreRef.current.textContent = hud.objective !== undefined
           ? `${hud.location ? `${hud.location} · ` : ""}${hud.objective}`
@@ -5499,6 +5552,8 @@ export default function ArkWalk(props: ArkWalkProps) {
         <span ref={simHurtRef} className="ark-sim-hurt" aria-hidden="true" />
         <span ref={simGlitchRef} className="ark-sim-glitch" aria-hidden="true" />
         <span className="ark-sim-crosshair" aria-hidden="true" />
+        <span className="ark-sim-scope" aria-hidden="true" />
+        <span className="ark-sim-reflex" aria-hidden="true" />
         <span ref={simMarkerRef} className="ark-sim-marker" aria-hidden="true" />
         <p ref={simBannerRef} className="ark-sim-banner" hidden />
         <div className="ark-sim-vitals">
@@ -5507,8 +5562,10 @@ export default function ArkWalk(props: ArkWalkProps) {
         </div>
         <div className="ark-sim-ammo">
           <span className="ark-sim-label">Arc Carbine · training</span>
-          <span ref={simAmmoRef} className="ark-sim-rounds">24 / 96</span>
-          <span ref={simReloadRef} className="ark-sim-reload" aria-hidden="true"><i /></span>
+          <span ref={simAmmoRef} className="ark-sim-rounds">25</span>
+          <span ref={simCellRef} className="ark-sim-cell" />
+          <span ref={simReloadRef} className="ark-sim-reload" data-state="charge" aria-hidden="true"><i /></span>
+          <span ref={simHeatRef} className="ark-sim-heat" data-venting="false" aria-hidden="true"><i /></span>
           <span ref={simStanceRef} className="ark-sim-stance" />
         </div>
         <div className="ark-sim-score">
@@ -5524,8 +5581,8 @@ export default function ArkWalk(props: ArkWalkProps) {
         <p ref={simPausedRef} className="ark-sim-paused" hidden>Paused · click to go back in · Q to leave</p>
         <p className="ark-sim-help">
           {simScreen?.phase !== "menu" && simScreen?.mode === "extraction"
-            ? "Click fire · Right-click aim · C crouch · F light · E use · R reload · Shift run · Q leave"
-            : "Click to fire · R reload · WASD move · Space jump · Shift run · Q leave"}
+            ? "Click fire · Right-click aim · C crouch · F light · E use · R change cell · Shift run · Q leave"
+            : "Click to fire · Right-click aim · R change cell · WASD move · Space jump · Shift run · Q leave"}
         </p>
       </div>
       {simScreen?.phase === "menu" && (
@@ -5541,13 +5598,33 @@ export default function ArkWalk(props: ArkWalkProps) {
               </button>
             ))}
           </div>
+          <section className="ark-sim-loadout" aria-label="Arc Carbine loadout">
+            <h3>Arc Carbine</h3>
+            <p>One carbine on the Ark's own power. Its kernel holds one firing law, and the law makes it the weapon you need.</p>
+            {LOADOUT_PARTS.map((part) => (
+              <div key={part.key} className="ark-sim-slot" role="group" aria-label={part.label}>
+                <span className="ark-sim-label">{part.label}</span>
+                {part.options.map((option) => (
+                  <button key={option.id} type="button" aria-pressed={loadout[part.key] === option.id} title={option.blurb} onClick={() => chooseLoadout(part.key, option.id)}>
+                    <strong>{option.label}</strong>
+                    {option.note && <small>{option.note}</small>}
+                  </button>
+                ))}
+              </div>
+            ))}
+            <ul className="ark-sim-loadout-notes">
+              {LOADOUT_PARTS.map((part) => (
+                <li key={part.key}>{part.options.find((option) => option.id === loadout[part.key])?.blurb}</li>
+              ))}
+            </ul>
+          </section>
           <div className="ark-sim-levels">
             {(Object.keys(SIM_DIFFICULTIES) as SimDifficulty[]).map((level) => (
               <button key={level} type="button" onClick={() => simControlRef.current?.start(level, simMode)}>
                 <strong>{SIM_DIFFICULTIES[level].label}</strong>
                 <small>
                   {simMode === "extraction"
-                    ? `${OPS_DIFFICULTIES[level].wreckers} Wreckers · ${OPS_DIFFICULTIES[level].aliens} aliens · ${OPS_DIFFICULTIES[level].hollowed} Hollowed${Number.isFinite(OPS_DIFFICULTIES[level].reserve) ? "" : " · endless ammunition"}`
+                    ? `${OPS_DIFFICULTIES[level].wreckers} Wreckers · ${OPS_DIFFICULTIES[level].aliens} aliens · ${OPS_DIFFICULTIES[level].hollowed} Hollowed${Number.isFinite(OPS_DIFFICULTIES[level].cells) ? "" : " · endless cells"}`
                     : SIM_DIFFICULTIES[level].blurb}
                 </small>
                 {props.simulator && props.simulator.trainees.length > 0 && (
