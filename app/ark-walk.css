@@ -606,11 +606,43 @@
   display: grid;
   gap: 14px;
   width: min(620px, calc(100% - 48px));
+  /* Never taller than the window: what doesn't fit scrolls inside the panel. */
+  max-height: calc(100% - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 22px 26px;
   border: 6px solid transparent;
   border-image: var(--b-plate-active) 7 fill / 14px / 4px stretch;
   color: #efe6d2;
   transform: translate(-50%, -50%);
+}
+
+/* On a wide screen the console's menu takes two columns: the pods and the modes beside the carbine. */
+@media (min-width: 1100px) {
+  .ark-sim-panel.is-menu {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+    column-gap: 24px;
+    width: min(1100px, calc(100% - 48px));
+  }
+
+  .ark-sim-panel.is-menu > * {
+    grid-column: 1 / -1;
+  }
+
+  .ark-sim-panel.is-menu > .ark-sim-pods,
+  .ark-sim-panel.is-menu > .ark-sim-modes {
+    grid-column: 1;
+  }
+
+  .ark-sim-panel.is-menu > .ark-sim-loadout {
+    grid-row: 3 / span 2;
+    grid-column: 2;
+  }
+
+  .ark-sim-panel.is-menu > .ark-sim-modes {
+    grid-template-columns: 1fr;
+  }
 }
 
 .ark-sim-panel h2 {

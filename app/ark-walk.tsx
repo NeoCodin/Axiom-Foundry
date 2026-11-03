@@ -5586,7 +5586,7 @@ export default function ArkWalk(props: ArkWalkProps) {
         </p>
       </div>
       {simScreen?.phase === "menu" && (
-        <div className="ark-sim-panel" role="dialog" aria-label="Combat simulation">
+        <div className="ark-sim-panel is-menu" role="dialog" aria-label="Combat simulation">
           <h2>Combat simulation</h2>
           <p>Places that never were, full of things that want you dead. Crew train here before they fight; AXIOM can step in too.</p>
           {props.simulator && <SimulatorPods simulator={props.simulator} />}
