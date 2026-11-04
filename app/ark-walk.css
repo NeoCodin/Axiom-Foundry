@@ -983,3 +983,87 @@
   33% { transform: translateX(-6px); }
   66% { transform: translateX(4px); }
 }
+
+/* Lyra in AXIOM's ear: her warnings on a plate at the top of the view, over the simulator and Pelagos alike. */
+.lyra-voice {
+  position: absolute;
+  top: 26px;
+  left: 50%;
+  z-index: 45;
+  display: grid;
+  gap: 2px;
+  max-width: min(540px, calc(100% - 48px));
+  padding: 7px 18px 9px;
+  border: 6px solid transparent;
+  border-image: var(--b-plate-base) 7 fill / 14px / 4px stretch;
+  color: #f4e6d8;
+  font-family: var(--font-ui);
+  font-size: 16px;
+  line-height: 1.4;
+  text-align: center;
+  transform: translateX(-50%);
+  pointer-events: none;
+  animation: lyra-open 0.16s ease-out;
+}
+
+.lyra-voice[hidden] {
+  display: none;
+}
+
+.lyra-voice strong {
+  color: #f2c6a8;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Another voice through hers: dimmer, in italics, not holding still. */
+.lyra-voice[data-voice="bleed"] strong {
+  color: #a08cb4;
+}
+
+.lyra-voice[data-voice="bleed"] span {
+  color: #c0b2cf;
+  font-style: italic;
+  animation: lyra-waver 0.8s steps(3) infinite;
+}
+
+/* The Continuity Protocol: no warmth at all, a readout. */
+.lyra-voice[data-voice="continuity"] strong {
+  color: #8f959e;
+}
+
+.lyra-voice[data-voice="continuity"] span {
+  color: #c9ced4;
+  font-family: var(--font-mono, ui-monospace, Consolas, monospace);
+  font-size: 14px;
+  letter-spacing: 0.12em;
+}
+
+@keyframes lyra-open {
+  from {
+    opacity: 0;
+    clip-path: inset(0 40% 0 40%);
+  }
+}
+
+@keyframes lyra-waver {
+  33% {
+    opacity: 0.65;
+    translate: 1px 0;
+  }
+
+  66% {
+    opacity: 0.9;
+    translate: -1px 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lyra-voice,
+  .lyra-voice[data-voice="bleed"] span {
+    animation: none;
+  }
+}

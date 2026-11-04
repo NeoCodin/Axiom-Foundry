@@ -13,6 +13,7 @@ import * as THREE from "three";
 import { carbineReadout, DEFAULT_LOADOUT, OPTICS, switchLaw, type CarbineForm, type CarbineLoadout } from "./arc-carbine";
 import { createArcs, dressCarbine, heatColour } from "./arc-carbine-model";
 import { createSimAudio, type SimAudio } from "./ark-sim-audio";
+import type { LyraCue } from "./lyra-voice";
 import {
   ARENA_RADIUS,
   SIM_DIFFICULTIES,
@@ -98,6 +99,8 @@ export type SimWorld = {
   reload(): void;
   /** Write a different firing law into the carbine's kernel, mid-fight. */
   law?(form: CarbineForm): void;
+  /** What the world noticed since last asked, for Lyra to warn of. */
+  cues?(): LyraCue[];
   update(dt: number, input: SimInput, now: number): void;
   resize(aspect: number): void;
   hud(): SimHud;
@@ -664,6 +667,9 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
     return floor;
   };
   let banner: { text: string; until: number } | null = { text: `Simulation online · ${SIM_DIFFICULTIES[difficulty].label}`, until: 2.6 };
+  /** For Lyra: waves after the first, something heavy arriving, a harrier starting its dive. */
+  const cues: LyraCue[] = [];
+  const diving = new Set<number>();
   let audio: SimAudio | null = null;
   const raycaster = new THREE.Raycaster();
   raycaster.far = 90;
@@ -939,12 +945,14 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
       if (event.type === "wave") {
         banner = { text: `Wave ${event.wave}`, until: state.time + 2 };
         audio?.wave();
+        if (event.wave > 1) cues.push("wave");
       } else if (event.type === "cleared") {
         const done = onCleared?.(event.wave, event.drill) ?? null;
         banner = { text: done ? `Wave ${event.wave} cleared · ${done}` : `Wave ${event.wave} cleared`, until: state.time + 2.6 };
       } else if (event.type === "scream" || event.type === "spawn") {
         const at = heard(event.x, 1.5, event.z);
         audio?.scream(event.kind, at.pan, at.gain * (event.type === "spawn" ? 0.7 : 1));
+        if (event.type === "spawn" && event.kind === "brute") cues.push("brute");
         // The one that screamed opens its mouth: the nearest of its kind to where the sound came from.
         let screamer: AlienModel | null = null;
         for (const candidate of models.values()) {
@@ -991,6 +999,12 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
       }
     }
     state.events.length = 0;
+    for (const alien of state.aliens) {
+      if (alien.kind !== "harrier") continue;
+      if (alien.dive && !diving.has(alien.id)) cues.push("harrier-dive");
+      if (alien.dive) diving.add(alien.id);
+      else diving.delete(alien.id);
+    }
 
     // The aliens' bodies follow the rules' aliens; the fallen come apart.
     const alive = new Set(state.aliens.map((alien) => alien.id));
@@ -1193,6 +1207,9 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
     },
     law(form: CarbineForm) {
       if (switchLaw(state.player.gun, form, state.time)) audio?.law();
+    },
+    cues() {
+      return cues.splice(0);
     },
     update,
     resize(aspect: number) {

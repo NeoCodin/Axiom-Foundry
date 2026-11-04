@@ -18,6 +18,7 @@ import { carbineReadout, DEFAULT_LOADOUT, OPTICS, switchLaw, type CarbineForm } 
 import { createArcs, dressCarbine, heatColour } from "./arc-carbine-model";
 import { createOps, fireOps, inShuttleField, opsGlitch, opsObjective, opsPrompt, reloadOps, SHUTTLE_FIELD, stepOps, type OpsHit, type OpsKind } from "./ark-ops-rules";
 import type { SimHud, SimInput, SimWorldOptions } from "./ark-sim";
+import type { LyraCue } from "./lyra-voice";
 import { SIM_DIFFICULTIES, type SimDifficulty } from "./ark-sim-rules";
 
 const STAND_EYE = 1.6;
@@ -439,6 +440,8 @@ export function createOpsWorld(difficulty: SimDifficulty, { reducedMotion = fals
   let glitch = 0;
   let endedAt: number | null = null;
   let banner: { text: string; until: number } | null = { text: `Extraction · ${SIM_DIFFICULTIES[difficulty].label}`, until: 3.5 };
+  /** For Lyra: survivors freed, and the shuttle away with them. */
+  const cues: LyraCue[] = [];
   let audio: OpsAudio | null = null;
   const raycaster = new THREE.Raycaster();
   raycaster.far = 80;
@@ -594,6 +597,7 @@ export function createOpsWorld(difficulty: SimDifficulty, { reducedMotion = fals
         case "freed":
           audio?.freed();
           banner = { text: "Survivors freed · get them to the shuttle", until: state.time + 3 };
+          cues.push("freed");
           for (const survivor of state.survivors) if (survivor.state === "following") say("survivor-voice", survivor.x, 1.6, survivor.z);
           break;
         case "alarm":
@@ -620,6 +624,7 @@ export function createOpsWorld(difficulty: SimDifficulty, { reducedMotion = fals
           // The rescue drills the Security trainees; the results panel says by how much.
           if (event.drill > 0) onCleared?.(0, event.drill);
           banner = { text: `Extracted · ${event.saved} saved`, until: Infinity };
+          cues.push("extracted");
           break;
         case "failed":
           audio?.failed();
@@ -833,6 +838,9 @@ export function createOpsWorld(difficulty: SimDifficulty, { reducedMotion = fals
     },
     law(form: CarbineForm) {
       switchLaw(state.player.gun, form, state.time);
+    },
+    cues() {
+      return cues.splice(0);
     },
     update,
     resize(aspect: number) {

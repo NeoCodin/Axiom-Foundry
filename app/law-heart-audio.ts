@@ -258,3 +258,77 @@ export function playNullStatic(intensity: number) {
     gain.gain.setValueAtTime(step % 2 === 0 ? 0.0001 : 0.02 + strength * 0.03, when + step * 0.04);
   }
 }
+
+/** Vowel shapes, as their first two formants: ah, eh, ee, oh, oo. */
+const VOWELS = [[800, 1200], [480, 1900], [300, 2500], [450, 850], [330, 700]] as const;
+
+/**
+ * A voice in AXIOM's ear, under its subtitle: not words, only their shape, syllables through a
+ * radio. Lyra is warm and close; a voice bleeding through hers is lower, doubled and further off
+ * in static; the Continuity Protocol is a flat chirp of data over a hum.
+ */
+export function playLyraVoice(voice: "lyra" | "bleed" | "continuity", seconds: number) {
+  const output = ready();
+  if (!output) return;
+  const { context, master } = output;
+  const when = context.currentTime + 0.02;
+  const length = Math.min(3.2, Math.max(0.4, seconds));
+  if (voice === "continuity") {
+    tone(output, when, { type: "sawtooth", from: 55, to: 54, glide: length, peak: 0.018, attack: 0.04, decay: length });
+    for (let chirp = 0; chirp < Math.round(length * 7); chirp += 1) {
+      tone(output, when + chirp / 7, { type: "square", from: chirp % 3 === 0 ? 1320 : 990, peak: 0.012, attack: 0.002, decay: 0.045 });
+    }
+    return;
+  }
+  const bleed = voice === "bleed";
+  // Everything passes a narrow band, like a voice over a link.
+  const radio = context.createBiquadFilter();
+  radio.type = "bandpass";
+  radio.frequency.value = bleed ? 1100 : 1500;
+  radio.Q.value = 0.8;
+  radio.connect(master);
+  const first = context.createBiquadFilter();
+  const second = context.createBiquadFilter();
+  first.type = second.type = "bandpass";
+  first.Q.value = 7;
+  second.Q.value = 10;
+  const mouth = context.createGain();
+  mouth.gain.setValueAtTime(0.0001, when);
+  first.connect(mouth);
+  second.connect(mouth);
+  mouth.connect(radio);
+  // The throat: Lyra's a little above speech's middle; the other voices lower, two at once, not quite together.
+  const pitch = bleed ? 118 : 212;
+  const throats = (bleed ? [1, 1.013] : [1]).map((detune) => {
+    const throat = context.createOscillator();
+    throat.type = "sawtooth";
+    throat.frequency.setValueAtTime(pitch * detune, when);
+    // A sentence falls toward its end.
+    throat.frequency.linearRampToValueAtTime(pitch * detune * 0.84, when + length);
+    throat.connect(first);
+    throat.connect(second);
+    return throat;
+  });
+  // Syllables: the mouth opens on each and the vowel changes, with a breath between words.
+  const rate = bleed ? 3.4 : 5.2;
+  const loud = bleed ? 0.42 : 0.5;
+  for (let syllable = 0; syllable * (1 / rate) < length; syllable += 1) {
+    if (syllable % 4 === 3 && Math.random() < 0.6) continue;
+    const at = when + syllable / rate + Math.random() * 0.025;
+    const [low, high] = VOWELS[Math.floor(Math.random() * VOWELS.length)];
+    first.frequency.setTargetAtTime(low, at, 0.018);
+    second.frequency.setTargetAtTime(high, at, 0.018);
+    mouth.gain.setTargetAtTime(loud * (0.75 + Math.random() * 0.25), at, 0.014);
+    mouth.gain.setTargetAtTime(0.0001, at + 0.55 / rate, 0.028);
+  }
+  for (const throat of throats) {
+    throat.start(when);
+    throat.stop(when + length + 0.25);
+  }
+  // The link opening, a breath of hiss (the shared noise lasts a second), heavier for a voice that isn't meant to be there.
+  noiseBurst(output, when, { filter: "highpass", frequency: 2600, peak: bleed ? 0.02 : 0.008, attack: 0.03, decay: 0.4 });
+  if (bleed) {
+    const crackle = noiseBurst(output, when + length * 0.4, { filter: "highpass", frequency: 2200, peak: 0.03, attack: 0.004, decay: 0.2 });
+    for (let step = 1; step < 4; step += 1) crackle.gain.setValueAtTime(step % 2 === 0 ? 0.0001 : 0.025, when + length * 0.4 + step * 0.04);
+  }
+}

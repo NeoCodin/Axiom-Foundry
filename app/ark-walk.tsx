@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
@@ -70,6 +70,7 @@ import {
 import {
   busyLine,
   chatter,
+  crewMood,
   exchanges,
   farewell,
   greeting,
@@ -90,6 +91,8 @@ import { playBulkhead, playDash, playMurmur, playNullStatic, playPulseStrike, pl
 import { fragmentOf, placeState, RECORD_PLACES, recordLines, recordSpot, type RecordPlace } from "./ark-walk-records";
 import { switchChannel } from "./channel-switch";
 import PelagosView from "./pelagos-view";
+import { lyraStage, simCues, type LyraCue, type LyraStage, type SimReading } from "./lyra-voice";
+import { createLyra, type Lyra } from "./lyra-voice-player";
 import "./ark-walk.css";
 
 /*
@@ -4375,6 +4378,12 @@ export default function ArkWalk(props: ArkWalkProps) {
   // The drone is down on Pelagos: the ship's view sleeps under it.
   const [planetOpen, setPlanetOpen] = useState(false);
   const planetOpenRef = useRef(false);
+  // Lyra, the Ark's archivist, warning in AXIOM's ear: made with the view, lent to Pelagos.
+  const lyraRef = useRef<Lyra | null>(null);
+  const lyraLink = useMemo(() => ({
+    cue: (cue: LyraCue, n?: number) => lyraRef.current?.cue(cue, n),
+    tick: () => lyraRef.current?.tick(),
+  }), []);
   const promptRef = useRef<HTMLParagraphElement>(null);
   const roomRef = useRef<HTMLElement>(null);
   const signalRef = useRef<HTMLSpanElement>(null);
@@ -4618,6 +4627,12 @@ export default function ArkWalk(props: ArkWalkProps) {
     // What this run's cleared waves have drilled into the Security trainees, and who finished.
     let simDrilled = 0;
     let simGraduates: string[] = [];
+    // Lyra's warnings, stranger the more of the truth about the voyage is out. ?qa=1&lyra=3 sets how far she has slipped.
+    const qaLyra = qaMode && search.has("lyra") ? Math.max(0, Math.min(3, Math.round(Number(search.get("lyra")) || 0))) as LyraStage : null;
+    const lyra = createLyra(root, () => qaLyra ?? lyraStage(crewMood(talkContext())));
+    lyraRef.current = lyra;
+    /** The simulation as Lyra last saw it, so she speaks only of what changed. */
+    let simReading: SimReading | null = null;
     const drillTrainees = (_wave: number, drill: number) => {
       const training = propsRef.current.simulator;
       const trainees = training?.trainees ?? [];
@@ -4647,6 +4662,8 @@ export default function ArkWalk(props: ArkWalkProps) {
       root.classList.add("is-simulating");
       setSimScreen({ phase: "playing", mode });
       unlockPulseAudio();
+      simReading = null;
+      lyra.cue("sim-start");
       Promise.resolve(renderer.domElement.requestPointerLock()).catch(() => {});
     };
     const leaveSim = () => {
@@ -4740,6 +4757,14 @@ export default function ArkWalk(props: ArkWalkProps) {
       simHurtRef.current?.style.setProperty("opacity", hud.hurt.toFixed(3));
       simMarkerRef.current?.style.setProperty("opacity", hud.marker.toFixed(3));
       if (simPausedRef.current) simPausedRef.current.hidden = !simPaused;
+      // Lyra hears what the frame crossed into (heat, the cell, the dome, the sim-body, being seen) and what the world noticed.
+      const reading: SimReading = {
+        alive: hud.alive, health: share, heat: gun.heat, venting: gun.venting, charge: gun.charge, swapping: gun.swapping !== null,
+        spare: gun.spare, powered: gun.powered, spotted: hud.spotted, alarm: hud.alarm, glitch: hud.glitch,
+      };
+      for (const cue of [...simCues(simReading, reading), ...(sim.cues?.() ?? [])]) lyra.cue(cue);
+      simReading = reading;
+      if (!simPaused && hud.alive) lyra.tick();
       // A swarm run ends when the sim-body falls; an extraction when the mission does.
       const over = runningMode === "extraction" ? Boolean(hud.result) : !hud.alive;
       if (over && !simOver) {
@@ -5215,6 +5240,7 @@ export default function ArkWalk(props: ArkWalkProps) {
         sim: () => sim?.state ?? null,
         simEye: () => sim?.camera.position.y ?? null,
         simStart: (difficulty: SimDifficulty = "soldier", mode: SimMode = "swarm") => startSim(difficulty, mode),
+        lyra: (cue: LyraCue, n?: number) => lyra.cue(cue, n),
         /** The story's places aboard: where each is, and what it holds now. */
         records: () => RECORD_PLACES.map((place) => {
           const spot = recordSpot(place, layout);
@@ -5490,6 +5516,8 @@ export default function ArkWalk(props: ArkWalkProps) {
     window.addEventListener("pagehide", rememberSpot);
 
     return () => {
+      lyra.dispose();
+      lyraRef.current = null;
       rememberSpot();
       window.removeEventListener("pagehide", rememberSpot);
       window.cancelAnimationFrame(frame);
@@ -5530,6 +5558,7 @@ export default function ArkWalk(props: ArkWalkProps) {
     <div ref={rootRef} className="ark-walk" role="dialog" aria-modal="true" aria-label="Walk the Ark: maintenance drone view">
       {planetOpen && (
         <PelagosView
+          lyra={lyraLink}
           onLeave={() => switchChannel(() => {
             planetOpenRef.current = false;
             setPlanetOpen(false);

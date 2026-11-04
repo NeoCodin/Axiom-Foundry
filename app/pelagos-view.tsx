@@ -13,6 +13,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { playBulkhead, playNullStatic, playRecordFound, unlockPulseAudio } from "./law-heart-audio";
+import { pelagosCues, type LyraCue, type PelagosReading } from "./lyra-voice";
 import {
   answerSignal,
   BREACHES,
@@ -96,9 +97,11 @@ const middle = (x: number, y: number) => ({ x: (x + 0.5) * TILE, z: (y + 0.5) * 
 export type PelagosViewProps = {
   /** Back to the Ark. */
   onLeave: () => void;
+  /** Lyra, in AXIOM's ear: told what changes, she decides what to warn of. */
+  lyra?: { cue(cue: LyraCue, n?: number): void; tick(): void };
 };
 
-export default function PelagosView({ onLeave }: PelagosViewProps) {
+export default function PelagosView({ onLeave, lyra }: PelagosViewProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const staticRef = useRef<HTMLCanvasElement>(null);
@@ -111,6 +114,8 @@ export default function PelagosView({ onLeave }: PelagosViewProps) {
   const lostRef = useRef<HTMLDivElement>(null);
   const leaveRef = useRef(onLeave);
   leaveRef.current = onLeave;
+  const lyraRef = useRef(lyra);
+  lyraRef.current = lyra;
   const [mode, setMode] = useState<Mode>("overhead");
   const [tool, setTool] = useState<StructureKind | null>(null);
   const controlRef = useRef<{ tool: (kind: StructureKind | null) => void } | null>(null);
@@ -128,7 +133,8 @@ export default function PelagosView({ onLeave }: PelagosViewProps) {
         return null;
       }
     };
-    let state: PelagosState = load() ?? createPelagos();
+    const saved = load();
+    let state: PelagosState = saved ?? createPelagos();
     let derived: Derived = derive(state);
     const save = () => {
       try {
@@ -801,6 +807,9 @@ export default function PelagosView({ onLeave }: PelagosViewProps) {
     let frame = 0;
     let previous = performance.now();
     let savedAt = previous;
+    lyraRef.current?.cue(saved ? "return-pelagos" : "arrive-pelagos");
+    /** The district as Lyra last saw it, so she speaks only of what changed. */
+    let lyraReading: PelagosReading | null = null;
     const tick = (now: number) => {
       frame = window.requestAnimationFrame(tick);
       const dt = Math.min(0.05, (now - previous) / 1000);
@@ -861,6 +870,22 @@ export default function PelagosView({ onLeave }: PelagosViewProps) {
         }
       }
       if (lostRef.current) lostRef.current.hidden = lostSince === null;
+      // Lyra watches the link and the shelter.
+      const { signal } = modeNow === "drone" ? nearby() : { signal: null };
+      const reading: PelagosReading = {
+        link: modeNow === "drone" ? link : null,
+        inDome: modeNow !== "drone" || link >= 1,
+        lost: lostSince !== null,
+        pushed: state.pushed,
+        failingWalls: state.structures.filter((structure, at) => structure.kind === "seawall" && !derived.running.has(at)).length,
+        water: state.water,
+        food: state.food,
+        survivors: state.survivors,
+        signalNear: Boolean(signal && !signal.answered),
+      };
+      for (const said of pelagosCues(lyraReading, reading)) lyraRef.current?.cue(said.cue, said.n);
+      lyraReading = reading;
+      if (modeNow === "drone") lyraRef.current?.tick();
       // Light snow at first, thick only as the link nears nothing.
       drawStatic(modeNow === "drone" ? (lostSince !== null ? 0.92 : Math.min(0.9, (1 - link) ** 1.6 * 0.95)) : 0);
       drawWater();
