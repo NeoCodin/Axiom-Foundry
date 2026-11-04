@@ -167,9 +167,9 @@ export function createLyraDirector(stage: () => LyraStage, random: () => number 
       busyUntil = now + lines.reduce((total, line) => total + (line.delay ?? 0) + lineSeconds(line), 0);
       return lines;
     },
-    /** Called now and then: from the middle of the story, rarely, a warning about something that isn't there. */
-    ambient(now: number): LyraLine[] | null {
-      if (stage() < 2 || now < busyUntil || now - lastPhantom < 150 || random() > 0.15) return null;
+    /** Called now and then: from the middle of the story (or later), rarely, a warning about something that isn't there. */
+    ambient(now: number, fromStage: LyraStage = 2, gap = 150): LyraLine[] | null {
+      if (stage() < fromStage || now < busyUntil || now - lastPhantom < gap || random() > 0.15) return null;
       lastPhantom = now;
       const line: LyraLine = { speaker: "Lyra", text: PHANTOMS[Math.floor(random() * PHANTOMS.length) % PHANTOMS.length], voice: "lyra" };
       busyUntil = now + lineSeconds(line);

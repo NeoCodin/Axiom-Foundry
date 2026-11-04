@@ -1,0 +1,51 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { ABOARD_RECORDS, catchUp, createAboardPacer, nullRemark, placeOf, placeRemark, recordRemark, welcomeRemark } from "../app/lyra-aboard.ts";
+import { DISCOVERY_FRAGMENTS } from "../app/discovery-content.ts";
+
+test("she has a word for each record of the main story, and none for records that don't exist", () => {
+  const known = new Set(DISCOVERY_FRAGMENTS.map((fragment) => fragment.id));
+  for (const id of ABOARD_RECORDS) assert.ok(known.has(id as never), id);
+  assert.equal(recordRemark("crew.sena.core-greeting"), null, "crew records are the crew's to talk about");
+  assert.ok(recordRemark("vesper.revision-ledger")!.lines.some((line) => /forty-three/i.test(line.text)));
+});
+
+test("rooms she speaks of: the vault is the chamber's lower gallery; a voice before the truth and one after", () => {
+  assert.equal(placeOf(1, "chamber", null), "vault");
+  assert.equal(placeOf(0, "chamber", null), "chamber");
+  assert.equal(placeOf(1, "education", "library"), "library");
+  assert.equal(placeOf(1, "support", "farm"), "support");
+  assert.equal(placeOf(0, "habitation", "galley"), null);
+  assert.notEqual(placeRemark("bridge", 0).lines[0].text, placeRemark("bridge", 2).lines[0].text);
+  assert.equal(placeRemark("bridge", 1).lines[0].text, placeRemark("bridge", 0).lines[0].text);
+});
+
+test("opening the walk after a run of finds, she speaks to the newest and lets the rest go", () => {
+  const discovered = ["lyra.official-brief", "core.welcome-back", "helion.impossible-registry", "fabrication.preconcordance-keel"];
+  const { remark, skip } = catchUp(discovered, new Set());
+  assert.equal(remark?.id, "record:fabrication.preconcordance-keel");
+  assert.deepEqual(skip, ["record:core.welcome-back", "record:helion.impossible-registry"]);
+  assert.equal(catchUp(discovered, new Set(["record:fabrication.preconcordance-keel", ...skip])).remark, null);
+});
+
+test("the pacer: one at a time, only when quiet, long gaps, rooms let go if they wait too long", () => {
+  const said = new Set<string>();
+  const pacer = createAboardPacer(said, { gap: 90, recordGap: 40, wait: 20 });
+  pacer.offer(placeRemark("bridge", 0), 0);
+  pacer.offer(welcomeRemark(), 0);
+  assert.equal(pacer.next(0, false), null, "not while someone else is talking");
+  assert.equal(pacer.next(1, true)?.kind, "welcome", "the welcome comes first");
+  assert.equal(pacer.next(2, true), null, "and the room waits its gap");
+  assert.equal(pacer.next(30, true), null, "long enough that the room is let go");
+  pacer.offer(placeRemark("bridge", 0), 95);
+  assert.equal(pacer.next(95, true)?.id, "place:bridge", "next time AXIOM goes in");
+  pacer.offer(placeRemark("bridge", 0), 300);
+  assert.equal(pacer.next(300, true), null, "once ever");
+  pacer.offer(recordRemark("core.welcome-back"), 300);
+  assert.equal(pacer.next(130, true), null);
+  assert.equal(pacer.next(140, true)?.kind, "record", "a record waits a shorter gap");
+  assert.ok(said.has("welcome") && said.has("place:bridge") && said.has("record:core.welcome-back"));
+  pacer.offer(nullRemark(0), 400);
+  assert.equal(pacer.next(400, true)?.kind, "null");
+  assert.ok(!said.has("null"), "the Null is mentioned once a visit, not once ever");
+});

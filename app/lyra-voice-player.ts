@@ -109,12 +109,21 @@ export function createLyra(host: HTMLElement, stage: () => LyraStage) {
       const lines = director.cue(cue, performance.now() / 1000, n);
       if (lines) say(lines, isUrgent(cue));
     },
-    /** Call every frame wherever she could be listening: now and then, late in the story, she hears something. */
-    tick() {
+    /** Something she says of her own accord, aboard: queued behind whatever she is saying. */
+    remark(lines: LyraLine[]) {
+      say(lines, false);
+    },
+    /** Whether she is speaking, or about to. */
+    busy: () => busy,
+    /**
+     * Call every frame wherever she could be listening: now and then, late in the story, she
+     * hears something that isn't there. fromStage and gap (seconds) say how late and how rarely.
+     */
+    tick(fromStage: LyraStage = 2, gap = 150) {
       const now = performance.now() / 1000;
       if (now - lastAmbient < 10) return;
       lastAmbient = now;
-      const lines = director.ambient(now);
+      const lines = director.ambient(now, fromStage, gap);
       if (lines) say(lines, false);
     },
     dispose() {

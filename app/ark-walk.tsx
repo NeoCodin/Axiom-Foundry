@@ -93,6 +93,7 @@ import { switchChannel } from "./channel-switch";
 import PelagosView from "./pelagos-view";
 import { lyraStage, simCues, type LyraCue, type LyraStage, type SimReading } from "./lyra-voice";
 import { createLyra, type Lyra } from "./lyra-voice-player";
+import { catchUp, createAboardPacer, nullRemark, placeOf, placeRemark, recordRemark, welcomeRemark, type AboardPlace } from "./lyra-aboard";
 import "./ark-walk.css";
 
 /*
@@ -4313,6 +4314,8 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
 
 /** The Arc Carbine's loadout, as the simulator's console offers it: a firing law, then each attachment. */
 const LOADOUT_KEY = "axiom-foundry-carbine-loadout-v1";
+/** What Lyra has said aboard once and won't say again: records, first visits, her welcome. */
+const LYRA_SAID_KEY = "axiom-foundry-lyra-aboard-v1";
 const LOADOUT_PARTS: readonly { key: keyof CarbineLoadout; label: string; options: readonly { id: string; label: string; note?: string; blurb: string }[] }[] = [
   { key: "form", label: "Firing law", options: FORM_ORDER.map((id) => ({ id, label: FORMS[id].label, note: FORMS[id].law, blurb: FORMS[id].blurb })) },
   { key: "optic", label: "Optic", options: OPTIC_ORDER.map((id) => ({ id, label: OPTICS[id].label, blurb: OPTICS[id].blurb })) },
@@ -4814,6 +4817,55 @@ export default function ArkWalk(props: ArkWalkProps) {
       selected: number;
     } | null = null;
     let overheard: { lines: TalkLine[]; index: number; next: number; x: number; z: number } | null = null;
+    // ---- Lyra aboard: a rare word on a record found, a room first entered, the Null on the hull (lyra-aboard). ----
+    const lyraSaid = new Set<string>();
+    try {
+      for (const id of JSON.parse(window.localStorage.getItem(LYRA_SAID_KEY) ?? "[]") as string[]) lyraSaid.add(id);
+    } catch {
+      // Storage blocked or unreadable: she starts fresh this visit.
+    }
+    const keepLyraSaid = () => {
+      try {
+        window.localStorage.setItem(LYRA_SAID_KEY, JSON.stringify([...lyraSaid]));
+      } catch {
+        // Storage blocked: what she said lasts this visit.
+      }
+    };
+    const pacer = createAboardPacer(lyraSaid);
+    const stageNow = () => qaLyra ?? lyraStage(crewMood(talkContext()));
+    // The drone has been walked before: no welcome as if for the first time.
+    if (resumed) lyraSaid.add("welcome");
+    else pacer.offer(welcomeRemark(), performance.now() / 1000);
+    const caughtUp = catchUp(talkContext().discovered, lyraSaid);
+    for (const id of caughtUp.skip) lyraSaid.add(id);
+    pacer.offer(caughtUp.remark, performance.now() / 1000);
+    keepLyraSaid();
+    const knownRecords = new Set(talkContext().discovered);
+    let lyraPlace: AboardPlace | null = null;
+    let lyraChecked = 0;
+    const followLyra = (now: number) => {
+      if (now - lyraChecked < 500) return;
+      lyraChecked = now;
+      const seconds = now / 1000;
+      for (const id of talkContext().discovered) {
+        if (knownRecords.has(id)) continue;
+        knownRecords.add(id);
+        pacer.offer(recordRemark(id), seconds);
+      }
+      const deck = layout.decks[deckIndex];
+      const place = travel ? lyraPlace : placeOf(deckIndex, compartmentAt(deck, x)?.kind ?? null, sideRoomAt(deck, x, z)?.kind ?? null);
+      if (place !== lyraPlace) {
+        lyraPlace = place;
+        if (place) pacer.offer(placeRemark(place, stageNow()), seconds);
+      }
+      if (nullLevel.classification === "elevated" || nullLevel.classification === "severe") pacer.offer(nullRemark(stageNow()), seconds);
+      const quiet = !conversation && !overheard && !lyra.busy();
+      const remark = pacer.next(seconds, quiet);
+      if (remark) {
+        lyra.remark(remark.lines);
+        if (remark.once) keepLyraSaid();
+      } else if (quiet) lyra.tick(3, 420);
+    };
     let subtitleUntil = 0;
     let nextOverheard = 0;
     const pairHeardAt = new Map<string, number>();
@@ -5322,6 +5374,7 @@ export default function ArkWalk(props: ArkWalkProps) {
         return;
       }
       followTalk(now);
+      followLyra(now);
 
       let burst = 0;
       if (travel) {
