@@ -58,7 +58,7 @@ test("in the Cold Wake opening she talks AXIOM through its first minutes without
   pacer.offer(openingRemark("chamber"), 5);
   assert.equal(pacer.next(5, true)?.id, "opening:chamber", "straight after, not ninety seconds later");
   pacer.offer(openingRemark("strike"), 9);
-  assert.match(pacer.next(9, true)!.lines[0].text, /plug into the console/);
+  assert.match(pacer.next(9, true)!.lines[0].text, /plug in/);
   pacer.offer(openingRemark("strike"), 60);
   assert.equal(pacer.next(60, true), null, "once");
   assert.ok(["wake", "chamber", "strike"].every((moment) => said.has(`opening:${moment}`)));

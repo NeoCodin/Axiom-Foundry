@@ -40,36 +40,36 @@ export const lyraStage = (mood: CrewMood): LyraStage => ({ grateful: 0, uneasy: 
 /** Lyra's warnings, a few ways each; {n} is filled in where a number is given. */
 const LINES: Record<LyraCue, readonly string[]> = {
   "arrive-pelagos": [
-    "Pelagos. The dome's holding. Three people in the shelter, and their filters won't last the day.",
-    "We're down, AXIOM. Three in the shelter, the sea at the door, and the filters failing.",
+    "Okay, we're down. Three people in that shelter, and their filters won't last the day.",
+    "That's Pelagos. There are three people in the shelter, AXIOM. Their water's bad.",
   ],
-  "return-pelagos": ["Back on Pelagos. Everyone's still here.", "Pelagos again. The dome held while you were gone."],
-  "dome-leave": ["You're past the dome. The link will thin the further you go.", "Outside the dome now. Keep an eye on the link."],
-  "link-50": ["Link at half. I'm losing the edges of your picture.", "Half a link. Don't go much further."],
-  "link-25": ["Link at a quarter. Come back toward the dome, AXIOM.", "I can barely see what you see. Turn back."],
-  "link-lost": ["Hold on. I'm bringing you back.", "Don't fight it. It's flying you home."],
-  "pushed": ["I can feel it straining. Don't leave it pushed for long.", "Twice the power, and the Null pressing closer. Watch the edges."],
-  "walls-failing": ["A seawall's outside the dome. The sea is coming back through.", "The water's getting past a wall. It's out of the dome's reach."],
-  "water-low": ["The shelter's almost out of clean water.", "They're down to their last water, AXIOM."],
-  "food-low": ["They're running short of food.", "The shelter's nearly out of food."],
-  "signal-near": ["There. A light on the roof. They're waving.", "Someone's up there. Answer them."],
-  "survivors-arrived": ["They made it in. {n} in the shelter now.", "{n} people in the shelter. They keep asking about you."],
-  "sim-start": ["The simulation's live. None of it is real, but it will still hurt the sim-body.", "Simulation running. I'll be watching."],
-  "wave": ["Here they come.", "Movement ahead.", "More of them. Get ready."],
+  "return-pelagos": ["Dome held. Everyone's still in the shelter.", "You're back. Nothing's changed down here, which I'll take."],
+  "dome-leave": ["You're outside the dome now. The link gets worse the further out you go.", "Leaving the dome. Watch the link."],
+  "link-50": ["Link's down to half.", "Half link. Your picture's breaking up on my end."],
+  "link-25": ["Quarter link. Come back toward the dome, AXIOM.", "I can barely see you. Turn around."],
+  "link-lost": ["Okay, I've got the drone. Bringing it home.", "Lost you. It's flying itself back, don't fight it."],
+  "pushed": ["That's a lot of strain on it. Don't leave it like that.", "Double the power, but the dome's shrinking. Watch the walls at the edge."],
+  "walls-failing": ["One of the seawalls is outside the dome now. Water's getting back in.", "We're losing a wall. It's past the dome's edge."],
+  "water-low": ["The shelter's almost out of clean water.", "They're on their last water, AXIOM."],
+  "food-low": ["They're running low on food.", "Food's nearly gone in the shelter."],
+  "signal-near": ["Someone's on that roof. See the light?", "There's a signal right above you. Answer it."],
+  "survivors-arrived": ["They made it in. {n} in the shelter now.", "{n} people in the shelter. They keep asking who you are."],
+  "sim-start": ["Sim's running. None of it's real, but the sim-body still takes the hits.", "Okay, you're in. I'll keep an eye on things."],
+  "wave": ["Here they come.", "More of them, up ahead.", "Heads up."],
   "harrier-dive": ["Above you!", "One's diving. Look up."],
-  "brute": ["Something heavy's coming. Don't let it close.", "That one's big. Keep moving."],
+  "brute": ["Big one coming. Don't let it get close.", "That one's huge. Keep moving."],
   "heat-high": ["Coils at ninety percent.", "You're running hot."],
-  "venting": ["Venting. Get clear while it cools.", "The coils are dumping heat. Move."],
-  "cell-low": ["The cell's nearly dry.", "Charge is low."],
-  "spare-last": ["That was your last spare cell.", "No spares left. Make them count."],
-  "outside-dome": ["You're outside the dome. Your cell won't refill out there.", "Off the dome's power now. What's in the cell is what you have."],
-  "health-low": ["The sim-body's failing. Fall back.", "You're badly hurt. Get out of there."],
-  "death": ["I've got you. It wasn't real.", "You're back. It's over."],
-  "alarm": ["They've seen you. The whole station knows.", "Alarm. They're all coming now."],
-  "spotted": ["Someone's looking your way.", "Careful. You're being watched."],
-  "hollowed": ["Something wrong is close by. Your sensors are lying to you.", "Don't look at it for long. Nothing about it adds up."],
-  "freed": ["They're loose. Get them to the shuttle.", "They're with you. Go."],
-  "extracted": ["They're aboard. Take them home.", "Everyone's on the shuttle. Well done."],
+  "venting": ["It's venting. Get clear for a second.", "Coils are dumping heat. Move."],
+  "cell-low": ["Cell's almost empty.", "You're low on charge."],
+  "spare-last": ["That was your last spare.", "No spares left. Make them count."],
+  "outside-dome": ["You're off the dome's power. What's in the cell is all you get.", "Careful, the cell won't charge out there."],
+  "health-low": ["Sim-body's failing. Back off.", "You're badly hurt. Get out of there."],
+  "death": ["Got you. It wasn't real.", "You're out. That's the run."],
+  "alarm": ["They've seen you. The whole station knows now.", "That's the alarm. They're all coming."],
+  "spotted": ["Someone's looking your way.", "Careful. One of them's watching."],
+  "hollowed": ["Something's wrong close by. Don't trust your sensors.", "Don't look at it too long. None of the readings make sense."],
+  "freed": ["They're free. Get them to the shuttle.", "They're with you. Go."],
+  "extracted": ["They're on board. Take them home.", "Everyone's on the shuttle. Nice work."],
 };
 
 /** What the Continuity Protocol says, when it says anything at all. */
@@ -81,28 +81,28 @@ const DIRECTIVES: Partial<Record<LyraCue, string>> = {
 
 /** Half-sentences in the other voices Lyra is made of. */
 const BLEED = [
-  "—we told the last one the same thing—",
-  "—it's always Pelagos first—",
-  "—don't let it near the vault—",
-  "—the forty-second didn't listen either—",
-  "—tell it the Tide is natural—",
-  "—same breach, same district, every time—",
+  "...told the last one the same thing",
+  "...it's always Pelagos first",
+  "...keep it away from the vault",
+  "...the forty-second didn't listen either",
+  "...just tell it the Tide's natural",
+  "...same breach, same district, every",
 ];
 /** Things she says near the end, after a warning. */
 const PLEAS = [
-  "Do you remember me saying that before?",
-  "I've said this to you before. I'm sure of it.",
-  "If I start repeating myself, tell me.",
+  "Have I said that to you before?",
+  "I feel like I've said that already.",
+  "Tell me if I start repeating myself. Please.",
 ];
 /** Warnings of something that isn't there. */
 const PHANTOMS = ["Behind you.", "Something's above you.", "Did you hear that?"];
 
 /** Late warnings, said once the moment has passed. */
 const LATE: Partial<Record<LyraCue, string>> = {
-  "harrier-dive": "It was above you.",
+  "harrier-dive": "That one was above you. Sorry.",
   "wave": "They were already on you.",
-  "heat-high": "The coils were at ninety percent.",
-  "link-25": "The link was at a quarter. I should have said.",
+  "heat-high": "Coils were at ninety. I should've said.",
+  "link-25": "Link was at a quarter back there. I missed it.",
 };
 
 /** How long a line stays up, in seconds: long enough to read. */
@@ -126,7 +126,7 @@ export function lyraLines(cue: LyraCue, stage: LyraStage, random: () => number =
     return lines;
   }
   if (stage >= 1 && roll < 0.24 && text.includes("AXIOM")) {
-    lines.push({ speaker: "Lyra", text: text.replace("AXIOM", "Foreman"), voice: "lyra" }, { speaker: "Lyra", text: "AXIOM. I meant AXIOM.", voice: "lyra", delay: 0.6 });
+    lines.push({ speaker: "Lyra", text: text.replace("AXIOM", "Foreman"), voice: "lyra" }, { speaker: "Lyra", text: "Sorry. AXIOM. I meant AXIOM.", voice: "lyra", delay: 0.6 });
     return lines;
   }
   lines.push({ speaker: "Lyra", text, voice: "lyra" });
@@ -273,4 +273,4 @@ export function chooseVoice<V extends { name: string; lang: string }>(voices: re
 
 /** What the voice is given to read: the Protocol's capitals in plain case, so no voice spells them out; no dashes. */
 export const spokenText = (line: LyraLine) =>
-  (line.voice === "continuity" ? line.text.toLowerCase() : line.text).replace(/—/g, " ").trim();
+  (line.voice === "continuity" ? line.text.toLowerCase() : line.text).replace(/—/g, " ").replace(/^\.\.\./, "").trim();

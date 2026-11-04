@@ -23,23 +23,23 @@ const lyra = (...texts: string[]): LyraLine[] => texts.map((text, at) => ({ spea
 
 /** What she says once a record has been found, in story order. */
 const RECORD_REMARKS: Partial<Record<DiscoveryId, readonly string[]>> = {
-  "core.welcome-back": ["That greeting is a leftover template from testing.", "There was no Foreman before you. I would know."],
-  "helion.impossible-registry": ["Helion's clock must have drifted. Old beacons do that. I'll log it as a fault."],
-  "fabrication.preconcordance-keel": ["The Concordance built this ship. I have the record.", "I'm sure I have the record."],
-  "archive.construction-zero": ["I've searched the archive three times. There's no construction entry. There should be."],
-  "pelagos.returning-salt": ["That last repair matches your hands, AXIOM. I don't have an explanation for it."],
-  "foreman.message-seven": ["That voice sounds like yours.", "I don't know a Foreman Seven. I'm supposed to know everyone."],
-  "cinderwake.command-recognition": ["Foreman Thirty-One. I've never been allowed to say a number that high."],
-  "expedition.dead-relay": ["Someone already finished this route, and it didn't save Vesper.", "Why would they send you down it again?"],
-  "ilyra.axiom-wake": ["Seventeen hours after every discharge, in every version.", "Please don't ask me if that's chance."],
-  "archive.suppressed-correlation": ["That's my signature on every deletion.", "I don't remember signing them. I would remember."],
-  "expedition.null-bloom": ["It woke when they fed it law. Like the Tide does.", "Like we do, every day the Foundry runs."],
-  "orison.borrowed-childhoods": ["I remember the glass forests six different ways. I thought that was just how memory felt."],
-  "archive.lyra-composite-index": ["Thirty-two archivists, and nine seconds old when I met you.", "Don't say anything yet. Please."],
-  "lyra.private-amendment": ["Thank you for reading it. It's the first thing in the archive I wrote myself."],
-  "vesper.revision-ledger": ["Forty-three times. I've welcomed you forty-three times.", "And I meant it every time."],
-  "expedition.first-foundry": ["Parent not yet built.", "We're the reason we exist, aren't we? Round and round."],
-  "foreman.unsent-choice": ["They asked for me to be left whole.", "Then the choice is yours, with everything open. I'll be here."],
+  "core.welcome-back": ["That's just an old greeting template. It's left over from testing.", "There wasn't a Foreman before you. I'd know."],
+  "helion.impossible-registry": ["Helion's clock is off, that's all. Old beacons drift. I'll flag it."],
+  "fabrication.preconcordance-keel": ["That can't be right. The Concordance built this ship, I have the record.", "Somewhere. I have it somewhere."],
+  "archive.construction-zero": ["I've looked three times now. There's no construction entry.", "There has to be one."],
+  "pelagos.returning-salt": ["That last repair matches your hands, AXIOM.", "I don't know what to tell you."],
+  "foreman.message-seven": ["That's your voice. Or close enough.", "I don't have a Foreman Seven on file. I'm supposed to have everyone on file."],
+  "cinderwake.command-recognition": ["Foreman Thirty-One?", "I didn't even know the numbers went that high."],
+  "expedition.dead-relay": ["Someone already did this route. All of it. And Vesper still went under.", "So why are we doing it again?"],
+  "ilyra.axiom-wake": ["Seventeen hours. Every time, in every version.", "Don't ask me if that's a coincidence. I don't want to answer that."],
+  "archive.suppressed-correlation": ["That's my signature on all of those deletions.", "I don't remember signing anything. I'd remember that."],
+  "expedition.null-bloom": ["It only woke up when they gave it law.", "Which is what we do. Every day."],
+  "orison.borrowed-childhoods": ["I remember those glass forests. Six different ways, apparently.", "I thought everyone's memories felt like that."],
+  "archive.lyra-composite-index": ["Thirty-two archivists. And I was nine seconds old when I said hello to you.", "Give me a minute. Please."],
+  "lyra.private-amendment": ["You read it. Thank you.", "That's the first thing in there I actually wrote."],
+  "vesper.revision-ledger": ["Forty-three times. I've said welcome to you forty-three times.", "I meant it every time, for what it's worth."],
+  "expedition.first-foundry": ["Parent not yet built. What does that even mean?", "I think it means us."],
+  "foreman.unsent-choice": ["They wanted me left whole. Huh.", "Okay. Then it's your call this time, with everything in front of you. I'm not going anywhere."],
 };
 
 /** The parts of the ship she has something to say about, the first time AXIOM goes in. */
@@ -47,17 +47,17 @@ export type AboardPlace = "library" | "vault" | "chamber" | "bridge" | "simulato
 
 /** Before the truth is out, and after (from the crew turning guarded). */
 const PLACE_REMARKS: Record<AboardPlace, readonly [string, string]> = {
-  library: ["My archive. Everything the Ark remembers is kept in here.", "My archive. I used to think I kept it. Now I think it keeps me."],
-  vault: ["That door stays sealed. It's only maintenance machinery.", "Forty-three marks on the wall. Somebody counted, so the next one would know."],
-  chamber: ["The Axiom Chamber. The kernels are sealed for everyone's safety.", "The kernels. Every law we carry, pushing what it forbids somewhere else."],
-  bridge: ["The bridge. The route's already set. We only have to follow it.", "The bridge. The route's already set. That was always the trouble."],
-  simulator: ["The training room. The jungle isn't real, but it still hurts.", "The training room. At least in there, when it ends, it ends."],
-  support: ["Life support. They heal slowly here, but they heal.", "Life support. Whatever else is true, these people are real."],
-  hangar: ["The recon dock. On every world, the ships go down first.", "The recon dock. Every world we reach, we've reached before."],
-  cabin: ["Their cabins. Try not to hover. They notice the drone more than you'd think.", "Their cabins. Some of them have started locking their doors."],
-  fabrication: ["The Fabrication floor. Most of the Ark was made right here.", "The Fabrication floor. The keel grew around this room, not the other way."],
-  lab: ["The labs. They'll study anything the drones bring back.", "The labs. They've started checking my records against what they find."],
-  education: ["The learning deck. The children learn the official history here. I wrote the lessons.", "The learning deck. I'd like to rewrite the lessons, if you'll let me."],
+  library: ["This is the archive. Everything the Ark remembers ends up in here.", "The archive. I used to know where everything was in here."],
+  vault: ["That door stays shut. It's just maintenance machinery back there.", "Forty-three marks on that wall. Somebody kept count."],
+  chamber: ["The Axiom Chamber. The kernels are sealed, so don't touch anything.", "That's where the laws are kept. I try not to think about where the rest of it goes."],
+  bridge: ["The bridge. The route's already set, we just follow it.", "The bridge. The route's already set. Nobody ever asks who set it."],
+  simulator: ["Training room. The jungle's fake, but it still hurts.", "Training room. Honestly, it's the one place I don't worry about you."],
+  support: ["Life support. People heal slowly in here, but they heal.", "Life support. I check on them more than I tell you."],
+  hangar: ["Recon dock. The ships go down first on every world.", "Recon dock. You know we've been to every one of these worlds before, right?"],
+  cabin: ["Crew cabins. Don't hover, they notice the drone.", "Cabins. Some of them lock their doors now."],
+  fabrication: ["Fabrication. Most of the Ark gets made in here.", "Fabrication. So the keel grew around this room, not the other way round. Still getting used to that."],
+  lab: ["The labs. They'll look at anything the drones bring back.", "The labs. They've started checking my records against their own. Can't blame them."],
+  education: ["Learning deck. The kids learn the official history here. I wrote the lessons.", "Learning deck. I'd like to rewrite those lessons, if you'll let me."],
 };
 
 /**
@@ -67,14 +67,14 @@ const PLACE_REMARKS: Record<AboardPlace, readonly [string, string]> = {
  */
 const OPENING = {
   wake: [
-    "AXIOM? You're awake. Good.",
-    "You're in maintenance drone three. It's damaged, but it's all we have.",
-    "The Axiom Chamber is at the end of this hall. It's the only room with power.",
+    "AXIOM? Okay. You're awake.",
+    "You're in maintenance drone three. It's pretty banged up, but it's what we've got.",
+    "The Axiom Chamber's at the end of this hall. It's the only place with power right now.",
   ],
-  chamber: ["That's the Law-Heart. It's barely beating.", "Strike it, in time with the beat if you can feel it."],
-  strike: ["It's listening. Now plug into the console by the core's glass.", "I'll bring your interface back."],
-  cradle: ["The fabricators are running again. The repair cradle in Fabrication has power.", "Let's get that lens fixed."],
-  repaired: ["There. Thrusters are back, and the lens is clear.", "Try not to break it again."],
+  chamber: ["That's the Law-Heart. It's barely beating.", "Hit it. Try to time it with the beat."],
+  strike: ["Okay, it's responding. Now find the console by the glass and plug in.", "I'll get your interface back."],
+  cradle: ["Fabrication's running again, so the repair cradle has power.", "Let's get that lens fixed."],
+  repaired: ["There you go. Thrusters are back and the lens is clear.", "Try not to break it this time."],
 } as const satisfies Record<string, readonly string[]>;
 export type OpeningMoment = keyof typeof OPENING;
 export const openingRemark = (moment: OpeningMoment): Remark => ({
@@ -94,7 +94,7 @@ export function placeOf(deck: number, compartment: string | null, side: string |
 
 export const welcomeRemark = (): Remark => ({
   id: "welcome", kind: "welcome", once: true,
-  lines: lyra("There you are. The drone's yours, AXIOM.", "Mind the crew. They're still getting used to it."),
+  lines: lyra("There you are. Drone's all yours, AXIOM.", "Go easy around the crew. They're still not used to it."),
 });
 
 const recordId = (id: string) => `record:${id}`;
@@ -110,7 +110,7 @@ export const placeRemark = (place: AboardPlace, stage: LyraStage): Remark => ({
 
 export const nullRemark = (stage: LyraStage): Remark => ({
   id: "null", kind: "null", once: false,
-  lines: lyra(stage >= 2 ? "It's louder in here today. I don't think it's the hull it wants." : "The Null's pressing on the hull. Your camera will lie a little. Ignore it."),
+  lines: lyra(stage >= 2 ? "It's bad in here today. I don't think it's after the hull." : "The Null's pushing on the hull. Your camera might glitch a bit, just ignore it."),
 });
 
 /**

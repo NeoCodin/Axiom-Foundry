@@ -49,7 +49,7 @@ test("the Continuity Protocol speaks first, flat and in capitals, when a drone i
 test("as the truth comes out she slips: Foreman for AXIOM, a line said twice, a voice not hers, a warning too late, a plea", () => {
   const foreman = lyraLines("link-25", 1, sequence(0, 0));
   assert.match(foreman[0].text, /Foreman/);
-  assert.equal(foreman[1].text, "AXIOM. I meant AXIOM.");
+  assert.equal(foreman[1].text, "Sorry. AXIOM. I meant AXIOM.");
 
   const twice = lyraLines("wave", 1, sequence(0, 0.1));
   assert.equal(twice.length, 2);
@@ -58,11 +58,11 @@ test("as the truth comes out she slips: Foreman for AXIOM, a line said twice, a 
 
   const bleed = lyraLines("wave", 2, sequence(0, 0.2, 0));
   assert.equal(bleed[1].voice, "bleed");
-  assert.match(bleed[1].text, /^—.*—$/);
+  assert.match(bleed[1].text, /^\.\.\./, "cut off, as if overheard");
 
   const late = lyraLines("harrier-dive", 2, sequence(0, 0.05));
   assert.equal(late.length, 1);
-  assert.equal(late[0].text, "It was above you.");
+  assert.match(late[0].text, /above you/);
   assert.ok((late[0].delay ?? 0) >= 2, "said once the moment has passed");
 
   const plea = lyraLines("brute", 3, sequence(0, 0.35, 0));
@@ -142,5 +142,5 @@ test("she speaks with the voices the owner chose, and the nearest thing on a com
   assert.equal(chooseVoice([{ name: "Google UK English Female", lang: "en-GB" }], "continuity")!.name, "Google UK English Female", "a female voice is not taken for a male one, but any English voice beats none");
   assert.equal(chooseVoice([{ name: "Thomas", lang: "fr-FR" }], "lyra"), null);
   assert.equal(spokenText({ speaker: "Continuity", text: "DRONE LINK LOST.", voice: "continuity" }), "drone link lost.");
-  assert.equal(spokenText({ speaker: "Lyra", text: "—it's always Pelagos first—", voice: "bleed" }), "it's always Pelagos first");
+  assert.equal(spokenText({ speaker: "Lyra", text: "...it's always Pelagos first", voice: "bleed" }), "it's always Pelagos first");
 });
