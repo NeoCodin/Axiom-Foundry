@@ -8,10 +8,14 @@ import {
   pulseCore,
 } from "../app/game-engine.ts";
 import {
+  HEART_STAGE_AXIOMS,
   PULSE_WINDOW_MS,
+  REFERENCE_BEAT_MS,
   decayCoherence,
   getBeatIntervalMs,
+  getHeartStage,
   getPulseProfile,
+  getPulseWindows,
   getResonantFlux,
   judgePulseOffset,
   nextCoherence,
@@ -20,22 +24,77 @@ import { createQaCheckpoint } from "../app/qa-sandbox-engine.ts";
 
 const NOW = 1_800_000_000_000;
 
-test("a young Law-Heart beats slowly with timing noise; Axioms steady and quicken it", () => {
-  const young = getPulseProfile(0);
-  const mature = getPulseProfile(17);
-  assert.equal(young.periodMs, 1_400);
-  assert.ok(young.jitter > 0);
-  assert.equal(mature.jitter, 0);
-  assert.ok(mature.periodMs < young.periodMs);
+const STARS = ["Dormant Seed", "Awakening Star", "Proven Law-Star", "Resonant Star", "Axiomatic Star", "Convergent Star", "Transcendent Star"];
+const intervals = (profile: ReturnType<typeof getPulseProfile>, count = 400) =>
+  Array.from({ length: count }, (_, index) => getBeatIntervalMs(profile, index + 1));
+const mean = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
 
-  const intervals = Array.from({ length: 40 }, (_, index) => getBeatIntervalMs(young, index + 1));
-  assert.ok(new Set(intervals.map((value) => Math.round(value))).size > 10, "young beats should vary");
-  for (const interval of intervals) {
-    assert.ok(interval >= young.periodMs * (1 - young.jitter) - 1e-9);
-    assert.ok(interval <= young.periodMs * (1 + young.jitter) + 1e-9);
+test("each star beats in its own way: faint, waking, steady, echoing, deep, racing, serene", () => {
+  const profiles = HEART_STAGE_AXIOMS.map((axioms) => getPulseProfile(axioms));
+  assert.deepEqual(profiles.map((profile) => profile.stage), [0, 1, 2, 3, 4, 5, 6]);
+  assert.deepEqual(profiles.map((profile) => profile.voice), ["faint", "waking", "steady", "echo", "deep", "racing", "serene"]);
+  const [seed, , , , axiomatic, convergent, transcendent] = profiles;
+  assert.equal(getHeartStage(23), 4, `${STARS[4]} until the red star`);
+  assert.equal(getHeartStage(24), 5);
+
+  // The Dormant Seed is the slowest and skips beats now and then.
+  assert.ok(seed.periodMs > Math.max(...profiles.slice(1).map((profile) => profile.periodMs)));
+  assert.ok(intervals(seed).some((interval) => interval > seed.periodMs * 1.3), "it skips");
+  // The healthy hearts quicken and grow stronger up to the Axiomatic Star.
+  for (let stage = 1; stage <= 4; stage += 1) {
+    assert.ok(profiles[stage].periodMs < profiles[stage - 1].periodMs, `${STARS[stage]} beats faster than ${STARS[stage - 1]}`);
+    assert.ok(profiles[stage].strength > profiles[stage - 1].strength);
   }
-  assert.equal(getBeatIntervalMs(young, 7), getBeatIntervalMs(young, 7), "the schedule is deterministic");
-  assert.equal(getBeatIntervalMs(mature, 7), mature.periodMs);
+  // The red star races, wavers and flutters with quick double beats, and shudders.
+  assert.ok(convergent.periodMs < axiomatic.periodMs * 0.7, "it races");
+  assert.ok(intervals(convergent).some((interval) => interval < convergent.periodMs * 0.65), "it double-beats");
+  assert.ok(convergent.tremor > 0.5 && profiles.every((profile, stage) => stage === 5 || profile.tremor === 0));
+  // The Transcendent Star is at peace: slow, strong and perfectly even.
+  assert.ok(transcendent.periodMs > axiomatic.periodMs && transcendent.strength >= axiomatic.strength);
+  assert.ok(intervals(transcendent).every((interval) => interval === transcendent.periodMs));
+  assert.equal(getBeatIntervalMs(convergent, 7), getBeatIntervalMs(convergent, 7), "the schedule is deterministic");
+});
+
+test("striking the red star in time calms it; letting it go lets it race again", () => {
+  const wild = getPulseProfile(24, 0);
+  const half = getPulseProfile(24, 0.5);
+  const calm = getPulseProfile(24, 1);
+  assert.ok(wild.periodMs < half.periodMs && half.periodMs < calm.periodMs, "it slows");
+  assert.ok(wild.jitter > calm.jitter && wild.flutter > calm.flutter && wild.tremor > calm.tremor, "it steadies");
+  assert.ok(mean(intervals(calm)) > mean(intervals(wild)) * 1.3);
+  // No other star cares how coherent the player is.
+  for (const axioms of [0, 3, 12, 72]) assert.deepEqual(getPulseProfile(axioms, 1), getPulseProfile(axioms, 0));
+});
+
+test("the timing windows follow the beat: tighter on a racing heart, roomier on a slow one", () => {
+  const racing = getPulseWindows(getPulseProfile(24));
+  const reference = getPulseWindows({ periodMs: REFERENCE_BEAT_MS });
+  const slow = getPulseWindows(getPulseProfile(0));
+  assert.deepEqual(reference, PULSE_WINDOW_MS);
+  assert.ok(racing.coherent < reference.coherent && racing.inPhase < reference.inPhase);
+  assert.ok(slow.inPhase > reference.inPhase);
+  assert.equal(judgePulseOffset(PULSE_WINDOW_MS.coherent - 1, racing), "in-phase", "a hit that is coherent at the reference pace is only in phase on the racing heart");
+});
+
+test("on-beat play earns the same per minute at every star", () => {
+  const perMinute = (axioms: number, coherence: number) => {
+    const profile = getPulseProfile(axioms, coherence);
+    let elapsed = 0;
+    let earned = 0;
+    for (let beat = 1; elapsed < 600_000; beat += 1) {
+      const beatMs = getBeatIntervalMs(profile, beat);
+      elapsed += beatMs;
+      earned += getResonantFlux({ judgement: "coherent", coherence: 1, manualGain: 2, fluxPerSecond: 1_000, beatMs });
+    }
+    return earned / (elapsed / 60_000);
+  };
+  const reference = getResonantFlux({ judgement: "coherent", coherence: 1, manualGain: 2, fluxPerSecond: 1_000 }) * (60_000 / REFERENCE_BEAT_MS);
+  for (const axioms of HEART_STAGE_AXIOMS) {
+    for (const coherence of [0, 1]) {
+      const rate = perMinute(axioms, coherence);
+      assert.ok(Math.abs(rate / reference - 1) < 0.01, `${STARS[getHeartStage(axioms)]} at Coherence ${coherence}: ${Math.round(rate)} vs ${Math.round(reference)}`);
+    }
+  }
 });
 
 test("strike timing is judged symmetrically around the beat", () => {

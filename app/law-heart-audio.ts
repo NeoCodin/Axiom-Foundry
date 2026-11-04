@@ -1,4 +1,4 @@
-import type { PulseJudgement } from "./law-heart-pulse";
+import type { HeartVoice, PulseJudgement } from "./law-heart-pulse";
 
 /**
  * Synthesized game audio: the Law-Heart and the interface. Every sound is
@@ -110,22 +110,71 @@ function tone(
   oscillator.stop(when + options.attack + options.decay + 0.02);
 }
 
+/** A short burst of crackling static, for a heart that is coming apart. */
+let crackleNoise: AudioBuffer | null = null;
+function crackle({ context, master }: PulseAudio, when: number, peak: number) {
+  if (!crackleNoise || crackleNoise.sampleRate !== context.sampleRate) {
+    crackleNoise = context.createBuffer(1, Math.floor(context.sampleRate * 0.25), context.sampleRate);
+    const data = crackleNoise.getChannelData(0);
+    for (let index = 0; index < data.length; index += 1) data[index] = Math.random() < 0.08 ? Math.random() * 2 - 1 : 0;
+  }
+  const source = context.createBufferSource();
+  source.buffer = crackleNoise;
+  const filter = context.createBiquadFilter();
+  filter.type = "highpass";
+  filter.frequency.value = 1_500;
+  const gain = envelope(context, when, peak, 0.004, 0.12);
+  source.connect(filter).connect(gain).connect(master);
+  source.start(when);
+  source.stop(when + 0.15);
+}
+
 /**
  * Schedule the heartbeat for a beat time on the performance.now() clock, so the
  * sound lands with the approach ring rather than a frame late. Output latency
- * is subtracted so speakers and the ring agree.
+ * is subtracted so speakers and the ring agree. Each star has its own voice
+ * (law-heart-pulse): a lone faint thump, a waking lub-dub, a steady one, one
+ * with an echo, a deep one over a sub-beat, a racing one that crackles while
+ * it is unsettled (unrest 0 to 1), or a serene one with a soft chord.
  */
-export function schedulePulseBeat(beatAtMs: number, coherence: number) {
+export function schedulePulseBeat(beatAtMs: number, coherence: number, voice: HeartVoice = "steady", unrest = 0) {
   const output = ready();
   if (!output) return;
   const { context } = output;
   const latency = context.outputLatency || context.baseLatency || 0;
   const when = Math.max(context.currentTime, context.currentTime + (beatAtMs - performance.now()) / 1000 - latency);
-  // Lub, then a softer dub.
-  tone(output, when, { type: "sine", from: 96, to: 44, glide: 0.14, peak: 0.55, attack: 0.006, decay: 0.3 });
-  tone(output, when + 0.17, { type: "sine", from: 80, to: 40, glide: 0.12, peak: 0.24, attack: 0.006, decay: 0.24 });
+  const thump = (offset: number, from: number, to: number, peak: number, decay: number, glide = 0.14) =>
+    tone(output, when + offset, { type: "sine", from, to, glide, peak, attack: 0.006, decay });
+  if (voice === "faint") {
+    thump(0, 80, 38, 0.26, 0.26);
+  } else if (voice === "waking") {
+    thump(0, 90, 42, 0.42, 0.28);
+    thump(0.18, 76, 38, 0.16, 0.22, 0.12);
+  } else if (voice === "echo") {
+    thump(0, 96, 44, 0.55, 0.3);
+    thump(0.17, 80, 40, 0.24, 0.24, 0.12);
+    thump(0.36, 72, 38, 0.11, 0.3, 0.12);
+  } else if (voice === "deep") {
+    thump(0, 74, 34, 0.66, 0.36);
+    thump(0, 46, 30, 0.32, 0.5, 0.3);
+    thump(0.18, 64, 32, 0.3, 0.3, 0.12);
+  } else if (voice === "racing") {
+    // Tight and high, the dub crowding the lub, wavering while it is unsettled.
+    const waver = 1 + (Math.random() - 0.5) * 0.16 * unrest;
+    thump(0, 118 * waver, 56, 0.48, 0.17, 0.08);
+    thump(0.1, 100 * waver, 50, 0.3, 0.14, 0.07);
+    if (unrest > 0.1) crackle(output, when, 0.035 * unrest);
+  } else if (voice === "serene") {
+    tone(output, when, { type: "sine", from: 86, to: 40, glide: 0.2, peak: 0.42, attack: 0.03, decay: 0.42 });
+    thump(0.22, 70, 36, 0.18, 0.34, 0.12);
+    for (const pitch of [220, 277.18, 329.63]) tone(output, when, { type: "sine", from: pitch, peak: 0.03, attack: 0.12, decay: 0.9 });
+  } else {
+    // Lub, then a softer dub.
+    thump(0, 96, 44, 0.55, 0.3);
+    thump(0.17, 80, 40, 0.24, 0.24, 0.12);
+  }
   // A coherent heart rings cleaner: a faint overtone grows with Coherence.
-  if (coherence > 0.05) {
+  if (coherence > 0.05 && voice !== "faint") {
     tone(output, when, { type: "triangle", from: 220, peak: 0.02 + 0.07 * coherence, attack: 0.01, decay: 0.55 });
   }
 }

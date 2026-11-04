@@ -82,6 +82,12 @@ export type LawHeartBeat = {
   lastBeatAt: number;
   nextBeatAt: number;
   coherence: number;
+  /** How hard each beat swells this star (law-heart-pulse), 1 if unset. */
+  strength?: number;
+  /** How much an unstable heart shudders, 0 to 1. */
+  tremor?: number;
+  /** Its voice, which sets the spacing of its beats: lub-dub, echo, racing. */
+  voice?: string;
 };
 
 type PurchaseEvent = {
@@ -648,19 +654,37 @@ function drawSolarSurface(
 
 /**
  * Heartbeat envelope: a contraction just before the beat, a strong swell on
- * it ("lub"), and a softer echo 170ms later ("dub").
+ * it ("lub"), and a softer echo after it ("dub"), spaced by the star's voice:
+ * a faint heart has no dub, a racing one crowds it in, a resonant one echoes
+ * a third time, a serene one lets it come late and slow.
  */
+const DUB_AT: Record<string, number | null> = { faint: null, racing: 100, serene: 220 };
+
 function getBeatThrob(beat: LawHeartBeat | null, now: number) {
   if (!beat || beat.nextBeatAt <= 0) return null;
   const since = Math.max(0, now - beat.lastBeatAt);
   const until = Math.max(0, beat.nextBeatAt - now);
-  const lub = Math.exp(-since / 110);
-  const dub = since > 170 ? 0.45 * Math.exp(-(since - 170) / 90) : 0;
+  const voice = beat.voice ?? "steady";
+  const lub = Math.exp(-since / (voice === "racing" ? 70 : 110));
+  const dubAt = voice in DUB_AT ? DUB_AT[voice] : 170;
+  const dub = dubAt !== null && since > dubAt ? 0.45 * Math.exp(-(since - dubAt) / 90) : 0;
+  const echo = voice === "echo" && since > 360 ? 0.22 * Math.exp(-(since - 360) / 110) : 0;
   return {
-    swell: lub + dub,
+    swell: (lub + dub + echo) * (beat.strength ?? 1),
     squeeze: until < 180 ? 1 - until / 180 : 0,
     coherence: clamp(beat.coherence),
+    tremor: clamp(beat.tremor ?? 0),
   };
+}
+
+/** An unstable heart's shudder, in whole pixels: restless between beats, worst on them. */
+function getTremorOffset(tremor: number, swell: number, now: number): Point {
+  if (tremor <= 0) return [0, 0];
+  const reach = tremor * (0.8 + swell * 2.4);
+  return [
+    Math.round(Math.sin(now * 0.091) * Math.sin(now * 0.037 + 1.3) * reach),
+    Math.round(Math.sin(now * 0.073 + 2.1) * Math.sin(now * 0.029) * reach),
+  ];
 }
 
 function drawCore(
@@ -711,15 +735,22 @@ function drawCore(
   );
   const intensity = clamp(
     (0.16 + productionOrder * 0.08 + machineOrder * 0.025 + clickFlare * 0.65 +
-      (throb ? throb.swell * (0.22 + 0.4 * throb.coherence) : 0)) *
+      (throb ? throb.swell * (0.22 + 0.4 * throb.coherence) : 0) +
+      // An unstable heart flickers.
+      (throb ? throb.tremor * 0.14 * Math.abs(Math.sin(now * 0.047)) : 0)) *
       qaIntensity,
     0.12,
     3,
   );
 
   drawAxiomShards(context, props, animationNow, spectrum, Math.max(31, radius), reducedMotion);
+  // The star itself shudders when its heart is unstable; its shards keep their orbit.
+  const [shakeX, shakeY] = throb ? getTremorOffset(throb.tremor, throb.swell, now) : [0, 0];
+  context.save();
+  context.translate(shakeX, shakeY);
   drawSolarCorona(context, props, animationNow, spectrum, radius, intensity, reducedMotion);
   drawSolarSurface(context, animationNow, spectrum, radius, intensity, reducedMotion);
+  context.restore();
 
   if (recalibrationEvent && recalibrationPhase >= 0.43 && recalibrationPhase <= 0.7) {
     const novaPhase = 1 - Math.abs((recalibrationPhase - 0.565) / 0.135);
