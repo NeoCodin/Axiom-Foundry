@@ -5199,7 +5199,7 @@ export default function ArkWalk(props: ArkWalkProps) {
       }
       if (initial.crew.length > 0) pacer.offer(moodRemark(stageNow()), seconds);
       pacer.offer(worldRemark(propsRef.current.atWorld), seconds);
-      if (nullLevel.classification === "elevated" || nullLevel.classification === "severe") pacer.offer(nullRemark(stageNow()), seconds);
+      if (nullLevel.classification === "elevated" || nullLevel.classification === "severe") pacer.offer(nullRemark(stageNow(), { severe: nullLevel.classification === "severe", crew: initial.crew.length, roll: Math.random() }), seconds);
       if (darkOpening && place === "chamber") pacer.offer(openingRemark("chamber"), seconds);
       if (darkOpening && openingStrikes >= 6) pacer.offer(openingRemark("strike"), seconds);
       const quiet = pressed && !conversation && !overheard && !lyra.busy();

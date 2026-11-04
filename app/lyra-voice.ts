@@ -80,11 +80,13 @@ const NOTICES: Partial<Record<LyraCue, { from: LyraStage; text: string }>> = {
   "link-far": { from: 0, text: "NO LIVING OR NON-LIVING ARTIFACT HAS RETURNED FROM BEYOND THIS DISTANCE." },
   "walls-failing": { from: 0, text: "SEAWALL BREACHED. OCCUPANTS HAVE NOT BEEN INFORMED." },
   "water-low": { from: 1, text: "CLEAN WATER BELOW RESERVE. OCCUPANTS HAVE STOPPED ASKING." },
+  "food-low": { from: 1, text: "FOOD BELOW RESERVE. THE RATION MODEL NOW ASSUMES FEWER OCCUPANTS." },
   "pushed": { from: 1, text: "TOLERANCE HAS BEEN WIDENED." },
   "link-lost": { from: 2, text: "RECALL WILL NOT ALWAYS BE AVAILABLE." },
   "sim-start": { from: 0, text: "SIMULATION ACTIVE. PAIN RESPONSE IS ACCURATE." },
   "death": { from: 2, text: "TAKE NOTE: IN REALITY, YOU CANNOT BE RESTORED." },
   "alarm": { from: 0, text: "YOUR POSITION IS NOW KNOWN." },
+  "extracted": { from: 2, text: "SURVIVORS RECOVERED. NULL SCREENING IS NOT AVAILABLE." },
   "hollowed": { from: 0, text: "UNCLASSIFIED SIGNATURE IN THIS SECTOR. IT IS AWARE OF THE DRONE." },
 };
 

@@ -118,6 +118,13 @@ test("at each world she says why the Ark is there, and never names a world still
   assert.equal(pelagos[1].speaker, "Lyra");
   assert.match(nullRemark(2).lines[0].text, /CREW INTEGRITY IS NOT MEASURED/);
   assert.doesNotMatch(nullRemark(0).lines[0].text, /CREW/, "not before the crew are guarded");
+  // At its worst the Protocol is calmest, and Lyra answers it.
+  const severe = (roll: number, crew = 4) => nullRemark(0, { severe: true, crew, roll }).lines;
+  assert.match(severe(0)[0].text, /BODIES MAY BEGIN TO CHANGE/);
+  assert.match(severe(0.99)[0].text, /EVERYONE ABOARD WILL DIE/);
+  assert.doesNotMatch(severe(0.99, 0)[0].text, /SURVIVORS|ABOARD|OCCUPANTS/, "nobody to speak of yet");
+  assert.equal(severe(0).at(-1)?.speaker, "Lyra");
+  assert.ok(ABOARD_SCRIPT.nullSevere.every((text) => text === text.toUpperCase() && !/FOREM[AE]N/.test(text)));
   assert.equal(worldRemark(null), null, "nothing while crossing");
   // Nor anywhere else aboard: no room, star or mood line names a world.
   const elsewhere = [...Object.values(ABOARD_SCRIPT.places), ...ABOARD_SCRIPT.heart, ...Object.values(ABOARD_SCRIPT.mood)].flat().join(" ");

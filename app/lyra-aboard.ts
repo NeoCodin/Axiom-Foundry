@@ -178,12 +178,22 @@ export const placeRemark = (place: AboardPlace): Remark => ({
   id: `place:${place}`, kind: "place", once: true, lines: lyra(...PLACE_REMARKS[place]),
 });
 
-export const nullRemark = (stage: LyraStage): Remark => ({
-  id: "null", kind: "null", once: false,
-  lines: stage >= 2
-    ? protocolThen("NULL SATURATION ELEVATED. HULL INTEGRITY NOMINAL. CREW INTEGRITY IS NOT MEASURED.", "It's bad in here today. I don't think it's after the hull.")
-    : protocolThen("NULL SATURATION ELEVATED. HULL INTEGRITY NOMINAL.", "The Null's pushing on the hull. Your camera might glitch a bit, just ignore it."),
-});
+/** The Protocol when the Null reaches inside the ship, with people aboard: calm, and the worst thing it ever says. */
+const NULL_SEVERE = [
+  "NULL SATURATION SEVERE. SURVIVORS' BODIES MAY BEGIN TO CHANGE. THE CHANGES ARE NOT ALWAYS REVERSIBLE.",
+  "NULL SATURATION SEVERE. ANATOMY ABOARD CAN NO LONGER BE GUARANTEED.",
+  "NULL SATURATION SEVERE. SOME OCCUPANTS NO LONGER MATCH THEIR RECORDS.",
+  "NULL SATURATION SEVERE. IF THIS HOLDS, EVERYONE ABOARD WILL DIE. PLEASE CONTINUE YOUR WORK.",
+];
+/** The Null on the hull, once a visit. roll (0 to 1) picks which severe notice. */
+export function nullRemark(stage: LyraStage, { severe = false, crew = 0, roll = 0 } = {}): Remark {
+  const lines = severe
+    ? protocolThen(crew > 0 ? NULL_SEVERE[Math.floor(roll * NULL_SEVERE.length) % NULL_SEVERE.length] : "NULL SATURATION SEVERE. HULL INTEGRITY CANNOT BE CONFIRMED.", "I heard it too. Stay near the Law-Heart, it holds better there.")
+    : stage >= 2
+      ? protocolThen("NULL SATURATION ELEVATED. HULL INTEGRITY NOMINAL. CREW INTEGRITY IS NOT MEASURED.", "It's bad in here today. I don't think it's after the hull.")
+      : protocolThen("INTERFERENCE ELEVATED. HULL INTEGRITY NOMINAL.", "The Null's pushing on the hull. Your camera might glitch a bit, just ignore it.");
+  return { id: "null", kind: "null", once: false, lines };
+}
 
 /**
  * Opening the walk after records were found elsewhere: she remarks on the newest one she
@@ -251,4 +261,4 @@ export const writeSaid = (said: ReadonlySet<string>, game: number | undefined) =
 /** Every record she speaks to, for the tests. */
 export const ABOARD_RECORDS = Object.keys(RECORD_REMARKS);
 /** All she can say aboard, for the tests and for reading through. */
-export const ABOARD_SCRIPT = { opening: OPENING, records: RECORD_REMARKS, places: PLACE_REMARKS, heart: HEART_REMARKS, mood: MOOD_REMARKS, worlds: WORLD_REMARKS };
+export const ABOARD_SCRIPT = { opening: OPENING, records: RECORD_REMARKS, places: PLACE_REMARKS, heart: HEART_REMARKS, mood: MOOD_REMARKS, worlds: WORLD_REMARKS, nullSevere: NULL_SEVERE };
