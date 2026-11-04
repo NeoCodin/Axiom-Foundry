@@ -107,10 +107,12 @@ export function heatColour(heat: number, venting: boolean, time: number, target:
 /** Bolts of arc: crooked lines from the muzzle to where each one struck, gone in a moment. */
 export function createArcs(scene: THREE.Scene, random: () => number = Math.random) {
   const material = new THREE.LineBasicMaterial({ color: "#dce8ff" });
+  const resonant = new THREE.LineBasicMaterial({ color: "#ffe08a" });
   const live: { line: THREE.Line; life: number }[] = [];
   const kink = new THREE.Vector3();
   return {
-    fire(from: THREE.Vector3, to: THREE.Vector3) {
+    /** A bolt from the muzzle to where it struck; gold when it landed on the Law-Heart's beat. */
+    fire(from: THREE.Vector3, to: THREE.Vector3, onBeat = false) {
       const steps = Math.max(3, Math.min(10, Math.round(from.distanceTo(to) / 2)));
       const points: THREE.Vector3[] = [];
       for (let step = 0; step <= steps; step += 1) {
@@ -118,7 +120,7 @@ export function createArcs(scene: THREE.Scene, random: () => number = Math.rando
         if (step > 0 && step < steps) point.add(kink.set(random() - 0.5, random() - 0.5, random() - 0.5).multiplyScalar(0.22));
         points.push(point);
       }
-      const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), material);
+      const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), onBeat ? resonant : material);
       line.raycast = () => {};
       line.frustumCulled = false;
       scene.add(line);
@@ -141,6 +143,7 @@ export function createArcs(scene: THREE.Scene, random: () => number = Math.rando
       }
       live.length = 0;
       material.dispose();
+      resonant.dispose();
     },
   };
 }

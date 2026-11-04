@@ -440,6 +440,63 @@
   50% { opacity: 0.6; }
 }
 
+/* Swarm's movement kit: three dash charges and the thrusters' fuel, under the health bar. */
+.ark-sim-motion {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 4px 10px;
+}
+
+.ark-sim-motion[hidden] {
+  display: none;
+}
+
+.ark-sim-dashes {
+  display: flex;
+  gap: 4px;
+}
+
+.ark-sim-dashes i {
+  position: relative;
+  display: block;
+  width: 26px;
+  height: 8px;
+  background: #2b2433;
+}
+
+.ark-sim-dashes i::after {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(100% * var(--fill, 1));
+  background: #c9b6ff;
+  content: "";
+}
+
+.ark-sim-fuel {
+  position: relative;
+  display: block;
+  width: 86px;
+  height: 6px;
+  background: #2b2433;
+}
+
+.ark-sim-fuel i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(100% * var(--fuel, 1));
+  background: #ffb36a;
+}
+
+/* On the Law-Heart's beat the crosshair swells: a shot now strikes harder. */
+.ark-sim-crosshair {
+  transition: scale 0.08s;
+}
+
+.ark-sim-hud[data-beat="on"] .ark-sim-crosshair {
+  scale: 1.45;
+}
+
 .ark-sim-cell {
   color: #d8d2e4;
   font-size: 12px;

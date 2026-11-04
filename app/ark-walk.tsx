@@ -4384,6 +4384,7 @@ export default function ArkWalk(props: ArkWalkProps) {
   const simCellRef = useRef<HTMLSpanElement>(null);
   const simReloadRef = useRef<HTMLSpanElement>(null);
   const simHeatRef = useRef<HTMLSpanElement>(null);
+  const simMotionRef = useRef<HTMLSpanElement>(null);
   const simScoreRef = useRef<HTMLSpanElement>(null);
   const simBannerRef = useRef<HTMLParagraphElement>(null);
   const simHurtRef = useRef<HTMLSpanElement>(null);
@@ -4636,7 +4637,7 @@ export default function ArkWalk(props: ArkWalkProps) {
       simDrilled = 0;
       simGraduates = [];
       aiming = false;
-      sim = (mode === "extraction" ? createOpsWorld : createSimWorld)(difficulty, { reducedMotion, onCleared: drillTrainees, loadout: loadoutRef.current });
+      sim = (mode === "extraction" ? createOpsWorld : createSimWorld)(difficulty, { reducedMotion, onCleared: drillTrainees, loadout: loadoutRef.current, beatPeriodMs: propsRef.current.beatPeriodMs });
       sim.resize(camera.aspect);
       simMenu = false;
       simPaused = false;
@@ -4695,7 +4696,21 @@ export default function ArkWalk(props: ArkWalkProps) {
         simHeatRef.current.style.setProperty("--sim-heat", gun.heat.toFixed(3));
         simHeatRef.current.dataset.venting = gun.venting ? "true" : "false";
       }
-      if (simHudRef.current) simHudRef.current.dataset.sight = hud.aiming ? gun.optic : "none";
+      if (simHudRef.current) {
+        simHudRef.current.dataset.sight = hud.aiming ? gun.optic : "none";
+        simHudRef.current.dataset.beat = (hud.beat ?? 0) > 0.55 ? "on" : "off";
+      }
+      // Swarm's movement kit: three dash charges, filling back one at a time, and the thrusters' fuel.
+      const motion = hud.motion;
+      if (simMotionRef.current) {
+        simMotionRef.current.hidden = !motion;
+        if (motion) {
+          Array.from(simMotionRef.current.querySelectorAll<HTMLElement>(".ark-sim-dashes i")).forEach((pip, index) => {
+            pip.style.setProperty("--fill", Math.max(0, Math.min(1, motion.dashes - index)).toFixed(2));
+          });
+          simMotionRef.current.style.setProperty("--fuel", motion.fuel.toFixed(3));
+        }
+      }
       if (simScoreRef.current) {
         simScoreRef.current.textContent = hud.objective !== undefined
           ? `${hud.location ? `${hud.location} · ` : ""}${hud.objective}`
@@ -5154,6 +5169,7 @@ export default function ArkWalk(props: ArkWalkProps) {
           event.preventDefault();
           leaveSim();
         } else if (key === "r") sim.reload();
+        else if (key === "1" || key === "2" || key === "3") sim.law?.(FORM_ORDER[Number(key) - 1]);
         else if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright", "shift", " ", "c", "e", "f"].includes(key)) {
           event.preventDefault();
           keys.add(key);
@@ -5559,6 +5575,12 @@ export default function ArkWalk(props: ArkWalkProps) {
         <div className="ark-sim-vitals">
           <span className="ark-sim-label">Sim-body</span>
           <span ref={simHealthRef} className="ark-sim-health" data-state="good" role="img" aria-label="Health"><i /></span>
+          <span ref={simMotionRef} className="ark-sim-motion" hidden>
+            <span className="ark-sim-label">Dash</span>
+            <span className="ark-sim-dashes" aria-hidden="true"><i /><i /><i /></span>
+            <span className="ark-sim-label">Thrust</span>
+            <span className="ark-sim-fuel" aria-hidden="true"><i /></span>
+          </span>
         </div>
         <div className="ark-sim-ammo">
           <span className="ark-sim-label">Arc Carbine · training</span>
@@ -5582,7 +5604,7 @@ export default function ArkWalk(props: ArkWalkProps) {
         <p className="ark-sim-help">
           {simScreen?.phase !== "menu" && simScreen?.mode === "extraction"
             ? "Click fire · Right-click aim · C crouch · F light · E use · R change cell · Shift run · Q leave"
-            : "Click to fire · Right-click aim · R change cell · WASD move · Space jump · Shift run · Q leave"}
+            : "Click fire · Right-click aim · Shift dash · C slide, or slam from the air · Space jump, hold to thrust · F tether · E punch · 1–3 firing law · R change cell · Q leave"}
         </p>
       </div>
       {simScreen?.phase === "menu" && (

@@ -143,6 +143,14 @@ export function stepCarbine(gun: Carbine, time: number, dt: number, powered: boo
   return events;
 }
 
+/** Write a different firing law into the kernel: from its next cycle the carbine is that weapon. */
+export function switchLaw(gun: Carbine, form: CarbineForm, time: number) {
+  if (gun.loadout.form === form) return false;
+  gun.loadout = { ...gun.loadout, form };
+  gun.lastShot = time;
+  return true;
+}
+
 /** Change the cell, if there is a spare and the seated one is not already full. */
 export function swapCell(gun: Carbine, time: number) {
   if (gun.swapUntil !== null || gun.spare <= 0 || gun.charge >= capacity(gun)) return false;

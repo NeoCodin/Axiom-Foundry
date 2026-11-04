@@ -16,6 +16,21 @@ export type SimAudio = {
   gun(form?: CarbineForm, suppressed?: boolean): void;
   /** The coils venting their heat. */
   vent(): void;
+  /** The movement kit: a dash's rush, a slide, a slam (0 to 2 by how far it fell), the fist, a parry, a blow dodged, the tether's snap. */
+  dash(): void;
+  slide(): void;
+  slam(strength: number): void;
+  punch(): void;
+  parry(): void;
+  dodged(): void;
+  tether(): void;
+  /** Transit thrusters, held: 1 burning, 0 off. */
+  thrust(level: number): void;
+  /** A kill's Flux soaking into the cell; a shot landing on the beat; the Law-Heart's beat itself; a new firing law. */
+  flux(): void;
+  resonant(): void;
+  beat(): void;
+  law(): void;
   dry(): void;
   reload(): void;
   pickup(): void;
@@ -126,6 +141,13 @@ export function createSimAudio(): SimAudio | null {
         peak: 0.07 * gain, attack: 0.02, decay: 0.45, pan, warble: [14, 120], filter: ["bandpass", 900, 5],
       });
       hiss({ filter: ["bandpass", 700, 3], peak: 0.04 * gain, attack: 0.02, decay: 0.35, pan });
+    } else if (kind === "harrier") {
+      // A whistle that falls as it dives, with a rattle under it.
+      voice({
+        type: "sine", path: dying ? [[0, 1800], [0.5, 300]] : [[0, 2600], [0.5, 900], [0.8, 1400]],
+        peak: 0.07 * gain, attack: 0.03, decay: 0.8, pan, warble: [36, 60],
+      });
+      voice({ type: "sawtooth", path: [[0, 300], [0.6, 180]], peak: 0.03 * gain, attack: 0.05, decay: 0.6, pan, warble: [22, 40], filter: ["bandpass", 1100, 4] });
     } else {
       // A roar from deep in the chest.
       voice({
@@ -148,6 +170,19 @@ export function createSimAudio(): SimAudio | null {
   windGain.gain.value = 0.035;
   wind.connect(leaves).connect(windGain).connect(bus);
   wind.start();
+  // The thrusters' roar, kept running and opened only while they burn.
+  const roar = context.createBufferSource();
+  roar.buffer = noise;
+  roar.loop = true;
+  const roarFilter = context.createBiquadFilter();
+  roarFilter.type = "bandpass";
+  roarFilter.frequency.value = 900;
+  roarFilter.Q.value = 0.6;
+  const roarGain = context.createGain();
+  roarGain.gain.value = 0;
+  roar.connect(roarFilter).connect(roarGain).connect(bus);
+  roar.start();
+  let roaring = 0;
   const later = (callback: () => void, delay: number) => {
     const id = window.setTimeout(() => {
       timers.delete(id);
@@ -187,6 +222,54 @@ export function createSimAudio(): SimAudio | null {
         hiss({ filter: ["highpass", 1_200, 0.7], peak: 0.12 * loud, attack: 0.002, decay: 0.07 });
         voice({ type: "sawtooth", path: [[0, 1_800], [0.06, 300]], peak: 0.06 * loud, attack: 0.002, decay: 0.07, filter: ["bandpass", 1_500, 2] });
       }
+    },
+    dash() {
+      hiss({ filter: ["bandpass", 1_200, 1], peak: 0.09, attack: 0.01, decay: 0.18 });
+      voice({ type: "sine", path: [[0, 230], [0.15, 110]], peak: 0.05, attack: 0.005, decay: 0.16 });
+    },
+    slide() {
+      hiss({ filter: ["lowpass", 900, 0.7], peak: 0.05, attack: 0.02, decay: 0.4 });
+    },
+    slam(strength) {
+      const hard = Math.min(1, strength / 1.4);
+      voice({ type: "sine", path: [[0, 95], [0.35, 30]], peak: 0.32 * hard, attack: 0.004, decay: 0.42 });
+      hiss({ filter: ["lowpass", 500, 0.7], peak: 0.16 * hard, attack: 0.005, decay: 0.5 });
+    },
+    punch() {
+      voice({ type: "square", path: [[0, 170], [0.06, 70]], peak: 0.1, attack: 0.002, decay: 0.08, filter: ["lowpass", 900, 1] });
+      hiss({ filter: ["highpass", 1_800, 0.7], peak: 0.05, attack: 0.002, decay: 0.05 });
+    },
+    parry() {
+      // Acid sent back the way it came: a bright ring.
+      voice({ type: "triangle", path: [[0, 1_400], [0.2, 2_100]], peak: 0.08, attack: 0.003, decay: 0.28 });
+      voice({ type: "sine", at: 0.02, path: [[0, 700]], peak: 0.05, attack: 0.005, decay: 0.3 });
+    },
+    dodged() {
+      hiss({ filter: ["highpass", 3_000, 0.7], peak: 0.04, attack: 0.005, decay: 0.12 });
+    },
+    tether() {
+      voice({ type: "sawtooth", path: [[0, 300], [0.12, 1_200]], peak: 0.05, attack: 0.003, decay: 0.15, filter: ["bandpass", 900, 2] });
+      hiss({ filter: ["bandpass", 2_400, 2], peak: 0.04, attack: 0.002, decay: 0.1 });
+    },
+    thrust(level) {
+      if (level === roaring) return;
+      roaring = level;
+      roarGain.gain.setTargetAtTime(level * 0.07, context.currentTime, 0.04);
+    },
+    flux() {
+      voice({ type: "sine", path: [[0, 880], [0.12, 1_320]], peak: 0.03, attack: 0.005, decay: 0.15 });
+    },
+    resonant() {
+      voice({ type: "triangle", path: [[0, 520], [0.18, 780]], peak: 0.05, attack: 0.005, decay: 0.22 });
+    },
+    beat() {
+      // The Law-Heart, faint under the jungle: lub, then dub.
+      voice({ type: "sine", path: [[0, 72], [0.1, 58]], peak: 0.06, attack: 0.006, decay: 0.12 });
+      voice({ type: "sine", at: 0.19, path: [[0, 60], [0.1, 50]], peak: 0.04, attack: 0.006, decay: 0.12 });
+    },
+    law() {
+      voice({ type: "square", path: [[0, 600]], peak: 0.03, attack: 0.002, decay: 0.05, filter: ["lowpass", 2_000, 1] });
+      voice({ type: "square", at: 0.06, path: [[0, 900]], peak: 0.03, attack: 0.002, decay: 0.05, filter: ["lowpass", 2_000, 1] });
     },
     vent() {
       // The coils dump their heat: a long hiss and a falling whine.
@@ -249,6 +332,7 @@ export function createSimAudio(): SimAudio | null {
       timers.clear();
       try {
         wind.stop();
+        roar.stop();
       } catch {
         // Already stopped.
       }

@@ -8,9 +8,16 @@ import {
   SIM_DOME,
   SIM_DIFFICULTIES,
   createSim,
+  dodge,
   fireCarbine,
+  HARRIER_CRUISE,
+  KILL_FLUX,
+  punch,
   reloadCarbine,
+  RESONANT,
+  slam,
   stepSim,
+  tetherAlien,
   waveRoster,
   type SimState,
 } from "../app/ark-sim-rules.ts";
@@ -201,4 +208,105 @@ test("clearing a wave drills the Security trainees: more on harder settings, cap
   stepSim(state, 0.05, seeded(8));
   assert.equal(state.events.find((event) => event.type === "cleared")?.drill, 30);
   assert.equal(state.drilled, DRILL_CAP_SECONDS);
+});
+
+const alien = (id: number, kind: "stalker" | "spitter" | "brute" | "harrier", x: number, z: number, health = 10) =>
+  ({ id, kind, x, z, health, maxHealth: health, cooldown: 0, screamIn: 99, circle: 1 as const, ...(kind === "harrier" ? { height: HARRIER_CRUISE, dive: false } : {}) });
+const quiet = (state: SimState) => {
+  state.roster = [];
+  state.nextArrival = Infinity;
+  state.pickups = [];
+};
+
+test("harriers circle overhead out of reach, then dive at AXIOM and strike", () => {
+  assert.ok(waveRoster("soldier", 2).includes("harrier"), "they join from the second wave");
+  assert.ok(!waveRoster("soldier", 1).includes("harrier"));
+  const state = createSim("soldier", seeded(1));
+  quiet(state);
+  state.aliens.push({ ...alien(5, "harrier", 9, 0), cooldown: 3 });
+  run(state, 2);
+  const harrier = state.aliens[0];
+  assert.ok((harrier.height ?? 0) > 5, "it keeps high while it circles");
+  assert.equal(state.player.health, state.player.maxHealth);
+  run(state, 6);
+  assert.ok(types(state).includes("strike") || state.player.health < state.player.maxHealth, "then it comes down and claws");
+});
+
+test("nothing on the ground reaches AXIOM up in the air", () => {
+  const state = createSim("soldier", seeded(1));
+  quiet(state);
+  state.aliens.push(alien(5, "stalker", 1.2, 0));
+  state.player.lift = 4;
+  run(state, 2);
+  assert.equal(state.player.health, state.player.maxHealth);
+  state.player.lift = 0;
+  run(state, 2);
+  assert.ok(state.player.health < state.player.maxHealth);
+});
+
+test("a dash carries AXIOM through blows and acid", () => {
+  const state = createSim("soldier", seeded(1));
+  quiet(state);
+  state.aliens.push(alien(5, "stalker", 1.2, 0));
+  dodge(state, 0.5);
+  stepSim(state, 0.05, seeded(1));
+  assert.ok(types(state).includes("dodged"));
+  assert.equal(state.player.health, state.player.maxHealth);
+});
+
+test("the punch knocks a stalker back and stuns it; it throws acid back to burn the spitter", () => {
+  const state = createSim("soldier", seeded(1));
+  quiet(state);
+  state.aliens.push(alien(5, "stalker", 0, -2));
+  const struck = punch(state, 0, -1);
+  assert.equal(struck?.hit, 1);
+  const stalker = state.aliens[0];
+  assert.ok(stalker.z < -5, "knocked back");
+  assert.ok(stalker.cooldown >= 1, "and stunned");
+  assert.equal(punch(state, 0, -1), null, "not again straight away");
+  const second = createSim("soldier", seeded(1));
+  quiet(second);
+  second.aliens.push({ ...alien(6, "spitter", 0, -8, 3), cooldown: 5 });
+  second.spit.push({ id: 90, x: 0, z: -1.5, dx: 0, dz: 10, life: 1 });
+  const answer = punch(second, 0, -1);
+  assert.equal(answer?.parried, 1);
+  for (let tick = 0; tick < 40; tick += 1) stepSim(second, 0.02, seeded(1));
+  assert.ok(second.aliens.length === 0 || second.aliens[0].health < 3, "the acid burned the spitter");
+  assert.equal(second.player.health, second.player.maxHealth, "and not AXIOM");
+});
+
+test("a slam throws back what's on the ground near the landing, harder from higher, but not harriers overhead", () => {
+  const state = createSim("soldier", seeded(1));
+  quiet(state);
+  state.aliens.push(alien(5, "stalker", 2, 0), alien(6, "stalker", 20, 0), alien(7, "harrier", 1, 1));
+  assert.equal(slam(state, 1.5), 1);
+  assert.ok(state.aliens.find((candidate) => candidate.id === 5)!.x > 4, "the near one is thrown");
+  assert.equal(state.aliens.find((candidate) => candidate.id === 7)!.health, 10, "the flier is untouched");
+});
+
+test("the tether hauls a harrier out of the sky to arm's length; a brute is too heavy, so AXIOM goes to it", () => {
+  const state = createSim("soldier", seeded(1));
+  quiet(state);
+  state.aliens.push(alien(5, "harrier", 0, -20), alien(6, "brute", 15, 0));
+  assert.equal(tetherAlien(state, 5), "pulled");
+  const harrier = state.aliens[0];
+  assert.ok(Math.hypot(harrier.x, harrier.z) < 2.5 && (harrier.height ?? 0) < 2, "hauled in and down");
+  assert.equal(tetherAlien(state, 6), "anchored");
+  assert.equal(tetherAlien(state, 99), null);
+});
+
+test("kills give off Flux into the cell, and shots on the Law-Heart's beat strike harder", () => {
+  const state = createSim("soldier", seeded(1));
+  quiet(state);
+  state.player.x = 25;
+  state.player.gun.charge = 40;
+  state.aliens.push(alien(5, "stalker", 25, 3, 1));
+  fireCarbine(state, 5, () => 0.99);
+  assert.equal(state.kills, 1);
+  assert.ok(Math.abs(state.player.gun.charge - (40 - FORMS.conservation.cost + 100 * KILL_FLUX)) < 0.01, "the kill topped the cell up");
+  state.aliens.push(alien(6, "brute", 25, 3, 10));
+  state.time += 1;
+  fireCarbine(state, 6, () => 0.99, true);
+  assert.equal(state.aliens[0].health, 10 - FORMS.conservation.damage * RESONANT);
+  assert.ok(types(state).includes("resonant"));
 });

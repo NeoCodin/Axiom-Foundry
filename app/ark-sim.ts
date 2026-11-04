@@ -10,7 +10,7 @@
 
 import * as THREE from "three";
 
-import { carbineReadout, DEFAULT_LOADOUT, OPTICS, type CarbineLoadout } from "./arc-carbine";
+import { carbineReadout, DEFAULT_LOADOUT, OPTICS, switchLaw, type CarbineForm, type CarbineLoadout } from "./arc-carbine";
 import { createArcs, dressCarbine, heatColour } from "./arc-carbine-model";
 import { createSimAudio, type SimAudio } from "./ark-sim-audio";
 import {
@@ -19,9 +19,13 @@ import {
   SIM_DOME,
   underDome,
   createSim,
+  dodge,
   fireCarbine,
+  punch,
   reloadCarbine,
+  slam,
   stepSim,
+  tetherAlien,
   type AlienKind,
   type SimDifficulty,
   type SimState,
@@ -36,7 +40,11 @@ export type SimInput = {
   sprint: boolean;
   firing: boolean;
   jump: boolean;
-  /** Extraction's extra hands: the right button aims; C and F are held keys, switched on each press. */
+  /**
+   * The other hands. The right button aims. In Extraction, C and F switch crouching and
+   * the light on each press. In Swarm, sprint is the dash, C slides on the ground and
+   * slams from the air, E punches and F fires the tether.
+   */
   aim?: boolean;
   crouch?: boolean;
   interact?: boolean;
@@ -50,6 +58,10 @@ export type SimHud = {
   health: number;
   maxHealth: number;
   carbine: SimCarbine;
+  /** Swarm only: dash charges (up to three), thruster fuel (0 to 1), and whether the sim-body slides or hangs on its tether. */
+  motion?: { dashes: number; fuel: number; sliding: boolean; tethered: boolean };
+  /** Swarm only: 1 on the Law-Heart's beat, falling away between; shots on the beat strike harder. */
+  beat?: number;
   wave: number;
   score: number;
   kills: number;
@@ -84,6 +96,8 @@ export type SimWorld = {
   state: unknown;
   look(dx: number, dy: number): void;
   reload(): void;
+  /** Write a different firing law into the carbine's kernel, mid-fight. */
+  law?(form: CarbineForm): void;
   update(dt: number, input: SimInput, now: number): void;
   resize(aspect: number): void;
   hud(): SimHud;
@@ -91,12 +105,32 @@ export type SimWorld = {
 };
 
 const EYE = 1.6;
-const WALK = 5;
-const RUN = 8.5;
 const BODY = 0.4;
-/** A jump's lift-off speed and the simulation's gravity: about a metre of air at the top. */
-const JUMP = 5.4;
-const GRAVITY = 14;
+/** The sim-body is no person: faster than anything it fights, quick to turn on the ground, steerable in the air. */
+const MOVE = 9;
+const GROUND_ACCEL = 70;
+const AIR_ACCEL = 22;
+/** A dash: a burst of speed nothing can touch, on three charges that come back one at a time. */
+const DASH_SPEED = 27;
+const DASH_SECONDS = 0.17;
+const DASH_CHARGES = 3;
+const DASH_RECHARGE = 1.1;
+/** A slide: low and fast, and a jump out of it keeps the speed. */
+const SLIDE_SPEED = 14;
+const SLIDE_EYE = 0.75;
+/** A jump and gravity; a slam drives down hard, and a jump just after its landing goes higher. */
+const JUMP = 6.6;
+const GRAVITY = 17;
+const SLAM_SPEED = 40;
+const SLAM_BOUNCE = 1.75;
+/** Transit thrusters: hold jump in the air to climb, on a little fuel that refills on the ground. */
+const THRUST = 30;
+const FUEL_SECONDS = 1.1;
+const FUEL_REFILL = 1.4;
+/** The Containment tether: how far it reaches, how fast it hauls, how long it holds. */
+const TETHER_RANGE = 34;
+const TETHER_SPEED = 26;
+const TETHER_SECONDS = 1.3;
 /** How far the feet follow the ground up or down without leaving it: slopes, and a rock's edge. */
 const STEP = 0.3;
 
@@ -139,6 +173,20 @@ type AlienModel = {
   flash: number;
   lunge: number;
   step: number;
+  /** A head that twitches, a jaw that opens too far, a harrier's wings, and too many eyes. */
+  head: THREE.Object3D | null;
+  jaw: THREE.Object3D | null;
+  wings: THREE.Object3D[];
+  eyes: THREE.Object3D[];
+  /** The Null losing track of it: where it hung for a moment, and the afterimage left there. */
+  held: { x: number; y: number; z: number; until: number } | null;
+  nextStutter: number;
+  ghost: THREE.Object3D;
+  ghostUntil: number;
+  twitch: number;
+  twitchUntil: number;
+  blinkUntil: number;
+  screamUntil: number;
 };
 
 export type SimWorldOptions = {
@@ -150,12 +198,14 @@ export type SimWorldOptions = {
   onCleared?: (wave: number, drill: number) => string | null;
   /** The Arc Carbine's firing law and attachments for the run. */
   loadout?: CarbineLoadout;
+  /** The Ark's Law-Heart beat, carried into the simulation: shots on it strike harder. */
+  beatPeriodMs?: number;
 };
 
 /** How far a bolt fired from the hip can stray, on top of its firing law's own spread. */
 const HIP_SPREAD = 0.004;
 
-export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = false, onCleared, loadout = DEFAULT_LOADOUT }: SimWorldOptions = {}) {
+export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = false, onCleared, loadout = DEFAULT_LOADOUT, beatPeriodMs = 1300 }: SimWorldOptions = {}) {
   const random = seeded(Math.floor(Math.random() * 1e9));
   const state: SimState = createSim(difficulty, random, loadout);
   const scene = new THREE.Scene();
@@ -284,7 +334,7 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
     return mesh;
   };
   const trunkMesh = instanced(trunks, lambert("#ffffff"));
-  instanced(leaves, lambert("#ffffff"));
+  const canopyMesh = instanced(leaves, lambert("#ffffff"));
   // Undergrowth and glowing flowers, which the drone's rounds pass through.
   const brush: { matrix: THREE.Matrix4; color: string }[] = [];
   const blooms: { matrix: THREE.Matrix4; color: string }[] = [];
@@ -338,65 +388,141 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
     parent.add(joint);
     return joint;
   };
+  const ghostMaterial = glow("#9a6aff", { transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending });
+  const toothMaterial = glow("#e8e0d0");
+  const mouthMaterial = glow("#ff2a4a");
+  /**
+   * The simulation's aliens, Null-touched: near-black hides with a sick light in their seams,
+   * too many eyes, mouths that open too far. The stalker runs low on six legs that bend up
+   * before they bend down; the spitter is a swollen sac with a mouth in it; the brute walks
+   * hunched on its knuckles with light through its ribs; the harrier hangs under two long
+   * wings with a whip of a tail.
+   */
   const buildAlien = (id: number, kind: AlienKind): AlienModel => {
     const group = new THREE.Group();
+    group.rotation.order = "YXZ";
     group.userData.alienId = id;
-    const skinColor = { stalker: "#3b1f4f", spitter: "#5a2a5a", brute: "#4a1f1a" }[kind];
-    const skin = lambert(skinColor, { emissive: new THREE.Color("#ffffff"), emissiveIntensity: 0 });
-    const plate = lambert({ stalker: "#6a3a8a", spitter: "#8a4a7a", brute: "#8a7a6a" }[kind]);
-    const eye = glow(kind === "brute" ? "#ff4a3a" : "#ffe34a");
+    const skin = lambert({ stalker: "#1d1226", spitter: "#24122a", brute: "#24100e", harrier: "#151020" }[kind], { emissive: new THREE.Color("#ffffff"), emissiveIntensity: 0 });
+    const plate = lambert({ stalker: "#3a2050", spitter: "#4a2448", brute: "#4a2a24", harrier: "#2c2040" }[kind]);
+    const seam = glow({ stalker: "#b46cff", spitter: "#c8f04a", brute: "#ff5a3a", harrier: "#8ad0ff" }[kind]);
+    const eyeMaterial = glow(kind === "brute" ? "#ff3a2a" : kind === "harrier" ? "#e8f4ff" : "#ffe34a");
     const legs: THREE.Object3D[] = [];
     const arms: THREE.Object3D[] = [];
+    const eyes: THREE.Object3D[] = [];
+    const wings: THREE.Object3D[] = [];
+    let head: THREE.Object3D | null = null;
+    let jaw: THREE.Object3D | null = null;
+    /** A cluster of eyes, set unevenly, as if more grew wherever there was room. */
+    const eyeCluster = (parent: THREE.Object3D, x: number, y: number, z: number, count: number, spread: number) => {
+      for (let index = 0; index < count; index += 1) {
+        const angle = (index / count) * Math.PI * 2 + index * 0.7;
+        const far = index % 2 === 0 ? 1 : 0.5;
+        const size = 0.05 + (index % 3) * 0.02;
+        eyes.push(part(parent, size, size, 0.04, eyeMaterial, x + Math.cos(angle) * spread * far, y + Math.sin(angle) * spread * 0.7 * far, z));
+      }
+    };
     if (kind === "stalker") {
-      part(group, 0.8, 0.55, 1.5, skin, 0, 0.8, 0);
-      for (let spine = 0; spine < 4; spine += 1) part(group, 0.12, 0.25, 0.18, plate, 0, 1.15, -0.5 + spine * 0.32);
-      part(group, 0.6, 0.45, 0.6, skin, 0, 0.9, 0.95);
+      part(group, 0.7, 0.5, 1.9, skin, 0, 1.0, 0);
+      for (let spine = 0; spine < 6; spine += 1) part(group, 0.08, 0.32 + (spine % 2) * 0.14, 0.12, seam, 0, 1.4, -0.75 + spine * 0.3);
+      head = pivot(group, 0, 1.05, 1.0);
+      part(head, 0.5, 0.36, 0.7, skin, 0, 0.1, 0.28);
+      part(head, 0.4, 0.06, 0.5, mouthMaterial, 0, -0.06, 0.32);
+      jaw = pivot(head, 0, -0.1, 0.05);
+      part(jaw, 0.46, 0.12, 0.66, plate, 0, -0.06, 0.3);
+      for (let tooth = 0; tooth < 4; tooth += 1) part(jaw, 0.04, 0.14, 0.04, toothMaterial, -0.15 + tooth * 0.1, 0.05, 0.6);
+      eyeCluster(head, 0, 0.22, 0.64, 6, 0.16);
       for (const side of [-1, 1]) {
-        part(group, 0.1, 0.1, 0.06, eye, side * 0.16, 1.0, 1.26);
-        const jaw = part(group, 0.08, 0.08, 0.4, plate, side * 0.18, 0.72, 1.32);
-        jaw.rotation.y = side * 0.4;
-        for (const end of [-0.5, 0.5]) {
-          const leg = pivot(group, side * 0.45, 0.75, end);
-          part(leg, 0.14, 0.8, 0.14, skin, 0, -0.4, 0);
-          part(leg, 0.2, 0.08, 0.26, plate, 0, -0.78, 0.06);
-          legs.push(leg);
+        for (const along of [-0.62, 0, 0.62]) {
+          const hip = pivot(group, side * 0.34, 1.05, along);
+          const thigh = part(hip, 0.1, 0.9, 0.1, skin, side * 0.32, 0.3, 0);
+          thigh.rotation.z = -side * 0.95;
+          const shin = part(hip, 0.08, 1.35, 0.08, plate, side * 0.74, -0.38, 0);
+          shin.rotation.z = side * 0.22;
+          legs.push(hip);
         }
       }
-      const tail = part(group, 0.2, 0.2, 0.9, skin, 0, 0.9, -1.1);
-      tail.rotation.x = -0.4;
+      const tail = part(group, 0.14, 0.14, 1.3, skin, 0, 1.1, -1.5);
+      tail.rotation.x = -0.6;
     } else if (kind === "spitter") {
-      const sac = new THREE.Mesh(keep(new THREE.IcosahedronGeometry(0.65, 0)), skin);
-      sac.position.y = 1.25;
+      const sac = new THREE.Mesh(keep(new THREE.IcosahedronGeometry(0.78, 1)), skin);
+      sac.position.y = 1.4;
       group.add(sac);
       const acid = glow("#c8f04a");
-      for (const [x, y, z] of [[0.4, 1.4, 0.3], [-0.35, 1.1, 0.4], [0.1, 1.7, -0.2]]) part(group, 0.16, 0.16, 0.16, acid, x, y, z);
-      part(group, 0.3, 0.22, 0.3, acid, 0, 1.05, 0.62);
-      for (const x of [-0.18, 0, 0.18]) part(group, 0.08, 0.08, 0.06, eye, x, 1.45, 0.6);
-      for (let index = 0; index < 3; index += 1) {
-        const angle = (index / 3) * Math.PI * 2;
-        const leg = pivot(group, Math.sin(angle) * 0.45, 0.8, Math.cos(angle) * 0.45);
+      for (const [x, y, z] of [[0.45, 1.55, 0.3], [-0.4, 1.2, 0.42], [0.12, 1.9, -0.25], [-0.3, 1.7, -0.45], [0.5, 1.1, -0.2]]) part(group, 0.18, 0.18, 0.18, acid, x, y, z);
+      head = pivot(group, 0, 1.35, 0.66);
+      part(head, 0.34, 0.24, 0.08, mouthMaterial, 0, 0, 0.06);
+      jaw = pivot(head, 0, -0.1, 0);
+      part(jaw, 0.38, 0.1, 0.24, plate, 0, -0.05, 0.1);
+      for (let tooth = 0; tooth < 5; tooth += 1) part(jaw, 0.035, 0.1, 0.035, toothMaterial, -0.14 + tooth * 0.07, 0.04, 0.2);
+      eyeCluster(head, 0, 0.36, 0.1, 9, 0.26);
+      for (let index = 0; index < 4; index += 1) {
+        const angle = (index / 4) * Math.PI * 2 + 0.4;
+        const leg = pivot(group, Math.sin(angle) * 0.5, 0.9, Math.cos(angle) * 0.5);
         leg.rotation.y = angle;
-        part(leg, 0.12, 0.85, 0.12, plate, 0, -0.42, 0.1);
+        const tendril = part(leg, 0.1, 1.0, 0.1, plate, 0, -0.45, 0.16);
+        tendril.rotation.x = 0.35;
         legs.push(leg);
       }
-    } else {
+    } else if (kind === "brute") {
       for (const side of [-1, 1]) {
-        const leg = pivot(group, side * 0.4, 1.2, 0);
-        part(leg, 0.45, 1.15, 0.5, skin, 0, -0.58, 0);
-        part(leg, 0.5, 0.15, 0.65, plate, 0, -1.12, 0.08);
+        const leg = pivot(group, side * 0.45, 1.25, -0.2);
+        part(leg, 0.5, 1.25, 0.55, skin, 0, -0.62, 0);
+        part(leg, 0.6, 0.15, 0.75, plate, 0, -1.2, 0.1);
         legs.push(leg);
-        const arm = pivot(group, side * 0.95, 2.4, 0.1);
-        part(arm, 0.42, 1.5, 0.42, skin, 0, -0.75, 0);
-        for (const claw of [-0.12, 0.12]) part(arm, 0.08, 0.35, 0.08, plate, claw, -1.6, 0.12);
+        const arm = pivot(group, side * 1.0, 2.55, 0.45);
+        part(arm, 0.5, 2.2, 0.5, skin, 0, -1.1, 0);
+        for (const claw of [-0.16, 0, 0.16]) part(arm, 0.07, 0.5, 0.07, toothMaterial, claw, -2.35, 0.14);
         arms.push(arm);
-        part(group, 0.55, 0.3, 0.7, plate, side * 0.75, 2.6, 0);
+        part(group, 0.62, 0.35, 0.82, plate, side * 0.8, 2.78, 0.2);
       }
-      part(group, 1.5, 1.3, 0.95, skin, 0, 1.95, 0);
-      part(group, 0.55, 0.5, 0.6, skin, 0, 2.75, 0.3);
-      for (const x of [-0.15, 0, 0.15]) part(group, 0.08, 0.08, 0.06, eye, x, 2.82, 0.61);
+      const torso = part(group, 1.6, 1.4, 1.0, skin, 0, 2.05, 0.15);
+      torso.rotation.x = 0.35;
+      for (const rib of [1.75, 2.0, 2.25]) part(group, 1.3, 0.06, 0.04, seam, 0, rib, 0.7);
+      head = pivot(group, 0, 2.6, 0.78);
+      part(head, 0.62, 0.5, 0.6, skin, 0, 0, 0.1);
+      part(head, 0.46, 0.08, 0.06, mouthMaterial, 0, -0.16, 0.4);
+      jaw = pivot(head, 0, -0.2, 0.05);
+      part(jaw, 0.56, 0.16, 0.58, plate, 0, -0.06, 0.12);
+      for (let tooth = 0; tooth < 5; tooth += 1) part(jaw, 0.05, 0.16, 0.05, toothMaterial, -0.2 + tooth * 0.1, 0.06, 0.38);
+      eyeCluster(head, 0, 0.16, 0.42, 7, 0.21);
+    } else {
+      part(group, 0.32, 0.3, 1.4, skin, 0, 0, 0);
+      head = pivot(group, 0, 0.05, 0.75);
+      part(head, 0.3, 0.26, 0.4, skin, 0, 0, 0.15);
+      part(head, 0.22, 0.06, 0.2, mouthMaterial, 0, -0.08, 0.26);
+      jaw = pivot(head, 0, -0.1, 0.05);
+      part(jaw, 0.26, 0.08, 0.36, plate, 0, -0.03, 0.17);
+      eyeCluster(head, 0, 0.07, 0.36, 5, 0.1);
+      for (const side of [-1, 1]) {
+        const wing = pivot(group, side * 0.16, 0.08, 0.1);
+        part(wing, 1.9, 0.03, 0.9, plate, side * 1.0, 0, -0.1);
+        part(wing, 1.9, 0.06, 0.06, seam, side * 1.0, 0.03, 0.34);
+        for (const rib of [0.6, 1.3]) part(wing, 0.04, 0.04, 0.6, skin, side * rib, -0.02, -0.45);
+        wings.push(wing);
+      }
+      const tail = part(group, 0.06, 0.06, 1.7, seam, 0, -0.02, -1.45);
+      tail.rotation.x = 0.15;
+      for (const side of [-1, 1]) {
+        const claw = pivot(group, side * 0.12, -0.16, 0.25);
+        part(claw, 0.05, 0.55, 0.05, toothMaterial, 0, -0.27, 0);
+        arms.push(claw);
+      }
     }
+    // Its afterimage: the same shape in the Null's violet, left behind where it stuttered.
+    const ghost = group.clone(true);
+    ghost.traverse((object) => {
+      object.userData = {};
+      object.raycast = () => {};
+      if ((object as THREE.Mesh).isMesh) (object as THREE.Mesh).material = ghostMaterial;
+    });
+    ghost.visible = false;
+    scene.add(ghost);
     scene.add(group);
-    return { group, legs, arms, skin: [skin], kind, flash: 0, lunge: 0, step: random() * 10 };
+    return {
+      group, legs, arms, skin: [skin], kind, flash: 0, lunge: 0, step: random() * 10,
+      head, jaw, wings, eyes, held: null, nextStutter: performance.now() + 1000 + random() * 3000,
+      ghost, ghostUntil: 0, twitch: 0, twitchUntil: 0, blinkUntil: 0, screamUntil: 0,
+    };
   };
 
   // ---- Acid, pickups, and the flashes of a fight. ----
@@ -457,6 +583,19 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
   for (const child of gun.children) child.raycast = () => {};
   gun.position.set(0.3, -0.28, -0.55);
   camera.add(gun);
+  // The sim-body's own fist, for the Conservation strike, and the line of its tether.
+  const fist = new THREE.Group();
+  part(fist, 0.14, 0.14, 0.34, lambert("#3a3f4e"), 0, 0, 0);
+  part(fist, 0.16, 0.06, 0.06, glow("#c9b6ff"), 0, 0.02, -0.18);
+  for (const child of fist.children) child.raycast = () => {};
+  fist.visible = false;
+  camera.add(fist);
+  const tetherGeometry = keep(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]));
+  const tetherLine = inert(new THREE.Line(tetherGeometry, keep(new THREE.LineBasicMaterial({ color: "#c9b6ff" }))));
+  tetherLine.frustumCulled = false;
+  tetherLine.visible = false;
+  scene.add(tetherLine);
+  const tetherEnd = new THREE.Vector3();
   scene.add(camera);
   const muzzleLight = new THREE.PointLight("#bcd8ff", 0, 8, 1.5);
   muzzleLight.position.set(0.3, -0.2, -1.1);
@@ -491,6 +630,31 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
   let feet = groundAt(0, 0);
   let rise = 0;
   let landing = 0;
+  // Moving like a machine: momentum, three dash charges, a slide, a slam and its bounce,
+  // Transit thrusters on a little fuel, the Containment tether, and the fist.
+  let vx = 0;
+  let vz = 0;
+  let dashes = DASH_CHARGES;
+  let dashUntil = 0;
+  let sliding = false;
+  let slideX = 0;
+  let slideZ = 0;
+  let slamming = false;
+  let slamFrom = 0;
+  let bounceUntil = 0;
+  let fuel = 1;
+  let thrusting = false;
+  let tether: { point: THREE.Vector3; until: number; alienId: number | null } | null = null;
+  let tetherReady = 0;
+  let tetherFlash = 0;
+  let punchFor = 0;
+  let eyeHeight = EYE;
+  let fovKick = 0;
+  // The Law-Heart's beat, and whether a shot now would land on it.
+  let lastBeat = -1;
+  let beatGlow = 0;
+  let resonantWindow = false;
+  const held = { jump: false, dash: false, crouch: false, punch: false, tether: false };
   /** What the feet stand on here: the ground, or the top of a boulder underfoot. */
   const floorAt = (x: number, z: number) => {
     let floor = groundAt(x, z);
@@ -534,12 +698,12 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
         return object.userData.alienId as number;
       }
       return null;
-    }), random);
+    }), random, resonantWindow);
     if (!shot) return;
     recoil = shot.damage > 2 || shot.bolts > 1 ? 1.7 : 1;
     flashFor = 0.05;
     flash.getWorldPosition(muzzle);
-    for (const end of ends) arcs.fire(muzzle, end);
+    for (const end of ends) arcs.fire(muzzle, end, resonantWindow);
     if (ends[0]) {
       spark.position.copy(ends[0]);
       spark.visible = true;
@@ -551,17 +715,174 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
     audio ??= createSimAudio();
     const player = state.player;
     const aiming = Boolean(input.aim) && player.alive;
+    // The Law-Heart's beat, carried in: a soft pulse, and a moment on it when shots strike harder.
+    const sinceBeat = now % beatPeriodMs;
+    const beatIndex = Math.floor(now / beatPeriodMs);
+    if (beatIndex !== lastBeat) {
+      lastBeat = beatIndex;
+      if (player.alive) audio?.beat();
+    }
+    resonantWindow = sinceBeat < 130 || sinceBeat > beatPeriodMs - 90;
+    beatGlow = Math.exp(-sinceBeat / 150);
     if (player.alive) {
-      // Walk or run.
-      const speed = input.sprint ? RUN : WALK;
-      const length = Math.hypot(input.forward, input.strafe);
-      if (length > 0) {
-        const forwardX = -Math.sin(yaw);
-        const forwardZ = -Math.cos(yaw);
-        player.x += ((input.forward * forwardX + input.strafe * -forwardZ) / length) * speed * dt;
-        player.z += ((input.forward * forwardZ + input.strafe * forwardX) / length) * speed * dt;
-        if (rise === 0) bob += dt * (input.sprint ? 13 : 9);
+      const t = state.time;
+      const pressed = (down: boolean | undefined, key: keyof typeof held) => Boolean(down) && !held[key];
+      const forwardX = -Math.sin(yaw);
+      const forwardZ = -Math.cos(yaw);
+      let wishX = input.forward * forwardX + input.strafe * -forwardZ;
+      let wishZ = input.forward * forwardZ + input.strafe * forwardX;
+      const wish = Math.hypot(wishX, wishZ);
+      if (wish > 0) {
+        wishX /= wish;
+        wishZ /= wish;
       }
+      const floor = floorAt(player.x, player.z);
+      const grounded = rise === 0 && !tether && feet - floor < STEP;
+
+      // Shift: a dash the way the sim-body is steering (or facing), that blows pass straight through.
+      if (pressed(input.sprint, "dash") && dashes >= 1) {
+        vx = (wish > 0 ? wishX : forwardX) * DASH_SPEED;
+        vz = (wish > 0 ? wishZ : forwardZ) * DASH_SPEED;
+        dashUntil = t + DASH_SECONDS;
+        dashes -= 1;
+        dodge(state, DASH_SECONDS + 0.06);
+        sliding = false;
+        tether = null;
+        if (!grounded) rise = Math.max(rise, 0);
+        audio?.dash();
+      }
+      if (t >= dashUntil) dashes = Math.min(DASH_CHARGES, dashes + dt / DASH_RECHARGE);
+
+      // C: a slide along the ground, or from the air a slam that shakes it.
+      if (input.crouch && grounded && !sliding && t >= dashUntil && (wish > 0 || Math.hypot(vx, vz) > 3)) {
+        const speed = Math.max(0.001, Math.hypot(vx, vz));
+        sliding = true;
+        slideX = wish > 0 ? wishX : vx / speed;
+        slideZ = wish > 0 ? wishZ : vz / speed;
+        audio?.slide();
+      }
+      if (!input.crouch) sliding = false;
+      if (pressed(input.crouch, "crouch") && !grounded && !slamming) {
+        slamming = true;
+        slamFrom = feet;
+        rise = -SLAM_SPEED;
+        vx *= 0.15;
+        vz *= 0.15;
+        tether = null;
+        sliding = false;
+      }
+
+      // Space: a jump (out of a slide it keeps the speed; just after a slam lands it goes higher), or
+      // letting go of the tether, which flings the sim-body on. Held in the air, the thrusters.
+      if (pressed(input.jump, "jump") && grounded) {
+        rise = JUMP * (t < bounceUntil ? SLAM_BOUNCE : 1);
+        sliding = false;
+        audio?.jump();
+      } else if (pressed(input.jump, "jump") && tether) {
+        tether = null;
+        rise = Math.max(rise, JUMP * 0.6);
+      }
+      thrusting = Boolean(input.jump) && !grounded && !slamming && !tether && fuel > 0 && rise < JUMP * 0.5;
+      if (thrusting) {
+        rise = Math.min(rise + THRUST * dt, 7);
+        fuel = Math.max(0, fuel - dt / FUEL_SECONDS);
+      }
+      if (grounded) fuel = Math.min(1, fuel + dt / FUEL_REFILL);
+      audio?.thrust(thrusting ? 1 : 0);
+
+      // F: the Containment tether, fired at whatever is in the middle of the view.
+      if (pressed(input.light, "tether") && t >= tetherReady) {
+        tetherReady = t + 0.45;
+        raycaster.setFromCamera(centre, camera);
+        raycaster.far = TETHER_RANGE;
+        const hit = raycaster.intersectObjects([trunkMesh, canopyMesh, ...[...models.values()].map((model) => model.group)], true)[0];
+        raycaster.far = 90;
+        if (hit) {
+          let alienId: number | null = null;
+          for (let object: THREE.Object3D | null = hit.object; object; object = object.parent) {
+            if (typeof object.userData.alienId !== "number") continue;
+            alienId = object.userData.alienId;
+            break;
+          }
+          const caught = alienId === null ? null : tetherAlien(state, alienId);
+          if (caught === "pulled") {
+            tetherFlash = 0.18;
+            tetherEnd.copy(hit.point);
+          } else {
+            tether = { point: hit.point.clone(), until: t + TETHER_SECONDS, alienId: caught === "anchored" ? alienId : null };
+            sliding = false;
+            slamming = false;
+          }
+          audio?.tether();
+        }
+      }
+
+      // E: the Conservation strike.
+      if (pressed(input.interact, "punch") && punch(state, forwardX, forwardZ, random)) punchFor = 0.18;
+      held.jump = Boolean(input.jump);
+      held.dash = Boolean(input.sprint);
+      held.crouch = Boolean(input.crouch);
+      held.punch = Boolean(input.interact);
+      held.tether = Boolean(input.light);
+
+      // How it moves this frame: the tether hauls it, a dash carries it, a slide holds its speed;
+      // otherwise it runs, stopping and turning at once on the ground, keeping its speed in the air.
+      if (tether && tether.alienId !== null) {
+        const model = models.get(tether.alienId);
+        if (model) tether.point.set(model.group.position.x, model.group.position.y + 1.4, model.group.position.z);
+        else tether = null;
+      }
+      if (tether) {
+        const toX = tether.point.x - player.x;
+        const toY = tether.point.y - (feet + EYE * 0.6);
+        const toZ = tether.point.z - player.z;
+        const apart = Math.hypot(toX, toY, toZ);
+        if (apart < 2.2 || t > tether.until) {
+          tether = null;
+          vx *= 0.7;
+          vz *= 0.7;
+        } else {
+          vx = (toX / apart) * TETHER_SPEED;
+          vz = (toZ / apart) * TETHER_SPEED;
+          rise = (toY / apart) * TETHER_SPEED;
+        }
+      } else if (t < dashUntil) {
+        // The dash carries on as it began.
+      } else if (sliding) {
+        if (wish > 0) {
+          const turn = Math.min(1, dt * 2);
+          slideX += (wishX - slideX) * turn;
+          slideZ += (wishZ - slideZ) * turn;
+          const length = Math.max(0.001, Math.hypot(slideX, slideZ));
+          slideX /= length;
+          slideZ /= length;
+        }
+        vx = slideX * SLIDE_SPEED;
+        vz = slideZ * SLIDE_SPEED;
+      } else {
+        if (grounded || wish > 0) {
+          const gapX = wishX * MOVE - vx;
+          const gapZ = wishZ * MOVE - vz;
+          const gap = Math.hypot(gapX, gapZ);
+          if (gap > 0) {
+            const step = Math.min(gap, (grounded ? GROUND_ACCEL : AIR_ACCEL) * dt);
+            vx += (gapX / gap) * step;
+            vz += (gapZ / gap) * step;
+          }
+        }
+        if (!grounded) {
+          // Above running speed the air bleeds a little off, slowly, so a fling carries.
+          const speed = Math.hypot(vx, vz);
+          if (speed > MOVE) {
+            const kept = Math.max(MOVE, speed - 4 * dt) / speed;
+            vx *= kept;
+            vz *= kept;
+          }
+        }
+      }
+      player.x += vx * dt;
+      player.z += vz * dt;
+      if (grounded && !sliding && Math.hypot(vx, vz) > 1) bob += dt * 11;
       // Every frame, moving or falling: kept out of trunks and of any boulder not below the
       // feet, and held inside the simulation.
       for (const obstacle of obstacles) {
@@ -579,27 +900,36 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
         player.z *= (ARENA_RADIUS - 0.6) / reach;
       }
 
-      // Jumping: up about a metre, onto a rock if one is low enough, and down again.
-      const floor = floorAt(player.x, player.z);
-      // On the ground, the feet follow it up and down slopes and over a step; off a ledge, they fall.
-      if (rise === 0 && feet - floor < STEP) feet = floor;
-      const standing = rise === 0 && feet === floor;
-      if (standing && input.jump) {
-        rise = JUMP;
-        audio?.jump();
-      }
-      if (!standing || rise !== 0) {
+      // Up and down: the tether holds it up, a dash in the air holds its height, otherwise gravity;
+      // a slam's landing shakes the ground and throws back what is near.
+      const below = floorAt(player.x, player.z);
+      if (rise === 0 && !tether && feet - below < STEP) feet = below;
+      const onGround = rise === 0 && feet === below;
+      if (tether) {
+        feet = Math.max(below, feet + rise * dt);
+      } else if (t < dashUntil && !onGround) {
+        rise = 0;
+      } else if (!onGround) {
         rise -= GRAVITY * dt;
         feet += rise * dt;
-        if (feet <= floor) {
-          if (rise < -4) {
+        if (feet <= below) {
+          if (slamming) {
+            const strength = Math.min(2, 0.7 + (slamFrom - below) / 5);
+            slam(state, strength, random);
+            bounceUntil = t + 0.3;
+            shake = reducedMotion ? 0 : Math.min(1, strength * 0.6);
+            landing = 1;
+            audio?.slam(strength);
+            slamming = false;
+          } else if (rise < -4) {
             landing = Math.min(1, -rise / 9);
             audio?.land(landing);
           }
-          feet = floor;
+          feet = below;
           rise = 0;
         }
       }
+      player.lift = Math.max(0, feet - groundAt(player.x, player.z));
       if (input.firing) pull(aiming);
       stepSim(state, dt, random);
     }
@@ -615,6 +945,13 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
       } else if (event.type === "scream" || event.type === "spawn") {
         const at = heard(event.x, 1.5, event.z);
         audio?.scream(event.kind, at.pan, at.gain * (event.type === "spawn" ? 0.7 : 1));
+        // The one that screamed opens its mouth: the nearest of its kind to where the sound came from.
+        let screamer: AlienModel | null = null;
+        for (const candidate of models.values()) {
+          if (candidate.kind !== event.kind) continue;
+          if (!screamer || Math.hypot(candidate.group.position.x - event.x, candidate.group.position.z - event.z) < Math.hypot(screamer.group.position.x - event.x, screamer.group.position.z - event.z)) screamer = candidate;
+        }
+        if (screamer) screamer.screamUntil = now + 480;
       } else if (event.type === "strike") {
         const at = heard(event.x, 1, event.z);
         audio?.strike(event.kind, at.pan, at.gain);
@@ -640,6 +977,13 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
       else if (event.type === "dry") audio?.dry();
       else if (event.type === "reload") audio?.reload();
       else if (event.type === "pickup") audio?.pickup();
+      else if (event.type === "punch") audio?.punch();
+      else if (event.type === "parry") {
+        audio?.parry();
+        marker = 1;
+      } else if (event.type === "dodged") audio?.dodged();
+      else if (event.type === "flux") audio?.flux();
+      else if (event.type === "resonant") audio?.resonant();
       else if (event.type === "death") {
         // The results panel says it; the banner would only repeat it.
         audio?.death();
@@ -653,8 +997,9 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
     for (const [id, model] of models) {
       if (alive.has(id)) continue;
       const kind = model.kind;
-      burst(model.group.position.x, model.group.position.y + (kind === "brute" ? 2 : 1), model.group.position.z, kind === "spitter" ? "#c8f04a" : kind === "brute" ? "#ff8a5a" : "#b48cff");
+      burst(model.group.position.x, model.group.position.y + (kind === "brute" ? 2 : kind === "harrier" ? 0 : 1), model.group.position.z, kind === "spitter" ? "#c8f04a" : kind === "brute" ? "#ff8a5a" : kind === "harrier" ? "#8ad0ff" : "#b48cff");
       scene.remove(model.group);
+      scene.remove(model.ghost);
       models.delete(id);
     }
     for (const alien of state.aliens) {
@@ -664,17 +1009,54 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
         models.set(alien.id, model);
       }
       const { group } = model;
-      const moved = Math.hypot(alien.x - group.position.x, alien.z - group.position.z);
+      const flying = alien.kind === "harrier";
       const faceX = player.x - alien.x;
       const faceZ = player.z - alien.z;
-      group.rotation.y = Math.atan2(faceX, faceZ);
+      const facing = Math.atan2(faceX, faceZ);
       model.lunge = Math.max(0, model.lunge - dt * 3);
       const lungeOffset = Math.sin(model.lunge * Math.PI) * 0.6;
-      group.position.set(alien.x + Math.sin(group.rotation.y) * lungeOffset, groundAt(alien.x, alien.z), alien.z + Math.cos(group.rotation.y) * lungeOffset);
+      const toX = alien.x + Math.sin(facing) * lungeOffset;
+      const toZ = alien.z + Math.cos(facing) * lungeOffset;
+      let toY = groundAt(alien.x, alien.z) + (alien.height ?? 0);
+      if (flying && !alien.dive) toY += Math.sin(now * 0.004 + alien.id) * 0.25;
+      if (alien.kind === "spitter") toY += Math.sin(now * 0.006 + alien.id) * 0.08;
+      // The Null keeps losing track of them: now and then one hangs where it was for a moment,
+      // then is suddenly where it is, leaving an afterimage behind.
+      if (!reducedMotion && !model.held && now > model.nextStutter) {
+        model.nextStutter = now + 1600 + random() * 3600;
+        model.held = { x: group.position.x, y: group.position.y, z: group.position.z, until: now + 130 };
+      }
+      if (model.held && now >= model.held.until) {
+        model.ghost.position.set(model.held.x, model.held.y, model.held.z);
+        model.ghost.rotation.copy(group.rotation);
+        model.ghost.visible = true;
+        model.ghostUntil = now + 160;
+        model.held = null;
+      }
+      if (model.ghost.visible && now > model.ghostUntil) model.ghost.visible = false;
+      const moved = Math.hypot(toX - group.position.x, toZ - group.position.z);
+      if (!model.held) group.position.set(toX, toY, toZ);
+      group.rotation.y = facing;
+      group.rotation.x = flying && alien.dive ? 0.55 : 0;
       model.step += moved * 3.2;
       model.legs.forEach((leg, index) => { leg.rotation.x = Math.sin(model!.step + index * Math.PI * 0.5) * (moved > 0.0005 ? 0.6 : 0.1); });
       model.arms.forEach((arm, index) => { arm.rotation.x = -model!.lunge * 2.2 + Math.sin(model!.step + index * Math.PI) * 0.3; });
-      if (alien.kind === "spitter") group.position.y += Math.sin(now * 0.006 + alien.id) * 0.08;
+      // A harrier's wings beat while it circles and fold back for the dive.
+      model.wings.forEach((wing, index) => {
+        const side = index === 0 ? -1 : 1;
+        wing.rotation.z = alien.dive ? side * -0.95 : side * Math.sin(now * 0.013 + alien.id) * 0.65;
+      });
+      // Mouths open to scream, to strike and to dive; heads twitch; the eyes go out and come back.
+      if (model.jaw) model.jaw.rotation.x = 0.1 + model.lunge * 0.9 + (now < model.screamUntil ? 0.75 : 0) + (alien.dive ? 0.5 : 0);
+      if (model.head && !reducedMotion) {
+        if (now > model.twitchUntil && random() < dt * 0.9) {
+          model.twitch = (random() - 0.5) * 1.1;
+          model.twitchUntil = now + 110;
+        }
+        model.head.rotation.z = now < model.twitchUntil ? model.twitch : model.head.rotation.z * 0.85;
+      }
+      if (now > model.blinkUntil && random() < dt * 0.7) model.blinkUntil = now + 90;
+      for (const eye of model.eyes) eye.visible = now > model.blinkUntil;
       model.flash = Math.max(0, model.flash - dt * 8);
       for (const material of model.skin) material.emissiveIntensity = model.flash * 0.9;
     }
@@ -743,12 +1125,16 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
     aimBlend += ((aiming ? 1 : 0) - aimBlend) * Math.min(1, dt * 10);
     const sway = reducedMotion ? 0 : Math.sin(bob) * 0.03;
     const jolt = shake * 0.05;
-    // A hard landing dips the view for a moment.
+    // A hard landing dips the view for a moment; a slide brings it down low.
     const sink = reducedMotion ? 0 : landing * 0.22;
-    camera.position.set(player.x, feet + EYE + Math.abs(sway) * 0.5 - sink, player.z);
+    eyeHeight += ((sliding ? SLIDE_EYE : EYE) - eyeHeight) * Math.min(1, dt * 14);
+    camera.position.set(player.x, feet + eyeHeight + Math.abs(sway) * 0.5 - sink, player.z);
     camera.rotation.set(pitch + recoil * 0.025 * (1 - aimBlend * 0.5) + (Math.random() - 0.5) * jolt, yaw + (Math.random() - 0.5) * jolt, 0);
     // Down the sights the optic draws the view in; through a scope the carbine is out of sight.
-    const fov = 72 / (1 + aimBlend * (OPTICS[loadout.optic].zoom - 1));
+    // Speed widens it a little: a dash, the tether's haul, a slide.
+    const kick = reducedMotion ? 0 : state.time < dashUntil ? 12 : tether ? 9 : sliding ? 6 : 0;
+    fovKick += (kick - fovKick) * Math.min(1, dt * 12);
+    const fov = 72 / (1 + aimBlend * (OPTICS[loadout.optic].zoom - 1)) + fovKick * (1 - aimBlend);
     if (Math.abs(camera.fov - fov) > 0.05) {
       camera.fov = fov;
       camera.updateProjectionMatrix();
@@ -765,6 +1151,23 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
       (coil.material as THREE.MeshBasicMaterial).color.copy(coilColour);
     });
     dressed.showCharge(readout.charge);
+    // The fist drives out and back; the tether's line runs from the carbine to what it holds.
+    punchFor = Math.max(0, punchFor - dt);
+    fist.visible = punchFor > 0;
+    if (fist.visible) {
+      const swing = Math.sin((1 - punchFor / 0.18) * Math.PI);
+      fist.position.set(-0.22, -0.3 + swing * 0.08, -0.45 - swing * 0.45);
+    }
+    tetherFlash = Math.max(0, tetherFlash - dt);
+    tetherLine.visible = player.alive && (Boolean(tether) || tetherFlash > 0);
+    if (tetherLine.visible) {
+      flash.getWorldPosition(muzzle);
+      const end = tether ? tether.point : tetherEnd;
+      const ends = tetherGeometry.attributes.position as THREE.BufferAttribute;
+      ends.setXYZ(0, muzzle.x, muzzle.y, muzzle.z);
+      ends.setXYZ(1, end.x, end.y, end.z);
+      ends.needsUpdate = true;
+    }
     for (let index = 0; index < fireflyCount; index += 1) {
       const seed = fireflySeeds[index];
       const x = seed.x + Math.sin(now * 0.0003 + seed.phase) * 2;
@@ -788,6 +1191,9 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
     reload() {
       reloadCarbine(state);
     },
+    law(form: CarbineForm) {
+      if (switchLaw(state.player.gun, form, state.time)) audio?.law();
+    },
     update,
     resize(aspect: number) {
       camera.aspect = aspect;
@@ -799,6 +1205,8 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
         health: player.health,
         maxHealth: player.maxHealth,
         carbine: { ...carbineReadout(player.gun, state.time), powered: underDome(state) },
+        motion: { dashes, fuel, sliding, tethered: Boolean(tether) },
+        beat: beatGlow,
         aiming: aimBlend > 0.5,
         wave: state.wave,
         score: state.score,

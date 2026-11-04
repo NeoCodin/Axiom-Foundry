@@ -14,7 +14,7 @@ import * as THREE from "three";
 
 import { createOpsAudio, type OpsAudio, type OpsSound } from "./ark-ops-audio";
 import { roomAt, tileAt, wallsBetween } from "./ark-ops-map";
-import { carbineReadout, DEFAULT_LOADOUT, OPTICS } from "./arc-carbine";
+import { carbineReadout, DEFAULT_LOADOUT, OPTICS, switchLaw, type CarbineForm } from "./arc-carbine";
 import { createArcs, dressCarbine, heatColour } from "./arc-carbine-model";
 import { createOps, fireOps, inShuttleField, opsGlitch, opsObjective, opsPrompt, reloadOps, SHUTTLE_FIELD, stepOps, type OpsHit, type OpsKind } from "./ark-ops-rules";
 import type { SimHud, SimInput, SimWorldOptions } from "./ark-sim";
@@ -830,6 +830,9 @@ export function createOpsWorld(difficulty: SimDifficulty, { reducedMotion = fals
     },
     reload() {
       reloadOps(state);
+    },
+    law(form: CarbineForm) {
+      switchLaw(state.player.gun, form, state.time);
     },
     update,
     resize(aspect: number) {

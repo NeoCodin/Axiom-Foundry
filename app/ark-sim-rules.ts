@@ -4,7 +4,12 @@
  * alien things that scream and charge. Crew drill in it; AXIOM can step in too.
  *
  * Waves of aliens come out of the jungle: stalkers that run you down, spitters
- * that hang back and lob acid, and brutes that take a cell to drop. You have
+ * that hang back and lob acid, harriers that circle overhead and dive, and brutes
+ * that take a cell to drop. AXIOM's sim-body is no person and moves like it: it
+ * dashes through blows, punches acid back where it came from, slams down from the
+ * air, and hauls itself about on a Containment tether (the drawing code moves it;
+ * these rules settle what each move does). Kills give off Flux the carbine soaks
+ * up, and shots on the Law-Heart's beat strike harder. You have
  * the Arc Carbine (arc-carbine.ts), a health bar and what spare cells you can
  * find; the training dome over the clearing where a run begins recharges the
  * seated cell. How many cells there are, and how hard they hit, is set by the
@@ -15,10 +20,10 @@
  * ark-sim-audio.ts gives it voice.
  */
 
-import { createCarbine, DEFAULT_LOADOUT, FORMS, pullTrigger, stepCarbine, swapCell, type Carbine, type CarbineLoadout, type Discharge } from "./arc-carbine.ts";
+import { CELLS, createCarbine, DEFAULT_LOADOUT, FORMS, pullTrigger, stepCarbine, swapCell, type Carbine, type CarbineLoadout, type Discharge } from "./arc-carbine.ts";
 
 export type SimDifficulty = "recruit" | "soldier" | "veteran";
-export type AlienKind = "stalker" | "spitter" | "brute";
+export type AlienKind = "stalker" | "spitter" | "brute" | "harrier";
 
 export const SIM_DIFFICULTIES: Record<SimDifficulty, {
   label: string;
@@ -40,8 +45,9 @@ export const SIM_DIFFICULTIES: Record<SimDifficulty, {
   /** Chance a kill drops a cell, and health. */
   cellDrop: number;
   healthDrop: number;
-  /** The wave spitters, then brutes, first appear in. */
+  /** The wave spitters, harriers and brutes first appear in. */
   spittersFrom: number;
+  harriersFrom: number;
   brutesFrom: number;
   /** Seconds of Security training each cleared wave drills into the trainees. */
   drill: number;
@@ -52,7 +58,7 @@ export const SIM_DIFFICULTIES: Record<SimDifficulty, {
     playerHealth: 150, toughness: 0.8, pace: 0.8, bite: 0.6,
     firstWave: 4, growth: 2, crowd: 6, arrival: 1.6,
     cells: Infinity, cellDrop: 0, healthDrop: 0.15,
-    spittersFrom: 3, brutesFrom: 5,
+    spittersFrom: 3, harriersFrom: 4, brutesFrom: 5,
     drill: 60,
   },
   soldier: {
@@ -61,7 +67,7 @@ export const SIM_DIFFICULTIES: Record<SimDifficulty, {
     playerHealth: 100, toughness: 1, pace: 1, bite: 1,
     firstWave: 5, growth: 3, crowd: 9, arrival: 1.1,
     cells: 3, cellDrop: 0.3, healthDrop: 0.1,
-    spittersFrom: 2, brutesFrom: 3,
+    spittersFrom: 2, harriersFrom: 2, brutesFrom: 3,
     drill: 120,
   },
   veteran: {
@@ -70,7 +76,7 @@ export const SIM_DIFFICULTIES: Record<SimDifficulty, {
     playerHealth: 80, toughness: 1.35, pace: 1.25, bite: 1.5,
     firstWave: 7, growth: 4, crowd: 12, arrival: 0.8,
     cells: 1, cellDrop: 0.18, healthDrop: 0.06,
-    spittersFrom: 1, brutesFrom: 2,
+    spittersFrom: 1, harriersFrom: 1, brutesFrom: 2,
     drill: 180,
   },
 };
@@ -89,10 +95,30 @@ export const ALIENS: Record<AlienKind, {
   radius: number;
   score: number;
 }> = {
-  stalker: { health: 3, speed: 4.2, damage: 12, reach: 1.8, cooldown: 0.9, radius: 0.6, score: 100 },
-  spitter: { health: 2, speed: 2.6, damage: 9, reach: 11, cooldown: 2.2, radius: 0.7, score: 150 },
-  brute: { health: 10, speed: 2.1, damage: 26, reach: 2.3, cooldown: 1.6, radius: 1.1, score: 400 },
+  stalker: { health: 3, speed: 5, damage: 12, reach: 1.8, cooldown: 0.9, radius: 0.6, score: 100 },
+  spitter: { health: 2, speed: 3, damage: 9, reach: 11, cooldown: 2.2, radius: 0.7, score: 150 },
+  brute: { health: 10, speed: 2.6, damage: 26, reach: 2.3, cooldown: 1.6, radius: 1.1, score: 400 },
+  // Its reach is how close its dive has to come, in the air as on the ground.
+  harrier: { health: 2, speed: 6.5, damage: 10, reach: 1.7, cooldown: 2.8, radius: 0.7, score: 175 },
 };
+
+/** How high a harrier circles, and how far out from AXIOM it keeps while it does. */
+export const HARRIER_CRUISE = 6.5;
+const HARRIER_RING = 9;
+/** Feet higher off the ground than this, and nothing on the ground can reach AXIOM. */
+export const STRIKE_HEIGHT = 2.4;
+/** The Conservation strike: its reach and arc, what it does, and how often. */
+export const PUNCH = { reach: 2.8, cone: Math.cos(Math.PI / 3), damage: 2, knock: 4, stagger: 1.2, cooldown: 0.4 } as const;
+/** A slam's landing hurts and throws back everything on the ground this close. */
+export const SLAM_RADIUS = 4.5;
+/** Acid punched back burns what it meets this hard. */
+export const REFLECT_DAMAGE = 4;
+/** A kill's Flux, as a share of the cell the carbine soaks it into. */
+export const KILL_FLUX = 0.15;
+/** A shot on the Law-Heart's beat strikes this much harder. */
+export const RESONANT = 1.5;
+/** A tethered alien is hauled in to this far off. */
+export const TETHER_HOLD = 2.2;
 
 /** The training dome over the clearing where a run begins: inside it the carbine's cell draws power. */
 export const SIM_DOME = { x: 0, z: 0, radius: 6 } as const;
@@ -114,11 +140,15 @@ export type SimAlien = {
   cooldown: number;
   /** Seconds until it next screams while hunting. */
   screamIn: number;
-  /** A spitter's preferred side when circling. */
+  /** A spitter's or harrier's preferred side when circling. */
   circle: 1 | -1;
+  /** A harrier's height above the ground, and whether it is diving. */
+  height?: number;
+  dive?: boolean;
 };
 
-export type SimSpit = { id: number; x: number; z: number; dx: number; dz: number; life: number };
+/** Acid in flight; reflected once a punch has sent it back. */
+export type SimSpit = { id: number; x: number; z: number; dx: number; dz: number; life: number; reflected?: boolean };
 export type SimPickup = { id: number; kind: "cell" | "health"; x: number; z: number };
 
 export type SimEvent =
@@ -129,7 +159,7 @@ export type SimEvent =
   | { type: "spit"; x: number; z: number }
   | { type: "hit"; kind: AlienKind; x: number; z: number }
   | { type: "hurt"; amount: number }
-  | { type: "shot" | "dry" | "reload" | "reloaded" | "vent" | "vented" | "charged" | "death" }
+  | { type: "shot" | "dry" | "reload" | "reloaded" | "vent" | "vented" | "charged" | "punch" | "parry" | "slam" | "dodged" | "flux" | "resonant" | "death" }
   | { type: "pickup"; kind: SimPickup["kind"] };
 
 export type SimState = {
@@ -152,6 +182,11 @@ export type SimState = {
     /** The Arc Carbine in AXIOM's hands: its cell, spares, heat and loadout. */
     gun: Carbine;
     alive: boolean;
+    /** How high the feet are off the ground, as the drawing code moves the sim-body. */
+    lift: number;
+    /** Until when a dash carries it through blows, and when it can punch again. */
+    dodgeUntil: number;
+    punchReady: number;
   };
   aliens: SimAlien[];
   spit: SimSpit[];
@@ -187,6 +222,9 @@ export function createSim(difficulty: SimDifficulty, random: () => number = Math
       maxHealth: rules.playerHealth,
       gun: createCarbine(loadout, rules.cells),
       alive: true,
+      lift: 0,
+      dodgeUntil: -Infinity,
+      punchReady: 0,
     },
     aliens: [],
     spit: [],
@@ -210,6 +248,7 @@ export function waveRoster(difficulty: SimDifficulty, wave: number, random: () =
   const count = rules.firstWave + (wave - 1) * rules.growth;
   return Array.from({ length: count }, (_, index) => {
     if (wave >= rules.brutesFrom && index % 6 === 5) return "brute";
+    if (wave >= rules.harriersFrom && index % 5 === 2) return "harrier";
     if (wave >= rules.spittersFrom && random() < 0.3) return "spitter";
     return "stalker";
   });
@@ -232,8 +271,146 @@ function spawn(state: SimState, kind: AlienKind, random: () => number) {
     cooldown: 1,
     screamIn: 2 + random() * 5,
     circle: random() < 0.5 ? 1 : -1,
+    ...(kind === "harrier" ? { height: HARRIER_CRUISE, dive: false } : {}),
   });
   state.events.push({ type: "spawn", kind, x: at.x, z: at.z });
+}
+
+/** An alien's blow lands, unless a dash is carrying AXIOM through it. */
+function strike(state: SimState, alien: SimAlien) {
+  if (state.time < state.player.dodgeUntil) {
+    state.events.push({ type: "dodged" });
+    return;
+  }
+  const amount = ALIENS[alien.kind].damage * SIM_DIFFICULTIES[state.difficulty].bite;
+  state.player.health -= amount;
+  state.events.push({ type: "strike", kind: alien.kind, x: alien.x, z: alien.z }, { type: "hurt", amount });
+}
+
+/**
+ * Hurt an alien; at nothing it falls, scores, may drop something, and gives off the
+ * Flux the carbine soaks into its cell. Returns whether it fell.
+ */
+function hurtAlien(state: SimState, alien: SimAlien, damage: number, random: () => number) {
+  alien.health -= damage;
+  state.events.push({ type: "hit", kind: alien.kind, x: alien.x, z: alien.z });
+  if (alien.health > 0) return false;
+  const rules = SIM_DIFFICULTIES[state.difficulty];
+  const gun = state.player.gun;
+  state.aliens = state.aliens.filter((candidate) => candidate !== alien);
+  state.kills += 1;
+  state.score += Math.round(ALIENS[alien.kind].score * (1 + Math.max(0, state.wave - 1) * 0.1));
+  state.events.push({ type: "kill", kind: alien.kind, x: alien.x, z: alien.z });
+  const capacity = CELLS[gun.loadout.cell].capacity;
+  if (gun.swapUntil === null && gun.charge < capacity) {
+    gun.charge = Math.min(capacity, gun.charge + capacity * KILL_FLUX);
+    state.events.push({ type: "flux" });
+  }
+  const roll = random();
+  if (roll < rules.cellDrop) state.pickups.push({ id: state.nextId++, kind: "cell", x: alien.x, z: alien.z });
+  else if (roll < rules.cellDrop + rules.healthDrop) state.pickups.push({ id: state.nextId++, kind: "health", x: alien.x, z: alien.z });
+  return true;
+}
+
+/** Things close enough to the sim-body's height to be reached from where it is. */
+const atHeight = (state: SimState, alien: SimAlien, within: number) => Math.abs((alien.height ?? 0) - state.player.lift) <= within;
+
+/**
+ * The Conservation strike: what the fist meets in front of AXIOM is knocked back out of
+ * its rush and stunned, and acid in flight close by is sent back at the nearest alien.
+ * facing is the way AXIOM looks, along the ground.
+ */
+export function punch(state: SimState, facingX: number, facingZ: number, random: () => number = Math.random) {
+  const player = state.player;
+  if (!player.alive || state.time < player.punchReady) return null;
+  player.punchReady = state.time + PUNCH.cooldown;
+  state.events.push({ type: "punch" });
+  let hit = 0;
+  for (const alien of [...state.aliens]) {
+    const dx = alien.x - player.x;
+    const dz = alien.z - player.z;
+    const distance = Math.hypot(dx, dz);
+    if (!atHeight(state, alien, 2) || distance > PUNCH.reach + ALIENS[alien.kind].radius) continue;
+    if (distance > 0.3 && (dx * facingX + dz * facingZ) / distance < PUNCH.cone) continue;
+    hit += 1;
+    if (hurtAlien(state, alien, PUNCH.damage, random)) continue;
+    const away = distance > 0.001 ? { x: dx / distance, z: dz / distance } : { x: facingX, z: facingZ };
+    const knock = PUNCH.knock * (alien.kind === "brute" ? 0.35 : 1);
+    const at = clampToArena(alien.x + away.x * knock, alien.z + away.z * knock);
+    alien.x = at.x;
+    alien.z = at.z;
+    alien.cooldown = Math.max(alien.cooldown, PUNCH.stagger);
+    if (alien.kind === "harrier") alien.dive = false;
+  }
+  let parried = 0;
+  for (const blob of state.spit) {
+    if (blob.reflected || Math.hypot(blob.x - player.x, blob.z - player.z) > PUNCH.reach) continue;
+    const target = state.aliens
+      .filter((alien) => (alien.height ?? 0) < STRIKE_HEIGHT)
+      .sort((a, b) => Math.hypot(a.x - blob.x, a.z - blob.z) - Math.hypot(b.x - blob.x, b.z - blob.z))[0];
+    const toX = target ? target.x - blob.x : facingX;
+    const toZ = target ? target.z - blob.z : facingZ;
+    const length = Math.max(0.001, Math.hypot(toX, toZ));
+    blob.dx = (toX / length) * SPIT_SPEED * 1.8;
+    blob.dz = (toZ / length) * SPIT_SPEED * 1.8;
+    blob.reflected = true;
+    blob.life = 2.5;
+    parried += 1;
+  }
+  if (parried > 0) state.events.push({ type: "parry" });
+  return { hit, parried };
+}
+
+/** A slam's landing: everything on the ground close by is hurt and thrown back, harder from higher up. */
+export function slam(state: SimState, strength: number, random: () => number = Math.random) {
+  const player = state.player;
+  if (!player.alive) return 0;
+  state.events.push({ type: "slam" });
+  let hit = 0;
+  for (const alien of [...state.aliens]) {
+    if ((alien.height ?? 0) > STRIKE_HEIGHT) continue;
+    const dx = alien.x - player.x;
+    const dz = alien.z - player.z;
+    const distance = Math.hypot(dx, dz);
+    if (distance > SLAM_RADIUS + ALIENS[alien.kind].radius) continue;
+    hit += 1;
+    if (hurtAlien(state, alien, 1.5 * strength, random)) continue;
+    const knock = 3 * strength * (alien.kind === "brute" ? 0.4 : 1);
+    const at = clampToArena(alien.x + (dx / Math.max(0.001, distance)) * knock, alien.z + (dz / Math.max(0.001, distance)) * knock);
+    alien.x = at.x;
+    alien.z = at.z;
+    alien.cooldown = Math.max(alien.cooldown, 0.8);
+  }
+  return hit;
+}
+
+/**
+ * The Containment tether: the space between AXIOM and what it hooks cannot grow. Anything
+ * lighter than a brute is hauled in to arm's length and stunned (a harrier out of the
+ * sky); a brute is too heavy, and AXIOM goes to it instead.
+ */
+export function tetherAlien(state: SimState, id: number): "pulled" | "anchored" | null {
+  const player = state.player;
+  const alien = state.aliens.find((candidate) => candidate.id === id);
+  if (!player.alive || !alien) return null;
+  if (alien.kind === "brute") return "anchored";
+  const dx = alien.x - player.x;
+  const dz = alien.z - player.z;
+  const distance = Math.max(0.001, Math.hypot(dx, dz));
+  const at = clampToArena(player.x + (dx / distance) * TETHER_HOLD, player.z + (dz / distance) * TETHER_HOLD);
+  alien.x = at.x;
+  alien.z = at.z;
+  alien.cooldown = Math.max(alien.cooldown, 1.1);
+  if (alien.kind === "harrier") {
+    alien.dive = false;
+    alien.height = player.lift + 1;
+  }
+  return "pulled";
+}
+
+/** A dash: for a moment nothing can touch the sim-body. */
+export function dodge(state: SimState, seconds: number) {
+  state.player.dodgeUntil = Math.max(state.player.dodgeUntil, state.time + seconds);
 }
 
 /**
@@ -289,18 +466,39 @@ export function stepSim(state: SimState, dt: number, random: () => number = Math
         state.spit.push({ id: state.nextId++, x: alien.x, z: alien.z, dx: (dx / distance) * SPIT_SPEED, dz: (dz / distance) * SPIT_SPEED, life: 2.4 });
         state.events.push({ type: "spit", x: alien.x, z: alien.z });
       }
+    } else if (alien.kind === "harrier") {
+      // Circling overhead; when ready it folds its wings and dives at AXIOM, strikes, and climbs away.
+      const height = alien.height ?? HARRIER_CRUISE;
+      if (!alien.dive) {
+        const want = distance > HARRIER_RING + 2 ? 1 : distance < HARRIER_RING - 2 ? -1 : 0;
+        moveX = (dx / distance) * want + (-dz / distance) * alien.circle;
+        moveZ = (dz / distance) * want + (dx / distance) * alien.circle;
+        alien.height = height + (HARRIER_CRUISE - height) * Math.min(1, dt * 1.5);
+        if (alien.cooldown <= 0) {
+          alien.dive = true;
+          state.events.push({ type: "scream", kind: alien.kind, x: alien.x, z: alien.z });
+        }
+      } else {
+        moveX = (dx / distance) * 1.5;
+        moveZ = (dz / distance) * 1.5;
+        const aim = player.lift + 1;
+        alien.height = height + (aim - height) * Math.min(1, dt * 3.5);
+        if (Math.hypot(distance, alien.height - aim) <= kind.reach) {
+          alien.dive = false;
+          alien.cooldown = kind.cooldown * (0.8 + random() * 0.4);
+          strike(state, alien);
+        }
+      }
     } else if (distance > kind.reach * 0.8) {
       moveX = dx / distance;
       moveZ = dz / distance;
-    } else if (alien.cooldown <= 0) {
+    } else if (alien.cooldown <= 0 && player.lift < STRIKE_HEIGHT) {
       alien.cooldown = kind.cooldown;
-      const amount = kind.damage * rules.bite;
-      player.health -= amount;
-      state.events.push({ type: "strike", kind: alien.kind, x: alien.x, z: alien.z }, { type: "hurt", amount });
+      strike(state, alien);
     }
-    // They keep a little apart rather than stacking into one.
+    // They keep a little apart rather than stacking into one (fliers among fliers).
     for (const other of state.aliens) {
-      if (other === alien) continue;
+      if (other === alien || (other.kind === "harrier") !== (alien.kind === "harrier")) continue;
       const apart = Math.hypot(alien.x - other.x, alien.z - other.z);
       const room = kind.radius + ALIENS[other.kind].radius;
       if (apart > 0.001 && apart < room) {
@@ -318,19 +516,33 @@ export function stepSim(state: SimState, dt: number, random: () => number = Math
     // Nor does the crowd shove one into AXIOM's own frame.
     const close = Math.hypot(alien.x - player.x, alien.z - player.z);
     const room = kind.radius + 0.6;
-    if (close < room && close > 0.001) {
+    const level = Math.abs((alien.height ?? 0) - player.lift) < 1.5;
+    if (close < room && close > 0.001 && level) {
       alien.x = player.x + ((alien.x - player.x) / close) * room;
       alien.z = player.z + ((alien.z - player.z) / close) * room;
     }
   }
 
-  // Acid in flight: it hits if it reaches the player, and is gone once spent.
+  // Acid in flight: it hits if it reaches the player (unless a dash carries it clear), and is
+  // gone once spent. Acid punched back burns whatever it meets instead.
   for (const blob of state.spit) {
     blob.x += blob.dx * dt;
     blob.z += blob.dz * dt;
     blob.life -= dt;
-    if (Math.hypot(blob.x - player.x, blob.z - player.z) < SPIT_HIT) {
+    if (blob.reflected) {
+      const struck = state.aliens.find((alien) => (alien.height ?? 0) < STRIKE_HEIGHT && Math.hypot(alien.x - blob.x, alien.z - blob.z) < ALIENS[alien.kind].radius + 0.4);
+      if (struck) {
+        blob.life = 0;
+        hurtAlien(state, struck, REFLECT_DAMAGE, random);
+      }
+      continue;
+    }
+    if (Math.hypot(blob.x - player.x, blob.z - player.z) < SPIT_HIT && player.lift < STRIKE_HEIGHT - 0.2) {
       blob.life = 0;
+      if (state.time < player.dodgeUntil) {
+        state.events.push({ type: "dodged" });
+        continue;
+      }
       const amount = ALIENS.spitter.damage * rules.bite;
       player.health -= amount;
       state.events.push({ type: "hurt", amount });
@@ -383,10 +595,11 @@ export type BoltAim = number | null | ((discharge: Discharge) => readonly (numbe
  * Pull the trigger. The drawing code works out what each bolt would hit, given how
  * many there are and how far they may stray; this decides whether the carbine fires
  * at all and what the bolts do. An empty cell clicks and starts a swap; past the
- * coils' limit the carbine vents. Away from the dome, a cell too low for another
- * shot is swapped for a spare straight away.
+ * coils' limit the carbine vents. A shot on the Law-Heart's beat (resonant) strikes
+ * harder. Away from the dome, a cell too low for another shot is swapped for a spare
+ * straight away.
  */
-export function fireCarbine(state: SimState, aim: BoltAim, random: () => number = Math.random): Discharge | null {
+export function fireCarbine(state: SimState, aim: BoltAim, random: () => number = Math.random, resonant = false): Discharge | null {
   const player = state.player;
   if (!player.alive) return null;
   const shot = pullTrigger(player.gun, state.time);
@@ -397,22 +610,13 @@ export function fireCarbine(state: SimState, aim: BoltAim, random: () => number 
   }
   if (typeof shot === "string") return null;
   state.events.push({ type: "shot" });
+  if (resonant) state.events.push({ type: "resonant" });
   if (shot.vent) state.events.push({ type: "vent" });
   const hits = typeof aim === "function" ? aim(shot) : Array.from({ length: shot.bolts }, () => aim);
-  const rules = SIM_DIFFICULTIES[state.difficulty];
+  const damage = shot.damage * (resonant ? RESONANT : 1);
   for (const hitId of hits) {
     const alien = hitId === null ? undefined : state.aliens.find((candidate) => candidate.id === hitId);
-    if (!alien) continue;
-    alien.health -= shot.damage;
-    state.events.push({ type: "hit", kind: alien.kind, x: alien.x, z: alien.z });
-    if (alien.health > 0) continue;
-    state.aliens = state.aliens.filter((candidate) => candidate !== alien);
-    state.kills += 1;
-    state.score += Math.round(ALIENS[alien.kind].score * (1 + Math.max(0, state.wave - 1) * 0.1));
-    state.events.push({ type: "kill", kind: alien.kind, x: alien.x, z: alien.z });
-    const roll = random();
-    if (roll < rules.cellDrop) state.pickups.push({ id: state.nextId++, kind: "cell", x: alien.x, z: alien.z });
-    else if (roll < rules.cellDrop + rules.healthDrop) state.pickups.push({ id: state.nextId++, kind: "health", x: alien.x, z: alien.z });
+    if (alien) hurtAlien(state, alien, damage, random);
   }
   if (player.gun.charge < FORMS[player.gun.loadout.form].cost && !underDome(state)) reloadCarbine(state);
   return shot;

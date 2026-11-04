@@ -11,6 +11,7 @@ import {
   sanitizeLoadout,
   stepCarbine,
   swapCell,
+  switchLaw,
   VENT_SECONDS,
 } from "../app/arc-carbine.ts";
 
@@ -71,4 +72,15 @@ test("heat: past the coils' limit the carbine vents, then cools back to nothing"
 test("a stored loadout is checked, and anything unknown falls back to the issue part", () => {
   assert.deepEqual(sanitizeLoadout({ form: "transit", optic: "scope", barrel: "rocket", cell: 3 }), { form: "transit", optic: "scope", barrel: "bare", cell: "standard" });
   assert.deepEqual(sanitizeLoadout(null), DEFAULT_LOADOUT);
+});
+
+test("a new firing law takes from the next cycle, mid-fight", () => {
+  const gun = createCarbine();
+  pullTrigger(gun, 0);
+  assert.equal(switchLaw(gun, "containment", 0.05), true);
+  assert.equal(gun.loadout.form, "containment");
+  assert.equal(pullTrigger(gun, 0.1), "busy", "it cycles first");
+  const bolt = pullTrigger(gun, 1);
+  assert.ok(typeof bolt === "object" && bolt.damage === FORMS.containment.damage);
+  assert.equal(switchLaw(gun, "containment", 2), false, "already that law");
 });
