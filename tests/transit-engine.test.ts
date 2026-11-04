@@ -17,6 +17,9 @@ test("frontier routes take real time and navigation produces a bounded departure
   assert.equal(standard.active?.baseSeconds, TRANSIT_ROUTE_BASE_SECONDS.cinder);
   assert.ok((skilled.active?.totalSeconds ?? Infinity) < (standard.active?.totalSeconds ?? 0));
   assert.ok((skilled.active?.totalSeconds ?? 0) >= (standard.active?.totalSeconds ?? 0) / 1.55 - 1);
+  // What restored worlds give (Pelagos's pilots, Nox's night relay) makes every crossing after them shorter.
+  const guided = beginTransit(base, "cinder", "nox", 0, false, 100, 0.35);
+  assert.equal(guided.active?.totalSeconds, Math.round((TRANSIT_ROUTE_BASE_SECONDS.cinder ?? 0) / 1.35));
 });
 
 test("travel advances identically offline and arrival clears only the journey", () => {

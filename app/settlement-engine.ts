@@ -260,16 +260,14 @@ function sanitizeColony(
     }
   }
 
-  const validBenefits = new Set(world.legacyBenefits.map((benefit) => benefit.id));
   return {
     worldId: world.id,
     name: cleanText(value.name, `${world.name} Continuity Settlement`),
     establishedAt: finiteInteger(value.establishedAt, 0, MAX_TIMESTAMP),
     viabilityScore: finiteInteger(value.viabilityScore, 0, 100),
     founders,
-    legacyBenefitIds: uniqueIds(value.legacyBenefitIds, 20).filter((id) =>
-      validBenefits.has(id),
-    ),
+    // A colony carries every gift its world gives, including any added since it was founded.
+    legacyBenefitIds: world.legacyBenefits.map((benefit) => benefit.id),
     transmissionsRead: finiteInteger(
       value.transmissionsRead,
       0,

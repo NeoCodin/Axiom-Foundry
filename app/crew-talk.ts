@@ -160,7 +160,7 @@ function secretLines(hook: string, context: TalkContext): string[] | null {
  * but true to what the record says (see discovery-content.ts).
  */
 const RUMOURS: readonly (readonly [string, string])[] = [
-  ["helion.impossible-registry", "The Pelagos beacon knew this ship. Two hundred years before it was supposedly built. Called it Iteration Nineteen."],
+  ["helion.impossible-registry", "The Helion beacon knew this ship. Two hundred years before it was supposedly built. Called it Iteration Nineteen."],
   ["fabrication.preconcordance-keel", "They say the metal under the Fabrication floor is older than the way it was made. And the room grew around something that isn't there any more."],
   ["archive.construction-zero", "Apparently there's no record of this ship ever being built. The oldest line just says reconstruction eighteen hundred and forty-two."],
   ["pelagos.returning-salt", "There's Pelagos salt in the keel, and one layer of it is from ninety-one years from now. That's what they're saying."],

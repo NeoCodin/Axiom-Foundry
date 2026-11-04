@@ -103,13 +103,15 @@ export function sanitizeTransitState(value: unknown): TransitState {
   return state;
 }
 
+/** routeBonus is what restored worlds give (Pelagos's pilots, Nox's night relay). */
 export function getTransitSpeedMultiplier(
   navigationExpertise: number,
   driveCouplingActive: boolean,
+  routeBonus = 0,
 ) {
   const navigationBonus = Math.min(0.35, Math.max(0, navigationExpertise) * 0.02);
   const driveBonus = driveCouplingActive ? 0.2 : 0;
-  return 1 + navigationBonus + driveBonus;
+  return 1 + navigationBonus + driveBonus + Math.max(0, routeBonus);
 }
 
 export function beginTransit(
@@ -119,6 +121,7 @@ export function beginTransit(
   navigationExpertise: number,
   driveCouplingActive: boolean,
   startedAt: number,
+  routeBonus = 0,
 ) {
   if (state.active) return state;
   const baseSeconds = TRANSIT_ROUTE_BASE_SECONDS[originWorldId] ?? 0;
@@ -126,6 +129,7 @@ export function beginTransit(
   const multiplier = getTransitSpeedMultiplier(
     navigationExpertise,
     driveCouplingActive,
+    routeBonus,
   );
   const next = cloneTransitState(state);
   next.active = {

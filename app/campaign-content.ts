@@ -83,6 +83,7 @@ export type ContinuitySubstitution = {
   maxContribution: number;
 };
 
+/** What a restored world gives the Ark for the rest of the route, once its colony is founded. */
 export type LegacyBenefit = {
   id: string;
   label: string;
@@ -93,9 +94,27 @@ export type LegacyBenefit = {
     | "fabrication-efficiency"
     | "research-throughput"
     | "cohesion"
-    | "null-clarity";
+    | "null-clarity"
+    | "transit-speed"
+    | "expedition-strength";
+  /** A share (0.2 is 20%), except expedition-strength, which is whole points. */
   value: number;
 };
+
+/** A gift in a few words, as the colony list shows it. */
+export function describeLegacyEffect(benefit: Pick<LegacyBenefit, "metric" | "value">) {
+  const share = Math.round(benefit.value * 100);
+  switch (benefit.metric) {
+    case "beacon-throughput": return `${share}% faster survivor searches`;
+    case "training-speed": return `${share}% faster training`;
+    case "fabrication-efficiency": return `${share}% cheaper fabrication`;
+    case "research-throughput": return `${share}% faster research`;
+    case "cohesion": return `+${share} crew cohesion`;
+    case "null-clarity": return `${share}% clearer Null signals`;
+    case "transit-speed": return `${share}% faster crossings`;
+    case "expedition-strength": return `+${benefit.value} recon team strength`;
+  }
+}
 
 export type CampaignWorldDefinition = {
   id: CampaignWorldId;
@@ -277,9 +296,16 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
       {
         id: "pelagos-signal-net",
         label: "Pelagos Signal Net",
-        description: "Tidal relays help the Ark find later survivor signals.",
+        description: "Pelagos's tidal relays keep listening for survivors on every world after it.",
         metric: "beacon-throughput",
-        value: 0.05,
+        value: 0.2,
+      },
+      {
+        id: "pelagos-ferry-pilots",
+        label: "Pelagos ferry pilots",
+        description: "Pilots who learned the storm channels take shifts on the bridge.",
+        metric: "transit-speed",
+        value: 0.1,
       },
     ],
     transmissions: [
@@ -424,9 +450,16 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
       {
         id: "viridia-mentor-seeds",
         label: "Viridian Mentor Seeds",
-        description: "Living curricula improve civilian training aboard the Ark.",
+        description: "Living lessons from the seed vault school train people faster aboard the Ark.",
         metric: "training-speed",
-        value: 0.06,
+        value: 0.2,
+      },
+      {
+        id: "viridia-growbeds",
+        label: "Viridian growbeds",
+        description: "Fresh food and medicine from the vault's stock keep the crew steadier on long crossings.",
+        metric: "cohesion",
+        value: 0.05,
       },
     ],
     transmissions: [
@@ -560,9 +593,16 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
       {
         id: "cinder-pattern-library",
         label: "Cinder Pattern Library",
-        description: "Foundry Nine shares efficient fabrication patterns.",
+        description: "Foundry Nine shares the patterns it kept through the ash.",
         metric: "fabrication-efficiency",
-        value: 0.07,
+        value: 0.15,
+      },
+      {
+        id: "cinder-field-kits",
+        label: "Foundry Nine field kits",
+        description: "Cinder's foundry arms every recon team the Ark sends down.",
+        metric: "expedition-strength",
+        value: 1,
       },
     ],
     transmissions: [
@@ -715,9 +755,16 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
       {
         id: "nox-open-archive",
         label: "Nox Open Archive",
-        description: "Cross-checked civic records improve Ark research throughput.",
+        description: "Cross-checked civic records speed up the Ark's research.",
         metric: "research-throughput",
-        value: 0.08,
+        value: 0.2,
+      },
+      {
+        id: "nox-night-relay",
+        label: "Nox night relay",
+        description: "Nox's towers guide the Ark through the dark between worlds.",
+        metric: "transit-speed",
+        value: 0.25,
       },
     ],
     transmissions: [
@@ -872,14 +919,14 @@ export const CAMPAIGN_WORLDS: readonly CampaignWorldDefinition[] = [
         label: "Vesper Common Testimony",
         description: "A public account of every iteration steadies the Ark's society.",
         metric: "cohesion",
-        value: 0.1,
+        value: 0.15,
       },
       {
         id: "vesper-null-index",
         label: "Vesper Null Index",
         description: "Discarded histories make later Null signals easier to interpret.",
         metric: "null-clarity",
-        value: 0.1,
+        value: 0.25,
       },
     ],
     transmissions: [

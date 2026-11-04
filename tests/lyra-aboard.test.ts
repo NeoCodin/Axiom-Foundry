@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ABOARD_RECORDS, catchUp, createAboardPacer, heartRemark, moodRemark, nullRemark, openingRemark, placeOf, placeRemark, readSaid, recordRemark, welcomeRemark, writeSaid } from "../app/lyra-aboard.ts";
+import { ABOARD_RECORDS, ABOARD_SCRIPT, catchUp, createAboardPacer, heartRemark, moodRemark, nullRemark, openingRemark, placeOf, placeRemark, readSaid, recordRemark, welcomeRemark, worldRemark, writeSaid } from "../app/lyra-aboard.ts";
 import { DISCOVERY_FRAGMENTS } from "../app/discovery-content.ts";
 
 test("she has a word for each record of the main story, and none for records that don't exist", () => {
@@ -16,7 +16,7 @@ test("rooms she speaks of: the vault is the chamber's lower gallery; one word ea
   assert.equal(placeOf(1, "education", "library"), "library");
   assert.equal(placeOf(1, "support", "farm"), "support");
   assert.equal(placeOf(0, "habitation", "galley"), null);
-  assert.match(placeRemark("bridge").lines.map((line) => line.text).join(" "), /Pelagos first.*Vesper last/);
+  assert.match(placeRemark("bridge").lines.map((line) => line.text).join(" "), /route was set before you woke up/);
   assert.ok(!placeRemark("education").lines.some((line) => /long ago|years/.test(line.text)), "she thinks she wrote the lessons just now");
 });
 
@@ -99,4 +99,21 @@ test("what she has said is kept for this game only: a new game hears her from th
   assert.equal(readSaid(JSON.stringify(["opening:wake"]), 2_000).size, 0, "a list kept before games were told apart is dropped");
   assert.equal(readSaid("not json", 1_000).size, 0);
   assert.equal(readSaid(null, 1_000).size, 0);
+});
+
+test("at each world she says why the Ark is there, and never names a world still ahead", () => {
+  const route = ["pelagos", "viridia", "cinder", "nox", "vesper"];
+  const named = (text: string) => route.filter((world) => new RegExp(world, "i").test(text));
+  for (const [at, world] of route.entries()) {
+    const remark = worldRemark(world)!;
+    assert.equal(remark.id, `world:${world}`);
+    for (const line of remark.lines) {
+      assert.ok(named(line.text).every((name) => route.indexOf(name) <= at), `${world}: ${line.text}`);
+    }
+  }
+  assert.equal(worldRemark("cold-wake"), null, "nothing to say between stars");
+  assert.equal(worldRemark(null), null, "nothing while crossing");
+  // Nor anywhere else aboard: no room, star or mood line names a world.
+  const elsewhere = [...Object.values(ABOARD_SCRIPT.places), ...ABOARD_SCRIPT.heart, ...Object.values(ABOARD_SCRIPT.mood)].flat().join(" ");
+  assert.deepEqual(named(elsewhere), []);
 });

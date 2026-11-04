@@ -4,7 +4,7 @@
  * (the boot buffer, the Recalibration Vault, the Memory Archive's terminal), or shows
  * once the story points at it (a seam the Fabrication refit opened, scratches in the
  * vault's wall). What was found on a world or by a recon team is brought aboard, and
- * nothing shows in its place until then: the Pelagos beacon's registry and Vesper's
+ * nothing shows in its place until then: the Helion beacon's registry and Vesper's
  * ledger either side of the bridge door, a core from Pelagos's Gravity Keel in the
  * machine shop, seeds from Viridia's vault in the farm, Cinder's foundry logs and the
  * Nox recordings in the lab, and the recon teams' finds on the briefing room wall.
@@ -76,7 +76,7 @@ export const RECORD_PLACES: readonly RecordPlace[] = [
   },
   // The first beacon and the last ledger, either side of the bridge door: every record begins at one and ends at the other.
   {
-    id: "first-beacon", label: "The Pelagos beacon's registry", deck: 0, section: "bridge",
+    id: "first-beacon", label: "The Helion beacon's registry", deck: 0, section: "bridge",
     mount: "stern", across: -7, height: 2, form: "plate", records: ["helion.impossible-registry"], brought: true,
   },
   {

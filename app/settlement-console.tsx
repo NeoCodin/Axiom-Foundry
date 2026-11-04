@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { ArkPixelWorld } from "./ark-pixel-world";
-import { getCampaignWorld, type CampaignWorldDefinition } from "./campaign-content";
+import { describeLegacyEffect, getCampaignWorld, type CampaignWorldDefinition } from "./campaign-content";
 import { HelpTrigger, type ManualTopicId } from "./game-manual";
 import type {
   CampaignCrewSummary,
@@ -713,7 +713,7 @@ function SettlementConsole({
       {colonies.length > 0 && (
         <section className="continuity-panel continuity-legacy-colonies">
           <header><div><span>RESTORED WORLDS</span><h3>Colonies that continue without the Ark</h3></div><small>{colonies.length} active relays</small></header>
-          <div className="colony-list">{colonies.map((colony) => { const restoredWorld = getCampaignWorld(colony.worldId); const adaptationCount = colony.founders.reduce((total, founder) => total + (founder.adaptationIds ?? []).length, 0); return <article key={colony.worldId}><h4>{colony.name}</h4><p>{colony.founders.length} founders · {colony.viabilityScore}% departure viability{adaptationCount > 0 ? ` · ${adaptationCount} voluntary adaptation record${adaptationCount === 1 ? "" : "s"} preserved` : ""}</p><small>{restoredWorld?.legacyBenefits.map((benefit) => `${benefit.label}: +${formatDecimal(benefit.value * 100)}% ${benefit.metric.replaceAll("-", " ")}`).join(" · ") || `${titleCase(colony.worldId)} relay online`}</small></article>; })}</div>
+          <div className="colony-list">{colonies.map((colony) => { const restoredWorld = getCampaignWorld(colony.worldId); const adaptationCount = colony.founders.reduce((total, founder) => total + (founder.adaptationIds ?? []).length, 0); return <article key={colony.worldId}><h4>{colony.name}</h4><p>{colony.founders.length} founders · {colony.viabilityScore}% departure viability{adaptationCount > 0 ? ` · ${adaptationCount} voluntary adaptation record${adaptationCount === 1 ? "" : "s"} preserved` : ""}</p><small>{restoredWorld?.legacyBenefits.map((benefit) => `${benefit.label}: ${describeLegacyEffect(benefit)}`).join(" · ") || `${titleCase(colony.worldId)} relay online`}</small></article>; })}</div>
         </section>
       )}
     </section>

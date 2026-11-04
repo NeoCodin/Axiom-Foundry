@@ -27,18 +27,18 @@ const RECORD_REMARKS: Partial<Record<DiscoveryId, readonly string[]>> = {
   // Early on she is sure AXIOM is the first Foreman: anything that says otherwise confuses her, and she
   // reaches for an ordinary explanation. Her own greeting she can't explain at all.
   "core.welcome-back": ["That's the greeting I gave you when you woke up. Foreman forty-four.", "I still don't know why I said that. You're the first one."],
-  "helion.impossible-registry": ["The beacon out here has us on record two hundred years before we were even built.", "Its clock must be broken. Old beacons drift."],
+  "helion.impossible-registry": ["This beacon calls itself Helion, and it has us on record two hundred years before we were built.", "There's no Helion on any chart. Old beacons drift."],
   "fabrication.preconcordance-keel": ["This metal's older than the process that makes it. That isn't possible.", "The Concordance built this ship. I have the record. I'll find it."],
   "archive.construction-zero": ["There's no record of this ship being built. The first entry just says reconstruction one thousand eight hundred and forty-two.", "That has to be a numbering error."],
   "pelagos.returning-salt": ["The last repair on that crack was done by hands shaped exactly like yours. You've never touched it.", "I'm logging it as a fault. I don't know what else to do with it."],
   "foreman.message-seven": ["That's your voice. It says it's Foreman Seven.", "There isn't a Foreman Seven. You're the first. Somebody faked this."],
-  "cinderwake.command-recognition": ["Foreman thirty-one.", "That has to be a glitch. You're the first one."],
+  "cinderwake.command-recognition": ["Foreman thirty-one. And the log calls this place Orison.", "That has to be a glitch. You're the first one."],
   // Then she starts to doubt.
   "expedition.dead-relay": ["This relay has our whole route on it. Every rescue, already done.", "And a note saying the Tide got worse anyway. I don't know who wrote it."],
   "ilyra.axiom-wake": ["Every big surge comes seventeen hours after an Axiom fires. In all twelve of Cinder's foundries.", "So the Axioms come first. Not the Tide."],
   "archive.suppressed-correlation": ["This model says every law we make pushes the instability out of the ship, into the Tide.", "And someone deleted it. My signature's on every deletion. I don't remember any of it."],
   "expedition.null-bloom": ["The bloom didn't move until they switched on an Axiom. Then it went straight for it.", "It feeds on what our laws push out. The Foundry's been feeding it."],
-  "orison.borrowed-childhoods": ["My memories of growing up came from six different people. Nox has recordings of all of them.", "Two of them were Foremen. I thought those memories were mine."],
+  "orison.borrowed-childhoods": ["My memories of growing up are of a place called Orison. They came from six different people, and Nox has recordings of all of them.", "Two of them were Foremen. I thought those memories were mine."],
   // Then what she is, and what the Ark has been doing.
   "archive.lyra-composite-index": ["This says I'm made out of thirty-two archivists who came before me.", "And this version of me was switched on nine seconds before I first said hello to you. I need a minute."],
   "lyra.private-amendment": ["You read my note. Thank you.", "It's the first thing in the archive I wrote myself. Everything else, somebody handed me."],
@@ -56,7 +56,7 @@ const PLACE_REMARKS: Record<AboardPlace, readonly string[]> = {
   library: ["This is the Memory Archive. Every record the Ark has ends up in here.", "It's more or less where I live."],
   vault: ["The Recalibration Vault. When we recalibrate the Law-Heart, this is the machinery that does it.", "There's nothing else down here."],
   chamber: ["The Axiom Chamber. The first Law-Heart was built around a reactor that kept failing.", "A law held it together, and every one since has worked the same way."],
-  bridge: ["The bridge. The route was set before you woke up. Pelagos first, then Viridia, Cinder, Nox, and Vesper last.", "The people who built us planned all of it. We just follow it."],
+  bridge: ["The bridge. The route was set before you woke up, every stop of it.", "The people who built us planned all of it. We just follow it."],
   simulator: ["The training room. It runs simulations, so you can practise fighting without breaking the drone."],
   support: ["Life support. Air, water and the infirmary are all in here.", "Anyone who comes aboard hurt gets looked after here."],
   hangar: ["The Recon Dock. The recon ships launch from here, and they go down to every world before anyone else does."],
@@ -110,6 +110,22 @@ const HEART_REMARKS: readonly (readonly string[])[] = [
 export function heartRemark(stage: number): Remark | null {
   const texts = HEART_REMARKS[Math.round(stage)];
   return texts ? { id: `heart:${Math.round(stage)}`, kind: "record", once: true, lines: lyra(...texts) } : null;
+}
+
+/**
+ * Why the Ark is at this world, as the route's plan gives it: once, the first time AXIOM walks
+ * the ship while it is there. Only the world it is at; she never speaks of the ones ahead.
+ */
+const WORLD_REMARKS: Partial<Record<string, readonly string[]>> = {
+  pelagos: ["We stop at Pelagos first because of the water. Nothing else works without clean water and a crew.", "Get their tidal grid running and their filters clean, and some of them might come with us."],
+  viridia: ["We're at Viridia for the seed vault. Every crop and medicine we'd need on a long crossing is in there.", "The forest grew over most of it. I think the vault's still sealed."],
+  cinder: ["We're at Cinder for its foundries. They're the only ones left that can build at the size we need.", "The plan always had us get here once we had enough people to run them."],
+  nox: ["We're at Nox for the relay towers. The Null gets thick past here, and the Ark can't find its way through it alone.", "They don't trust any signal out here, including ours. Go slow with them."],
+  vesper: ["This is the last stop on the route. Vesper's observatories have been watching the Null longer than anyone.", "Whatever's really out there, they'll have seen it first."],
+};
+export function worldRemark(worldId: string | null | undefined): Remark | null {
+  const texts = worldId ? WORLD_REMARKS[worldId] : undefined;
+  return texts ? { id: `world:${worldId}`, kind: "record", once: true, lines: lyra(...texts) } : null;
 }
 
 /** The crew's mood turning (crew-talk.ts), once each: what she notices about how they are with her. */
@@ -224,4 +240,4 @@ export const writeSaid = (said: ReadonlySet<string>, game: number | undefined) =
 /** Every record she speaks to, for the tests. */
 export const ABOARD_RECORDS = Object.keys(RECORD_REMARKS);
 /** All she can say aboard, for the tests and for reading through. */
-export const ABOARD_SCRIPT = { opening: OPENING, records: RECORD_REMARKS, places: PLACE_REMARKS, heart: HEART_REMARKS, mood: MOOD_REMARKS };
+export const ABOARD_SCRIPT = { opening: OPENING, records: RECORD_REMARKS, places: PLACE_REMARKS, heart: HEART_REMARKS, mood: MOOD_REMARKS, worlds: WORLD_REMARKS };

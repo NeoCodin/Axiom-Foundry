@@ -1815,6 +1815,8 @@ export function getColonyLegacyEffects(state: GameState) {
     cohesionProductionMultiplier: 1 + (totals.cohesion ?? 0),
     cohesionBonus: (totals.cohesion ?? 0) * 100,
     nullSignalMultiplier: 1 + (totals["null-clarity"] ?? 0),
+    transitSpeedBonus: totals["transit-speed"] ?? 0,
+    expeditionStrengthBonus: totals["expedition-strength"] ?? 0,
   };
 }
 
@@ -2286,8 +2288,11 @@ export function getExpeditionResearchSupport(state: GameState): ExpeditionResear
     activeProtocols.push("Expedition Bay Reinforcement");
     rewardBonus += living.expeditionRewardMultiplier - 1;
   }
+  // A world's gift (Cinder's field kits) comes on top of what research and drones allow.
+  const worldGift = getColonyLegacyEffects(state).expeditionStrengthBonus;
+  if (worldGift > 0) activeProtocols.push("Foundry Nine field kits");
   return {
-    strengthBonus: Math.min(3, strengthBonus),
+    strengthBonus: Math.min(3, strengthBonus) + worldGift,
     rewardMultiplier: 1 + Math.min(0.25, rewardBonus),
     activeProtocols,
   };
@@ -4593,6 +4598,7 @@ export function departCurrentWorld(
       navigationExpertise,
       next.research.completedProjectIds.includes("ark-drive-coupling"),
       departedAt,
+      getColonyLegacyEffects(next).transitSpeedBonus,
     );
     if (next.transit.active) next.settlement.currentWorldId = null;
   }

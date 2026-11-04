@@ -93,7 +93,7 @@ import { switchChannel } from "./channel-switch";
 import PelagosView from "./pelagos-view";
 import { lyraStage, simCues, type LyraCue, type LyraStage, type SimReading } from "./lyra-voice";
 import { createLyra, type Lyra } from "./lyra-voice-player";
-import { catchUp, createAboardPacer, heartRemark, moodRemark, nullRemark, openingRemark, placeOf, placeRemark, readSaid, recordRemark, welcomeRemark, writeSaid, type AboardPlace } from "./lyra-aboard";
+import { catchUp, createAboardPacer, heartRemark, moodRemark, nullRemark, openingRemark, placeOf, placeRemark, readSaid, recordRemark, welcomeRemark, worldRemark, writeSaid, type AboardPlace } from "./lyra-aboard";
 import "./ark-walk.css";
 
 /*
@@ -229,6 +229,8 @@ export type ArkWalkProps = {
   drone?: ArkWalkDrone;
   /** When this game began: what Lyra has said is kept for this game only. */
   saveStarted?: number;
+  /** The world the Ark is at, or null while it is crossing: Lyra speaks only of where it is. */
+  atWorld?: string | null;
   beatPeriodMs: number;
   onStrike?: () => void;
   onClose: () => void;
@@ -5196,6 +5198,7 @@ export default function ArkWalk(props: ArkWalkProps) {
         if (place) pacer.offer(placeRemark(place), seconds);
       }
       if (initial.crew.length > 0) pacer.offer(moodRemark(stageNow()), seconds);
+      pacer.offer(worldRemark(propsRef.current.atWorld), seconds);
       if (nullLevel.classification === "elevated" || nullLevel.classification === "severe") pacer.offer(nullRemark(stageNow()), seconds);
       if (darkOpening && place === "chamber") pacer.offer(openingRemark("chamber"), seconds);
       if (darkOpening && openingStrikes >= 6) pacer.offer(openingRemark("strike"), seconds);

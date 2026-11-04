@@ -446,9 +446,10 @@ test("colonies provide persistent transmissions and additive legacy benefits", (
   const legacy = getLegacySummary(state);
   assert.deepEqual(
     legacy.benefits.map((benefit) => benefit.id),
-    ["pelagos-signal-net"],
+    ["pelagos-signal-net", "pelagos-ferry-pilots"],
   );
-  assert.equal(legacy.totals["beacon-throughput"], 0.05);
+  assert.equal(legacy.totals["beacon-throughput"], 0.2);
+  assert.equal(legacy.totals["transit-speed"], 0.1);
 });
 
 test("sanitization rejects skipped worlds, duplicate colonies, settled selections, and forged values", () => {
@@ -488,7 +489,7 @@ test("sanitization rejects skipped worlds, duplicate colonies, settled selection
   assert.equal(state.colonies[0].viabilityScore, 100);
   assert.equal(state.colonies[0].establishedAt, 0);
   assert.equal(state.colonies[0].transmissionsRead, 3);
-  assert.deepEqual(state.colonies[0].legacyBenefitIds, ["pelagos-signal-net"]);
+  assert.deepEqual(state.colonies[0].legacyBenefitIds, ["pelagos-signal-net", "pelagos-ferry-pilots"], "every gift its world gives, nothing forged");
   assert.equal(state.colonies[0].founders[0]?.rarity, "standard");
   assert.deepEqual(state.selectedSettlerIds, ["new-person"]);
   assert.equal(state.lastDepartureAt, 0);

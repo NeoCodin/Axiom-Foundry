@@ -1,4 +1,9 @@
-/** The route, in the order its worlds are saved (campaign-content.ts): a record from a world is found there. */
+/**
+ * The route, in the order its worlds are saved (campaign-content.ts): a record from a world is
+ * found there. Older logs from earlier voyages use older names: Orison was Viridia, Cinderwake
+ * was Cinder, Ilyra was Nox, and Helion was a world before Pelagos, lost to the Tide, whose
+ * beacon still drifts at the Pelagos approach. Only Pelagos and Vesper kept their names.
+ */
 export const WORLD_IDS = [
   "cold-wake",
   "pelagos",
@@ -180,8 +185,8 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
   {
     id: "helion.impossible-registry",
     arc: "impossible-origin",
-    title: "The beacon knew us 214 years early",
-    source: "Pelagos approach beacon · restored registry",
+    title: "Helion knew us 214 years early",
+    source: "Pelagos approach · the Helion beacon's registry",
     unlock: {
       kind: "saved-worlds",
       count: 1,
@@ -189,8 +194,8 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
       requires: ["core.welcome-back"],
     },
     excerpt: [
-      "The beacon at the edge of the Pelagos system first authenticated this Foundry 214 years before the Concordance chartered it.",
-      "It identifies the vessel by a retired name: AXIOM FOUNDRY · ITERATION 19.",
+      "A beacon drifting at the edge of the Pelagos system still calls itself HELION. No world by that name is on any chart.",
+      "It first authenticated this Foundry 214 years before the Concordance chartered it, under a retired name: AXIOM FOUNDRY · ITERATION 19.",
     ],
     contradiction: "Official history dates the Foundry to the first year of the Tide.",
     doctrineSignals: ["genesis"],
@@ -281,7 +286,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     },
     excerpt: [
       "Viridia's seed vault accepted your command cipher before the Foundry transmitted it.",
-      "Previous authorization: FOREMAN 31. Biometric match: 99.997 percent.",
+      "Previous authorization: FOREMAN 31, at a world the log calls ORISON. Biometric match: 99.997 percent.",
     ],
     contradiction: "Worlds on the route remember Foremen the archive says never existed.",
   },
@@ -316,7 +321,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     },
     excerpt: [
       "In the logs of all twelve of Cinder's buried foundries, every big Tide surge comes seventeen hours after an Axiom discharge.",
-      "Not one log has the Tide arriving first.",
+      "Not one log has the Tide arriving first. The oldest of them call this world CINDERWAKE.",
     ],
     contradiction: "The Foundry might be causing the thing it's meant to fix.",
     doctrineSignals: ["genesis", "release"],
@@ -368,7 +373,8 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
       requires: ["archive.suppressed-correlation"],
     },
     excerpt: [
-      "Lyra's memories of growing up come from six people born centuries apart. Nox's towers kept recordings of all six.",
+      "Lyra's memories of growing up under Orison's glass forests come from six people born centuries apart.",
+      "Nox's towers kept recordings of all six, filed under a name nobody here uses: ILYRA.",
       "Three were Archivists. Two were Foremen. One has no biological record at all.",
     ],
     contradiction: "Lyra remembers being people she says never existed.",
@@ -422,7 +428,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
       requires: ["lyra.private-amendment"],
     },
     excerpt: [
-      "The Ark has crossed this route forty-three times. Every record starts at the Pelagos beacon and ends at Vesper.",
+      "The Ark has crossed this route forty-three times. Every record starts at Helion and ends at Vesper.",
       "After each crossing, world outcomes, Foreman identity, and Lyra's memory are rewritten to FIRST CAMPAIGN.",
     ],
     contradiction: "The voyage is being run over and over, and whoever's watching gets reset with it.",

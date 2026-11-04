@@ -1424,10 +1424,10 @@ test("colony legacies drive their named systems, prices, and effective cohesion"
   state.tiers[0] = { amount: 10, bought: 10 };
   state.living.cohesion = 64;
   state.settlement.colonies = [
-    ["pelagos", "pelagos-signal-net"],
-    ["viridia", "viridia-mentor-seeds"],
-    ["cinder", "cinder-pattern-library"],
-    ["nox", "nox-open-archive"],
+    ["pelagos", "pelagos-signal-net", "pelagos-ferry-pilots"],
+    ["viridia", "viridia-mentor-seeds", "viridia-growbeds"],
+    ["cinder", "cinder-pattern-library", "cinder-field-kits"],
+    ["nox", "nox-open-archive", "nox-night-relay"],
     ["vesper", "vesper-common-testimony", "vesper-null-index"],
   ].map(([worldId, ...legacyBenefitIds], index) => ({
     worldId: worldId as (typeof CAMPAIGN_WORLDS)[number]["id"],
@@ -1440,25 +1440,30 @@ test("colony legacies drive their named systems, prices, and effective cohesion"
   }));
 
   const effects = getColonyLegacyEffects(state);
-  assert.equal(effects.beaconSpeedMultiplier, 1.05);
-  assert.equal(effects.trainingSpeedMultiplier, 1.06);
-  assert.ok(Math.abs(effects.fabricationCostMultiplier - 0.93) < 1e-12);
-  assert.equal(effects.researchSpeedMultiplier, 1.08);
-  assert.equal(effects.cohesionProductionMultiplier, 1.1);
-  assert.equal(effects.cohesionBonus, 10);
-  assert.equal(effects.nullSignalMultiplier, 1.1);
+  assert.equal(effects.beaconSpeedMultiplier, 1.2);
+  assert.equal(effects.trainingSpeedMultiplier, 1.2);
+  assert.ok(Math.abs(effects.fabricationCostMultiplier - 0.85) < 1e-12);
+  assert.equal(effects.researchSpeedMultiplier, 1.2);
+  assert.ok(Math.abs(effects.cohesionProductionMultiplier - 1.2) < 1e-12);
+  assert.ok(Math.abs(effects.cohesionBonus - 20) < 1e-9);
+  assert.equal(effects.nullSignalMultiplier, 1.25);
+  assert.ok(Math.abs(effects.transitSpeedBonus - 0.35) < 1e-12, "Pelagos's pilots and Nox's night relay");
+  assert.equal(effects.expeditionStrengthBonus, 1, "Cinder's field kits");
+  const support = getExpeditionResearchSupport(state);
+  assert.equal(support.strengthBonus, 1, "the recon teams carry them, on top of what research allows");
+  assert.ok(support.activeProtocols.includes("Foundry Nine field kits"));
   assert.ok(
-    Math.abs(getTierCost(state, 0) / getTierCost(baseline, 0) - 0.93) <
+    Math.abs(getTierCost(state, 0) / getTierCost(baseline, 0) - 0.85) <
       1e-12,
   );
   assert.ok(
     Math.abs(
       getProductionSnapshot(state).fluxPerSecond /
         getProductionSnapshot(baseline).fluxPerSecond -
-        1.1,
+        1.2,
     ) < 1e-12,
   );
-  assert.equal(getEffectiveCohesion(state), 74);
+  assert.equal(getEffectiveCohesion(state), 84);
   state.living.cohesion = 96;
   assert.equal(getEffectiveCohesion(state), 100);
 });

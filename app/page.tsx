@@ -3365,6 +3365,7 @@ export default function Home() {
           walkAccent={walkAccent}
           walkDrone={walkDrone}
           walkSaveStarted={game.startedAt}
+          walkAtWorld={activeTransit ? null : campaignWorld.id}
           talkContext={{ worldId: campaignWorld.id, worldsSaved: game.missions.worldsSaved, discovered: game.living.discoveredLore }}
           records={{
             discovered: game.living.discoveredLore,
