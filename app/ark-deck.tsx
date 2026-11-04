@@ -526,7 +526,8 @@ function ArkDeck({
                 {
                   kind: "hangar",
                   label: "Recon Dock",
-                  online: true,
+                  // The dock (with the recon ships and the simulator behind it) wakes with expeditions.
+                  online: Boolean(onOpenExpeditions),
                   interactive: Boolean(onOpenExpeditions),
                   onActivate: () => onOpenExpeditions?.(),
                 },

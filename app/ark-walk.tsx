@@ -1356,6 +1356,22 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
           put(0.1, 0.5, 0.36, solid(PALETTE.dark), wx - facing * 0.32, 1.5, DOOR_HALF_WIDTH + 0.6);
           put(0.04, 0.2, 0.2, glow(nextRoom.online ? PALETTE.ok : PALETTE.alert), wx - facing * 0.38, 1.6, DOOR_HALF_WIDTH + 0.6);
         }
+        // Into a hall with no power the doorway stays shut: the Ark has not woken it yet. The drone's
+        // own route from its cradle in Fabrication to the core is kept open on emergency power.
+        const route = (room.kind === "fabrication" && nextRoom.kind === "chamber") || (room.kind === "chamber" && nextRoom.kind === "fabrication");
+        if (!route && !(room.online && nextRoom.online)) {
+          for (const side of [-1, 1]) put(0.22, DOOR_HEIGHT, DOOR_HALF_WIDTH - 0.02, solid(PALETTE.metal), wx, DOOR_HEIGHT / 2, side * (DOOR_HALF_WIDTH / 2));
+          put(0.24, DOOR_HEIGHT - 0.4, 0.06, glow(tinted(PALETTE.alert, PALETTE.dark, 0.35)), wx, DOOR_HEIGHT / 2, 0);
+          for (const rung of [1.1, 2.3, 3.5]) put(0.24, 0.1, DOOR_HALF_WIDTH * 2 - 0.4, solid(PALETTE.metalLight), wx, rung, 0);
+          for (const facing of [-1, 1]) {
+            const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.26), new THREE.MeshBasicMaterial({ map: signTexture("OFFLINE · NO POWER", PALETTE.alert) }));
+            sign.position.set(wx + facing * 0.13, y0 + 2.9, 0);
+            sign.rotation.y = facing * Math.PI / 2;
+            sign.raycast = () => {};
+            scene.add(sign);
+          }
+          dynamicObstacles.push(() => ({ deck: deckIndex, box: { x0: wx - 0.32, x1: wx + 0.32, z0: -DOOR_HALF_WIDTH, z1: DOOR_HALF_WIDTH } }));
+        }
         put(0.44, 0.14, DOOR_HALF_WIDTH * 2 + 0.4, floorMaterial("fabrication", 0.5, DOOR_HALF_WIDTH * 2), wx, -0.07, 0);
         put(0.46, 0.02, DOOR_HALF_WIDTH * 2, lambert("#ffffff", { map: repeated(stripes, 0.4, DOOR_HALF_WIDTH * 4) }), wx, 0.005, 0);
         // A painted name over each side of the doorway.
@@ -4538,7 +4554,7 @@ export default function ArkWalk(props: ArkWalkProps) {
     headlamp.target.position.set(0, -0.3, -1);
     camera.add(headlamp, headlamp.target);
     scene.add(camera);
-    const lampPower = shipLight < 1 ? 10 + 34 * (1 - shipLight) : 0;
+    const lampPower = shipLight < 1 ? 6 + 20 * (1 - shipLight) : 0;
     headlamp.intensity = lampPower;
     const ship = buildShip(scene, layout, initial, () => propsRef.current, decor);
     let soundscape: Soundscape | null = null;

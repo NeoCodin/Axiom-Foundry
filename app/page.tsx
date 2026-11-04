@@ -3149,7 +3149,7 @@ export default function Home() {
         guidedView={guidedDestinationView}
         onNavigate={handlePrimaryNavigation}
       />
-      {arkWalkAvailable && primaryView !== "deck" && !walkAccent && (
+      {arkWalkAvailable && (primaryView !== "deck" || (campaignWorldIndex === 0 && !coldWakeStatus.arkOverviewAvailable)) && !walkAccent && (
         <button type="button" className="drone-feed-launch" aria-keyshortcuts="E" onClick={openArkWalk}>
           <span className="drone-feed-eye" aria-hidden="true"><AxiomEye /></span>
           Walk the Ark · E

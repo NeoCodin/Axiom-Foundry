@@ -1541,16 +1541,18 @@ export function getColdWakeOnboardingStatus(state: GameState) {
   const active = state.missions.currentIndex === 0;
   const stageIndex = state.missions.stageIndex;
   const completed = state.missions.awaitingAcknowledgement;
+  const forecastAvailable =
+    active &&
+    state.lifetimeAxioms >= 3 &&
+    (stageIndex >= COLD_WAKE_FOUNDRY_STAGE || completed);
   return {
     active,
-    forecastAvailable:
-      active &&
-      state.lifetimeAxioms >= 3 &&
-      (stageIndex >= COLD_WAKE_FOUNDRY_STAGE || completed),
+    forecastAvailable,
     foundryCommissioned:
       active && (stageIndex > COLD_WAKE_FOUNDRY_STAGE || completed),
+    // The Ark comes into view when the Continuity bridge opens, not only once navigation is back.
     arkOverviewAvailable:
-      active && (stageIndex >= COLD_WAKE_NAVIGATION_STAGE || completed),
+      active && (forecastAvailable || stageIndex >= COLD_WAKE_NAVIGATION_STAGE || completed),
     navigationRestored:
       active && (stageIndex > COLD_WAKE_NAVIGATION_STAGE || completed),
     lifeSupportRestored:

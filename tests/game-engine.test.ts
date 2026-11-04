@@ -854,7 +854,8 @@ test("Cold Wake proves its approach systems and three laws before revealing the 
 
   assert.equal(state.missions.stageIndex, COLD_WAKE_FOUNDRY_STAGE);
   assert.equal(getColdWakeOnboardingStatus(state).forecastAvailable, true);
-  assert.equal(getColdWakeOnboardingStatus(state).arkOverviewAvailable, false);
+  // The Ark comes into view with the Continuity bridge, so the Ark screen stops repeating the Law-Heart's.
+  assert.equal(getColdWakeOnboardingStatus(state).arkOverviewAvailable, true);
 
   state.tiers[0] = {
     amount: state.missions.baseline.tierBought[0]! + 25,
