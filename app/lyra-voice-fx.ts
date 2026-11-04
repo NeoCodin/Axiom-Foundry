@@ -8,6 +8,9 @@
  */
 
 import type { LyraLine, LyraStage } from "./lyra-voice.ts";
+import { RECORDINGS } from "./lyra-recordings.ts";
+
+export { RECORDINGS };
 
 /** Each from 0 (none) to 1 (a lot). */
 export type VoiceFx = { radio: number; metal: number; doubling: number; crunch: number };
@@ -25,13 +28,6 @@ export function fxFor(base: VoiceFx, stage: LyraStage, voice: LyraLine["voice"])
   const add = voice === "bleed" ? BLEED : { radio: SLIP.radio * stage, metal: SLIP.metal * stage, doubling: SLIP.doubling * stage, crunch: SLIP.crunch * stage };
   return { radio: unit(base.radio + add.radio, 0), metal: unit(base.metal + add.metal, 0), doubling: unit(base.doubling + add.doubling, 0), crunch: unit(base.crunch + add.crunch, 0) };
 }
-
-/** The lines recorded so far, by the words spoken (spokenText), with each take's file in public/audio/lyra. */
-export const RECORDINGS: readonly { said: string; voice: "lyra" | "bleed"; files: readonly string[] }[] = [
-  { said: "Okay, we're down. Three people in that shelter, and their filters won't last the day.", voice: "lyra", files: ["arrive-pelagos-a.mp3", "arrive-pelagos-b.mp3"] },
-  { said: "This says I'm made out of thirty-two archivists who came before me.", voice: "lyra", files: ["composite-a.mp3", "composite-b.mp3"] },
-  { said: "told the last one the same thing", voice: "bleed", files: ["bleed-last-one-a.mp3", "bleed-last-one-b.mp3"] },
-];
 
 /** What the voice lab keeps: the colouring, and which take of each line to use. */
 export type VoiceLab = { fx: VoiceFx; takes: Record<string, number> };

@@ -71,7 +71,7 @@ export function LyraVoiceLab() {
         <button type="button" onClick={() => save({ ...lab, fx: { ...DEFAULT_FX } })}>Reset colouring</button>
       </div>
       <div className="qa-action-grid">
-        {RECORDINGS.map((recording) => recording.files.map((_, take) => (
+        {RECORDINGS.filter((recording) => recording.files.length > 1).map((recording) => recording.files.map((_, take) => (
           <button key={`${recording.said}-${take}`} type="button" className={(lab.takes[recording.said] ?? 0) === take ? "is-active" : ""} onClick={() => void play(recording.said, recording.voice, take)}>
             {recording.voice === "bleed" ? "Other voice" : "Lyra"} · take {take === 0 ? "A" : "B"}: {recording.said.slice(0, 34)}{recording.said.length > 34 ? "…" : ""}
           </button>

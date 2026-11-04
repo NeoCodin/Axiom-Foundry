@@ -3,17 +3,24 @@ import { existsSync } from "node:fs";
 import test from "node:test";
 import { DEFAULT_FX, fxFor, readVoiceLab, RECORDINGS, recordingOf, writeVoiceLab } from "../app/lyra-voice-fx.ts";
 import { LYRA_SCRIPT, spokenText, type LyraLine } from "../app/lyra-voice.ts";
-import { ABOARD_SCRIPT } from "../app/lyra-aboard.ts";
+import { ABOARD_SCRIPT, nullRemark, openingRemark, welcomeRemark } from "../app/lyra-aboard.ts";
 
 const everything = (value: unknown): string[] =>
   typeof value === "string" ? [value] : Array.isArray(value) ? value.flatMap(everything) : value && typeof value === "object" ? Object.values(value).flatMap(everything) : [];
 
-test("every recording is one of her real lines, and its takes are on disk", () => {
-  const script = new Set([...everything(LYRA_SCRIPT), ...everything(ABOARD_SCRIPT)].map((text) => spokenText({ speaker: "Lyra", text, voice: "lyra" } as LyraLine)));
+test("every line she can say is recorded, every recording is a real line, and its takes are on disk", () => {
+  const spoken = (text: string) => spokenText({ speaker: "Lyra", text, voice: "lyra" } as LyraLine);
+  const remarks = [welcomeRemark(0), welcomeRemark(3), nullRemark(0), nullRemark(2), nullRemark(0, { severe: true })].flatMap((remark) => remark.lines).filter((line) => line.speaker === "Lyra").map((line) => line.text);
+  // The Protocol speaks in capitals, in its own voice.
+  const script = new Set([...everything(LYRA_SCRIPT), ...everything(ABOARD_SCRIPT), ...remarks].filter((text) => text !== text.toUpperCase()).map(spoken));
+  const recorded = new Set(RECORDINGS.map((recording) => recording.said));
+  assert.deepEqual([...script].filter((line) => !recorded.has(line)), [], "lines still in the browser's voice");
+  assert.deepEqual([...recorded].filter((line) => !script.has(line)), [], "recordings of lines she no longer says");
+  assert.equal(recorded.size, RECORDINGS.length, "one entry each");
   for (const recording of RECORDINGS) {
-    assert.ok(script.has(recording.said), `in the script: ${recording.said}`);
     for (const file of recording.files) assert.ok(existsSync(new URL(`../public/audio/lyra/${file}`, import.meta.url)), file);
   }
+  assert.ok(openingRemark("wake").lines.every((line) => recorded.has(spokenText(line))), "her first words above all");
 });
 
 test("she slips further as the story goes, and the other voices are further gone than she is", () => {
