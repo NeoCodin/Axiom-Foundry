@@ -17,11 +17,12 @@ test("every recording is one of her real lines, and its takes are on disk", () =
 });
 
 test("she slips further as the story goes, and the other voices are further gone than she is", () => {
-  const early = fxFor(DEFAULT_FX, 0, "lyra");
-  const late = fxFor(DEFAULT_FX, 3, "lyra");
-  assert.deepEqual(early, DEFAULT_FX, "at the start, exactly what the lab set");
+  assert.deepEqual(fxFor(DEFAULT_FX, 0, "lyra"), DEFAULT_FX, "at the start, exactly what was set");
+  const light = { radio: 0.2, metal: 0.1, doubling: 0.1, crunch: 0.1 };
+  const early = fxFor(light, 0, "lyra");
+  const late = fxFor(light, 3, "lyra");
   assert.ok(late.metal > early.metal && late.doubling > early.doubling);
-  const other = fxFor(DEFAULT_FX, 0, "bleed");
+  const other = fxFor(light, 0, "bleed");
   assert.ok(other.doubling > late.doubling && other.metal > late.metal);
   const maxed = fxFor({ radio: 1, metal: 1, doubling: 1, crunch: 1 }, 3, "bleed");
   assert.ok(Object.values(maxed).every((amount) => amount === 1), "never past 1");

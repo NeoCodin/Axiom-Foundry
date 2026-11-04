@@ -5,6 +5,7 @@ import {
   createLyraDirector,
   isUrgent,
   LYRA_COVERAGE,
+  LYRA_SCRIPT,
   lyraLines,
   lyraStage,
   pelagosCues,
@@ -69,6 +70,26 @@ test("the director: one warning at a time, each held back after it is said, urge
   assert.ok(lyra.cue("spotted", 26), "and in time the first may come again");
 });
 
+test("the Protocol's notices: flat, once a visit, the late ones waiting for the story, and never a word about Foremen", () => {
+  const early = createLyraDirector(() => 0, () => 0.5);
+  const far = early.cue("link-far", 0)!;
+  assert.match(far[0].text, /NO LIVING OR NON-LIVING ARTIFACT HAS RETURNED FROM BEYOND THIS DISTANCE/);
+  assert.equal(far[0].voice, "continuity");
+  assert.equal(far[1].speaker, "Lyra", "and then she worries");
+  assert.equal(early.cue("link-far", 500)!.length, 1, "once a visit");
+  assert.equal(early.cue("death", 600)!.some((line) => /CANNOT BE RESTORED/.test(line.text)), false, "not this early");
+
+  const late = createLyraDirector(() => 2, () => 0.5).cue("death", 0)!;
+  assert.deepEqual(late.map((line) => line.speaker), ["Continuity", "Continuity", "Lyra"]);
+  assert.equal(late[0].text, "SIMULATION ENDED. SIM-BODY RESTORED.");
+  assert.match(late[1].text, /IN REALITY, YOU CANNOT BE RESTORED/);
+
+  for (const notice of Object.values(LYRA_SCRIPT.notices)) {
+    assert.equal(notice.text, notice.text.toUpperCase());
+    assert.doesNotMatch(notice.text, /FOREM[AE]N/);
+  }
+});
+
 const steady: SimReading = { alive: true, charge: 1, swapping: false, powered: true };
 
 test("in the simulator she watches the cell, the dome and the sim-body going down, and leaves the rest of the fight alone", () => {
@@ -97,6 +118,7 @@ test("on Pelagos she follows the link out of the dome and calls the shelter's ne
   assert.deepEqual(cues(home, { ...home, inDome: false, link: 0.95 }), ["dome-leave"]);
   assert.deepEqual(cues({ ...home, link: 0.55 }, { ...home, link: 0.45 }), ["link-50"]);
   assert.deepEqual(cues({ ...home, link: 0.3 }, { ...home, link: 0.2 }), [], "nothing at a quarter");
+  assert.deepEqual(cues({ ...home, link: 0.14 }, { ...home, link: 0.1 }), ["link-far"], "the very edge of the dome's reach");
   assert.deepEqual(cues({ ...home, link: 0.05 }, { ...home, link: 0, lost: true }), ["link-lost"]);
   assert.deepEqual(cues({ ...home, link: null }, { ...home, link: null, inDome: false }), [], "not from overhead");
   assert.deepEqual(cues(home, { ...home, pushed: true, failingWalls: 1 }), ["pushed", "walls-failing"]);

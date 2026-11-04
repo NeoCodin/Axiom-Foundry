@@ -9,6 +9,7 @@
  * Pure wording and timing; ark-walk.tsx listens and lyra-voice-player.ts speaks.
  */
 
+import { getCampaignWorld } from "./campaign-content.ts";
 import type { DiscoveryId } from "./discovery-content.ts";
 import type { LyraLine, LyraStage } from "./lyra-voice.ts";
 
@@ -21,6 +22,11 @@ export type Remark = {
 };
 
 const lyra = (...texts: string[]): LyraLine[] => texts.map((text, at) => ({ speaker: "Lyra", text, voice: "lyra", ...(at > 0 ? { delay: 0.5 } : {}) }));
+/** The Continuity Protocol, flat, and then Lyra after a beat. */
+const protocolThen = (text: string, ...texts: string[]): LyraLine[] => [
+  { speaker: "Continuity", text, voice: "continuity" },
+  ...lyra(...texts).map((line) => ({ ...line, delay: 0.5 })),
+];
 
 /** What she says once a record has been found, in story order. */
 const RECORD_REMARKS: Partial<Record<DiscoveryId, readonly string[]>> = {
@@ -114,7 +120,8 @@ export function heartRemark(stage: number): Remark | null {
 
 /**
  * Why the Ark is at this world, as the route's plan gives it: once, the first time AXIOM walks
- * the ship while it is there. Only the world it is at; she never speaks of the ones ahead.
+ * the ship while it is there, after the Protocol recites that world's directive. Only the
+ * world it is at; she never speaks of the ones ahead.
  */
 const WORLD_REMARKS: Partial<Record<string, readonly string[]>> = {
   pelagos: ["We stop at Pelagos first because of the water. Nothing else works without clean water and a crew.", "Get their tidal grid running and their filters clean, and some of them might come with us."],
@@ -125,7 +132,9 @@ const WORLD_REMARKS: Partial<Record<string, readonly string[]>> = {
 };
 export function worldRemark(worldId: string | null | undefined): Remark | null {
   const texts = worldId ? WORLD_REMARKS[worldId] : undefined;
-  return texts ? { id: `world:${worldId}`, kind: "record", once: true, lines: lyra(...texts) } : null;
+  const directive = worldId ? getCampaignWorld(worldId)?.continuityProtocolExcerpt : undefined;
+  if (!texts) return null;
+  return { id: `world:${worldId}`, kind: "record", once: true, lines: directive ? protocolThen(directive.toUpperCase(), ...texts) : lyra(...texts) };
 }
 
 /** The crew's mood turning (crew-talk.ts), once each: what she notices about how they are with her. */
@@ -171,7 +180,9 @@ export const placeRemark = (place: AboardPlace): Remark => ({
 
 export const nullRemark = (stage: LyraStage): Remark => ({
   id: "null", kind: "null", once: false,
-  lines: lyra(stage >= 2 ? "It's bad in here today. I don't think it's after the hull." : "The Null's pushing on the hull. Your camera might glitch a bit, just ignore it."),
+  lines: stage >= 2
+    ? protocolThen("NULL SATURATION ELEVATED. HULL INTEGRITY NOMINAL. CREW INTEGRITY IS NOT MEASURED.", "It's bad in here today. I don't think it's after the hull.")
+    : protocolThen("NULL SATURATION ELEVATED. HULL INTEGRITY NOMINAL.", "The Null's pushing on the hull. Your camera might glitch a bit, just ignore it."),
 });
 
 /**

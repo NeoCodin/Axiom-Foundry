@@ -112,6 +112,12 @@ test("at each world she says why the Ark is there, and never names a world still
     }
   }
   assert.equal(worldRemark("cold-wake"), null, "nothing to say between stars");
+  const pelagos = worldRemark("pelagos")!.lines;
+  assert.equal(pelagos[0].speaker, "Continuity", "the Protocol recites the world's directive first");
+  assert.match(pelagos[0].text, /^CONTINUITY DIRECTIVE 11: A VIABLE HUMAN SETTLEMENT IS A RATIO/);
+  assert.equal(pelagos[1].speaker, "Lyra");
+  assert.match(nullRemark(2).lines[0].text, /CREW INTEGRITY IS NOT MEASURED/);
+  assert.doesNotMatch(nullRemark(0).lines[0].text, /CREW/, "not before the crew are guarded");
   assert.equal(worldRemark(null), null, "nothing while crossing");
   // Nor anywhere else aboard: no room, star or mood line names a world.
   const elsewhere = [...Object.values(ABOARD_SCRIPT.places), ...ABOARD_SCRIPT.heart, ...Object.values(ABOARD_SCRIPT.mood)].flat().join(" ");

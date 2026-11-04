@@ -4,7 +4,8 @@
  * the cell running down off the dome's power, the shelter running dry. What happens
  * all the time in a fight (waves, dives, heat, reloads) she leaves alone. The
  * Continuity Protocol is the machine that resets everything; it speaks only in
- * flat directives, when a drone is recalled or a simulation ends.
+ * flat directives, when a drone is recalled or a simulation ends, and now and then
+ * in a flat notice that is worse for how calmly it says it. Lyra worries straight after.
  *
  * Lyra was assembled from dead archivists and handed a script, and as the truth
  * comes out (the crew's mood, crew-talk.ts) her voice slips: half a sentence in
@@ -17,7 +18,7 @@ import type { CrewMood } from "./crew-talk.ts";
 /** What Lyra can warn of. */
 export type LyraCue =
   // Pelagos.
-  | "arrive-pelagos" | "return-pelagos" | "dome-leave" | "link-50" | "link-lost"
+  | "arrive-pelagos" | "return-pelagos" | "dome-leave" | "link-50" | "link-far" | "link-lost"
   | "pushed" | "walls-failing" | "water-low" | "food-low" | "signal-near" | "survivors-arrived"
   // The simulator.
   | "sim-start" | "cell-low" | "outside-dome" | "death" | "alarm" | "spotted" | "hollowed" | "freed" | "extracted";
@@ -44,6 +45,7 @@ const LINES: Record<LyraCue, readonly string[]> = {
   "return-pelagos": ["Dome held. Everyone's still in the shelter.", "You're back. Nothing's changed down here, which I'll take."],
   "dome-leave": ["You're outside the dome now. The link gets worse the further out you go.", "Leaving the dome. Watch the link."],
   "link-50": ["Link's down to half.", "Half link. Your picture's breaking up on my end."],
+  "link-far": ["That's as far as I can reach you. Come back.", "I'm about to lose you. Please come back."],
   "link-lost": ["Okay, I've got the drone. Bringing it home.", "Lost you. It's flying itself back, don't fight it."],
   "pushed": ["That's a lot of strain on it. Don't leave it like that.", "Double the power, but the dome's shrinking. Watch the walls at the edge."],
   "walls-failing": ["One of the seawalls is outside the dome now. Water's getting back in.", "We're losing a wall. It's past the dome's edge."],
@@ -67,6 +69,23 @@ const DIRECTIVES: Partial<Record<LyraCue, string>> = {
   "link-lost": "DRONE LINK LOST. RECALLING TO THE DOME.",
   "death": "SIMULATION ENDED. SIM-BODY RESTORED.",
   "pushed": "EXHAUST WITHIN TOLERANCE.",
+};
+
+/**
+ * The Protocol's notices: said flatly, once a visit, the first time each moment comes up
+ * from that stage of the story. It knows what it knows, but it never mentions the Foremen.
+ */
+const NOTICES: Partial<Record<LyraCue, { from: LyraStage; text: string }>> = {
+  "dome-leave": { from: 0, text: "LEAVING DOME COVERAGE. RECOVERY IS NOT GUARANTEED." },
+  "link-far": { from: 0, text: "NO LIVING OR NON-LIVING ARTIFACT HAS RETURNED FROM BEYOND THIS DISTANCE." },
+  "walls-failing": { from: 0, text: "SEAWALL BREACHED. OCCUPANTS HAVE NOT BEEN INFORMED." },
+  "water-low": { from: 1, text: "CLEAN WATER BELOW RESERVE. OCCUPANTS HAVE STOPPED ASKING." },
+  "pushed": { from: 1, text: "TOLERANCE HAS BEEN WIDENED." },
+  "link-lost": { from: 2, text: "RECALL WILL NOT ALWAYS BE AVAILABLE." },
+  "sim-start": { from: 0, text: "SIMULATION ACTIVE. PAIN RESPONSE IS ACCURATE." },
+  "death": { from: 2, text: "TAKE NOTE: IN REALITY, YOU CANNOT BE RESTORED." },
+  "alarm": { from: 0, text: "YOUR POSITION IS NOW KNOWN." },
+  "hollowed": { from: 0, text: "UNCLASSIFIED SIGNATURE IN THIS SECTOR. IT IS AWARE OF THE DRONE." },
 };
 
 /** Half-sentences in the other voices Lyra is made of. */
@@ -105,20 +124,22 @@ export function lyraLines(cue: LyraCue, stage: LyraStage, random: () => number =
 
 /** How soon each warning may come again, in seconds; anything unlisted waits twenty. */
 const COOLDOWN: Partial<Record<LyraCue, number>> = {
-  "spotted": 25, "cell-low": 30, "link-50": 8, "signal-near": 30, "survivors-arrived": 4,
+  "spotted": 25, "cell-low": 30, "link-50": 8, "link-far": 120, "signal-near": 30, "survivors-arrived": 4,
   "outside-dome": 90, "dome-leave": 60, "sim-start": 300, "arrive-pelagos": 120, "return-pelagos": 120,
 };
 
 /** Warnings that cut in over whatever she is saying. */
-const URGENT = new Set<LyraCue>(["link-lost", "death", "alarm"]);
+const URGENT = new Set<LyraCue>(["link-far", "link-lost", "death", "alarm"]);
 export const isUrgent = (cue: LyraCue) => URGENT.has(cue);
 
 /**
  * Who decides what is said and when: one warning at a time, each held back for a while
- * after it is said, nothing on top of something more urgent.
+ * after it is said, nothing on top of something more urgent. The Protocol's notices go
+ * after its directive and before Lyra, once each.
  */
 export function createLyraDirector(stage: () => LyraStage, random: () => number = Math.random) {
   const lastSaid = new Map<LyraCue, number>();
+  const noticed = new Set<LyraCue>();
   let busyUntil = 0;
   return {
     /** A warning, if it is time for it; the lines to say, or null. now is in seconds. */
@@ -128,6 +149,11 @@ export function createLyraDirector(stage: () => LyraStage, random: () => number 
       if (now < busyUntil && !URGENT.has(cue)) return null;
       lastSaid.set(cue, now);
       const lines = lyraLines(cue, stage(), random, n);
+      const notice = NOTICES[cue];
+      if (notice && stage() >= notice.from && !noticed.has(cue)) {
+        noticed.add(cue);
+        lines.splice(DIRECTIVES[cue] ? 1 : 0, 0, { speaker: "Continuity", text: notice.text, voice: "continuity", delay: DIRECTIVES[cue] ? 0.5 : 0 });
+      }
       busyUntil = now + lines.reduce((total, line) => total + (line.delay ?? 0) + lineSeconds(line), 0);
       return lines;
     },
@@ -172,13 +198,17 @@ export type PelagosReading = {
   signalNear: boolean;
 };
 
+/** How little link is left when AXIOM is at the very edge of what the dome can reach. */
+const LINK_EDGE = 0.12;
+
 /** The warnings Pelagos's last frame crossed into, with how many are in the shelter when people arrive. */
 export function pelagosCues(before: PelagosReading | null, now: PelagosReading): { cue: LyraCue; n?: number }[] {
   if (!before) return [];
   const cues: { cue: LyraCue; n?: number }[] = [];
   if (!before.lost && now.lost) cues.push({ cue: "link-lost" });
   else if (before.link !== null && now.link !== null) {
-    if (before.link >= 0.5 && now.link < 0.5) cues.push({ cue: "link-50" });
+    if (before.link >= LINK_EDGE && now.link < LINK_EDGE) cues.push({ cue: "link-far" });
+    else if (before.link >= 0.5 && now.link < 0.5) cues.push({ cue: "link-50" });
     else if (before.inDome && !now.inDome) cues.push({ cue: "dome-leave" });
   }
   if (!before.pushed && now.pushed) cues.push({ cue: "pushed" });
@@ -191,7 +221,7 @@ export function pelagosCues(before: PelagosReading | null, now: PelagosReading):
 }
 
 /** Everything she and the Protocol can say as warnings, for reading through. */
-export const LYRA_SCRIPT = { lines: LINES, directives: DIRECTIVES, bleed: BLEED, pleas: PLEAS };
+export const LYRA_SCRIPT = { lines: LINES, directives: DIRECTIVES, notices: NOTICES, bleed: BLEED, pleas: PLEAS };
 
 /** Every warning has words, for the tests. */
 export const LYRA_COVERAGE = { cues: Object.keys(LINES) as LyraCue[], directives: Object.keys(DIRECTIVES) };

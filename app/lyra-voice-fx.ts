@@ -13,7 +13,7 @@ import type { LyraLine, LyraStage } from "./lyra-voice.ts";
 export type VoiceFx = { radio: number; metal: number; doubling: number; crunch: number };
 export const FX_KEYS = ["radio", "metal", "doubling", "crunch"] as const;
 
-export const DEFAULT_FX: VoiceFx = { radio: 0.4, metal: 0.12, doubling: 0.12, crunch: 0.08 };
+export const DEFAULT_FX: VoiceFx = { radio: 1, metal: 0.78, doubling: 0.48, crunch: 0.22 };
 /** How much further each stage of the story (crew-talk.ts moods) takes her. */
 const SLIP: VoiceFx = { radio: 0.03, metal: 0.1, doubling: 0.12, crunch: 0.05 };
 /** The other voices in hers: always further gone than she is. */
