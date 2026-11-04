@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  chooseVoice,
   createLyraDirector,
   isUrgent,
   LYRA_COVERAGE,
@@ -8,6 +9,7 @@ import {
   lyraStage,
   pelagosCues,
   simCues,
+  spokenText,
   type PelagosReading,
   type SimReading,
 } from "../app/lyra-voice.ts";
@@ -123,4 +125,22 @@ test("on Pelagos she follows the link out of the dome and calls the shelter's ne
   assert.deepEqual(cues(home, { ...home, water: 1.4, food: 1.2 }), ["water-low", "food-low"]);
   assert.deepEqual(cues(home, { ...home, signalNear: true }), ["signal-near"]);
   assert.deepEqual(pelagosCues(home, { ...home, survivors: 5 }), [{ cue: "survivors-arrived", n: 5 }]);
+});
+
+test("she speaks with the voices the owner chose, and the nearest thing on a computer without them", () => {
+  const windows = [
+    { name: "Microsoft David - English (United States)", lang: "en-US" },
+    { name: "Microsoft Mark - English (United States)", lang: "en-US" },
+    { name: "Microsoft Zira - English (United States)", lang: "en-US" },
+  ];
+  assert.match(chooseVoice(windows, "lyra")!.name, /Zira/);
+  assert.match(chooseVoice(windows, "bleed")!.name, /Zira/);
+  assert.match(chooseVoice(windows, "continuity")!.name, /David/);
+  const mac = [{ name: "Alex", lang: "en-US" }, { name: "Samantha", lang: "en-US" }, { name: "Thomas", lang: "fr-FR" }];
+  assert.equal(chooseVoice(mac, "lyra")!.name, "Samantha");
+  assert.equal(chooseVoice(mac, "continuity")!.name, "Alex");
+  assert.equal(chooseVoice([{ name: "Google UK English Female", lang: "en-GB" }], "continuity")!.name, "Google UK English Female", "a female voice is not taken for a male one, but any English voice beats none");
+  assert.equal(chooseVoice([{ name: "Thomas", lang: "fr-FR" }], "lyra"), null);
+  assert.equal(spokenText({ speaker: "Continuity", text: "DRONE LINK LOST.", voice: "continuity" }), "drone link lost.");
+  assert.equal(spokenText({ speaker: "Lyra", text: "—it's always Pelagos first—", voice: "bleed" }), "it's always Pelagos first");
 });

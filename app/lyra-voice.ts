@@ -245,3 +245,32 @@ export function pelagosCues(before: PelagosReading | null, now: PelagosReading):
 
 /** Every warning has words, for the tests. */
 export const LYRA_COVERAGE = { cues: Object.keys(LINES) as LyraCue[], late: Object.keys(LATE), directives: Object.keys(DIRECTIVES) };
+
+/** Voices that sound like a woman's and like a man's, best first: Windows' own, then the Mac's, then Google's. */
+const FEMALE = [/Zira/i, /Samantha/i, /Google US English/i, /Susan|Hazel|Karen|Moira|Tessa|Serena|Victoria|Fiona/i, /female/i];
+const MALE = [/David/i, /Mark/i, /Google UK English Male/i, /Daniel|Fred|Alex|George|Rishi/i, /male/i];
+
+/**
+ * How each part is spoken by the browser's own voices. The owner's picks from the audition
+ * (Nov 3): Zira pitched right up for Lyra, Zira pitched right down for the voices bleeding
+ * through hers, David low and steady for the Continuity Protocol.
+ */
+export const SPOKEN: Record<LyraLine["voice"], { prefer: readonly RegExp[]; rate: number; pitch: number }> = {
+  lyra: { prefer: FEMALE, rate: 0.95, pitch: 2 },
+  bleed: { prefer: FEMALE, rate: 0.85, pitch: 0 },
+  continuity: { prefer: MALE, rate: 0.9, pitch: 0.4 },
+};
+
+/** The browser voice for a part: the first English one its preferences name, else any English voice, else none. */
+export function chooseVoice<V extends { name: string; lang: string }>(voices: readonly V[], voice: LyraLine["voice"]): V | null {
+  const english = voices.filter((candidate) => /^en/i.test(candidate.lang));
+  for (const pattern of SPOKEN[voice].prefer) {
+    const found = english.find((candidate) => pattern.test(candidate.name));
+    if (found) return found;
+  }
+  return english[0] ?? null;
+}
+
+/** What the voice is given to read: the Protocol's capitals in plain case, so no voice spells them out; no dashes. */
+export const spokenText = (line: LyraLine) =>
+  (line.voice === "continuity" ? line.text.toLowerCase() : line.text).replace(/—/g, " ").trim();

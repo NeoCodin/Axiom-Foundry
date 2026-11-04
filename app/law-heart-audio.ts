@@ -332,3 +332,18 @@ export function playLyraVoice(voice: "lyra" | "bleed" | "continuity", seconds: n
     for (let step = 1; step < 4; step += 1) crackle.gain.setValueAtTime(step % 2 === 0 ? 0.0001 : 0.025, when + length * 0.4 + step * 0.04);
   }
 }
+
+/** The link opening as someone starts speaking in AXIOM's ear: a click and a breath of static, heavier for a voice that isn't meant to be there; two flat chirps for the Continuity Protocol. */
+export function playLyraKey(voice: "lyra" | "bleed" | "continuity") {
+  const output = ready();
+  if (!output) return;
+  const when = output.context.currentTime;
+  if (voice === "continuity") {
+    tone(output, when, { type: "square", from: 990, peak: 0.014, attack: 0.002, decay: 0.05 });
+    tone(output, when + 0.07, { type: "square", from: 1320, peak: 0.014, attack: 0.002, decay: 0.06 });
+    return;
+  }
+  const bleed = voice === "bleed";
+  tone(output, when, { type: "square", from: 1800, to: 1200, glide: 0.01, peak: 0.02, attack: 0.001, decay: 0.025 });
+  noiseBurst(output, when, { filter: "highpass", frequency: bleed ? 1800 : 2800, peak: bleed ? 0.035 : 0.014, attack: 0.01, decay: bleed ? 0.5 : 0.25 });
+}
