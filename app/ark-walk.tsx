@@ -5160,7 +5160,7 @@ export default function ArkWalk(props: ArkWalkProps) {
       lyraSaid.add("heart:0");
       pacer.offer(openingRemark("wake"), performance.now() / 1000);
     } else if (resumed) lyraSaid.add("welcome");
-    else pacer.offer(welcomeRemark(), performance.now() / 1000);
+    else pacer.offer(welcomeRemark(initial.crew.length), performance.now() / 1000);
     // The Law-Heart as it is now, the first time she sees it at this stage.
     pacer.offer(heartRemark(initial.heart.stage), performance.now() / 1000);
     if (!initial.drone?.darkOpening && initial.drone?.damaged && initial.drone.cradlePowered) pacer.offer(openingRemark("cradle"), performance.now() / 1000);

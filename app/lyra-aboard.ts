@@ -128,9 +128,12 @@ export function placeOf(deck: number, compartment: string | null, side: string |
   return null;
 }
 
-export const welcomeRemark = (): Remark => ({
+// Early on nobody else is aboard, so she only mentions the crew once there are some.
+export const welcomeRemark = (crewAboard: number): Remark => ({
   id: "welcome", kind: "welcome", once: true,
-  lines: lyra("There you are. Drone's all yours, AXIOM.", "Go easy around the crew. They're still not used to it."),
+  lines: crewAboard > 0
+    ? lyra("There you are. Drone's all yours, AXIOM.", "Go easy around the crew. They're not used to a drone walking around yet.")
+    : lyra("There you are. Drone's all yours, AXIOM.", "It's just us aboard for now."),
 });
 
 const recordId = (id: string) => `record:${id}`;

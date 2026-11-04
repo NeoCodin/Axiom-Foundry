@@ -32,7 +32,7 @@ test("the pacer: one at a time, only when quiet, long gaps, rooms let go if they
   const said = new Set<string>();
   const pacer = createAboardPacer(said, { gap: 90, recordGap: 40, wait: 20 });
   pacer.offer(placeRemark("bridge", 0), 0);
-  pacer.offer(welcomeRemark(), 0);
+  pacer.offer(welcomeRemark(3), 0);
   assert.equal(pacer.next(0, false), null, "not while someone else is talking");
   assert.equal(pacer.next(1, true)?.kind, "welcome", "the welcome comes first");
   assert.equal(pacer.next(2, true), null, "and the room waits its gap");
@@ -79,4 +79,9 @@ test("she says what the Law-Heart is at each stage it grows to, once each", () =
   assert.match(heartRemark(0)!.lines[0].text, /star/);
   assert.equal(heartRemark(5)!.id, "heart:5");
   assert.ok(placeRemark("chamber", 0).lines.some((line) => /reactor/.test(line.text)), "and a little of its history, in the chamber");
+});
+
+test("she only mentions the crew once there are people aboard", () => {
+  assert.ok(!welcomeRemark(0).lines.some((line) => /crew/.test(line.text)));
+  assert.ok(welcomeRemark(4).lines.some((line) => /crew/.test(line.text)));
 });
