@@ -3027,7 +3027,8 @@ export default function Home() {
             setFoundryConsoleTab("chain");
             setQaCollapsed(true);
             setContextGuide(null);
-            setTourStep(0);
+            // Exactly as a new public game: the dark drone on a PC, the console tour on a phone.
+            setTourStep(null);
           }}
           onReplayPlanetIntroduction={() => {
             const next = createQaPlanetIntroductionCheckpoint(Date.now());

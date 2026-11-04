@@ -29,6 +29,7 @@ import {
   setLifeSupportCapacity,
   setSosBeaconOnline,
 } from "./survivor-engine.ts";
+import { getStoryRecordsAtArrival } from "./discovery-engine.ts";
 import { CONTEXT_GUIDES } from "./story-content.ts";
 import { beginTransit } from "./transit-engine.ts";
 
@@ -211,6 +212,7 @@ export function createQaCheckpoint(worldIndex: number, now = Date.now()): GameSt
     living: {
       ...base.living,
       salvage: earnedSalvageAtWorldOpening(index),
+      discoveredLore: getStoryRecordsAtArrival(index),
     },
     survivors,
     research: {

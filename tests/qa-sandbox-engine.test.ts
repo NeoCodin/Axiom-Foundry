@@ -9,6 +9,8 @@ import {
   selectResearchProject,
 } from "../app/research-engine.ts";
 import { getSurvivorBestSkillLevel } from "../app/survivor-engine.ts";
+import { crewMood } from "../app/crew-talk.ts";
+import { DISCOVERY_FRAGMENTS } from "../app/discovery-content.ts";
 import { getProgressiveDisclosure } from "../app/progressive-disclosure.ts";
 import {
   QA_SAVE_KEY,
@@ -191,4 +193,24 @@ test("QA completes only the active Research project when requested", () => {
     completed.research.completedProjectIds.length,
     active.research.completedProjectIds.length + 1,
   );
+});
+
+test("jumping to a world brings the story a player would have brought there", () => {
+  const records = (index: number) => createQaCheckpoint(index, 1_000).living.discoveredLore;
+  const mood = (index: number) => crewMood({ worldId: CAMPAIGN_WORLD_IDS[index], worldsSaved: index, discovered: records(index) });
+  assert.deepEqual(records(1), ["lyra.official-brief", "core.welcome-back", "helion.impossible-registry"], "reaching Pelagos");
+  assert.ok(records(2).includes("archive.construction-zero") && records(2).includes("pelagos.returning-salt"), "the searches made on Pelagos, and what leaving it gave");
+  assert.ok(records(3).includes("cinderwake.command-recognition"));
+  assert.ok(records(4).includes("ilyra.axiom-wake"));
+  assert.ok(records(5).includes("orison.borrowed-childhoods"));
+  assert.ok(!records(5).includes("vesper.revision-ledger"), "nothing from a world not yet saved");
+  assert.ok(!records(5).includes("archive.lyra-composite-index"), "nor a comparison that needs what the last world gave");
+  for (let index = 1; index < CAMPAIGN_WORLD_IDS.length; index += 1) {
+    assert.ok(records(index).length >= records(index - 1).length, CAMPAIGN_WORLD_IDS[index]);
+    for (const id of records(index)) {
+      const fragment = DISCOVERY_FRAGMENTS.find((candidate) => candidate.id === id)!;
+      assert.ok((fragment.unlock.requires ?? []).every((needed) => records(index).includes(needed)), `${id}: what it needs is there too`);
+    }
+  }
+  assert.deepEqual([1, 2, 3, 4, 5].map(mood), ["grateful", "uneasy", "uneasy", "uneasy", "guarded"], "the crew follow the story");
 });

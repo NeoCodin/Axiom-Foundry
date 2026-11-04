@@ -52,6 +52,33 @@ export function syncAutomaticDiscoveries(
   return unique([...discovered]);
 }
 
+/**
+ * The records a player normally has on arriving at a world (its place on the route, which
+ * is also how many worlds are saved by then): what each world gave on leaving it, and what
+ * could be searched for or compared during the world before. The QA checkpoints use this,
+ * so a jump to a world brings the story a player would have brought there.
+ */
+export function getStoryRecordsAtArrival(worldIndex: number) {
+  const found = new Set<string>();
+  const sweep = (takes: (fragment: DiscoveryFragment) => boolean) => {
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const fragment of DISCOVERY_FRAGMENTS) {
+        if (found.has(fragment.id) || !requirementsMet(found, fragment) || !takes(fragment)) continue;
+        found.add(fragment.id);
+        changed = true;
+      }
+    }
+  };
+  sweep((fragment) => fragment.unlock.kind === "start");
+  for (let saved = 1; saved <= worldIndex; saved += 1) {
+    sweep((fragment) => fragment.unlock.kind !== "start" && fragment.unlock.kind !== "saved-worlds");
+    sweep(({ unlock }) => unlock.kind === "saved-worlds" && unlock.count <= saved);
+  }
+  return DISCOVERY_FRAGMENTS.filter((fragment) => found.has(fragment.id)).map((fragment) => fragment.id);
+}
+
 export function getNextRoomDiscovery(
   discoveryIds: readonly string[],
   roomId: RoomId,
