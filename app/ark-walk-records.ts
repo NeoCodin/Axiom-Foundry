@@ -1,10 +1,13 @@
 /*
  * Where the Ark keeps its story, for the drone view. Every record the Lore Archive
- * can hold has a place aboard: a seam in the Fabrication deck plate, a sample from
- * the Gravity Keel in the machine shop, the first beacon's registry and the last
- * ledger either side of the bridge door, the Recalibration Vault in the chamber's
- * lower gallery with scratches in the wall beside it, the Memory Archive's terminal
- * in the library, and what the recon teams brought back on the briefing room wall.
+ * can hold has a place aboard. What the ship itself holds is there from the start
+ * (the boot buffer, the Recalibration Vault, the Memory Archive's terminal), or shows
+ * once the story points at it (a seam the Fabrication refit opened, scratches in the
+ * vault's wall). What was found on a world or by a recon team is brought aboard, and
+ * nothing shows in its place until then: the Pelagos beacon's registry and Vesper's
+ * ledger either side of the bridge door, a core from Pelagos's Gravity Keel in the
+ * machine shop, seeds from Viridia's vault in the farm, Cinder's foundry logs and the
+ * Nox recordings in the lab, and the recon teams' finds on the briefing room wall.
  * The three room searches happen at their places; the archive's comparisons happen
  * at its terminal. Pure placement and wording; ark-walk.tsx draws and runs it.
  */
@@ -15,7 +18,7 @@ import { HALF_DEPTH, type SideRoomKind, type WalkLayout, type WalkRoomKind } fro
 /** How a place looks: a crack in the floor, a wall screen, a case on the wall, the vault door, the archive's terminal, carved marks. */
 export type RecordForm = "seam" | "plate" | "case" | "vault" | "terminal" | "scar";
 /** What a case holds. */
-export type RecordItem = "salt" | "prism" | "pollen" | "relay" | "bloom" | "origin";
+export type RecordItem = "salt" | "prism" | "seeds" | "relay" | "bloom" | "origin";
 
 export type RecordPlace = {
   id: string;
@@ -42,6 +45,8 @@ export type RecordPlace = {
   records: readonly DiscoveryId[];
   /** Shown, though there is nothing to read yet, once this record is found. */
   appearsWith?: DiscoveryId;
+  /** Brought aboard from a world or by a recon team: nothing shows here until it is found. */
+  brought?: boolean;
   /** The archive's comparisons are made here. */
   archive?: boolean;
 };
@@ -53,30 +58,35 @@ export const RECORD_PLACES: readonly RecordPlace[] = [
     mount: "floor", along: 9, across: 0, height: 0, form: "seam", records: ["fabrication.preconcordance-keel"],
   },
   {
-    id: "keel-sample", label: "A core cut from the Gravity Keel", deck: 0, section: "fabrication", side: "workshop",
-    mount: "far", along: 8, height: 1.5, form: "case", item: "salt", records: ["pelagos.returning-salt"],
+    id: "keel-sample", label: "A core cut from Pelagos's Gravity Keel", deck: 0, section: "fabrication", side: "workshop",
+    mount: "far", along: 8, height: 1.5, form: "case", item: "salt", records: ["pelagos.returning-salt"], brought: true,
   },
   {
     id: "boot-buffer", label: "Boot buffer A", deck: 0, section: "chamber",
     mount: "port", along: 6.2, height: 1.7, form: "plate", records: ["core.welcome-back"],
   },
+  // What the drones bring back gets studied in the labs.
   {
-    id: "transit-prism", label: "The Ilyran transit prism", deck: 0, section: "research", side: "lab",
-    mount: "far", along: 7.8, height: 1.5, form: "case", item: "prism", records: ["ilyra.axiom-wake"],
+    id: "foundry-logs", label: "A log core from Cinder's foundries", deck: 0, section: "research", side: "lab",
+    mount: "far", along: 6.6, height: 1.5, form: "case", item: "prism", records: ["ilyra.axiom-wake"], brought: true,
+  },
+  {
+    id: "nox-recordings", label: "Recordings from Nox's towers", deck: 0, section: "research", side: "lab",
+    mount: "far", along: 9.2, height: 1.6, form: "plate", records: ["orison.borrowed-childhoods"], brought: true,
   },
   // The first beacon and the last ledger, either side of the bridge door: every record begins at one and ends at the other.
   {
-    id: "first-beacon", label: "The Helion beacon's registry", deck: 0, section: "bridge",
-    mount: "stern", across: -7, height: 2, form: "plate", records: ["helion.impossible-registry"],
+    id: "first-beacon", label: "The Pelagos beacon's registry", deck: 0, section: "bridge",
+    mount: "stern", across: -7, height: 2, form: "plate", records: ["helion.impossible-registry"], brought: true,
   },
   {
-    id: "revision-ledger", label: "The sealed revision ledger", deck: 0, section: "bridge",
-    mount: "stern", across: 7, height: 2, form: "plate", records: ["vesper.revision-ledger"],
+    id: "revision-ledger", label: "Vesper's sealed revision ledger", deck: 0, section: "bridge",
+    mount: "stern", across: 7, height: 2, form: "plate", records: ["vesper.revision-ledger"], brought: true,
   },
   // ---- Lower deck ----
   {
-    id: "seed-archive", label: "Memory pollen from Orison", deck: 1, section: "support", side: "farm",
-    mount: "far", along: 12.1, height: 1.8, form: "case", item: "pollen", records: ["orison.borrowed-childhoods"],
+    id: "seed-vault", label: "Seeds from Viridia's vault", deck: 1, section: "support", side: "farm",
+    mount: "far", along: 12.1, height: 1.8, form: "case", item: "seeds", records: ["cinderwake.command-recognition"], brought: true,
   },
   {
     id: "recalibration-vault", label: "The Recalibration Vault", deck: 1, section: "chamber",
@@ -93,20 +103,16 @@ export const RECORD_PLACES: readonly RecordPlace[] = [
     records: ["lyra.official-brief", "archive.construction-zero", "archive.suppressed-correlation", "archive.lyra-composite-index", "lyra.private-amendment"],
   },
   {
-    id: "shield-lattice", label: "Cinderwake's access history", deck: 1, section: "hangar", side: "armory",
-    mount: "stern", across: 1.6, height: 1.6, form: "plate", records: ["cinderwake.command-recognition"],
-  },
-  {
     id: "dead-relay", label: "The relay from beyond the chart", deck: 1, section: "hangar", side: "briefing",
-    mount: "far", along: 1.2, height: 1.5, form: "case", item: "relay", records: ["expedition.dead-relay"],
+    mount: "far", along: 1.2, height: 1.5, form: "case", item: "relay", records: ["expedition.dead-relay"], brought: true,
   },
   {
     id: "null-bloom", label: "A sealed bloom sample", deck: 1, section: "hangar", side: "briefing",
-    mount: "far", along: 2.8, height: 1.5, form: "case", item: "bloom", records: ["expedition.null-bloom"],
+    mount: "far", along: 2.8, height: 1.5, form: "case", item: "bloom", records: ["expedition.null-bloom"], brought: true,
   },
   {
     id: "origin-coordinate", label: "The origin coordinates", deck: 1, section: "hangar", side: "briefing",
-    mount: "far", along: 4.4, height: 1.5, form: "case", item: "origin", records: ["expedition.first-foundry"],
+    mount: "far", along: 4.4, height: 1.5, form: "case", item: "origin", records: ["expedition.first-foundry"], brought: true,
   },
 ];
 
@@ -165,9 +171,11 @@ export function placeState(
   const found = place.records.filter((id) => have.has(id)).map((id) => FRAGMENTS.get(id)!).filter(Boolean);
   const search = searchRecordId !== null && (place.records as readonly string[]).includes(searchRecordId);
   const crossIndex = Boolean(place.archive && crossIndexReady);
-  // Cases, plates, the vault and the archive are part of the ship; a seam shows once
-  // the story points at it, and the scratches once Foreman Seven has said what they are.
-  const visible = found.length > 0 || search || crossIndex || (place.appearsWith ? have.has(place.appearsWith) : place.form !== "seam" && place.form !== "scar");
+  // What was brought aboard shows once it is; the boot buffer, the vault and the archive
+  // are part of the ship; a seam shows once the story points at it, and the scratches
+  // once Foreman Seven has said what they are.
+  const shipPart = !place.brought && !place.appearsWith && place.form !== "seam" && place.form !== "scar";
+  const visible = found.length > 0 || search || crossIndex || shipPart || Boolean(place.appearsWith && have.has(place.appearsWith));
   return { found, search, crossIndex, visible };
 }
 

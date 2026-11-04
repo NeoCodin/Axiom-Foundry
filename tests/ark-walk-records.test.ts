@@ -44,18 +44,23 @@ test("every place is in its room, and the drone can get in front of it", () => {
   }
   // Places in rooms that are not there yet are simply absent.
   const noArmory = buildWalkLayout(kinds.map((kind) => ({ kind, label: kind, online: true })), { residents: 30, armory: false });
-  const lattice = RECORD_PLACES.find((place) => place.id === "shield-lattice")!;
-  assert.ok(recordSpot(lattice, noArmory), "the Armory is built, though sealed, before it is unlocked");
+  for (const place of RECORD_PLACES) assert.ok(recordSpot(place, noArmory), `${place.id}: there before the Armory is`);
 });
 
-test("what each place shows: empty cases wait, a seam appears when the story points at it", () => {
+test("what each place shows: what a world gave shows once it is found, a seam when the story points at it", () => {
   const place = (id: string) => RECORD_PLACES.find((candidate) => candidate.id === id)!;
   const early = ["lyra.official-brief", "core.welcome-back", "helion.impossible-registry"];
   assert.equal(placeState(place("foundation-seam"), early, null, false).visible, false, "nothing to see yet");
   const lead = placeState(place("foundation-seam"), early, "fabrication.preconcordance-keel", false);
   assert.ok(lead.visible && lead.search && lead.found.length === 0);
-  const sample = placeState(place("keel-sample"), early, null, false);
-  assert.ok(sample.visible && sample.found.length === 0, "the case is on the wall, empty");
+  assert.equal(placeState(place("keel-sample"), early, null, false).visible, false, "nothing from Pelagos until it is found there");
+  assert.ok(placeState(place("keel-sample"), [...early, "pelagos.returning-salt"], null, false).visible, "then it is brought aboard");
+  assert.ok(placeState(place("first-beacon"), early, null, false).visible, "the beacon's registry, found on the way in");
+  assert.ok(placeState(place("recalibration-vault"), early, null, false).visible, "the vault is part of the ship");
+  for (const candidate of RECORD_PLACES.filter((spot) => spot.brought)) {
+    const found = DISCOVERY_FRAGMENTS.find((fragment) => fragment.id === candidate.records[0])!;
+    assert.ok(found.unlock.kind === "saved-worlds" || found.unlock.kind === "expedition-discovery", `${candidate.id}: brought back from somewhere`);
+  }
   assert.equal(placeState(place("scar-record"), early, null, false).visible, false);
   assert.equal(placeState(place("scar-record"), [...early, "foreman.message-seven"], null, false).visible, true, "Foreman Seven says to look for scars");
   const archive = placeState(place("memory-archive"), [...early, "archive.construction-zero"], null, true);
@@ -66,7 +71,7 @@ test("what each place shows: empty cases wait, a seam appears when the story poi
 
 test("a record reads as its source's words, then what AXIOM makes of them", () => {
   const lines = recordLines(fragmentOf("foreman.message-seven")!);
-  assert.equal(lines[0].speaker, "Recalibration Vault · impossible voiceprint");
+  assert.equal(lines[0].speaker, "Recalibration Vault · voice log searched for your voice");
   assert.match(lines[1].text, /scars in the walls/);
   assert.deepEqual(lines.at(-1), { speaker: "AXIOM", text: "The speaker has your voice and identifies themself as Foreman Seven." });
   assert.ok(recordLines(fragmentOf("lyra.private-amendment")!).every((line) => line.speaker !== "AXIOM"), "Lyra's own words stand alone");

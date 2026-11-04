@@ -4399,7 +4399,8 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
                 recordAnimated.push((time) => { prism.rotation.y = time * 0.0006; });
                 break;
               }
-              case "pollen": {
+              case "seeds": {
+                // A vial of seeds from Viridia's vault.
                 part(new THREE.CylinderGeometry(0.06, 0.06, 0.3, 10), ghost("#ffffff", 0.25), 0, -0.1, 0.2);
                 for (let speck = 0; speck < 6; speck += 1) part(new THREE.BoxGeometry(0.02, 0.02, 0.02), glow("#ffd890"), (hash(speck) - 0.5) * 0.07, -0.2 + speck * 0.035, 0.2 + (hash(speck + 9) - 0.5) * 0.06);
                 break;

@@ -1,9 +1,10 @@
+/** The route, in the order its worlds are saved (campaign-content.ts): a record from a world is found there. */
 export const WORLD_IDS = [
-  "helion",
+  "cold-wake",
   "pelagos",
-  "cinderwake",
-  "ilyra",
-  "orison",
+  "viridia",
+  "cinder",
+  "nox",
   "vesper",
 ] as const;
 
@@ -44,8 +45,8 @@ export const ROOM_ACTION_LABELS: Record<RoomActionId, string> = {
   "ask-sena-about-registry": "Ask Sena about the registry",
   "show-aro-keel-assay": "Show Aro the keel assay",
   "ask-oren-to-compare-voiceprints": "Ask Oren to compare the voiceprints",
-  "review-ilyran-causal-order": "Review the Ilyran causal order",
-  "compare-memory-and-seed-cycles": "Compare the memory and seed cycles",
+  "review-ilyran-causal-order": "Review Cinder's foundry logs",
+  "compare-memory-and-seed-cycles": "Compare Lyra's memories with the Nox recordings",
   "ask-cass-about-the-next-crossing": "Ask Cass about the next crossing",
 };
 
@@ -179,17 +180,17 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
   {
     id: "helion.impossible-registry",
     arc: "impossible-origin",
-    title: "Helion knew us 214 years early",
-    source: "Helion beacon · restored registry",
+    title: "The beacon knew us 214 years early",
+    source: "Pelagos approach beacon · restored registry",
     unlock: {
       kind: "saved-worlds",
       count: 1,
-      worldId: "helion",
+      worldId: "cold-wake",
       requires: ["core.welcome-back"],
     },
     excerpt: [
-      "Helion first authenticated this Foundry 214 years before the Concordance chartered it.",
-      "The beacon identifies the vessel by a retired name: AXIOM FOUNDRY · ITERATION 19.",
+      "The beacon at the edge of the Pelagos system first authenticated this Foundry 214 years before the Concordance chartered it.",
+      "It identifies the vessel by a retired name: AXIOM FOUNDRY · ITERATION 19.",
     ],
     contradiction: "Official history dates the Foundry to the first year of the Tide.",
     doctrineSignals: ["genesis"],
@@ -198,7 +199,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     id: "fabrication.preconcordance-keel",
     arc: "impossible-origin",
     title: "Alloy older than its own process",
-    source: "Fabrication Floor · exposed foundation",
+    source: "Fabrication Floor · seam opened by the refit",
     unlock: {
       kind: "room-action",
       roomId: "fabrication-floor",
@@ -216,7 +217,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     id: "archive.construction-zero",
     arc: "impossible-origin",
     title: "There is no construction record",
-    source: "Memory Archive · reconstructed manifest",
+    source: "Memory Archive · manifest searched for the keel's serial",
     unlock: {
       kind: "archive-action",
       actionId: "restore-construction-manifest",
@@ -253,7 +254,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     id: "foreman.message-seven",
     arc: "prior-foremen",
     title: "A message in your voice",
-    source: "Recalibration Vault · impossible voiceprint",
+    source: "Recalibration Vault · voice log searched for your voice",
     unlock: {
       kind: "room-action",
       roomId: "recalibration-vault",
@@ -270,16 +271,16 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
   {
     id: "cinderwake.command-recognition",
     arc: "prior-foremen",
-    title: "The shields knew your command",
-    source: "Cinderwake defense lattice · access history",
+    title: "The seed vault knew your command",
+    source: "Viridia seed vault · access history",
     unlock: {
       kind: "saved-worlds",
       count: 3,
-      worldId: "cinderwake",
+      worldId: "viridia",
       requires: ["foreman.message-seven"],
     },
     excerpt: [
-      "Cinderwake accepted your command cipher before the Foundry transmitted it.",
+      "Viridia's seed vault accepted your command cipher before the Foundry transmitted it.",
       "Previous authorization: FOREMAN 31. Biometric match: 99.997 percent.",
     ],
     contradiction: "Worlds on the route remember Foremen the archive says never existed.",
@@ -306,16 +307,16 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     id: "ilyra.axiom-wake",
     arc: "axiom-tide",
     title: "The Axioms come first",
-    source: "Ilyran transit prism · twelve causal histories",
+    source: "Cinder foundry logs · twelve furnaces",
     unlock: {
       kind: "saved-worlds",
       count: 4,
-      worldId: "ilyra",
+      worldId: "cinder",
       requires: ["expedition.dead-relay"],
     },
     excerpt: [
-      "In all twelve surviving versions of Ilyra, every big Tide surge comes seventeen hours after an Axiom discharge.",
-      "Not one version has the Tide arriving first.",
+      "In the logs of all twelve of Cinder's buried foundries, every big Tide surge comes seventeen hours after an Axiom discharge.",
+      "Not one log has the Tide arriving first.",
     ],
     contradiction: "The Foundry might be causing the thing it's meant to fix.",
     doctrineSignals: ["genesis", "release"],
@@ -324,7 +325,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     id: "archive.suppressed-correlation",
     arc: "axiom-tide",
     title: "The deleted energy model",
-    source: "Memory Archive · redacted energy model",
+    source: "Memory Archive · deleted model, found against Cinder's logs",
     unlock: {
       kind: "archive-action",
       actionId: "cross-index-axiom-telemetry",
@@ -359,15 +360,15 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     id: "orison.borrowed-childhoods",
     arc: "lyra",
     title: "Lyra's memories belong to six people",
-    source: "Orison Seed Archive · memory pollen assay",
+    source: "Nox broadcast archive · six voices",
     unlock: {
       kind: "saved-worlds",
       count: 5,
-      worldId: "orison",
+      worldId: "nox",
       requires: ["archive.suppressed-correlation"],
     },
     excerpt: [
-      "Lyra's memories of growing up under Orison's glass forests come from six people born centuries apart.",
+      "Lyra's memories of growing up come from six people born centuries apart. Nox's towers kept recordings of all six.",
       "Three were Archivists. Two were Foremen. One has no biological record at all.",
     ],
     contradiction: "Lyra remembers being people she says never existed.",
@@ -376,7 +377,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     id: "archive.lyra-composite-index",
     arc: "lyra",
     title: "What Lyra is made of",
-    source: "Memory Archive · custodian checksum",
+    source: "Memory Archive · Lyra's voice checked against the Nox recordings",
     unlock: {
       kind: "archive-action",
       actionId: "compare-lyra-voice-layers",
@@ -421,7 +422,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
       requires: ["lyra.private-amendment"],
     },
     excerpt: [
-      "The Ark has crossed this route forty-three times. Every record starts at Helion and ends at Vesper.",
+      "The Ark has crossed this route forty-three times. Every record starts at the Pelagos beacon and ends at Vesper.",
       "After each crossing, world outcomes, Foreman identity, and Lyra's memory are rewritten to FIRST CAMPAIGN.",
     ],
     contradiction: "The voyage is being run over and over, and whoever's watching gets reset with it.",
@@ -508,10 +509,10 @@ export const CREW_DIALOGUE: readonly CrewDialogue[] = [
   {
     id: "crew.sena.core-greeting",
     speaker: "Sena Marr",
-    role: "Helion beacon engineer",
-    homeworld: "helion",
+    role: "Pelagos relay engineer",
+    homeworld: "pelagos",
     roomId: "axiom-chamber",
-    unlock: { kind: "saved-worlds", count: 1, worldId: "helion" },
+    unlock: { kind: "saved-worlds", count: 1, worldId: "cold-wake" },
     lines: [
       { speaker: "Sena", text: "Your Core called me by my grandmother's name." },
       { speaker: "Lyra", text: "That's leftover beacon data. Nothing else." },
@@ -521,8 +522,8 @@ export const CREW_DIALOGUE: readonly CrewDialogue[] = [
   {
     id: "crew.sena.archive-date",
     speaker: "Sena Marr",
-    role: "Helion beacon engineer",
-    homeworld: "helion",
+    role: "Pelagos relay engineer",
+    homeworld: "pelagos",
     roomId: "memory-archive",
     unlock: {
       kind: "room-action",
@@ -567,20 +568,20 @@ export const CREW_DIALOGUE: readonly CrewDialogue[] = [
   {
     id: "crew.oren.resonance-cipher",
     speaker: "Oren Kes",
-    role: "Cinderwake shield tuner",
-    homeworld: "cinderwake",
+    role: "Viridia vault keeper",
+    homeworld: "viridia",
     roomId: "resonance-gallery",
-    unlock: { kind: "saved-worlds", count: 3, worldId: "cinderwake" },
+    unlock: { kind: "saved-worlds", count: 3, worldId: "viridia" },
     lines: [
-      { speaker: "Oren", text: "That shield didn't learn your rhythm today. It already knew it." },
+      { speaker: "Oren", text: "That vault door didn't learn your code today. It already knew it." },
       { speaker: "Oren", text: "It was just waiting for you to turn up." },
     ],
   },
   {
     id: "crew.oren.vault-voice",
     speaker: "Oren Kes",
-    role: "Cinderwake shield tuner",
-    homeworld: "cinderwake",
+    role: "Viridia vault keeper",
+    homeworld: "viridia",
     roomId: "recalibration-vault",
     unlock: {
       kind: "room-action",
@@ -596,20 +597,20 @@ export const CREW_DIALOGUE: readonly CrewDialogue[] = [
   {
     id: "crew.neme.archive-versions",
     speaker: "Neme Soryn",
-    role: "Ilyran causal historian",
-    homeworld: "ilyra",
+    role: "Cinder foundry historian",
+    homeworld: "cinder",
     roomId: "memory-archive",
-    unlock: { kind: "saved-worlds", count: 4, worldId: "ilyra" },
+    unlock: { kind: "saved-worlds", count: 4, worldId: "cinder" },
     lines: [
-      { speaker: "Neme", text: "All twelve versions of Ilyra disagree about everything. Except when you showed up." },
+      { speaker: "Neme", text: "Cinder's twelve foundries never agreed on anything. Except when you showed up." },
       { speaker: "Neme", text: "That's not fate. Somebody was running a test." },
     ],
   },
   {
     id: "crew.neme.observatory-cause",
     speaker: "Neme Soryn",
-    role: "Ilyran causal historian",
-    homeworld: "ilyra",
+    role: "Cinder foundry historian",
+    homeworld: "cinder",
     roomId: "research-observatory",
     unlock: {
       kind: "room-action",
@@ -618,28 +619,28 @@ export const CREW_DIALOGUE: readonly CrewDialogue[] = [
       requires: ["ilyra.axiom-wake"],
     },
     lines: [
-      { speaker: "Neme", text: "If it happened in one history, you could call it bad luck." },
-      { speaker: "Neme", text: "It happened in all twelve. That's not luck." },
+      { speaker: "Neme", text: "If it happened at one foundry, you could call it bad luck." },
+      { speaker: "Neme", text: "It happened at all twelve. That's not luck." },
     ],
   },
   {
     id: "crew.iven.archive-graft",
     speaker: "Iven Rook",
-    role: "Orison memory botanist",
-    homeworld: "orison",
+    role: "Nox signal archivist",
+    homeworld: "nox",
     roomId: "memory-archive",
-    unlock: { kind: "saved-worlds", count: 5, worldId: "orison" },
+    unlock: { kind: "saved-worlds", count: 5, worldId: "nox" },
     lines: [
-      { speaker: "Iven", text: "You can graft memories like fruit trees. Even a clean graft leaves a seam." },
+      { speaker: "Iven", text: "You can splice a recording so nobody hears the cut. It still shows on the waveform." },
       { speaker: "Lyra", text: "Are you talking about me?" },
-      { speaker: "Iven", text: "I think someone cut you back before you could ask that." },
+      { speaker: "Iven", text: "I think someone cut you before you could ask that." },
     ],
   },
   {
     id: "crew.iven.vault-seeds",
     speaker: "Iven Rook",
-    role: "Orison memory botanist",
-    homeworld: "orison",
+    role: "Nox signal archivist",
+    homeworld: "nox",
     roomId: "recalibration-vault",
     unlock: {
       kind: "room-action",
@@ -648,7 +649,7 @@ export const CREW_DIALOGUE: readonly CrewDialogue[] = [
       requires: ["archive.lyra-composite-index"],
     },
     lines: [
-      { speaker: "Iven", text: "The Foundry keeps whatever traits it finds useful and throws out the rest." },
+      { speaker: "Iven", text: "The Foundry keeps whatever it finds useful in people and throws out the rest." },
       { speaker: "Iven", text: "That isn't remembering. That's breeding, Foreman." },
     ],
   },

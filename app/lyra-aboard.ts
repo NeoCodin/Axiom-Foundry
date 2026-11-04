@@ -27,7 +27,7 @@ const RECORD_REMARKS: Partial<Record<DiscoveryId, readonly string[]>> = {
   // Early on she is sure AXIOM is the first Foreman: anything that says otherwise confuses her, and she
   // reaches for an ordinary explanation. Her own greeting she can't explain at all.
   "core.welcome-back": ["That's the greeting I gave you when you woke up. Foreman forty-four.", "I still don't know why I said that. You're the first one."],
-  "helion.impossible-registry": ["Helion has us on record two hundred years before we were even built.", "Its clock must be broken. Old beacons drift."],
+  "helion.impossible-registry": ["The beacon out here has us on record two hundred years before we were even built.", "Its clock must be broken. Old beacons drift."],
   "fabrication.preconcordance-keel": ["This metal's older than the process that makes it. That isn't possible.", "The Concordance built this ship. I have the record. I'll find it."],
   "archive.construction-zero": ["There's no record of this ship being built. The first entry just says reconstruction one thousand eight hundred and forty-two.", "That has to be a numbering error."],
   "pelagos.returning-salt": ["The last repair on that crack was done by hands shaped exactly like yours. You've never touched it.", "I'm logging it as a fault. I don't know what else to do with it."],
@@ -35,10 +35,10 @@ const RECORD_REMARKS: Partial<Record<DiscoveryId, readonly string[]>> = {
   "cinderwake.command-recognition": ["Foreman thirty-one.", "That has to be a glitch. You're the first one."],
   // Then she starts to doubt.
   "expedition.dead-relay": ["This relay has our whole route on it. Every rescue, already done.", "And a note saying the Tide got worse anyway. I don't know who wrote it."],
-  "ilyra.axiom-wake": ["Every big surge comes seventeen hours after an Axiom fires. In all twelve versions of Ilyra.", "So the Axioms come first. Not the Tide."],
+  "ilyra.axiom-wake": ["Every big surge comes seventeen hours after an Axiom fires. In all twelve of Cinder's foundries.", "So the Axioms come first. Not the Tide."],
   "archive.suppressed-correlation": ["This model says every law we make pushes the instability out of the ship, into the Tide.", "And someone deleted it. My signature's on every deletion. I don't remember any of it."],
   "expedition.null-bloom": ["The bloom didn't move until they switched on an Axiom. Then it went straight for it.", "It feeds on what our laws push out. The Foundry's been feeding it."],
-  "orison.borrowed-childhoods": ["My memories of growing up on Orison came from six different people.", "Two of them were Foremen. I thought those memories were mine."],
+  "orison.borrowed-childhoods": ["My memories of growing up came from six different people. Nox has recordings of all of them.", "Two of them were Foremen. I thought those memories were mine."],
   // Then what she is, and what the Ark has been doing.
   "archive.lyra-composite-index": ["This says I'm made out of thirty-two archivists who came before me.", "And this version of me was switched on nine seconds before I first said hello to you. I need a minute."],
   "lyra.private-amendment": ["You read my note. Thank you.", "It's the first thing in the archive I wrote myself. Everything else, somebody handed me."],

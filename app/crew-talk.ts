@@ -160,14 +160,14 @@ function secretLines(hook: string, context: TalkContext): string[] | null {
  * but true to what the record says (see discovery-content.ts).
  */
 const RUMOURS: readonly (readonly [string, string])[] = [
-  ["helion.impossible-registry", "The first beacon knew this ship. Two hundred years before it was supposedly built. Called it Iteration Nineteen."],
+  ["helion.impossible-registry", "The Pelagos beacon knew this ship. Two hundred years before it was supposedly built. Called it Iteration Nineteen."],
   ["fabrication.preconcordance-keel", "They say the metal under the Fabrication floor is older than the way it was made. And the room grew around something that isn't there any more."],
   ["archive.construction-zero", "Apparently there's no record of this ship ever being built. The oldest line just says reconstruction eighteen hundred and forty-two."],
   ["pelagos.returning-salt", "There's Pelagos salt in the keel, and one layer of it is from ninety-one years from now. That's what they're saying."],
   ["foreman.message-seven", "There's a recording in the Recalibration Vault. Some Foreman, the seventh one. People say it sounds like the drone."],
-  ["cinderwake.command-recognition", "Cinderwake's shields already had our command code on file before we sent it. Signed by a Foreman thirty-one."],
+  ["cinderwake.command-recognition", "Viridia's seed vault already had our command code on file before we sent it. Signed by a Foreman thirty-one."],
   ["expedition.dead-relay", "The recon team found a relay with our whole route already on it. The last note says enforcing the laws made the Tide come sooner."],
-  ["ilyra.axiom-wake", "Every time the Tide surged, it came seventeen hours after the laws were switched on. Never before. Twelve records, all the same."],
+  ["ilyra.axiom-wake", "Every time the Tide surged on Cinder, it came seventeen hours after the laws were switched on. Never before. Twelve foundries, all the same."],
   ["archive.suppressed-correlation", "The Foundry dumps its uncertainty out into the Null. Somebody deleted that from the records, and it was Lyra who signed off."],
   ["expedition.null-bloom", "Out there the Null was asleep until the team switched on a law. Then it turned toward it. Like it was hungry."],
   ["orison.borrowed-childhoods", "Lyra's childhood memories come from six different people. Three archivists, two Foremen, and one nobody can find a record of."],
