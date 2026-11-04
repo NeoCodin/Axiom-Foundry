@@ -115,13 +115,16 @@ const CABINS = SIDE_ROOM_PLANS.habitation!.filter((plan) => plan.kind === "cabin
 
 /** Every room's places, best first. Furniture is drawn against 7 m walls and pushed out (w). */
 export const ROOM_SPOTS: Record<WalkRoomKind, readonly Spot[]> = {
+  // The Fabrication floor's machines stand where they are drawn (not pushed out): the control desk and
+  // racks to port, the production line down the starboard side.
   fabrication: [
-    { activity: "type", at: point(3.5, w(-2.9)), look: point(0, -1), for: ENGINEERS },
+    { activity: "type", at: point(9.5, -7.9), look: point(0, -1), for: ENGINEERS },
     { activity: "fix", at: point(WORKSHOP.from + 5.6, WORKSHOP.z0 + 5.7), look: point(0, -1), for: ENGINEERS, area: "workshop" },
-    { activity: "carry", at: point(15.4, w(3.7)), to: point(3.2, w(3.9)), look: point(-1, 0) },
+    { activity: "carry", at: point(17.5, 11.9), to: point(5, 11.9), look: point(-1, 0) },
     { activity: "carry", at: point(STORES.from + 1.9, STORES.z1 - 1.6), to: point(STORES.from + 1.9, STORES.z0 + 1), look: point(0, -1), for: ENGINEERS, area: "stores" },
-    { activity: "inspect", at: point(7, w(-4.8)), to: point(12.2, w(-4.8)), look: point(0, -1) },
-    { activity: "fix", at: point(12.4, w(1.9)), look: point(1, 1.1) },
+    { activity: "inspect", at: point(7, -11.6), to: point(12.2, -11.6), look: point(0, -1) },
+    { activity: "fix", at: point(11.5, 6.6), look: point(0, 1) },
+    { activity: "inspect", at: point(18.8, 6), look: point(1, 1) },
     { activity: "type", at: point(WORKSHOP.from + 8.6, WORKSHOP.z0 + 3), look: point(1, 0), for: ENGINEERS, area: "workshop" },
     { activity: "talk", at: point(5.6, 2.4), look: point(1, 0), pair: "fabrication" },
     { activity: "talk", at: point(6.5, 2.4), look: point(-1, 0), pair: "fabrication" },

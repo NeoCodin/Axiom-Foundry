@@ -312,8 +312,9 @@ function sideFurniture(room: Box & { kind: SideRoomKind }): Box[] {
 const DOCK = { wallZ: DOCK_WALL_Z, doorFrom: 10, doorTo: 14, padX: 6.5, parkedX: 19, padZ: (DOCK_WALL_Z + 0.4 + HALF_DEPTH) / 2 } as const;
 
 const WIDTH: Record<WalkRoomKind, number> = {
-  fabrication: 17,
-  support: 17,
+  // Fabrication is the Ark's workshop floor, longer than the rest; Support below it matches, to keep the core square.
+  fabrication: 23,
+  support: 23,
   chamber: 19,
   habitation: 17,
   education: 17,
@@ -323,7 +324,7 @@ const WIDTH: Record<WalkRoomKind, number> = {
   hangar: 15 + BULKHEAD + 15,
 };
 const HEIGHT: Record<WalkRoomKind, number> = {
-  fabrication: 6.8,
+  fabrication: 8,
   support: 6.8,
   chamber: UPPER_FLOOR + 7,
   habitation: 6.4,
@@ -337,12 +338,17 @@ function furniture(kind: WalkRoomKind, upper: boolean, x0: number, x1: number): 
   const cx = (x0 + x1) / 2;
   switch (kind) {
     case "fabrication":
+      // Laid out where they stand on the wide floor (not pushed out to the walls): the production line
+      // down the starboard side, the machine racks and the control desk to port.
       return [
-        { x0: x0 + 2, x1: x0 + 5, z0: -6.6, z1: -3.6 }, // the press
-        { x0: x0 + 6, x1: x0 + 13, z0: -6.9, z1: -5.5 }, // machine racks, one per Foundry tier
-        { x0: x0 + 5, x1: x1 - 1, z0: 4.4, z1: 5.6 }, // the conveyor
-        { x0: x1 - 4.2, x1: x1 - 3, z0: 2.4, z1: 3.6 }, // the robot arm
-        { x0: x0 + 1, x1: x0 + 3.4, z0: 4.4, z1: 6.6 }, // stacked crates
+        { x0: x0 + 1.1, x1: x0 + 3.7, z0: 7.7, z1: 10.3 }, // the salvage intake hopper
+        { x0: x0 + 3.7, x1: x0 + 10.2, z0: 8.3, z1: 9.7 }, // the first belt
+        { x0: x0 + 10.2, x1: x0 + 12.8, z0: 7.4, z1: 10.6 }, // the Law Press
+        { x0: x0 + 12.8, x1: x0 + 18.6, z0: 8.3, z1: 9.7 }, // the second belt
+        { x0: x0 + 19.6, x1: x0 + 20.4, z0: 7, z1: 7.8 }, // the arm's post
+        { x0: x0 + 21.2, x1: x0 + 22.4, z0: 8.3, z1: 9.5 }, // the parts lift
+        { x0: x0 + 6, x1: x0 + 13.4, z0: -13.9, z1: -12.4 }, // machine racks, one per Foundry tier
+        { x0: x0 + 8.3, x1: x0 + 10.7, z0: -9.8, z1: -8.6 }, // the control desk
       ];
     case "chamber":
       // The sealed core room fills the middle on both decks.
@@ -417,7 +423,7 @@ function buildDeck(
     });
     // The chamber and the dock are laid out at full width; the rest is pushed out to the walls.
     const pieces = furniture(kind, upper, x0, x1);
-    blockers.push(...(kind === "chamber" || kind === "hangar" ? pieces : pieces.map(againstWall)));
+    blockers.push(...(kind === "chamber" || kind === "hangar" || kind === "fabrication" ? pieces : pieces.map(againstWall)));
     const online = kind === "chamber" ? true : room?.online ?? false;
     for (const plan of SIDE_ROOM_PLANS[kind] ?? []) {
       const side: SideRoom = {

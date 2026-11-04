@@ -1040,6 +1040,56 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
   };
   const label = (object: THREE.Object3D, text: string) => interactables.push({ kind: "label", object, label: text });
 
+  // ---- The Law-Heart's power, running out through the ship in channels in the floor. ----
+  const flowTexture = canvasTexture(64, 8, (context) => {
+    // A steady glow along the channel, with brighter pulses running through it.
+    context.fillStyle = "#4a4a4a";
+    context.fillRect(0, 0, 64, 8);
+    const pulse = context.createLinearGradient(0, 0, 64, 0);
+    pulse.addColorStop(0, "#4a4a4a");
+    pulse.addColorStop(0.55, "#ffffff");
+    pulse.addColorStop(0.72, "#ffffff");
+    pulse.addColorStop(1, "#4a4a4a");
+    context.fillStyle = pulse;
+    context.fillRect(0, 1, 64, 6);
+  });
+  const power = new THREE.Color(props.heart.bright);
+  const powerOff = new THREE.Color(tinted(props.heart.bright, PALETTE.dark, 0.88));
+  const throbAt = (time: number) => Math.exp(-(time % Math.max(600, live().beatPeriodMs)) / 240);
+  /**
+   * A channel in the floor from (ax, az) to (bx, bz): with power, the Law-Heart's light runs along it
+   * toward b and swells on each beat; without, it lies dark. Returns the channel's glowing strip.
+   */
+  const conduit = (y: number, ax: number, az: number, bx: number, bz: number, powered: boolean) => {
+    const length = Math.hypot(bx - ax, bz - az);
+    if (length < 0.2) return null;
+    const turn = Math.atan2(-(bz - az), bx - ax);
+    const trough = new THREE.Mesh(new THREE.BoxGeometry(length + 0.56, 0.06, 0.6), solid(tinted(props.heart.surface, PALETTE.dark, 0.72)));
+    trough.position.set((ax + bx) / 2, y + 0.022, (az + bz) / 2);
+    trough.rotation.y = turn;
+    trough.raycast = () => {};
+    scene.add(trough);
+    const texture = flowTexture.clone();
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.repeat.set(length / 1.6, 1);
+    texture.needsUpdate = true;
+    const surface = new THREE.PlaneGeometry(length, 0.36);
+    surface.rotateX(-Math.PI / 2);
+    const material = new THREE.MeshBasicMaterial({ map: texture, color: powered ? power : powerOff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+    const strip = new THREE.Mesh(surface, material);
+    strip.position.set((ax + bx) / 2, y + 0.07, (az + bz) / 2);
+    strip.rotation.y = turn;
+    strip.raycast = () => {};
+    scene.add(strip);
+    if (powered) {
+      animated.push((time) => {
+        texture.offset.x = -((time * 0.0011) % 1);
+        material.color.copy(power).multiplyScalar(0.85 + 0.6 * throbAt(time));
+      });
+    }
+    return strip;
+  };
+
   const half = layout.halfDepth;
   const bulkheadMaterial = solid(tinted(PALETTE.hull, accent, 0.18));
   const hullSkin = solid(tinted(PALETTE.hull, accent, 0.1));
@@ -1384,6 +1434,17 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         }
       }
 
+      // The Law-Heart's main channel down the middle of the hall, from the core's side outward.
+      const chamberRoom = deck.compartments.find((candidate) => candidate.kind === "chamber");
+      if (room.kind !== "chamber" && room.kind !== "hangar" && chamberRoom) {
+        const sternward = room.x1 <= chamberRoom.x0;
+        conduit(y0, sternward ? room.x1 + 0.1 : room.x0 - 0.1, 0, sternward ? room.x0 + 1.2 : room.x1 - 1.2, 0, room.online);
+      }
+      if (room.kind === "chamber") {
+        conduit(y0, layout.core.x0, 0, room.x0 - 0.1, 0, true);
+        conduit(y0, layout.core.x1, 0, room.x1 + 0.1, 0, true);
+      }
+
       // The room's furniture and its console, set against the walls of the wide ship.
       const fit = (w: number, h: number, d: number, material: THREE.Material | THREE.Material[], x: number, y: number, z: number) =>
         box(w, h, d, material, x, y0 + y, towardWalls(z, half));
@@ -1396,14 +1457,83 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       const hear = (kind: SoundPlace["kind"], x: number, y: number, z: number) =>
         soundPlaces.push({ kind, x, y: y0 + y, z, deck: deckIndex, online: !dark });
       if (room.kind === "fabrication") {
-        hear("press", room.x0 + 3.5, 2, towardWalls(-5.1, half));
-        hear("conveyor", room.x0 + 9, 0.8, towardWalls(5, half));
-        // The press, with its console on the front.
-        fit(3, 3, 3, solid(metal), room.x0 + 3.5, 1.5, -5.1);
-        fit(3.1, 0.2, 3.1, lambert("#ffffff", { map: repeated(stripes, 4, 0.3) }), room.x0 + 3.5, 0.1, -5.1);
-        const piston = fit(1, 1.6, 1, solid(metalLight), room.x0 + 3.5, 3.6, -5.1);
-        addConsole(fit(1.6, 0.8, 0.06, glow(screenColor), room.x0 + 3.5, 1.8, -3.57));
-        // A rack for each Foundry machine tier, lit in its colour once one is built.
+        // A production line the Law-Heart drives, down the starboard side: salvage drops from the intake
+        // hopper onto a belt and rides into the Law Press, which stamps it into a part glowing with the
+        // heart's power; a second belt carries the part to an arm that lifts it off and drops it down the
+        // parts lift to the stores. To port, a rack for each Foundry machine tier and the floor's control
+        // desk; overhead, a gantry crane. One clock runs it all, so each hand-off meets.
+        const fx = room.x0;
+        const lineZ = 9;
+        const beltTop = 0.9;
+        const hopperX = fx + 2.4;
+        const pressX = fx + 11.5;
+        const beltEnd = fx + 18.6;
+        const armAt = { x: fx + 20, z: 7.4 };
+        const liftAt = { x: fx + 21.8, z: 8.9 };
+        hear("press", pressX, 2.5, lineZ);
+        hear("conveyor", fx + 6.5, 0.8, lineZ);
+        const belts: THREE.Texture[] = [];
+        const belt = (from: number, to: number) => {
+          const length = to - from;
+          box(length, 0.7, 1.3, solid(metal), from + length / 2, y0 + 0.5, lineZ);
+          const texture = repeated(stripes, length / 1.2, 1);
+          belts.push(texture);
+          box(length, 0.06, 1.1, lambert("#ffffff", { map: texture }), from + length / 2, y0 + beltTop - 0.03, lineZ);
+          for (let leg = from + 0.4; leg < to; leg += 1.6) for (const side of [-0.55, 0.55]) box(0.12, 0.2, 0.12, solid(metalLight), leg, y0 + 0.08, lineZ + side);
+        };
+        // The intake: a hopper on legs, fed down a chute from the ceiling, its funnel over the first belt.
+        const hopper = cylinder(1.25, 1.25, 3, solid(metal), hopperX, y0 + 4.4, lineZ, 12);
+        label(hopper, "Salvage intake");
+        cylinder(1.25, 0.35, 1.3, solid(metal), hopperX, y0 + 2.25, lineZ, 12);
+        for (const [lx, lz] of [[-0.95, -0.95], [0.95, -0.95], [-0.95, 0.95], [0.95, 0.95]]) box(0.16, 4.2, 0.16, solid(metalLight), hopperX + lx, y0 + 2.1, lineZ + lz);
+        box(0.9, room.height - 5.9, 0.9, solid(metalLight), hopperX, y0 + 5.9 + (room.height - 5.9) / 2, lineZ);
+        belt(hopperX, pressX - 1.3);
+        belt(pressX + 1.3, beltEnd);
+        // The Law Press: two columns either side of the belt, a crown, and a ram that comes down on each piece.
+        for (const side of [-1, 1]) {
+          box(2.6, 4.6, 0.6, solid(metal), pressX, y0 + 2.3, lineZ + side * 1.3);
+          box(1.6, 1.8, 0.04, glow(dark ? PALETTE.dark : props.heart.surface), pressX, y0 + 2.6, lineZ + side * 1.62);
+        }
+        const crown = box(2.8, 1.2, 3.2, solid(metal), pressX, y0 + 5.2, lineZ);
+        label(crown, "The Law Press · stamps salvage into parts on Law-Heart power");
+        const ram = box(1.5, 1.4, 1.2, solid(metalLight), pressX, y0 + 3.9, lineZ);
+        const die = box(1.6, 0.12, 1.3, glow(dark ? PALETTE.dark : tinted(props.heart.surface, PALETTE.dark, 0.5)), pressX, y0 + beltTop + 0.01, lineZ);
+        const pressLight = new THREE.PointLight(props.heart.bright, 0, 9, 1.4);
+        pressLight.position.set(pressX, y0 + 1.6, lineZ - 1.8);
+        scene.add(pressLight);
+        // The heart's power, up into the press.
+        const riser = cylinder(0.16, 0.16, 4.2, new THREE.MeshBasicMaterial({ color: dark ? powerOff : power }), pressX - 1.55, y0 + 2.1, lineZ - 1.55, 8);
+        riser.raycast = () => {};
+        // The arm: a post, a turning head, a boom out to its reach, and a gripper that lowers.
+        cylinder(0.4, 0.5, 1.6, solid(metal), armAt.x, y0 + 0.8, armAt.z, 12);
+        const head = new THREE.Group();
+        head.position.set(armAt.x, y0 + 1.7, armAt.z);
+        scene.add(head);
+        const reach = Math.hypot(beltEnd - 0.3 - armAt.x, lineZ - armAt.z);
+        const boom = new THREE.Mesh(new THREE.BoxGeometry(reach + 0.4, 0.26, 0.3), solid(PALETTE.amber));
+        boom.position.set(reach / 2, 0.55, 0);
+        const knuckle = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), solid(metal));
+        knuckle.position.y = 0.3;
+        const grip = new THREE.Group();
+        grip.position.set(reach, 0.4, 0);
+        const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.16, 0.46), solid(metal));
+        const rod = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.6, 0.08), solid(metalLight));
+        rod.position.y = 0.3;
+        grip.add(jaw, rod);
+        head.add(knuckle, boom, grip);
+        label(boom, "Assembly arm");
+        const angleTo = (px: number, pz: number) => Math.atan2(-(pz - armAt.z), px - armAt.x);
+        const atBelt = angleTo(beltEnd - 0.3, lineZ);
+        const atLift = angleTo(liftAt.x, liftAt.z);
+        // The parts lift: a ring in the floor taking each part down to the stores.
+        const liftRing = cylinder(0.62, 0.62, 0.06, glow(dark ? PALETTE.dark : props.heart.surface), liftAt.x, y0 + 0.03, liftAt.z, 20);
+        cylinder(0.5, 0.5, 0.08, solid(PALETTE.dark), liftAt.x, y0 + 0.05, liftAt.z, 20);
+        label(liftRing, "Parts lift · to the stores");
+        // To port: the control desk with the floor's console, and a rack for each Foundry machine tier.
+        box(2.4, 0.9, 1, solid(metal), fx + 9.5, y0 + 0.45, -9.2);
+        const desk = box(2, 0.7, 0.06, glow(screenColor), fx + 9.5, y0 + 1.25, -8.7);
+        desk.rotation.x = -0.5;
+        addConsole(desk);
         feeds.forEach((machine, tier) => {
           const mx = room.x0 + 6.6 + tier * 1.16;
           const cabinet = fit(1.05, 2.4, 1.3, solid(metal), mx, 1.2, -6.2);
@@ -1415,34 +1545,75 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
             fit(0.5, 0.1, 0.05, glow(bar < bars ? machine.color : PALETTE.dark), mx, 0.5 + bar * 0.24, -5.53);
           }
         });
-        // The conveyor, crates riding it, a robot arm loading them, and a stack waiting.
-        const beltLength = room.x1 - 1 - (room.x0 + 5);
-        fit(beltLength, 0.7, 1.2, solid(metal), room.x0 + 5 + beltLength / 2, 0.35, 5);
-        fit(beltLength, 0.04, 1, solid(tinted(PALETTE.metal, PALETTE.floor, 0.35)), room.x0 + 5 + beltLength / 2, 0.72, 5);
-        for (let roller = 0; roller < beltLength; roller += 1) fit(0.1, 0.1, 1.24, solid(metalLight), room.x0 + 5.5 + roller, 0.62, 5);
-        const crates = [0, 1, 2, 3].map(() => fit(0.6, 0.6, 0.6, solid(PALETTE.wood), 0, 1.04, 5));
-        fitCylinder(0.5, 0.6, 0.6, solid(metal), room.x1 - 3.6, y0 + 0.3, 3);
-        const arm = new THREE.Group();
-        arm.position.set(room.x1 - 3.6, y0 + 0.6, towardWalls(3, half));
-        const upperArm = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.6, 0.3), solid(PALETTE.amber));
-        upperArm.position.y = 0.8;
-        const forearm = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.24, 1.4), solid(PALETTE.amber));
-        forearm.position.set(0, 1.55, 0.6);
-        const grip = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.2), solid(metal));
-        grip.position.set(0, 1.4, 1.3);
-        arm.add(upperArm, forearm, grip);
-        scene.add(arm);
-        [[0.8, 0.5, 5.2], [2.2, 0.5, 5.2], [1.5, 0.5, 6.1], [1.5, 1.3, 5.6]].forEach(([dx, dy, dz]) => {
-          fit(0.9, 0.8, 0.9, solid(PALETTE.wood), room.x0 + dx, dy, dz);
+        // The heart's power, branching off the floor's main channel to the press, the arm and the racks.
+        conduit(y0, pressX, 0.4, pressX, lineZ - 1.7, !dark);
+        conduit(y0, armAt.x, 0.4, armAt.x, armAt.z - 0.6, !dark);
+        conduit(y0, fx + 9.5, -0.4, fx + 9.5, -11.6, !dark);
+        conduit(y0, fx + 6.2, -11.6, fx + 13.2, -11.6, !dark);
+        // Overhead, a gantry crane on rails down the room, its hoist working along the bridge.
+        const rail = room.height - 0.5;
+        for (const side of [-12.8, 12.8]) box(room.x1 - fx - 0.6, 0.3, 0.3, solid(metalLight), (fx + room.x1) / 2, y0 + rail, side);
+        const bridge = box(0.5, 0.5, 25.6, solid(PALETTE.amber), fx + 6, y0 + rail - 0.35, 0);
+        const trolley = box(1, 0.5, 1, solid(metal), fx + 6, y0 + rail - 0.8, 0);
+        const cable = box(0.05, 2.4, 0.05, solid(PALETTE.dark), fx + 6, y0 + rail - 2.2, 0);
+        const hook = box(0.45, 0.35, 0.45, solid(metal), fx + 6, y0 + rail - 3.5, 0);
+        // What the line carries: three pieces, four seconds apart, each going through every station in turn.
+        const rawMaterial = solid(tinted(PALETTE.metal, PALETTE.dark, 0.25));
+        const partMaterial = new THREE.MeshLambertMaterial({ color: props.heart.surface, emissive: props.heart.surface, emissiveIntensity: 0.7, flatShading: true });
+        const pieces = [0, 1, 2].map(() => {
+          const piece = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), rawMaterial);
+          piece.raycast = () => {};
+          scene.add(piece);
+          return piece;
         });
+        const at = (from: number, to: number, share: number) => from + (to - from) * Math.max(0, Math.min(1, share));
+        const gripWorld = new THREE.Vector3();
         animated.push((time) => {
           if (dark) return;
-          piston.position.y = y0 + 3.6 - Math.abs(Math.sin(time * 0.0025)) * 0.7;
-          crates.forEach((crate, crateIndex) => {
-            crate.position.x = room.x0 + 5.3 + (((time * 0.0005) + crateIndex / 4) % 1) * (beltLength - 0.6);
+          const seconds = time / 1000;
+          const throb = throbAt(time);
+          for (const texture of belts) texture.offset.x = -((seconds * 0.55) % 1);
+          // The press comes down every four seconds, as a piece sits under it.
+          const ramPhase = (((seconds - 1.6) % 4) + 4) % 4;
+          const ramDrop = ramPhase < 0.15 ? 1 : ramPhase < 1.2 ? 1 - (ramPhase - 0.15) / 1.05 : ramPhase > 3.6 ? (ramPhase - 3.6) / 0.4 : 0;
+          ram.position.y = y0 + 3.9 - ramDrop * 2.05;
+          pressLight.intensity = (ramPhase < 0.35 ? 6 * (1 - ramPhase / 0.35) : 0) + throb * 1.2;
+          (die.material as THREE.MeshBasicMaterial).color.copy(power).multiplyScalar(0.35 + 0.65 * (ramPhase < 0.5 ? 1 - ramPhase / 0.5 : 0));
+          // The arm: picks at the belt's end, swings to the lift, lets go, swings back.
+          const armPhase = (((seconds + 2) % 4) + 4) % 4;
+          const swing = armPhase < 0.4 ? 0 : armPhase < 1.6 ? (armPhase - 0.4) / 1.2 : armPhase < 2 ? 1 : armPhase < 3.4 ? 1 - (armPhase - 2) / 1.4 : 0;
+          const eased = swing * swing * (3 - 2 * swing);
+          head.rotation.y = atBelt + (atLift - atBelt) * eased;
+          const lowered = armPhase < 0.4 ? 1 - armPhase / 0.4 : armPhase > 3.4 ? (armPhase - 3.4) / 0.6 : armPhase >= 1.6 && armPhase < 2 ? (armPhase - 1.6) / 0.4 : 0;
+          grip.position.y = 0.4 - lowered * 0.75;
+          grip.getWorldPosition(gripWorld);
+          // Each piece's life: dropped from the hopper, along the first belt, stamped, along the second, carried, gone.
+          pieces.forEach((piece, index) => {
+            const life = (((seconds + index * 4) % 12) + 12) % 12;
+            const part = life >= 5.6;
+            piece.material = part ? partMaterial : rawMaterial;
+            piece.scale.set(part ? 1.2 : 1, part ? 0.6 : 1, part ? 1.2 : 1);
+            const restY = y0 + beltTop + (part ? 0.15 : 0.25);
+            piece.visible = true;
+            if (life < 0.6) piece.position.set(hopperX, at(y0 + 1.6, restY, life / 0.6), lineZ);
+            else if (life < 5) piece.position.set(at(hopperX, pressX - 1, (life - 0.6) / 4.4), restY, lineZ);
+            else if (life < 6.2) piece.position.set(at(pressX - 1, pressX, (life - 5) / 0.6), restY, lineZ);
+            else if (life < 10) piece.position.set(at(pressX + 0.2, beltEnd - 0.3, (life - 6.2) / 3.8), restY, lineZ);
+            else {
+              // In the gripper; at the lift it sinks out of sight.
+              piece.position.set(gripWorld.x, gripWorld.y - 0.25, gripWorld.z);
+              if (life >= 11.6) piece.position.y -= (life - 11.6) * 2.4;
+              piece.visible = piece.position.y > y0 - 0.2;
+            }
           });
-          arm.rotation.y = Math.sin(time * 0.0011) * 0.9;
-          grip.position.y = 1.4 - Math.max(0, Math.sin(time * 0.0022)) * 0.4;
+          (partMaterial as THREE.MeshLambertMaterial).emissiveIntensity = 0.5 + 0.5 * throb;
+          // The crane works its way up and down the room.
+          const along = fx + 4 + (Math.sin(seconds * 0.09) + 1) / 2 * (room.x1 - fx - 8);
+          const across = Math.sin(seconds * 0.23) * 8;
+          bridge.position.x = along;
+          trolley.position.set(along, trolley.position.y, across);
+          cable.position.set(along, cable.position.y, across);
+          hook.position.set(along, y0 + rail - 3.5 + Math.sin(seconds * 0.5) * 0.4, across);
         });
       } else if (room.kind === "chamber" && !upper) {
         buildCore(room);
