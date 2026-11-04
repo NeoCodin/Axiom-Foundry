@@ -359,6 +359,16 @@ const AUTOMATION_PROGRAM_COLORS: Record<AutomationProgramId, string> = {
 };
 
 const TOOLTIP_PREFERENCE_KEY = "axiom-foundry-context-hints";
+/** A PC, where the drone view runs. */
+const DESKTOP_WALK = "(min-width: 1024px) and (hover: hover) and (pointer: fine)";
+/**
+ * The Cold Wake opening, kept with the save's completed guides: this game began in the
+ * damaged drone in the dark ship; the drone has plugged in at the Axiom Chamber (the
+ * console tour carries on from there); the drone has been repaired in Fabrication.
+ */
+const DARK_OPENING = "walk.dark-opening";
+const CONSOLE_LINKED = "walk.console-linked";
+const DRONE_REPAIRED = "walk.drone-repaired";
 
 const purchaseModes: Array<{ value: PurchaseMode; label: string }> = [
   { value: "1", label: "×1" },
@@ -652,10 +662,23 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (ready && !game.settings.tutorialComplete && tourStep === null) {
-      setTourStep(0);
+    if (!ready || game.settings.tutorialComplete || tourStep !== null) return;
+    // On a PC a new game begins in the drone, in the dark ship; the console's tour waits for it to plug in.
+    const guides = game.settings.completedGuideIds;
+    if (!guides.includes(CONSOLE_LINKED) && window.matchMedia(DESKTOP_WALK).matches) {
+      const fresh = game.missions.currentIndex === 0 && game.missions.stageIndex === 0 && game.manualPulses === 0
+        && game.tiers.every((tier) => tier.bought === 0);
+      if (guides.includes(DARK_OPENING) || fresh) {
+        if (!guides.includes(DARK_OPENING)) {
+          const next = setGuideCompleted(gameRef.current, DARK_OPENING);
+          gameRef.current = next;
+          setGame(next);
+        }
+        return;
+      }
     }
-  }, [game.settings.tutorialComplete, ready, tourStep]);
+    setTourStep(0);
+  }, [game.settings.tutorialComplete, game.settings.completedGuideIds, game.missions.currentIndex, game.missions.stageIndex, game.manualPulses, game.tiers, ready, tourStep]);
 
   useEffect(() => {
     if (tourStep !== null) tourActionRef.current?.focus();
@@ -2564,7 +2587,18 @@ export default function Home() {
 
   // ---- The drone view (Walk the Ark, PC only): open from any page by its button or E, and
   // switched to and from like a television channel. Q in the drone comes back to where you were.
-  const arkWalkAvailable = !(campaignWorldIndex === 0 && !coldWakeStatus.arkOverviewAvailable);
+  const guideDone = (id: string) => game.settings.completedGuideIds.includes(id);
+  const markGuide = (id: string) => {
+    if (gameRef.current.settings.completedGuideIds.includes(id)) return;
+    const next = setGuideCompleted(gameRef.current, id);
+    gameRef.current = next;
+    setGame(next);
+    window.setTimeout(() => persistGame("Progress saved"), 0);
+  };
+  const darkOpening = guideDone(DARK_OPENING) && !guideDone(CONSOLE_LINKED) && !game.settings.tutorialComplete;
+  const darkOpeningRef = useRef(darkOpening);
+  darkOpeningRef.current = darkOpening;
+  const arkWalkAvailable = guideDone(DARK_OPENING) || !(campaignWorldIndex === 0 && !coldWakeStatus.arkOverviewAvailable);
   const openArkWalk = () => {
     if (!arkWalkAvailable || walkAccent || destinationIntroduction) return;
     const from = primaryView;
@@ -2579,6 +2613,11 @@ export default function Home() {
     });
   };
   const closeArkWalk = () => {
+    // Leaving the dark opening before plugging in: the console takes over, from the start of its tour.
+    if (darkOpeningRef.current) {
+      markGuide(CONSOLE_LINKED);
+      setTourStep(0);
+    }
     switchChannel(() => {
       setWalkAccent(null);
       const back = walkReturnRef.current;
@@ -2590,6 +2629,35 @@ export default function Home() {
   useEffect(() => {
     openArkWalkRef.current = openArkWalk;
   });
+  /** Plugged in at the chamber's console: AXIOM has its interface back, and the console's tour picks up at the directive. */
+  const linkConsole = () => {
+    markGuide(CONSOLE_LINKED);
+    switchChannel(() => {
+      setWalkAccent(null);
+      walkReturnRef.current = null;
+      setPrimaryView("deck");
+      setTourStep(TOUR_STEPS.length - 1);
+    });
+  };
+  // A game that began in the drone opens in it, until it plugs in.
+  useEffect(() => {
+    if (ready && darkOpening && !walkAccent) openArkWalkRef.current();
+  }, [ready, darkOpening, walkAccent]);
+  const coldWakeStage = game.missions.stageIndex;
+  const coldWakeOver = campaignWorldIndex > 0 || game.missions.awaitingAcknowledgement;
+  const walkDrone = guideDone(DARK_OPENING)
+    ? {
+      darkOpening,
+      damaged: !guideDone(DRONE_REPAIRED),
+      // The cradle has power once the fabricators restart: Cold Wake's second stage.
+      cradlePowered: coldWakeOver || coldWakeStage >= 2,
+      // The ship lights up as Cold Wake goes on: emergency lights only until the core wakes.
+      light: coldWakeOver ? 1 : coldWakeStage === 0 ? 0 : coldWakeStage === 1 ? 0.35 : coldWakeStage < COLD_WAKE_NAVIGATION_STAGE ? 0.7 : 1,
+      strikes: game.manualPulses,
+      onLink: linkConsole,
+      onRepair: () => markGuide(DRONE_REPAIRED),
+    }
+    : undefined;
 
   const handlePrimaryNavigation = (view: PrimaryView) => {
     if (destinationIntroduction) {
@@ -3121,7 +3189,8 @@ export default function Home() {
       <div className="destination-viewport" ref={destinationViewportRef}>
       <div key={primaryView} ref={destinationInnerRef} className="destination-viewport-inner" data-nav-direction={navDirection}>
       {primaryView === "deck" ? (
-        campaignWorldIndex === 0 && !coldWakeStatus.arkOverviewAvailable ? (
+        // Early in Cold Wake the deck is the Law-Heart's page; while the drone is out, the Ark that holds it.
+        campaignWorldIndex === 0 && !coldWakeStatus.arkOverviewAvailable && !walkAccent ? (
           <AxiomLawHeart
             flux={game.flux}
             fluxLabel={formatNumber(game.flux)}
@@ -3294,6 +3363,7 @@ export default function Home() {
           lawHeartDrones={lawHeartDroneFrames}
           nullInterference={{ classification: nullSaturation.classification, intensity: nullSaturation.visualIntensity }}
           walkAccent={walkAccent}
+          walkDrone={walkDrone}
           talkContext={{ worldId: campaignWorld.id, worldsSaved: game.missions.worldsSaved, discovered: game.living.discoveredLore }}
           records={{
             discovered: game.living.discoveredLore,

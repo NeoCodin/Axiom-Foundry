@@ -1067,3 +1067,69 @@
     animation: none;
   }
 }
+
+/* The Cold Wake opening and a damaged drone: what to do next under the status card, the damage on it, and a cracked lens. */
+.ark-walk-objective {
+  position: absolute;
+  top: 86px;
+  left: 20px;
+  margin: 0;
+  padding: 6px 14px 7px;
+  border: 6px solid transparent;
+  border-image: var(--b-plate-base) 7 fill / 14px / 4px stretch;
+  color: #ffd29a;
+  font-family: var(--font-display);
+  font-size: 15px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ark-walk-objective::before {
+  margin-right: 8px;
+  color: #ff8a5a;
+  content: "▸";
+}
+
+.ark-walk-objective[hidden] {
+  display: none;
+}
+
+.ark-walk-damage {
+  display: none;
+  color: #ff8a5a;
+  font-style: normal;
+  font-size: 14px;
+}
+
+.ark-walk[data-damaged="true"] .ark-walk-damage {
+  display: inline;
+}
+
+.ark-walk-crack {
+  position: absolute;
+  inset: 0;
+  display: none;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.ark-walk-crack path {
+  fill: none;
+  stroke: rgb(240 236 255 / 0.32);
+  stroke-width: 1.6;
+  vector-effect: non-scaling-stroke;
+}
+
+.ark-walk[data-damaged="true"] .ark-walk-crack {
+  display: block;
+}
+
+/* While it is damaged the feed is dimmer and washed out at the edges, where the lens is cracked. */
+.ark-walk[data-damaged="true"] .ark-walk-viewport::after {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 30% 55%, transparent 45%, rgb(8 6 14 / 0.55) 100%);
+  content: "";
+  pointer-events: none;
+}

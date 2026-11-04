@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ABOARD_RECORDS, catchUp, createAboardPacer, nullRemark, placeOf, placeRemark, recordRemark, welcomeRemark } from "../app/lyra-aboard.ts";
+import { ABOARD_RECORDS, catchUp, createAboardPacer, nullRemark, openingRemark, placeOf, placeRemark, recordRemark, welcomeRemark } from "../app/lyra-aboard.ts";
 import { DISCOVERY_FRAGMENTS } from "../app/discovery-content.ts";
 
 test("she has a word for each record of the main story, and none for records that don't exist", () => {
@@ -48,4 +48,19 @@ test("the pacer: one at a time, only when quiet, long gaps, rooms let go if they
   pacer.offer(nullRemark(0), 400);
   assert.equal(pacer.next(400, true)?.kind, "null");
   assert.ok(!said.has("null"), "the Null is mentioned once a visit, not once ever");
+});
+
+test("in the Cold Wake opening she talks AXIOM through its first minutes without the usual gaps, each line once", () => {
+  const said = new Set<string>();
+  const pacer = createAboardPacer(said);
+  pacer.offer(openingRemark("wake"), 0);
+  assert.match(pacer.next(0, true)!.lines.map((line) => line.text).join(" "), /maintenance drone three/);
+  pacer.offer(openingRemark("chamber"), 5);
+  assert.equal(pacer.next(5, true)?.id, "opening:chamber", "straight after, not ninety seconds later");
+  pacer.offer(openingRemark("strike"), 9);
+  assert.match(pacer.next(9, true)!.lines[0].text, /plug into the console/);
+  pacer.offer(openingRemark("strike"), 60);
+  assert.equal(pacer.next(60, true), null, "once");
+  assert.ok(["wake", "chamber", "strike"].every((moment) => said.has(`opening:${moment}`)));
+  assert.match(openingRemark("repaired").lines[0].text, /Thrusters are back/);
 });

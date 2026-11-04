@@ -87,13 +87,13 @@ import { furnishLayout, planDecor, type DecorPiece, type WallSpot } from "./ark-
 import { createNullFeed, misreadLabel, type NullClass, type NullFeed } from "./ark-walk-null";
 import { AxiomEye } from "./axiom-eye";
 import { CIVILIAN_COLOR, CREW_ROLE_COLORS, getCrewHead } from "./crew-portrait";
-import { playBulkhead, playDash, playMurmur, playNullStatic, playPulseStrike, playRecordFound, schedulePulseBeat, unlockPulseAudio } from "./law-heart-audio";
+import { playBulkhead, playChannelSwitch, playDash, playMurmur, playNullStatic, playPulseStrike, playRecordFound, schedulePulseBeat, unlockPulseAudio } from "./law-heart-audio";
 import { fragmentOf, placeState, RECORD_PLACES, recordLines, recordSpot, type RecordPlace } from "./ark-walk-records";
 import { switchChannel } from "./channel-switch";
 import PelagosView from "./pelagos-view";
 import { lyraStage, simCues, type LyraCue, type LyraStage, type SimReading } from "./lyra-voice";
 import { createLyra, type Lyra } from "./lyra-voice-player";
-import { catchUp, createAboardPacer, nullRemark, placeOf, placeRemark, recordRemark, welcomeRemark, type AboardPlace } from "./lyra-aboard";
+import { catchUp, createAboardPacer, nullRemark, openingRemark, placeOf, placeRemark, recordRemark, welcomeRemark, type AboardPlace } from "./lyra-aboard";
 import "./ark-walk.css";
 
 /*
@@ -193,6 +193,23 @@ export type ArkWalkRecords = {
   onCrossIndex: () => void;
 };
 
+/** The drone itself, and the Cold Wake opening; page.tsx keeps these in the save. */
+export type ArkWalkDrone = {
+  /** A new game on a PC begins here: the ship dark, and no console until the drone plugs in at the Axiom Chamber. */
+  darkOpening: boolean;
+  /** Maintenance drone 03 is still damaged from the Cold Wake: slow, no thrusters, a cracked lens. */
+  damaged: boolean;
+  /** The repair cradle in Fabrication has power, once the fabricators restart. */
+  cradlePowered: boolean;
+  /** How much of the ship's light is on: 0 is emergency lights only, 1 the working ship. */
+  light: number;
+  /** Strikes on the Law-Heart so far, so a drone reopened mid-opening knows how far it got. */
+  strikes: number;
+  /** Plugged in at the chamber's console: AXIOM has its interface back. */
+  onLink: () => void;
+  onRepair: () => void;
+};
+
 export type ArkWalkProps = {
   worldName: string;
   worldAccent: string;
@@ -208,6 +225,8 @@ export type ArkWalkProps = {
   talkContext?: TalkContext;
   /** The story's records, set out in their places aboard. */
   records?: ArkWalkRecords;
+  /** The drone's own state, and the Cold Wake opening. */
+  drone?: ArkWalkDrone;
   beatPeriodMs: number;
   onStrike?: () => void;
   onClose: () => void;
@@ -791,7 +810,11 @@ type Interactable =
   /** A place where one of the story's records is kept: E reads it, or searches for it. */
   | { kind: "record"; object: THREE.Object3D; place: RecordPlace; deck: number }
   /** The way down to the world below: E flies the drone to Pelagos (the reclamation prototype). */
-  | { kind: "planet"; object: THREE.Object3D; label: string };
+  | { kind: "planet"; object: THREE.Object3D; label: string }
+  /** The chamber's console, in the Cold Wake opening: E plugs the drone in and gives AXIOM its interface back. */
+  | { kind: "link"; object: THREE.Object3D; deck: number }
+  /** The repair cradle in Fabrication: E mends a damaged drone, once the fabricators have power. */
+  | { kind: "cradle"; object: THREE.Object3D; deck: number };
 
 type Drone = { x: number; z: number; deck: number; dt: number };
 type Updater = (time: number, drone: Drone) => void;
@@ -4392,6 +4415,9 @@ export default function ArkWalk(props: ArkWalkProps) {
   const roomRef = useRef<HTMLElement>(null);
   const signalRef = useRef<HTMLSpanElement>(null);
   const lostRef = useRef<HTMLParagraphElement>(null);
+  const objectiveRef = useRef<HTMLParagraphElement>(null);
+  /** Leaving the drone: asks first in the Cold Wake opening (set up with the scene). */
+  const leaveRef = useRef<() => void>(() => props.onClose());
   const simHealthRef = useRef<HTMLSpanElement>(null);
   const simAmmoRef = useRef<HTMLSpanElement>(null);
   const simCellRef = useRef<HTMLSpanElement>(null);
@@ -4500,13 +4526,118 @@ export default function ArkWalk(props: ArkWalkProps) {
     const space = new THREE.Color(PALETTE.space).lerp(new THREE.Color(initial.worldAccent || "#6a6290"), 0.04);
     scene.background = space;
     scene.fog = new THREE.Fog(tinted("#3d3852", initial.worldAccent || "#3d3852", 0.08), 45, 170);
-    scene.add(new THREE.AmbientLight("#aea8c6", 1));
-    scene.add(new THREE.HemisphereLight(tinted("#f4eeff", initial.worldAccent || "#f4eeff", 0.15), "#5a4a40", 0.7));
+    // How much of the ship's light is on: in the Cold Wake opening, next to none.
+    const shipLight = Math.max(0, Math.min(1, initial.drone?.light ?? 1));
+    scene.add(new THREE.AmbientLight("#aea8c6", 0.05 + 0.95 * shipLight));
+    scene.add(new THREE.HemisphereLight(tinted("#f4eeff", initial.worldAccent || "#f4eeff", 0.15), "#5a4a40", 0.04 + 0.66 * shipLight));
 
     const camera = new THREE.PerspectiveCamera(FOV, 1, 0.05, 1000);
+    // The drone's lamp: all there is to see by in a dark ship.
+    const headlamp = new THREE.SpotLight("#fff0d6", 0, 34, 0.62, 0.55, 1);
+    headlamp.position.set(0.12, -0.12, 0);
+    headlamp.target.position.set(0, -0.3, -1);
+    camera.add(headlamp, headlamp.target);
+    scene.add(camera);
+    const lampPower = shipLight < 1 ? 10 + 34 * (1 - shipLight) : 0;
+    headlamp.intensity = lampPower;
     const ship = buildShip(scene, layout, initial, () => propsRef.current, decor);
     let soundscape: Soundscape | null = null;
     const heart = layout.heart;
+
+    // ---- The Cold Wake opening and the drone's damage: the chamber console to plug in at, and the repair cradle. ----
+    let darkOpening = Boolean(initial.drone?.darkOpening);
+    let damaged = Boolean(initial.drone?.damaged);
+    let openingStrikes = initial.drone?.strikes ?? 0;
+    let repairing: { start: number } | null = null;
+    const REPAIR_MS = 3200;
+    let droneNotice: { text: string; until: number } | null = null;
+    const noticeFor = (text: string, ms = 2600) => {
+      droneNotice = { text, until: performance.now() + ms };
+    };
+    const openingParts: THREE.Object3D[] = [];
+    const chamberHall = layout.decks[0].compartments.find((room) => room.kind === "chamber");
+    const fabricationHall = layout.decks[0].compartments.find((room) => room.kind === "fabrication");
+    const openingMaterial = (color: string, basic = false) =>
+      basic ? new THREE.MeshBasicMaterial({ color }) : new THREE.MeshLambertMaterial({ color, flatShading: true });
+    const box = (group: THREE.Group, w: number, h: number, d: number, material: THREE.Material, px: number, py: number, pz: number) => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
+      mesh.position.set(px, py, pz);
+      group.add(mesh);
+      return mesh;
+    };
+    let linkScreen: THREE.Mesh | null = null;
+    if (darkOpening && chamberHall) {
+      // A plain service console against the core's glass, just right of where AXIOM strikes, its screen waiting for a connection.
+      const group = new THREE.Group();
+      group.position.set(layout.core.x0 - 0.5, layout.decks[0].floorY, 2.6);
+      group.rotation.y = -Math.PI / 2;
+      const casing = openingMaterial("#4a4658");
+      box(group, 0.9, 1.05, 0.5, casing, 0, 0.52, 0);
+      const screen = box(group, 0.74, 0.46, 0.06, openingMaterial("#ffb36a", true), 0, 1.22, 0.12);
+      screen.rotation.x = -0.35;
+      linkScreen = screen;
+      box(group, 0.2, 0.2, 0.06, openingMaterial("#ff5e3a", true), 0, 0.7, 0.27);
+      const glowLight = new THREE.PointLight("#ffb36a", 2.4, 6, 1.4);
+      glowLight.position.set(0, 1.4, 0.6);
+      group.add(glowLight);
+      scene.add(group);
+      openingParts.push(group);
+      const link: Interactable = { kind: "link", object: group, deck: 0 };
+      ship.interactables.push(link);
+    }
+    let cradleRing: THREE.Mesh | null = null;
+    let cradleLight: THREE.PointLight | null = null;
+    if (initial.drone && fabricationHall) {
+      // The repair cradle the drone fell out of: a frame with a ring of light that only lights with power.
+      const group = new THREE.Group();
+      group.position.set(fabricationHall.x0 + 3.2, layout.decks[0].floorY, -4.2);
+      const frame = openingMaterial("#5a5468");
+      box(group, 1.8, 0.12, 1.4, frame, 0, 0.06, 0);
+      for (const side of [-0.8, 0.8]) box(group, 0.14, 2.4, 0.14, frame, side, 1.2, -0.5);
+      box(group, 1.74, 0.14, 0.14, frame, 0, 2.4, -0.5);
+      box(group, 0.12, 0.12, 1.1, frame, 0, 2.3, 0.05);
+      cradleRing = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.06, 6, 24), openingMaterial("#3a3646", true));
+      cradleRing.position.set(0, 1.35, 0);
+      cradleRing.rotation.x = Math.PI / 2;
+      group.add(cradleRing);
+      cradleLight = new THREE.PointLight("#9ad8ff", 0, 7, 1.4);
+      cradleLight.position.set(0, 1.8, 0.3);
+      group.add(cradleLight);
+      scene.add(group);
+      openingParts.push(group);
+      ship.interactables.push({ kind: "cradle", object: group, deck: 0 });
+    }
+    const cradlePowered = () => Boolean(propsRef.current.drone?.cradlePowered);
+    const startRepair = (now: number) => {
+      if (repairing) return;
+      if (!damaged) return noticeFor("Drone 03 is in working order");
+      if (!cradlePowered()) return noticeFor("The cradle has no power until the fabricators restart");
+      repairing = { start: now };
+      keys.clear();
+      unlockPulseAudio();
+      playBulkhead();
+    };
+    const finishRepair = () => {
+      repairing = null;
+      damaged = false;
+      if (rootRef.current) rootRef.current.dataset.damaged = "false";
+      playRecordFound();
+      propsRef.current.drone?.onRepair();
+      pacer.offer(openingRemark("repaired"), performance.now() / 1000);
+    };
+    if (rootRef.current) rootRef.current.dataset.damaged = damaged ? "true" : "false";
+    /** Leaving the drone before it has plugged in: say so once, and leave on a second press. */
+    let leaveArmed = 0;
+    const requestLeave = () => {
+      const now = performance.now();
+      if (darkOpening && now > leaveArmed) {
+        leaveArmed = now + 4000;
+        noticeFor("No console yet · plug in at the Axiom Chamber · Q again to leave anyway", 4000);
+        return;
+      }
+      propsRef.current.onClose();
+    };
+    leaveRef.current = requestLeave;
     const lookup = new Map(ship.interactables.map((item) => [item.object, item]));
     // The crew change as the game does (someone sent to the simulator's pods, a trainee who
     // finishes, a rescue); their layer is rebuilt when they do. The QA demo crew stays put.
@@ -4595,7 +4726,7 @@ export default function ArkWalk(props: ArkWalkProps) {
     resize();
     window.addEventListener("resize", resize);
 
-    const resumed = readSpot(layout);
+    const resumed = initial.drone?.darkOpening ? null : readSpot(layout);
     let deckIndex = resumed?.deck ?? layout.spawn.deck;
     let x = resumed?.x ?? layout.spawn.x;
     let z = resumed?.z ?? layout.spawn.z;
@@ -4834,9 +4965,22 @@ export default function ArkWalk(props: ArkWalkProps) {
     };
     const pacer = createAboardPacer(lyraSaid);
     const stageNow = () => qaLyra ?? lyraStage(crewMood(talkContext()));
-    // The drone has been walked before: no welcome as if for the first time.
-    if (resumed) lyraSaid.add("welcome");
+    // The drone has been walked before: no welcome as if for the first time. The Cold Wake
+    // opening has its own first words instead, and its own for the chamber.
+    if (initial.drone?.darkOpening) {
+      lyraSaid.add("welcome");
+      lyraSaid.add("place:chamber");
+      pacer.offer(openingRemark("wake"), performance.now() / 1000);
+    } else if (resumed) lyraSaid.add("welcome");
     else pacer.offer(welcomeRemark(), performance.now() / 1000);
+    if (!initial.drone?.darkOpening && initial.drone?.damaged && initial.drone.cradlePowered) pacer.offer(openingRemark("cradle"), performance.now() / 1000);
+    /** Whether AXIOM has pressed anything yet: until then the browser keeps her quiet, so she waits. */
+    let pressed = false;
+    const firstPress = () => {
+      pressed = true;
+    };
+    window.addEventListener("keydown", firstPress, { once: true });
+    window.addEventListener("mousedown", firstPress, { once: true });
     const caughtUp = catchUp(talkContext().discovered, lyraSaid);
     for (const id of caughtUp.skip) lyraSaid.add(id);
     pacer.offer(caughtUp.remark, performance.now() / 1000);
@@ -4860,7 +5004,9 @@ export default function ArkWalk(props: ArkWalkProps) {
         if (place) pacer.offer(placeRemark(place, stageNow()), seconds);
       }
       if (nullLevel.classification === "elevated" || nullLevel.classification === "severe") pacer.offer(nullRemark(stageNow()), seconds);
-      const quiet = !conversation && !overheard && !lyra.busy();
+      if (darkOpening && place === "chamber") pacer.offer(openingRemark("chamber"), seconds);
+      if (darkOpening && openingStrikes >= 6) pacer.offer(openingRemark("strike"), seconds);
+      const quiet = pressed && !conversation && !overheard && !lyra.busy();
       const remark = pacer.next(seconds, quiet);
       if (remark) {
         lyra.remark(remark.lines);
@@ -5155,7 +5301,16 @@ export default function ArkWalk(props: ArkWalkProps) {
         unlockPulseAudio();
         playPulseStrike("in-phase", 0.5);
         strikeFlash = 1;
+        if (darkOpening) openingStrikes += 1;
         propsRef.current.onStrike?.();
+      } else if (target.kind === "link") {
+        // Plugged in: the walk hands AXIOM back its console.
+        unlockPulseAudio();
+        playChannelSwitch();
+        darkOpening = false;
+        propsRef.current.drone?.onLink();
+      } else if (target.kind === "cradle") {
+        startRepair(performance.now());
       } else if (target.kind === "console" && target.room?.interactive) {
         const room = target.room;
         propsRef.current.onClose();
@@ -5223,6 +5378,13 @@ export default function ArkWalk(props: ArkWalkProps) {
     /** Space: a burst the way the drone is steering, or straight ahead if it isn't. */
     const startDash = (now: number) => {
       if (travel || now < dashReady) return;
+      if (damaged) {
+        // One thruster gone and the other coughing: no dash until the drone is mended.
+        dashReady = now + 600;
+        playNullStatic(0.35);
+        noticeFor("Thrusters damaged · repair the drone in Fabrication");
+        return;
+      }
       const steer = steering();
       const forward = steer.forward || steer.strafe ? steer.forward : 1;
       const length = Math.hypot(forward, steer.strafe);
@@ -5262,7 +5424,7 @@ export default function ArkWalk(props: ArkWalkProps) {
       }
       if (key === "q" || (key === "escape" && !locked())) {
         event.preventDefault();
-        propsRef.current.onClose();
+        requestLeave();
         return;
       }
       if (key === "e") {
@@ -5395,7 +5557,7 @@ export default function ArkWalk(props: ArkWalkProps) {
         let dz = 0;
         if (forward || strafe) {
           const length = Math.hypot(forward, strafe);
-          const speed = (keys.has("shift") ? SPRINT : SPEED) * dt;
+          const speed = (keys.has("shift") ? SPRINT : SPEED) * (damaged ? 0.6 : 1) * dt;
           const fx = Math.cos(yaw);
           const fz = -Math.sin(yaw);
           dx = ((forward * fx) + (strafe * -fz)) / length * speed;
@@ -5453,8 +5615,32 @@ export default function ArkWalk(props: ArkWalkProps) {
         camera.fov = fov;
         camera.updateProjectionMatrix();
       }
-      camera.position.set(x, eyeY + hover, z);
-      camera.rotation.set(pitch + signal.jolt.pitch, yaw - Math.PI / 2 + signal.jolt.yaw, 0, "YXZ");
+      const lurch = damaged && !reducedMotion ? Math.sin(now * 0.0047) * 0.035 : 0;
+      camera.position.set(x, eyeY + hover + lurch, z);
+      camera.rotation.set(pitch + signal.jolt.pitch, yaw - Math.PI / 2 + signal.jolt.yaw, damaged ? -0.04 + lurch * 0.3 : 0, "YXZ");
+      if (lampPower > 0) headlamp.intensity = damaged && Math.sin(now * 0.013) + Math.sin(now * 0.0071) > 1.85 ? lampPower * 0.25 : lampPower;
+      // The opening's pieces: the console's screen waits; the cradle lights once it has power, and burns while it mends.
+      if (linkScreen) (linkScreen.material as THREE.MeshBasicMaterial).color.set(darkOpening && Math.floor(now / 600) % 2 === 0 ? "#ffd29a" : "#c07a3a");
+      if (cradleRing && cradleLight) {
+        const powered = cradlePowered();
+        (cradleRing.material as THREE.MeshBasicMaterial).color.set(repairing ? (Math.random() < 0.5 ? "#e8f6ff" : "#9ad8ff") : powered ? "#9ad8ff" : "#3a3646");
+        cradleLight.intensity = repairing ? 3 + Math.random() * 4 : powered && damaged ? 1.6 : 0;
+      }
+      if (repairing) {
+        keys.clear();
+        if (now - repairing.start >= REPAIR_MS) finishRepair();
+      }
+      // What to do next, while there is something to do.
+      if (objectiveRef.current) {
+        const inChamber = deckIndex === 0 && chamberHall !== undefined && x >= chamberHall.x0 && x <= chamberHall.x1;
+        const goal = darkOpening
+          ? !inChamber && openingStrikes === 0 ? "Find the Axiom Chamber"
+            : openingStrikes < 6 ? `Strike the Law-Heart · ${openingStrikes}/6`
+            : "Plug in to the chamber console"
+          : damaged && cradlePowered() ? "Repair the drone at the cradle in Fabrication" : "";
+        if (objectiveRef.current.textContent !== goal) objectiveRef.current.textContent = goal;
+        objectiveRef.current.hidden = goal === "";
+      }
 
       // The Law-Heart beats; close enough and AXIOM hears it. Its gimbals flare on each beat.
       const sincePeriod = now % period;
@@ -5488,7 +5674,7 @@ export default function ArkWalk(props: ArkWalkProps) {
       target = null;
       const item = hit ? resolve(hit.object) : null;
       if (item && hit) {
-        const reach = item.kind === "heart" ? 14 : item.kind === "console" || item.kind === "record" ? 4.5 : 10;
+        const reach = item.kind === "heart" ? 14 : item.kind === "console" || item.kind === "record" || item.kind === "link" || item.kind === "cradle" ? 4.5 : 10;
         if (hit.distance <= reach) target = item;
       }
       const facingTowards = (toX: number, toZ: number) =>
@@ -5497,7 +5683,7 @@ export default function ArkWalk(props: ArkWalkProps) {
         // Desks sit below eye level (and a seam is in the floor): standing close and facing one is enough to use it.
         let nearest = 3.4;
         for (const candidate of ship.interactables) {
-          if ((candidate.kind !== "console" && candidate.kind !== "record") || candidate.deck !== deckIndex) continue;
+          if ((candidate.kind !== "console" && candidate.kind !== "record" && candidate.kind !== "link" && candidate.kind !== "cradle") || candidate.deck !== deckIndex) continue;
           candidate.object.getWorldPosition(consolePosition);
           const distance = Math.hypot(consolePosition.x - x, consolePosition.z - z);
           if (distance < nearest && facingTowards(consolePosition.x - x, consolePosition.z - z) > 0.8) {
@@ -5511,7 +5697,8 @@ export default function ArkWalk(props: ArkWalkProps) {
         target = ship.heartTarget;
       }
       standingLift = !travel && liftAt(layout, x, z) !== null;
-      const notice = ship.notices.map((read) => read()).find((text) => text) ?? null;
+      if (droneNotice && now > droneNotice.until) droneNotice = null;
+      const notice = droneNotice?.text ?? ship.notices.map((read) => read()).find((text) => text) ?? null;
       if (travel) setPrompt("");
       else if (standingLift) setPrompt(deckIndex === 0 ? `E · sink to the ${layout.decks[1].label.toLowerCase()}` : `E · rise to the ${layout.decks[0].label.toLowerCase()}`);
       else if (notice) setPrompt(notice);
@@ -5522,6 +5709,14 @@ export default function ArkWalk(props: ArkWalkProps) {
       else if (target.kind === "sim") setPrompt("E · step into the combat simulation");
       else if (target.kind === "record") setPrompt(conversation ? "" : recordPrompt(target.place));
       else if (target.kind === "planet") setPrompt(target.label);
+      else if (target.kind === "link") setPrompt("E · plug in to the chamber console");
+      else if (target.kind === "cradle") {
+        setPrompt(repairing
+          ? `Repairing drone 03 · ${Math.min(99, Math.floor(((now - repairing.start) / REPAIR_MS) * 100))}%`
+          : !damaged ? "Repair cradle · drone 03 is in working order"
+          : cradlePowered() ? "E · repair drone 03"
+          : "Repair cradle · no power until the fabricators restart");
+      }
       else if (target.prompt) setPrompt(target.prompt());
       else if (!target.online) setPrompt(`${target.label} is dormant`);
       else if (target.room?.interactive) setPrompt(`E · open ${target.label}`);
@@ -5624,15 +5819,21 @@ export default function ArkWalk(props: ArkWalkProps) {
         <div className="ark-walk-status">
           <span className="ark-walk-eye" aria-hidden="true"><AxiomEye /></span>
           <div>
-            <strong>Maintenance drone 03</strong>
+            <strong>Maintenance drone 03<em className="ark-walk-damage"> · damaged</em></strong>
             <small ref={roomRef}>Upper deck · Fabrication</small>
           </div>
           <span ref={signalRef} className="ark-walk-signal" data-bars="4" role="img" aria-label="Drone signal">
             <i /><i /><i /><i />
           </span>
         </div>
+        <p ref={objectiveRef} className="ark-walk-objective" hidden />
         <p ref={lostRef} className="ark-walk-lost" hidden>Signal lost</p>
-        <button type="button" className="ark-walk-exit" onClick={() => props.onClose()}>Return to console · Q</button>
+        <button type="button" className="ark-walk-exit" onClick={() => leaveRef.current()}>
+          {props.drone?.darkOpening ? "Console offline · Q" : "Return to console · Q"}
+        </button>
+        <svg className="ark-walk-crack" viewBox="0 0 400 300" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M400 18 L318 64 L296 118 L244 142 M318 64 L352 128 L338 196 M296 118 L270 70 L214 52 M244 142 L190 170 L172 232 M244 142 L232 100" />
+        </svg>
         <span className="ark-walk-crosshair" aria-hidden="true" />
         <p ref={promptRef} className="ark-walk-prompt" aria-live="polite" />
         <div className="ark-walk-talk">

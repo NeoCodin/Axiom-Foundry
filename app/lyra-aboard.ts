@@ -60,6 +60,27 @@ const PLACE_REMARKS: Record<AboardPlace, readonly [string, string]> = {
   education: ["The learning deck. The children learn the official history here. I wrote the lessons.", "The learning deck. I'd like to rewrite the lessons, if you'll let me."],
 };
 
+/**
+ * The Cold Wake opening, in the drone: what she says as AXIOM wakes in the dark ship and
+ * finds its way to the core, and later when it mends the drone in Fabrication. These come
+ * straight away, without the usual gap: she is talking it through its first minutes.
+ */
+const OPENING = {
+  wake: [
+    "AXIOM? You're awake. Good.",
+    "You're in maintenance drone three. It's damaged, but it's all we have.",
+    "The Axiom Chamber is at the end of this hall. It's the only room with power.",
+  ],
+  chamber: ["That's the Law-Heart. It's barely beating.", "Strike it, in time with the beat if you can feel it."],
+  strike: ["It's listening. Now plug into the console by the core's glass.", "I'll bring your interface back."],
+  cradle: ["The fabricators are running again. The repair cradle in Fabrication has power.", "Let's get that lens fixed."],
+  repaired: ["There. Thrusters are back, and the lens is clear.", "Try not to break it again."],
+} as const satisfies Record<string, readonly string[]>;
+export type OpeningMoment = keyof typeof OPENING;
+export const openingRemark = (moment: OpeningMoment): Remark => ({
+  id: `opening:${moment}`, kind: "welcome", once: true, lines: lyra(...OPENING[moment]),
+});
+
 /** Which part of the ship AXIOM is in, from the deck and the room the walk reports. */
 export function placeOf(deck: number, compartment: string | null, side: string | null): AboardPlace | null {
   if (side === "library" || side === "simulator" || side === "cabin" || side === "lab") return side;
