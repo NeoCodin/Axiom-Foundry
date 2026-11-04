@@ -14,6 +14,7 @@ import {
   type LawHeartQaOverride,
   type LawPressState,
 } from "./law-heart-particle-field";
+import { LyraVoiceLab } from "./lyra-voice-lab";
 import { CONTEXT_GUIDES, type ContextGuideId } from "./story-content";
 import {
   DEFAULT_NULL_SATURATION_OVERRIDE,
@@ -259,6 +260,7 @@ export function QaSandbox({
             </div>
             <small className="qa-section-help">Display and balance preview only. The public profile always derives this reading from its world, Lawheart, Research, and completed works.</small>
           </section>
+          <LyraVoiceLab />
           <section className="qa-law-heart-lab">
             <span>LAW-HEART VISUAL LAB</span>
             <div className="qa-law-heart-master">

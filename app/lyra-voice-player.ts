@@ -1,10 +1,13 @@
-import { isPulseAudioEnabled, playLyraKey, playLyraVoice } from "./law-heart-audio";
+import { getPulseAudioOutput, isPulseAudioEnabled, playLyraKey, playLyraVoice } from "./law-heart-audio";
 import { chooseVoice, createLyraDirector, isUrgent, lineSeconds, SPOKEN, spokenText, type LyraCue, type LyraLine, type LyraStage } from "./lyra-voice";
+import { fxFor, readVoiceLab, recordingOf, VOICE_LAB_KEY } from "./lyra-voice-fx";
+import { playRecorded } from "./lyra-voice-sound";
 
 /**
  * Lyra on screen and in the ear: a plate near the top of the view with who is speaking and
- * what, spoken aloud by the browser's own voices (see SPOKEN), with the link's click and
- * static as each line starts. Where the browser has no voices, a radio murmur stands in.
+ * what, with the link's click and static as each line starts. A line that has been recorded
+ * plays in her own voice through her colouring (lyra-voice-fx.ts); anything else is spoken
+ * by the browser's own voices (see SPOKEN). Where there are neither, a radio murmur stands in.
  * Lines queue: each waits its delay with the plate dark, stays up until it has been both
  * read and said, then gives way. An urgent warning cuts off whatever she is saying.
  */
@@ -21,8 +24,8 @@ export function createLyra(host: HTMLElement, stage: () => LyraStage) {
   plate.append(speaker, words);
   host.append(plate);
 
-  /** Say a line aloud; false when there is no voice to say it with (or sound is off), so it is only shown. */
-  const speak = (line: LyraLine, done: () => void) => {
+  /** The browser's voice; false when it has none to say the line with. */
+  const speakAloud = (line: LyraLine, done: () => void) => {
     if (!speech || !isPulseAudioEnabled()) return false;
     const voice = chooseVoice(speech.getVoices(), line.voice);
     if (!voice) return false;
@@ -43,6 +46,24 @@ export function createLyra(host: HTMLElement, stage: () => LyraStage) {
     utterance.onend = end;
     utterance.onerror = end;
     speech.speak(utterance);
+    return true;
+  };
+
+  let clip: { stop(): void } | null = null;
+  /** Say a line aloud; false when there is no voice to say it with (or sound is off), so it is only shown. */
+  const speak = (line: LyraLine, done: () => void) => {
+    if (!isPulseAudioEnabled()) return false;
+    let lab = readVoiceLab(null);
+    try {
+      lab = readVoiceLab(window.localStorage.getItem(VOICE_LAB_KEY));
+    } catch {
+      // Storage blocked: her default colouring.
+    }
+    const file = recordingOf(spokenText(line), lab.takes);
+    if (!file || !getPulseAudioOutput()) return speakAloud(line, done);
+    clip = playRecorded(file, fxFor(lab.fx, stage(), line.voice), done, () => {
+      if (!speakAloud(line, done)) done();
+    });
     return true;
   };
 
@@ -97,6 +118,7 @@ export function createLyra(host: HTMLElement, stage: () => LyraStage) {
       current += 1;
       busy = false;
       speech?.cancel();
+      clip?.stop();
     }
     queue.push(...lines);
     if (!busy) next();
@@ -118,6 +140,7 @@ export function createLyra(host: HTMLElement, stage: () => LyraStage) {
       current += 1;
       if (timer !== null) window.clearTimeout(timer);
       speech?.cancel();
+      clip?.stop();
       plate.remove();
     },
   };
