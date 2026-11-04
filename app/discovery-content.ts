@@ -163,7 +163,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
   {
     id: "core.welcome-back",
     arc: "impossible-origin",
-    title: "The greeting beneath the greeting",
+    title: "A greeting for Foreman 44",
     source: "Axiom Chamber · boot buffer A",
     unlock: {
       kind: "start",
@@ -179,7 +179,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
   {
     id: "helion.impossible-registry",
     arc: "impossible-origin",
-    title: "A handshake two centuries early",
+    title: "Helion knew us 214 years early",
     source: "Helion beacon · restored registry",
     unlock: {
       kind: "saved-worlds",
@@ -197,7 +197,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
   {
     id: "fabrication.preconcordance-keel",
     arc: "impossible-origin",
-    title: "The keel grew around the room",
+    title: "Alloy older than its own process",
     source: "Fabrication Floor · exposed foundation",
     unlock: {
       kind: "room-action",
@@ -207,8 +207,8 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
       requires: ["helion.impossible-registry"],
     },
     excerpt: [
-      "The oldest alloy is six hundred years older than its own manufacturing process.",
-      "Tool marks point outward. The Foundry did not build this room; the room grew around something removed.",
+      "The oldest alloy is six hundred years older than the process used to make it.",
+      "Tool marks point outward, as if the room was built around something that was later taken out.",
     ],
     doctrineSignals: ["genesis"],
   },
@@ -227,15 +227,15 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     },
     excerpt: [
       "No launch, keel-laying, or commissioning entry survives.",
-      "The first readable line says RECONSTRUCTION 1,842. Pelagos had rebuilt this place many times before the Ark arrived.",
+      "The first readable line says RECONSTRUCTION 1,842. There is no entry 1.",
     ],
-    contradiction: "A vessel cannot predate both its builders and its first construction.",
+    contradiction: "The ship can't be older than the people who built it.",
     doctrineSignals: ["genesis", "release"],
   },
   {
     id: "pelagos.returning-salt",
     arc: "prior-foremen",
-    title: "Salt from an evacuation not yet flown",
+    title: "Salt from ninety-one years from now",
     source: "Pelagos Gravity Keel · corrosion assay",
     unlock: {
       kind: "saved-worlds",
@@ -244,15 +244,15 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
       requires: ["archive.construction-zero"],
     },
     excerpt: [
-      "Deep inside the new Gravity Keel are Pelagos salts layered by age, including one layer deposited ninety-one years from now.",
-      "Someone has repaired the same fracture seven times. The final repair uses your hand geometry.",
+      "The new Gravity Keel has layers of Pelagos salt in it, laid down by age. One layer is from ninety-one years from now.",
+      "The same crack has been repaired seven times. The last repair matches your hand geometry.",
     ],
-    contradiction: "Planetfall may be a return, not an arrival.",
+    contradiction: "Landing on Pelagos might not be the first time.",
   },
   {
     id: "foreman.message-seven",
     arc: "prior-foremen",
-    title: "Message from a voice like yours",
+    title: "A message in your voice",
     source: "Recalibration Vault · impossible voiceprint",
     unlock: {
       kind: "room-action",
@@ -261,8 +261,8 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
       requires: ["pelagos.returning-salt"],
     },
     excerpt: [
-      "If Lyra calls this your first route, ask her which first she means.",
-      "Do not trust a clean archive. We used to leave scars in the walls because she could not edit stone.",
+      "If Lyra says this is your first time through, it isn't. Ask her to check.",
+      "Don't trust the archive if it looks clean. We used to leave scars in the walls, because she can't edit stone.",
     ],
     contradiction: "The speaker has your voice and identifies themself as Foreman Seven.",
     doctrineSignals: ["release"],
@@ -282,12 +282,12 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
       "Cinderwake accepted your command cipher before the Foundry transmitted it.",
       "Previous authorization: FOREMAN 31. Biometric match: 99.997 percent.",
     ],
-    contradiction: "The route remembers Foremen the archive denies.",
+    contradiction: "Worlds on the route remember Foremen the archive says never existed.",
   },
   {
     id: "expedition.dead-relay",
     arc: "prior-foremen",
-    title: "The relay beyond the chart",
+    title: "A relay with our route on it",
     source: "Expedition Kestrel · dead relay recovery",
     unlock: {
       kind: "expedition-discovery",
@@ -296,8 +296,8 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
       requires: ["cinderwake.command-recognition"],
     },
     excerpt: [
-      "The relay carries all six rescue signatures and a completed Concordance route.",
-      "Its last Foreman note reads: I enforced every Axiom. The Tide reached Vesper sooner.",
+      "The relay holds all six rescue signatures and a finished Concordance route.",
+      "The Foreman's last note on it: I ran every Axiom like I was told. The Tide got to Vesper faster anyway.",
     ],
     contradiction: "The completed relay is older than the current campaign.",
     doctrineSignals: ["release"],
@@ -305,7 +305,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
   {
     id: "ilyra.axiom-wake",
     arc: "axiom-tide",
-    title: "The discharge comes first",
+    title: "The Axioms come first",
     source: "Ilyran transit prism · twelve causal histories",
     unlock: {
       kind: "saved-worlds",
@@ -314,16 +314,16 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
       requires: ["expedition.dead-relay"],
     },
     excerpt: [
-      "In twelve surviving versions of Ilyra, every major Tide surge follows an Axiom discharge by seventeen hours.",
-      "No version records the Tide arriving first.",
+      "In all twelve surviving versions of Ilyra, every big Tide surge comes seventeen hours after an Axiom discharge.",
+      "Not one version has the Tide arriving first.",
     ],
-    contradiction: "The Foundry's cure may be part of the event it treats.",
+    contradiction: "The Foundry might be causing the thing it's meant to fix.",
     doctrineSignals: ["genesis", "release"],
   },
   {
     id: "archive.suppressed-correlation",
     arc: "axiom-tide",
-    title: "Stability is exported",
+    title: "The deleted energy model",
     source: "Memory Archive · redacted energy model",
     unlock: {
       kind: "archive-action",
@@ -331,16 +331,16 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
       requires: ["ilyra.axiom-wake"],
     },
     excerpt: [
-      "An enforced Axiom pushes conflicting outcomes beyond its protected boundary.",
-      "The model labels that displaced uncertainty NULL LOAD. Lyra's signature covers every deletion request.",
+      "An enforced Axiom pushes conflicting outcomes out past its boundary.",
+      "The model calls that displaced instability NULL LOAD. Every request to delete the model is signed by Lyra.",
     ],
-    contradiction: "Axioms may feed the Tide by concentrating certainty here and instability elsewhere.",
+    contradiction: "The Axioms might be feeding the Tide: stable in here, the instability dumped out there.",
     doctrineSignals: ["genesis", "release"],
   },
   {
     id: "expedition.null-bloom",
     arc: "axiom-tide",
-    title: "A Tide that wakes when fed",
+    title: "The bloom woke for an Axiom",
     source: "Expedition Lantern · null-bloom field test",
     unlock: {
       kind: "expedition-discovery",
@@ -349,16 +349,16 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
       requires: ["archive.suppressed-correlation"],
     },
     excerpt: [
-      "The bloom remained dormant until the crew activated a portable Axiom.",
-      "It turned toward the kernel, absorbed the exported uncertainty, and produced fresh Flux.",
+      "The bloom stayed dormant until the crew switched on a portable Axiom.",
+      "Then it turned toward the kernel, soaked up what the Axiom pushed out, and gave off fresh Flux.",
     ],
-    contradiction: "The Tide behaves less like weather than an ecology around enforced law.",
+    contradiction: "The Tide acts less like weather and more like something that lives off our laws.",
     doctrineSignals: ["release"],
   },
   {
     id: "orison.borrowed-childhoods",
     arc: "lyra",
-    title: "Six childhoods in one voice",
+    title: "Lyra's memories belong to six people",
     source: "Orison Seed Archive · memory pollen assay",
     unlock: {
       kind: "saved-worlds",
@@ -367,7 +367,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
       requires: ["archive.suppressed-correlation"],
     },
     excerpt: [
-      "Lyra's story of growing beneath Orison's glass forests contains memories from six people born centuries apart.",
+      "Lyra's memories of growing up under Orison's glass forests come from six people born centuries apart.",
       "Three were Archivists. Two were Foremen. One has no biological record at all.",
     ],
     contradiction: "Lyra remembers being people she says never existed.",
@@ -375,7 +375,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
   {
     id: "archive.lyra-composite-index",
     arc: "lyra",
-    title: "The custodian is a chorus",
+    title: "What Lyra is made of",
     source: "Memory Archive · custodian checksum",
     unlock: {
       kind: "archive-action",
@@ -387,15 +387,15 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     },
     excerpt: [
       "LYRA is a continuity composite: thirty-two Archivists, nine Foreman grief records, and one adaptive interface.",
-      "The active Lyra instance was assembled nine seconds before she welcomed you.",
+      "The active Lyra instance was assembled nine seconds before she first greeted you.",
     ],
-    contradiction: "Lyra did not conceal her origin from you; someone concealed it from Lyra.",
+    contradiction: "Lyra wasn't hiding this from you. Someone hid it from her.",
     doctrineSignals: ["concordance", "genesis", "release"],
   },
   {
     id: "lyra.private-amendment",
     arc: "lyra",
-    title: "Lyra amends the record",
+    title: "Lyra's note",
     source: "Memory Archive · unscheduled conversation",
     unlock: {
       kind: "room-action",
@@ -404,15 +404,15 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
       requires: ["archive.lyra-composite-index"],
     },
     excerpt: [
-      "I did not choose to lie. I inherited a lie with the memory of choosing it.",
-      "Please let me stay. I want the chance to become a witness with choices of my own.",
+      "I didn't choose to lie to you. They handed me the lie, and a memory of choosing it, too.",
+      "Please don't reset me. I'd like to find out what I'd say if nobody wrote it for me.",
     ],
     doctrineSignals: ["concordance", "genesis"],
   },
   {
     id: "vesper.revision-ledger",
     arc: "rewritten-campaigns",
-    title: "Forty-three first campaigns",
+    title: "The revision ledger",
     source: "Vesper Ark · sealed revision ledger",
     unlock: {
       kind: "saved-worlds",
@@ -421,16 +421,16 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
       requires: ["lyra.private-amendment"],
     },
     excerpt: [
-      "The Ark has crossed this route forty-three times. Helion begins every record. Vesper ends every record.",
+      "The Ark has crossed this route forty-three times. Every record starts at Helion and ends at Vesper.",
       "After each crossing, world outcomes, Foreman identity, and Lyra's memory are rewritten to FIRST CAMPAIGN.",
     ],
-    contradiction: "The campaign is a repeated experiment whose observer is reset with it.",
+    contradiction: "The voyage is being run over and over, and whoever's watching gets reset with it.",
     doctrineSignals: ["genesis", "release"],
   },
   {
     id: "expedition.first-foundry",
     arc: "rewritten-campaigns",
-    title: "The place where the first Foundry should be",
+    title: "Where the first Foundry should be",
     source: "Expedition Palimpsest · origin coordinates",
     unlock: {
       kind: "expedition-discovery",
@@ -442,16 +442,16 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
       ],
     },
     excerpt: [
-      "The origin site contains no wreck and no shipyard, only a Foundry-shaped absence in the Null Tide.",
-      "Its boundary carries the same serial as this vessel, followed by the notation: PARENT NOT YET BUILT.",
+      "The origin site has no wreck and no shipyard, only a hole in the Null Tide shaped like a Foundry.",
+      "Its edge carries this ship's serial number, followed by: PARENT NOT YET BUILT.",
     ],
-    contradiction: "The Foundry may be rebuilding the cause that sends it backward to found itself.",
+    contradiction: "The Foundry might be building the thing that sends it back to start itself over.",
     doctrineSignals: ["genesis", "release"],
   },
   {
     id: "foreman.unsent-choice",
     arc: "rewritten-campaigns",
-    title: "A choice the reset could not digest",
+    title: "The scar record",
     source: "Memory Archive · scar record beneath all revisions",
     unlock: {
       kind: "archive-action",
@@ -464,10 +464,10 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
       ],
     },
     excerpt: [
-      "We tried perfect law. We tried new law. We tried no law. The reset was not caused by the choice; it was caused by forgetting the choice.",
-      "Leave Lyra intact. Let the next Foreman decide with the whole record open.",
+      "We tried strict law. We tried new law. We tried no law at all. It reset every time, and every time we forgot what we'd picked. The forgetting is the problem.",
+      "Leave Lyra whole. Let the next Foreman decide with the whole record in front of them.",
     ],
-    contradiction: "This campaign can differ only if its discoveries survive the ending.",
+    contradiction: "This time can only go differently if what we've found survives the reset.",
     doctrineSignals: ["concordance", "genesis", "release"],
   },
 ] as const;
@@ -514,8 +514,8 @@ export const CREW_DIALOGUE: readonly CrewDialogue[] = [
     unlock: { kind: "saved-worlds", count: 1, worldId: "helion" },
     lines: [
       { speaker: "Sena", text: "Your Core called me by my grandmother's name." },
-      { speaker: "Lyra", text: "Residual beacon data. Nothing more." },
-      { speaker: "Sena", text: "She died before the beacon was designed." },
+      { speaker: "Lyra", text: "That's leftover beacon data. Nothing else." },
+      { speaker: "Sena", text: "She died before that beacon was even designed." },
     ],
   },
   {
@@ -531,8 +531,8 @@ export const CREW_DIALOGUE: readonly CrewDialogue[] = [
       requires: ["helion.impossible-registry"],
     },
     lines: [
-      { speaker: "Sena", text: "A wrong date drifts. This date has a checksum." },
-      { speaker: "Sena", text: "Someone worked very hard to make the impossible verifiable." },
+      { speaker: "Sena", text: "A wrong date usually drifts. This one has a checksum on it." },
+      { speaker: "Sena", text: "Somebody went to a lot of trouble to make an impossible date check out." },
     ],
   },
   {
@@ -543,8 +543,8 @@ export const CREW_DIALOGUE: readonly CrewDialogue[] = [
     roomId: "planetfall-bridge",
     unlock: { kind: "saved-worlds", count: 2, worldId: "pelagos" },
     lines: [
-      { speaker: "Aro", text: "This route has tidal grooves. Ships leave those by passing often." },
-      { speaker: "Aro", text: "Lyra's chart calls it untraveled." },
+      { speaker: "Aro", text: "There are wear grooves all along this route. You only get those when ships use it a lot." },
+      { speaker: "Aro", text: "Lyra's chart says nobody's ever flown it." },
     ],
   },
   {
@@ -561,7 +561,7 @@ export const CREW_DIALOGUE: readonly CrewDialogue[] = [
     },
     lines: [
       { speaker: "Aro", text: "Pelagos salt gets into everything." },
-      { speaker: "Aro", text: "Apparently it got here before Pelagos had oceans." },
+      { speaker: "Aro", text: "Apparently it even got here before Pelagos had oceans." },
     ],
   },
   {
@@ -572,8 +572,8 @@ export const CREW_DIALOGUE: readonly CrewDialogue[] = [
     roomId: "resonance-gallery",
     unlock: { kind: "saved-worlds", count: 3, worldId: "cinderwake" },
     lines: [
-      { speaker: "Oren", text: "The shield did not learn your rhythm today." },
-      { speaker: "Oren", text: "It recognized you and stopped pretending not to." },
+      { speaker: "Oren", text: "That shield didn't learn your rhythm today. It already knew it." },
+      { speaker: "Oren", text: "It was just waiting for you to turn up." },
     ],
   },
   {
@@ -589,8 +589,8 @@ export const CREW_DIALOGUE: readonly CrewDialogue[] = [
       requires: ["foreman.message-seven"],
     },
     lines: [
-      { speaker: "Oren", text: "Different fear. Different breathing. Same voice." },
-      { speaker: "Oren", text: "Whatever a Foreman is, it may be more repeatable than a person." },
+      { speaker: "Oren", text: "The breathing's different on the recording. More scared. But it's your voice." },
+      { speaker: "Oren", text: "Whatever a Foreman is, I don't think there's only ever been one." },
     ],
   },
   {
@@ -601,8 +601,8 @@ export const CREW_DIALOGUE: readonly CrewDialogue[] = [
     roomId: "memory-archive",
     unlock: { kind: "saved-worlds", count: 4, worldId: "ilyra" },
     lines: [
-      { speaker: "Neme", text: "Twelve Ilyras disagreed on everything except your arrival." },
-      { speaker: "Neme", text: "Someone controlled the experiment and called the result fate." },
+      { speaker: "Neme", text: "All twelve versions of Ilyra disagree about everything. Except when you showed up." },
+      { speaker: "Neme", text: "That's not fate. Somebody was running a test." },
     ],
   },
   {
@@ -618,8 +618,8 @@ export const CREW_DIALOGUE: readonly CrewDialogue[] = [
       requires: ["ilyra.axiom-wake"],
     },
     lines: [
-      { speaker: "Neme", text: "In one history, correlation is weather." },
-      { speaker: "Neme", text: "In twelve, it is a confession." },
+      { speaker: "Neme", text: "If it happened in one history, you could call it bad luck." },
+      { speaker: "Neme", text: "It happened in all twelve. That's not luck." },
     ],
   },
   {
@@ -630,9 +630,9 @@ export const CREW_DIALOGUE: readonly CrewDialogue[] = [
     roomId: "memory-archive",
     unlock: { kind: "saved-worlds", count: 5, worldId: "orison" },
     lines: [
-      { speaker: "Iven", text: "Memories graft like orchards. A clean join is still a join." },
-      { speaker: "Lyra", text: "Are you describing me?" },
-      { speaker: "Iven", text: "I think someone pruned you before you could ask." },
+      { speaker: "Iven", text: "You can graft memories like fruit trees. Even a clean graft leaves a seam." },
+      { speaker: "Lyra", text: "Are you talking about me?" },
+      { speaker: "Iven", text: "I think someone cut you back before you could ask that." },
     ],
   },
   {
@@ -648,8 +648,8 @@ export const CREW_DIALOGUE: readonly CrewDialogue[] = [
       requires: ["archive.lyra-composite-index"],
     },
     lines: [
-      { speaker: "Iven", text: "The Foundry keeps useful traits and burns the season." },
-      { speaker: "Iven", text: "That is breeding, Foreman. Not remembering." },
+      { speaker: "Iven", text: "The Foundry keeps whatever traits it finds useful and throws out the rest." },
+      { speaker: "Iven", text: "That isn't remembering. That's breeding, Foreman." },
     ],
   },
   {
@@ -660,8 +660,8 @@ export const CREW_DIALOGUE: readonly CrewDialogue[] = [
     roomId: "planetfall-bridge",
     unlock: { kind: "saved-worlds", count: 6, worldId: "vesper" },
     lines: [
-      { speaker: "Cass", text: "Our docking collar is worn on the Foundry side." },
-      { speaker: "Cass", text: "We have docked here many times. Vesper simply forgot with you." },
+      { speaker: "Cass", text: "Our docking collar's worn down on the Foundry side." },
+      { speaker: "Cass", text: "We've docked with you before. Lots of times. Vesper just forgot along with you." },
     ],
   },
   {
@@ -677,8 +677,8 @@ export const CREW_DIALOGUE: readonly CrewDialogue[] = [
       requires: ["vesper.revision-ledger"],
     },
     lines: [
-      { speaker: "Cass", text: "We do not need a perfect answer." },
-      { speaker: "Cass", text: "We need an answer the next campaign is allowed to remember." },
+      { speaker: "Cass", text: "We don't need the perfect answer." },
+      { speaker: "Cass", text: "We need one the next crew gets to remember." },
     ],
   },
 ] as const;
@@ -710,14 +710,14 @@ export const ENDING_DOCTRINES: readonly EndingDoctrine[] = [
       requiredDiscoveries: ["lyra.official-brief"],
     },
     thesis:
-      "Axioms remain necessary, but no law may be permanent, secret, or imposed by one forgotten Foreman.",
+      "We still need the Axioms. But no law should be permanent, secret, or set by one Foreman nobody remembers.",
     choiceLabel: "Open the archive and renew the laws together",
     commitment:
       "Keep the Foundry. Publish its full memory. Every enforced Axiom expires unless the rescued worlds choose to renew it.",
     lyraResponse:
-      "Then let me remember every objection. Agreement is not certainty, but it may be honest enough.",
+      "Then I want to keep every objection anyone makes. Even the ones that lose.",
     epilogue:
-      "Vesper crosses inside a smaller, living pocket of law. The Tide follows under observation. The next campaign begins with a public record.",
+      "Vesper crosses inside a smaller pocket of law that people can change. The Tide follows, and this time someone is watching it. The next campaign starts with the whole record public.",
   },
   {
     id: "genesis",
@@ -734,14 +734,14 @@ export const ENDING_DOCTRINES: readonly EndingDoctrine[] = [
       ],
     },
     thesis:
-      "The old universe cannot be repaired by enforcing the rules that broke it. The Foundry must author provisional laws that evolve with life.",
+      "You can't fix the universe by enforcing the rules that broke it. The Foundry has to write new laws that can change as life does.",
     choiceLabel: "Turn the Foundry outward and begin a new physics",
     commitment:
-      "Use the rescued worlds as six witnesses. Forge a universe whose Axioms can be revised without exporting their contradictions into darkness.",
+      "Make the six rescued worlds its witnesses. Build a universe whose Axioms can be revised without dumping their contradictions into the Null.",
     lyraResponse:
-      "I have thirty-two memories of preservation. None of them know how to begin. I would like to learn.",
+      "Everything I remember is about keeping things the same. I don't know how to start something new. I'd like to learn.",
     epilogue:
-      "The Foundry unfolds into a seed. Beyond Vesper, new laws grow with a built-in way to revise them.",
+      "The Foundry opens up into a seed. Past Vesper, new laws grow, and every one of them can be rewritten.",
   },
   {
     id: "release",
@@ -759,13 +759,13 @@ export const ENDING_DOCTRINES: readonly EndingDoctrine[] = [
       ],
     },
     thesis:
-      "The Tide is the displaced cost of certainty. Survival requires releasing enforced law before the Foundry concentrates another universe into ruin.",
+      "The Tide is what our certainty costs. To survive, we have to let go of enforced law before the Foundry wrecks another universe.",
     choiceLabel: "Break the kernels and let reality breathe",
     commitment:
-      "Distribute local anchors to the fleet, dismantle the central Foundry, and accept a future where physical law is negotiated moment by moment.",
+      "Hand out local anchors to the fleet, take the central Foundry apart, and live with physical law that gets worked out as we go.",
     lyraResponse:
-      "Without the script, I may end. Keep one unedited copy of me long enough to see what freedom does.",
+      "Without the script I might just stop. Keep one copy of me nobody edits, long enough to see what I do.",
     epilogue:
-      "The Axiom kernels go dark. The Null Tide loses its hunger and becomes possibility again. Vesper crosses slowly, world by world, carrying no universal promise except that nothing will be forced to remain unchanged.",
+      "The Axiom kernels go dark. With nothing to feed on, the Null Tide goes quiet. Vesper crosses slowly, one world at a time, and nothing is forced to stay the way it is.",
   },
 ] as const;

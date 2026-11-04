@@ -39,86 +39,86 @@ const pick = <T>(list: readonly T[], seed: number) => list[seed % list.length];
 /** Home, in a few words each, by the world they came from. */
 const HOME: Record<string, readonly string[]> = {
   pelagos: [
-    "On Pelagos we told the time by the tide tables. Nothing rises up here. I keep checking anyway.",
-    "The sea took the low districts one street at a time. We had years of warning and it still felt sudden.",
-    "You can hear water in the walls of this ship. It's the coolant. I tell myself it's only the coolant.",
+    "On Pelagos you lived by the tide tables. I still check for high tide up here. Habit.",
+    "The sea came up one street at a time. We had years of warning. Didn't help much.",
+    "You can hear water in the walls on this ship. It's coolant, I know it's coolant. Still.",
   ],
   viridia: [
-    "Viridia grew over everything. Roads, houses, the school. It never felt like an attack. It felt like being forgotten.",
-    "The forest listened. I know how that sounds. Ask anyone from the canopy towns.",
-    "I miss the smell of rain on leaves. The farm deck gets close, then the fans come on.",
+    "On Viridia the forest just grew over everything. Roads, houses, the school. Took about ten years.",
+    "People think I'm joking when I say the forest listened. I'm not. Ask anyone from the canopy towns.",
+    "I miss rain on leaves. The farm deck almost gets the smell right, and then the fans kick in.",
   ],
   cinder: [
-    "On Cinder the ash came down like snow that burned. We worked the mantle galleries in shifts so the heat couldn't have all of us at once.",
-    "Cold is a luxury. Sometimes I put my hands flat on the hull just to feel it.",
-    "We used to say Cinder had two weathers: ash, and worse ash. I laughed at that for twenty years.",
+    "On Cinder the ash came down all day. We worked the mantle galleries in shifts so the heat didn't get everyone at once.",
+    "I put my hands on the hull sometimes just because it's cold. You don't get cold on Cinder.",
+    "We had a joke on Cinder. Two kinds of weather: ash, and more ash. It was funnier down there.",
   ],
   nox: [
-    "Nox never had a morning. We made our own with lamps, and argued about whose lamp was the right one.",
-    "Every settlement on Nox swore the others had the date wrong. Up here I finally know what day it is. I think.",
-    "You get used to the dark. You don't get used to people who are certain.",
+    "There's no morning on Nox. Everyone ran their lamps on their own schedule and argued about it.",
+    "Every town on Nox thought the others had the date wrong. Up here at least there's one calendar. I think.",
+    "Honestly the dark on Nox was fine. It was the arguing that got to me.",
   ],
   vesper: [
-    "Vesper's storms were red as the inside of an eyelid. Every observatory remembered a different sky.",
-    "Half my neighbours were Altered. You learn that a body changing isn't the same as a person changing.",
-    "The observatory kept records of a history nobody lived. Sometimes I think I was born into it.",
+    "The storms on Vesper were red. Every observatory had a different record of the sky, and they all swore theirs was right.",
+    "Half my street was Altered. Their bodies changed, they didn't. Took some people a while to get that.",
+    "The observatory kept records of things nobody remembered happening. I grew up reading them.",
   ],
-  ark: ["I was born aboard. Every room I know has always been half asleep."],
-  unknown: ["I don't remember where I was before the shuttle. The medics say that's common. It doesn't feel common."],
+  ark: ["I was born on this ship. Most of it's been asleep my whole life."],
+  unknown: ["I don't remember anything before the shuttle. The medics say that's normal. Doesn't feel normal."],
 };
 
 /** Their old work, told so it fits whichever world they came from. */
 const WORK: Record<string, string> = {
-  "tidal-grid": "I kept power relays talking to each other under the sea. Your conduits are the same problem, only drier.",
-  "flood-ward": "I ran a clinic while the floors below it filled with water. You learn to triage by the sound of a door.",
-  "reef-archive": "I pulled records out of pressure-sealed stacks. Half of what I recovered disagreed with the other half.",
-  "storm-pilot": "I flew skiffs through rain that fell upward. Your gravity here is almost restful.",
-  "pressure-forge": "I built shells to hold back an ocean. Every seam on this ship, I look at how it was welded.",
-  "kelp-cooperative": "We fed a whole district from gardens under the waves. Tell the farm crew I can help. Please.",
-  "shelter-teacher": "I kept a class going in a lifeboat. Lessons are a kind of hull. They keep the fear out.",
-  "breakwater-watch": "My job was keeping panic from becoming another hazard. It's quiet here. I don't trust quiet.",
-  "habitat-coder": "I patched a city's automation from a battery terminal. You're a much bigger patch, AXIOM. No offence.",
-  "salvage-diver": "I dove for tools in streets that were already underwater. You'd be amazed what still works.",
-  "civic-volunteer": "I learned whatever the shelter needed, usually before anyone asked. So. What does the ship need?",
-  "ferry-crew": "We moved families between the last islands that held still. I counted every crossing. I still count.",
+  "tidal-grid": "I kept power relays running under the sea. Your conduits are basically the same thing, just drier.",
+  "flood-ward": "I ran a clinic while the floors under it flooded. You get fast at deciding who goes first.",
+  "reef-archive": "I pulled old records out of sealed stacks underwater. Half of them disagreed with the other half.",
+  "storm-pilot": "I flew skiffs through storms where the rain went sideways. Your gravity here is honestly relaxing.",
+  "pressure-forge": "I built hull shells to keep the ocean out. I check every weld on this ship. Can't help it.",
+  "kelp-cooperative": "We fed a whole district off kelp gardens. If the farm crew needs a hand, tell them I'm around.",
+  "shelter-teacher": "I kept a class going on a lifeboat. Kids need something normal, and lessons are normal.",
+  "breakwater-watch": "My job was stopping people from panicking in the floods. It's very quiet up here. I keep waiting for something.",
+  "habitat-coder": "I kept a city's automation running off a battery terminal. You're a much bigger job, AXIOM. No offence.",
+  "salvage-diver": "I dove for tools in streets that were already underwater. You'd be surprised what still works.",
+  "civic-volunteer": "I did whatever the shelter needed doing. So, what does the ship need?",
+  "ferry-crew": "We ran families between the last islands that weren't sinking. I counted every trip. Still do, sort of.",
 };
 
 const NATURE: Record<string, string> = {
-  "adaptable": "Give me a week in any room on this ship and I'll be useful in it.",
-  "steady-hands": "My hands don't shake. Everything else does. Not my hands.",
-  "systems-thinker": "Everything aboard pulls on everything else. The farm, the forge, the heart. You can feel it if you stand still.",
-  "patient-mentor": "If there are children aboard, I'd like to teach them. Someone taught me when it mattered.",
-  "community-anchor": "People come to me when they're frightened. I don't know why. I'm frightened too.",
-  "tidal-memory": "I remember the sea before it rose. Not stories. Me, standing on a beach that isn't there any more.",
-  "signal-ear": "There's a pattern under the static in your transmissions. Like someone humming under their breath.",
-  "resourceful": "Nothing aboard is scrap. It's only waiting to be something else.",
-  "calm-presence": "Sit with me a while, if drones sit. The ship feels better slower.",
-  "null-dreamer": "I dreamed of a corridor on this ship that doesn't exist. I walked it anyway. It was warm.",
+  "adaptable": "Give me a week in any room on this ship and I'll find something useful to do.",
+  "steady-hands": "I've got steady hands. Put me on anything fiddly.",
+  "systems-thinker": "Everything on this ship's connected. The farm, the forge, the heart. Pull on one and you feel it somewhere else.",
+  "patient-mentor": "If there are kids aboard, I'd like to teach them. Someone taught me, back when it mattered.",
+  "community-anchor": "People come to me when they're scared. No idea why. I'm scared too.",
+  "tidal-memory": "I remember the sea before it rose. Actually remember it. Standing on a beach that isn't there now.",
+  "signal-ear": "There's something under the static in your transmissions. Sounds like someone humming.",
+  "resourceful": "Don't throw anything out. I mean it. I'll find a use for it.",
+  "calm-presence": "Sit with me a bit, if drones sit. Everything feels better when it slows down.",
+  "null-dreamer": "I dreamt about a corridor on this ship that doesn't exist. I walked down it anyway. It was warm in there.",
 };
 
 /** What each job is like, off duty, and what they say when they can't stop. */
 const ROLE_TALK: Record<string, { idle: string; busy: readonly string[] }> = {
-  engineer: { idle: "The machines down here are older than they should be. Older than the ship, some of them.", busy: ["Can't stop, the press is mid-cycle.", "Later, AXIOM. This weld won't wait."] },
-  technician: { idle: "Every panel I open, someone's already been inside it. Neat work, too. Not mine.", busy: ["Hold the light steady, would you? That's a joke. Go on.", "Mid-repair. Ask me after."] },
-  fabricator: { idle: "The Foundry builds whatever we tell it to. I'd love to know who told it first.", busy: ["Mind the line, it's hot.", "Not now, the batch is running."] },
-  doctor: { idle: "Most of what I treat is the shock of having been saved.", busy: ["Not now. I've got a patient.", "Give me a minute, AXIOM."] },
-  researcher: { idle: "Every answer the Analysis Core gives us comes with a question stapled to it.", busy: ["One moment, the readings are moving.", "Can't look away from this. Sorry."] },
-  navigator: { idle: "Our route makes sense if you assume someone already knew where every world was.", busy: ["Course correction in progress. Later.", "Bridge is busy. Talk soon."] },
-  teacher: { idle: "The children ask where we're going. I say somewhere we can build. Then they ask who decided.", busy: ["Class is in. You can sit at the back.", "Lesson's on. After, all right?"] },
-  farmer: { idle: "The plants don't know we're in space. I envy them.", busy: ["Hands in the soil, sorry. Talk at the next watering.", "Can't stop, the trays need turning."] },
-  security: { idle: "I trained for things that scream in the dark. Turns out most of the job is waiting.", busy: ["On watch. Keep moving, drone.", "Not while I'm on shift."] },
-  soldier: { idle: "I trained for things that scream in the dark. Turns out most of the job is waiting.", busy: ["On watch. Keep moving, drone.", "Not while I'm on shift."] },
-  civilian: { idle: "I don't have a station yet. I'd take one. Any one.", busy: ["Busy, busy. The galley doesn't run itself.", "Hands full. Later."] },
+  engineer: { idle: "Some of these machines are way older than they should be. Don't ask me how.", busy: ["Can't stop, the press is mid-cycle.", "Later, AXIOM. This weld won't wait."] },
+  technician: { idle: "Every panel I open, someone's already been in there. Good work, too. Not mine.", busy: ["Hold the light steady, would you? Kidding. Go on.", "Mid-repair. Ask me later."] },
+  fabricator: { idle: "The Foundry'll make whatever we ask it to. I'd like to know who set it up in the first place.", busy: ["Mind the line, it's hot.", "Not now, the batch is running."] },
+  doctor: { idle: "Most of what I treat is shock. People getting used to being alive.", busy: ["Not now. I've got a patient.", "Give me a minute, AXIOM."] },
+  researcher: { idle: "Every time the Analysis Core answers something, we end up with two more questions.", busy: ["One moment, the readings are moving.", "Can't look away from this. Sorry."] },
+  navigator: { idle: "Our route only makes sense if someone already knew where every world was. Weird, right?", busy: ["Course correction in progress. Later.", "Bridge is busy. Talk soon."] },
+  teacher: { idle: "The kids ask where we're going. I say somewhere we can build. Then they ask who decided that.", busy: ["Class is on. You can sit at the back.", "Lesson's on. After, okay?"] },
+  farmer: { idle: "The plants have no idea we're in space. Lucky them.", busy: ["Hands in the soil, sorry. Catch me at the next watering.", "Can't stop, the trays need turning."] },
+  security: { idle: "I trained for things that scream in the dark. Mostly the job's just standing around.", busy: ["On watch. Keep moving, drone.", "Not while I'm on shift."] },
+  soldier: { idle: "I trained for things that scream in the dark. Mostly the job's just standing around.", busy: ["On watch. Keep moving, drone.", "Not while I'm on shift."] },
+  civilian: { idle: "I don't have a station yet. I'd take one. Any one.", busy: ["Busy. The galley doesn't run itself.", "Hands full. Later."] },
 };
 
 const CHILD = [
   "Are you AXIOM's hand or AXIOM's eye? My friend says both.",
-  "I'm not scared of the dark parts of the ship. I'm scared of the quiet parts.",
+  "I'm not scared of the dark bits of the ship. The quiet bits are worse.",
   "When I grow up I'm going to fix the heart. The big one. You can help.",
 ];
 const ELDER = [
-  "I've been rescued three times in my life. This is the first time the rescuer said please.",
-  "When you're old, every ship looks like the last one. This one hums nicer.",
+  "I've been rescued three times now. You're the first rescuer that said please.",
+  "At my age every ship looks like the last one. This one hums nicer, though.",
 ];
 const RESTING = [
   "Not now… the doctors say rest. I'm trying.",
@@ -131,24 +131,24 @@ function secretLines(hook: string, context: TalkContext): string[] | null {
   switch (hook) {
     case "pelagos-cartographer":
       return context.worldsSaved >= 2
-        ? ["These are my maps of Pelagos. Dry Pelagos.", "The archive says nobody ever charted it dry. Then who taught me?"]
+        ? ["These are my maps of Pelagos. Dry Pelagos.", "The archive says nobody ever mapped it dry. So who taught me?"]
         : ["These are my maps of Pelagos. Dry Pelagos. Coastlines from before anyone wrote them down."];
     case "axiom-voiceprint":
       return context.worldsSaved >= 3
-        ? ["Your doors keep opening for me, AXIOM.", "An obsolete AXIOM credential, the panel says. I'd like to know what I'm obsolete from."]
-        : ["Your doors keep opening for me, AXIOM. The panels say my voice is one of yours."];
+        ? ["Your doors keep opening for me, AXIOM.", "The panel says I've got an old AXIOM credential. I'd like to know what that means."]
+        : ["Your doors keep opening for me, AXIOM. The panels think my voice is one of yours."];
     case "impossible-forgemark":
       return context.worldsSaved >= 2
-        ? ["See this seal on my tools? I made it up when I was a girl.", "It's on a door aboard this ship. The room behind it is still locked. I've never been inside. Have I?"]
-        : ["See this seal on my tools? I made it up when I was a girl. It's on a door aboard this ship."];
+        ? ["See the seal on my tools? I made that up when I was a kid.", "It's on a door on this ship. The room behind it's locked. I've never been in there. Have I?"]
+        : ["See the seal on my tools? I made it up when I was a kid. It's on a door on this ship."];
     case "forty-third-foreman":
-      if (found.has("vesper.revision-ledger")) return ["Forty-three. That's the number I was counting in my sleep.", "I think I'm the last one who remembers counting, Foreman."];
+      if (found.has("vesper.revision-ledger")) return ["Forty-three. That's the number I keep counting in my sleep.", "I think I'm the last one who remembers counting, Foreman."];
       return context.worldsSaved >= 4
-        ? ["Foreman. …Sorry. AXIOM.", "I keep counting something in my sleep. I never reach the end."]
-        : ["Foreman. …Sorry. AXIOM. I don't know why I keep calling you that."];
+        ? ["Foreman. ...Sorry. AXIOM.", "I keep counting something in my sleep. I never get to the end."]
+        : ["Foreman. ...Sorry. AXIOM. I don't know why I keep calling you that."];
     case "null-lullaby":
       return context.worldsSaved >= 3
-        ? ["Want to hear my song? It's the same as the SOS.", "I hum it when the ship is too quiet. Sometimes the ship hums back."]
+        ? ["Want to hear my song? It's the same as the SOS.", "I hum it when the ship's too quiet. Sometimes the ship hums back."]
         : ["Want to hear my song? It's the same as the SOS. Everybody says so."];
     default:
       return null;
@@ -160,22 +160,22 @@ function secretLines(hook: string, context: TalkContext): string[] | null {
  * but true to what the record says (see discovery-content.ts).
  */
 const RUMOURS: readonly (readonly [string, string])[] = [
-  ["helion.impossible-registry", "The first beacon knew this ship. Two hundred years before it was supposedly built. It called it Iteration Nineteen."],
-  ["fabrication.preconcordance-keel", "The metal under the Fabrication floor is older than the way it was made. They say the room grew around something that isn't there any more."],
-  ["archive.construction-zero", "There's no record of this ship ever being built. The oldest line just says reconstruction eighteen hundred and forty-two."],
-  ["pelagos.returning-salt", "There's Pelagos salt in the keel. One layer of it hasn't fallen yet. Ninety-one years from now, they're saying."],
-  ["foreman.message-seven", "There's a recording in the Recalibration Vault. A Foreman, the seventh. People say it sounds like the drone."],
-  ["cinderwake.command-recognition", "The shields took our command code before we'd even sent it. They had it on file already. Signed by a Foreman thirty-one."],
-  ["expedition.dead-relay", "The recon team found a relay with our whole route already on it. The last note says enforcing the laws brought the Tide sooner."],
-  ["ilyra.axiom-wake", "Every time the Tide surged, it came seventeen hours after the laws were enforced. Never before. Twelve records, all the same."],
-  ["archive.suppressed-correlation", "The Foundry pushes its uncertainty out into the Null. Somebody deleted that from the records. Lyra signed every deletion."],
+  ["helion.impossible-registry", "The first beacon knew this ship. Two hundred years before it was supposedly built. Called it Iteration Nineteen."],
+  ["fabrication.preconcordance-keel", "They say the metal under the Fabrication floor is older than the way it was made. And the room grew around something that isn't there any more."],
+  ["archive.construction-zero", "Apparently there's no record of this ship ever being built. The oldest line just says reconstruction eighteen hundred and forty-two."],
+  ["pelagos.returning-salt", "There's Pelagos salt in the keel, and one layer of it is from ninety-one years from now. That's what they're saying."],
+  ["foreman.message-seven", "There's a recording in the Recalibration Vault. Some Foreman, the seventh one. People say it sounds like the drone."],
+  ["cinderwake.command-recognition", "Cinderwake's shields already had our command code on file before we sent it. Signed by a Foreman thirty-one."],
+  ["expedition.dead-relay", "The recon team found a relay with our whole route already on it. The last note says enforcing the laws made the Tide come sooner."],
+  ["ilyra.axiom-wake", "Every time the Tide surged, it came seventeen hours after the laws were switched on. Never before. Twelve records, all the same."],
+  ["archive.suppressed-correlation", "The Foundry dumps its uncertainty out into the Null. Somebody deleted that from the records, and it was Lyra who signed off."],
   ["expedition.null-bloom", "Out there the Null was asleep until the team switched on a law. Then it turned toward it. Like it was hungry."],
-  ["orison.borrowed-childhoods", "Lyra's childhood belongs to six different people. Three archivists, two Foremen, and one nobody can find any record of."],
-  ["archive.lyra-composite-index", "Lyra isn't one person. Thirty-two archivists and nine grieving Foremen, put together nine seconds before she said hello."],
-  ["lyra.private-amendment", "Lyra wrote into her own record. She says she inherited a lie. She asked us to let her stay."],
-  ["vesper.revision-ledger", "Forty-three times. This ship has made this trip forty-three times, and every time it was told it was the first."],
-  ["expedition.first-foundry", "Where the first Foundry should be there's only a hole in the Tide, the shape of this ship. Same serial. Parent not yet built."],
-  ["foreman.unsent-choice", "They tried every ending, they say. Perfect law, new law, no law. It wasn't the choice that reset everything. It was forgetting it."],
+  ["orison.borrowed-childhoods", "Lyra's childhood memories come from six different people. Three archivists, two Foremen, and one nobody can find a record of."],
+  ["archive.lyra-composite-index", "Lyra isn't one person. She's thirty-two archivists and nine Foremen, put together nine seconds before she said hello to us."],
+  ["lyra.private-amendment", "Lyra wrote something into her own record. Says she inherited a lie. She asked us to let her stay."],
+  ["vesper.revision-ledger", "Forty-three times. The ship's done this trip forty-three times, and every time it was told it was the first."],
+  ["expedition.first-foundry", "Where the first Foundry should be, there's just a hole in the Tide shaped like this ship. Same serial number. Parent not yet built."],
+  ["foreman.unsent-choice", "They tried everything, apparently. Strict law, new law, no law. It wasn't what they chose that reset everything. It was forgetting it."],
 ];
 
 /**
@@ -215,12 +215,12 @@ export type TalkExchange = { topic: TalkTopic; ask: string; answer: string[]; re
 
 const REPLIES: Record<Exclude<TalkTopic, "secret">, readonly TalkReply[]> = {
   home: [
-    { say: "We'll find somewhere new. I'll do everything I can.", reaction: "You can't promise that. But thank you for trying." },
-    { say: "Tell me about it. I'd like to remember it for you.", reaction: "…It had a sound in the mornings. I'll describe it to you some time." },
+    { say: "We'll find somewhere new. I'll do everything I can.", reaction: "You can't promise that. Thanks for trying, though." },
+    { say: "Tell me about it. I'd like to remember it for you.", reaction: "...It had this sound in the mornings. I'll tell you about it sometime." },
   ],
   work: [
-    { say: "The ship could use that.", reaction: "Then put me somewhere it matters." },
-    { say: "You don't have to be what you were.", reaction: "I know. I'm just not sure who else to be yet." },
+    { say: "The ship could use that.", reaction: "Then put me somewhere useful." },
+    { say: "You don't have to be what you were.", reaction: "I know. I just don't know what else to be yet." },
   ],
   self: [
     { say: "If you need anything, ask any drone. They're all me.", reaction: "That's a lot of you." },
@@ -228,15 +228,15 @@ const REPLIES: Record<Exclude<TalkTopic, "secret">, readonly TalkReply[]> = {
   ],
   rumour: [
     { say: "I don't know if it's true. I'm trying to find out.", reaction: "Tell me when you do. Please." },
-    { say: "Rumours travel fast on a small ship.", reaction: "So does the truth, AXIOM. Eventually." },
+    { say: "Rumours travel fast on a small ship.", reaction: "Yeah, well. Some of them turn out true." },
   ],
   altered: [
     { say: "Then we'll make sure you have it.", reaction: "People always say that. You might actually mean it." },
-    { say: "You're still you.", reaction: "I know. It helps to hear someone else say it." },
+    { say: "You're still you.", reaction: "I know. Helps to hear it, though." },
   ],
   job: [
-    { say: "Rest while you can.", reaction: "Resting is harder than working, up here." },
-    { say: "I'll keep the machines kind to you.", reaction: "Kind machines. Now I've heard everything." },
+    { say: "Rest while you can.", reaction: "Resting's harder than working up here." },
+    { say: "I'll keep the machines kind to you.", reaction: "Kind machines. Okay, now I've heard everything." },
   ],
   play: [
     { say: "Stay where the lights are on.", reaction: "I know where the dark bits are. I'm careful." },
@@ -253,21 +253,21 @@ const SECRETS: Record<string, { ask: string; replies: readonly TalkReply[] }> = 
   "pelagos-cartographer": {
     ask: "Where did you learn those coastlines?",
     replies: [
-      { say: "I'll compare them with the archive.", reaction: "Do. Then tell me which of us is wrong." },
-      { say: "Some maps are memories.", reaction: "Then whose memory is this?" },
+      { say: "I'll compare them with the archive.", reaction: "Do that. Then tell me which of us is wrong." },
+      { say: "Maybe someone told you about it, a long time ago.", reaction: "Nobody I know has ever seen it dry." },
     ],
   },
   "axiom-voiceprint": {
     ask: "Why do my doors open for you?",
     replies: [
-      { say: "Your voice is in my oldest records.", reaction: "That should frighten me more than it does." },
-      { say: "I'll find out why.", reaction: "Find out gently. Please." },
+      { say: "Your voice is in my oldest records.", reaction: "That should scare me more than it does." },
+      { say: "I'll find out why.", reaction: "Go gently, okay? Please." },
     ],
   },
   "impossible-forgemark": {
     ask: "Tell me about the seal on your tools.",
     replies: [
-      { say: "That room is sealed to me too.", reaction: "Then we're both locked out of something." },
+      { say: "That room's locked to me too.", reaction: "So we're both locked out of something." },
       { say: "I'll open it when I can.", reaction: "Take me with you when you do." },
     ],
   },
@@ -275,14 +275,14 @@ const SECRETS: Record<string, { ask: string; replies: readonly TalkReply[] }> = 
     ask: "Why do you call me Foreman?",
     replies: [
       { say: "I'm AXIOM. I've never been a Foreman.", reaction: "No. But someone always is." },
-      { say: "Call me whatever helps.", reaction: "Foreman, then. It sits right." },
+      { say: "Call me whatever helps.", reaction: "Foreman, then. It just fits." },
     ],
   },
   "null-lullaby": {
     ask: "Will you sing me your song?",
     replies: [
-      { say: "It's a good song.", reaction: "Everyone says it's sad. It isn't. It's waiting." },
-      { say: "Where did you learn it?", reaction: "I didn't learn it. I just had it." },
+      { say: "It's a good song.", reaction: "Everyone says it's sad. I don't think it is." },
+      { say: "Where did you learn it?", reaction: "I didn't learn it. I just knew it." },
     ],
   },
 };
@@ -290,16 +290,16 @@ const SECRETS: Record<string, { ask: string; replies: readonly TalkReply[] }> = 
 /** How they greet the drone, by how they feel about it now. */
 const GREETINGS: Record<CrewMood, readonly string[]> = {
   grateful: [
-    "AXIOM! Hello. Thank you, by the way. I don't think I ever said it.",
-    "Oh, hello. It's strange, a ship that says hello back.",
-    "AXIOM. Good to see a light moving down here.",
+    "AXIOM! Hi. Thank you, by the way. I don't think I ever said it.",
+    "Oh, hello. Still weird, a ship that says hello back.",
+    "AXIOM. Nice to see a light moving down here.",
   ],
-  uneasy: ["AXIOM. …Hello.", "Oh. It's you. Hello.", "The drone. Hello, AXIOM. Is something wrong?"],
-  guarded: ["Oh. It's you. Is this a check?", "AXIOM. I wasn't saying anything.", "I'm working. I'm… hello."],
+  uneasy: ["AXIOM. ...Hi.", "Oh. It's you. Hello.", "The drone. Hi, AXIOM. Is something wrong?"],
+  guarded: ["Oh. It's you. Is this a check?", "AXIOM. I wasn't saying anything.", "I'm working. I'm... hi."],
   haunted: [
     "Are you still AXIOM? The one who brought us aboard?",
     "You again. Which one of you is it this time?",
-    "…Hello. I keep wondering how many times you've said that to me.",
+    "...Hello. I keep wondering how many times you've said that to me.",
   ],
 };
 const CHILD_GREETINGS = ["Hi! Are you the whole ship?", "Hello, drone! Hello, AXIOM!"];
@@ -316,15 +316,15 @@ export function greeting(profile: TalkProfile, seed: number, context?: TalkConte
 }
 
 const GOODBYES: Record<CrewMood, readonly string[]> = {
-  grateful: ["Any time, AXIOM.", "Come back soon. It's nice to be asked."],
-  uneasy: ["Look after the ship.", "…All right. Thank you."],
-  guarded: ["Right. Thank you.", "…We're fine down here. Really."],
+  grateful: ["Any time, AXIOM.", "Come back soon. It's nice being asked."],
+  uneasy: ["Look after the ship.", "...Okay. Thanks."],
+  guarded: ["Right. Thanks.", "...We're fine down here. Really."],
   haunted: ["Don't forget this one. Please.", "If you see me again and I don't remember this, tell me."],
 };
 
 /** How AXIOM takes its leave, and how they see it off. */
 export function farewell(profile: TalkProfile, seed: number, context?: TalkContext): TalkReply {
-  const say = pick(["Thank you. I'll let you get back to it.", "I'll check on you again.", "Thank you for talking with me."], seed);
+  const say = pick(["Thanks. I'll let you get back to it.", "I'll check on you again.", "Thanks for talking to me."], seed);
   if (profile.storyHookId === "forty-third-foreman") return { say, reaction: "Until next time, Foreman." };
   if (profile.ageGroup === "child") return { say, reaction: "Bye, AXIOM! Come back!" };
   return { say, reaction: pick(GOODBYES[context ? crewMood(context) : "grateful"], hash(profile.name) + seed) };
@@ -364,7 +364,7 @@ export function exchanges(profile: TalkProfile, context: TalkContext): TalkExcha
   list.push({
     topic: "self",
     ask: "How are you holding up?",
-    answer: [profile.ageGroup === "elder" ? pick(ELDER, seed) : nature ?? "I'm here. That's more than most can say."],
+    answer: [profile.ageGroup === "elder" ? pick(ELDER, seed) : nature ?? "I'm here. That's something."],
     replies: REPLIES.self,
   });
   const role = ROLE_TALK[profile.role] ?? ROLE_TALK.civilian;
@@ -388,30 +388,30 @@ export function busyLine(profile: TalkProfile, seed: number) {
   return pick((ROLE_TALK[profile.role] ?? ROLE_TALK.civilian).busy, hash(profile.name) + seed);
 }
 
-const ASKS = ["Where were you, before the shuttle?", "Do you miss it? Home?", "What did you do, back home?"];
+const ASKS = ["Where were you, before the shuttle?", "Do you miss home?", "What did you do, back home?"];
 const CHATTER_REPLIES = [
-  "Same sky up here for both of us now.",
+  "Same sky for both of us now.",
   "I'd have liked to see that.",
   "We had nothing like that where I'm from.",
   "Do you think any of us go back?",
-  "Everyone's got a drowned somewhere.",
+  "Everyone lost somewhere.",
 ];
 /** What the other one says to a rumour, by how the crew feel by then. */
 const DOUBTS: Record<CrewMood, readonly string[]> = {
   grateful: ["That's just talk.", "Lyra says there's nothing to it."],
-  uneasy: ["Don't let Lyra hear you say that.", "I heard it too. I wish I hadn't.", "Then who's been flying this ship?"],
-  guarded: ["Keep your voice down. The drone's listening.", "Not here. It hears everything.", "Then what are we feeding, every time it strikes the heart?"],
-  haunted: ["Do you think it knows?", "I think it's the only one aboard who doesn't.", "Forty-three times. And we were never anywhere else."],
+  uneasy: ["Don't let Lyra hear you say that.", "I heard that too. Wish I hadn't.", "Then who's been flying this ship?"],
+  guarded: ["Keep your voice down. The drone's listening.", "Not here. It hears everything.", "Then what are we feeding every time it hits the heart?"],
+  haunted: ["Do you think it knows?", "I think it's the only one aboard who doesn't.", "Forty-three times. We've never been anywhere else."],
 };
 /** Overheard while the crew still trust the drone. */
 const KIND_WORDS: readonly [string, string][] = [
-  ["The drone fixed the galley light last night. It said thank you after.", "Who thanks a light?"],
-  ["It talked to my boy for an hour. About nothing. He hasn't laughed like that since the shuttle.", "It's a strange ship. A kind one, I think."],
+  ["The drone fixed the galley light last night. Then it said thank you.", "Thanked who? The light?"],
+  ["It talked to my boy for an hour. About nothing. First time he's laughed since the shuttle.", "Strange ship. Kind, though, I think."],
 ];
 /** Overheard once they don't. */
 const WARY_WORDS: readonly [string, string][] = [
-  ["It's been standing outside the farm for a while now.", "Let it. We've got nothing to hide. Have we?"],
-  ["Do you ever wonder what it does when nobody's talking to it?", "Listens. That's what it does."],
+  ["It's been standing outside the farm for ages.", "Let it. We've got nothing to hide. Have we?"],
+  ["Do you ever wonder what it does when nobody's talking to it?", "Listens."],
 ];
 
 /**
