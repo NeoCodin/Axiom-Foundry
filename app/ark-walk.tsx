@@ -93,7 +93,7 @@ import { switchChannel } from "./channel-switch";
 import PelagosView from "./pelagos-view";
 import { lyraStage, simCues, type LyraCue, type LyraStage, type SimReading } from "./lyra-voice";
 import { createLyra, type Lyra } from "./lyra-voice-player";
-import { catchUp, createAboardPacer, nullRemark, openingRemark, placeOf, placeRemark, recordRemark, welcomeRemark, type AboardPlace } from "./lyra-aboard";
+import { catchUp, createAboardPacer, heartRemark, nullRemark, openingRemark, placeOf, placeRemark, recordRemark, welcomeRemark, type AboardPlace } from "./lyra-aboard";
 import "./ark-walk.css";
 
 /*
@@ -5156,10 +5156,13 @@ export default function ArkWalk(props: ArkWalkProps) {
     // opening has its own first words instead, and its own for the chamber.
     if (initial.drone?.darkOpening) {
       lyraSaid.add("welcome");
-      lyraSaid.add("place:chamber");
+      // The opening says what the Law-Heart is; the chamber's own word (its history) comes on a later visit.
+      lyraSaid.add("heart:0");
       pacer.offer(openingRemark("wake"), performance.now() / 1000);
     } else if (resumed) lyraSaid.add("welcome");
     else pacer.offer(welcomeRemark(), performance.now() / 1000);
+    // The Law-Heart as it is now, the first time she sees it at this stage.
+    pacer.offer(heartRemark(initial.heart.stage), performance.now() / 1000);
     if (!initial.drone?.darkOpening && initial.drone?.damaged && initial.drone.cradlePowered) pacer.offer(openingRemark("cradle"), performance.now() / 1000);
     /** Whether AXIOM has pressed anything yet: until then the browser keeps her quiet, so she waits. */
     let pressed = false;

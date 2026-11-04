@@ -243,6 +243,9 @@ export function pelagosCues(before: PelagosReading | null, now: PelagosReading):
   return cues;
 }
 
+/** Everything she and the Protocol can say as warnings, for reading through. */
+export const LYRA_SCRIPT = { lines: LINES, directives: DIRECTIVES, bleed: BLEED, pleas: PLEAS, phantoms: PHANTOMS, late: LATE };
+
 /** Every warning has words, for the tests. */
 export const LYRA_COVERAGE = { cues: Object.keys(LINES) as LyraCue[], late: Object.keys(LATE), directives: Object.keys(DIRECTIVES) };
 

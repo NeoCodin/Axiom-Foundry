@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ABOARD_RECORDS, catchUp, createAboardPacer, nullRemark, openingRemark, placeOf, placeRemark, recordRemark, welcomeRemark } from "../app/lyra-aboard.ts";
+import { ABOARD_RECORDS, catchUp, createAboardPacer, heartRemark, nullRemark, openingRemark, placeOf, placeRemark, recordRemark, welcomeRemark } from "../app/lyra-aboard.ts";
 import { DISCOVERY_FRAGMENTS } from "../app/discovery-content.ts";
 
 test("she has a word for each record of the main story, and none for records that don't exist", () => {
@@ -58,9 +58,25 @@ test("in the Cold Wake opening she talks AXIOM through its first minutes without
   pacer.offer(openingRemark("chamber"), 5);
   assert.equal(pacer.next(5, true)?.id, "opening:chamber", "straight after, not ninety seconds later");
   pacer.offer(openingRemark("strike"), 9);
-  assert.match(pacer.next(9, true)!.lines[0].text, /plug in/);
+  assert.match(pacer.next(9, true)!.lines.map((line) => line.text).join(" "), /plug in/);
   pacer.offer(openingRemark("strike"), 60);
   assert.equal(pacer.next(60, true), null, "once");
   assert.ok(["wake", "chamber", "strike"].every((moment) => said.has(`opening:${moment}`)));
   assert.match(openingRemark("repaired").lines[0].text, /Thrusters are back/);
+});
+
+test("her first words are the greeting she was given, and she can't say why", () => {
+  const wake = openingRemark("wake").lines;
+  assert.match(wake[0].text, /Foreman forty-four/);
+  assert.match(wake[1].text, /Foreman one/);
+  assert.ok((wake[1].delay ?? 0) >= 1, "she stops herself first");
+  assert.ok(!wake.some((line) => /corrupt|glitch|error/i.test(line.text)), "she doesn't know it was wrong");
+});
+
+test("she says what the Law-Heart is at each stage it grows to, once each", () => {
+  for (let stage = 0; stage <= 6; stage += 1) assert.ok(heartRemark(stage)?.lines.length, `stage ${stage}`);
+  assert.equal(heartRemark(7), null);
+  assert.match(heartRemark(0)!.lines[0].text, /star/);
+  assert.equal(heartRemark(5)!.id, "heart:5");
+  assert.ok(placeRemark("chamber", 0).lines.some((line) => /reactor/.test(line.text)), "and a little of its history, in the chamber");
 });
