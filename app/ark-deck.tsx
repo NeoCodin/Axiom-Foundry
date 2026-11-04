@@ -141,6 +141,8 @@ export type ArkDeckProps = {
   records?: ArkWalkRecords;
   /** The drone's own state and the Cold Wake opening, handed to the drone view. */
   walkDrone?: ArkWalkDrone;
+  /** When this game began, for what Lyra has said in it. */
+  walkSaveStarted?: number;
   /** The drone view, open (in the world's accent) or not; the page opens and closes it, changing channel. */
   walkAccent?: string | null;
   onOpenWalk?: () => void;
@@ -223,6 +225,7 @@ function ArkDeck({
   talkContext,
   records,
   walkDrone,
+  walkSaveStarted,
   nullInterference,
   walkAccent = null,
   onOpenWalk,
@@ -561,6 +564,7 @@ function ArkDeck({
               talkContext={talkContext}
               records={records}
               drone={walkDrone}
+              saveStarted={walkSaveStarted}
               beatPeriodMs={getPulseProfile(lifetimeAxioms).periodMs}
               onStrike={onStrikeLawHeart}
               onClose={() => onCloseWalk?.()}

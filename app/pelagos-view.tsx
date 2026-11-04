@@ -98,7 +98,7 @@ export type PelagosViewProps = {
   /** Back to the Ark. */
   onLeave: () => void;
   /** Lyra, in AXIOM's ear: told what changes, she decides what to warn of. */
-  lyra?: { cue(cue: LyraCue, n?: number): void; tick(): void };
+  lyra?: { cue(cue: LyraCue, n?: number): void };
 };
 
 export default function PelagosView({ onLeave, lyra }: PelagosViewProps) {
@@ -885,7 +885,6 @@ export default function PelagosView({ onLeave, lyra }: PelagosViewProps) {
       };
       for (const said of pelagosCues(lyraReading, reading)) lyraRef.current?.cue(said.cue, said.n);
       lyraReading = reading;
-      if (modeNow === "drone") lyraRef.current?.tick();
       // Light snow at first, thick only as the link nears nothing.
       drawStatic(modeNow === "drone" ? (lostSince !== null ? 0.92 : Math.min(0.9, (1 - link) ** 1.6 * 0.95)) : 0);
       drawWater();

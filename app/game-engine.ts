@@ -336,6 +336,7 @@ export type GameState = {
   playTime: number;
   runTime: number;
   autoTimer: number;
+  /** When this game began; kept through Recalibration. */
   startedAt: number;
   lastSaved: number;
 };
@@ -5421,6 +5422,7 @@ export function recalibrate(state: GameState, now = Date.now()) {
   fresh.manualPulses = state.manualPulses;
   fresh.researchPurchases = state.researchPurchases;
   fresh.playTime = state.playTime;
+  fresh.startedAt = state.startedAt;
   const relics = getCampaignRelics(state);
   fresh.tiers[0].bought = Math.min(
     25,

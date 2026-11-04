@@ -93,7 +93,7 @@ import { switchChannel } from "./channel-switch";
 import PelagosView from "./pelagos-view";
 import { lyraStage, simCues, type LyraCue, type LyraStage, type SimReading } from "./lyra-voice";
 import { createLyra, type Lyra } from "./lyra-voice-player";
-import { catchUp, createAboardPacer, heartRemark, nullRemark, openingRemark, placeOf, placeRemark, recordRemark, welcomeRemark, type AboardPlace } from "./lyra-aboard";
+import { catchUp, createAboardPacer, heartRemark, moodRemark, nullRemark, openingRemark, placeOf, placeRemark, readSaid, recordRemark, welcomeRemark, writeSaid, type AboardPlace } from "./lyra-aboard";
 import "./ark-walk.css";
 
 /*
@@ -227,6 +227,8 @@ export type ArkWalkProps = {
   records?: ArkWalkRecords;
   /** The drone's own state, and the Cold Wake opening. */
   drone?: ArkWalkDrone;
+  /** When this game began: what Lyra has said is kept for this game only. */
+  saveStarted?: number;
   beatPeriodMs: number;
   onStrike?: () => void;
   onClose: () => void;
@@ -4596,7 +4598,6 @@ export default function ArkWalk(props: ArkWalkProps) {
   const lyraRef = useRef<Lyra | null>(null);
   const lyraLink = useMemo(() => ({
     cue: (cue: LyraCue, n?: number) => lyraRef.current?.cue(cue, n),
-    tick: () => lyraRef.current?.tick(),
   }), []);
   const promptRef = useRef<HTMLParagraphElement>(null);
   const roomRef = useRef<HTMLElement>(null);
@@ -5079,14 +5080,13 @@ export default function ArkWalk(props: ArkWalkProps) {
       simHurtRef.current?.style.setProperty("opacity", hud.hurt.toFixed(3));
       simMarkerRef.current?.style.setProperty("opacity", hud.marker.toFixed(3));
       if (simPausedRef.current) simPausedRef.current.hidden = !simPaused;
-      // Lyra hears what the frame crossed into (heat, the cell, the dome, the sim-body, being seen) and what the world noticed.
+      // Lyra hears what the frame crossed into (the cell, the dome, the sim-body going down, being seen) and what the world noticed.
       const reading: SimReading = {
-        alive: hud.alive, health: share, heat: gun.heat, venting: gun.venting, charge: gun.charge, swapping: gun.swapping !== null,
-        spare: gun.spare, powered: gun.powered, spotted: hud.spotted, alarm: hud.alarm, glitch: hud.glitch,
+        alive: hud.alive, charge: gun.charge, swapping: gun.swapping !== null, powered: gun.powered,
+        spotted: hud.spotted, alarm: hud.alarm, glitch: hud.glitch,
       };
       for (const cue of [...simCues(simReading, reading), ...(sim.cues?.() ?? [])]) lyra.cue(cue);
       simReading = reading;
-      if (!simPaused && hud.alive) lyra.tick();
       // A swarm run ends when the sim-body falls; an extraction or the Conduit when the run says it's over.
       const over = runningMode === "swarm" ? !hud.alive : Boolean(hud.result);
       if (over && !simOver) {
@@ -5136,16 +5136,17 @@ export default function ArkWalk(props: ArkWalkProps) {
       selected: number;
     } | null = null;
     let overheard: { lines: TalkLine[]; index: number; next: number; x: number; z: number } | null = null;
-    // ---- Lyra aboard: a rare word on a record found, a room first entered, the Null on the hull (lyra-aboard). ----
-    const lyraSaid = new Set<string>();
+    // ---- Lyra aboard: a rare word on a record found, a room first entered, the crew's mood, the Null on the hull (lyra-aboard). ----
+    let lyraStored: string | null = null;
     try {
-      for (const id of JSON.parse(window.localStorage.getItem(LYRA_SAID_KEY) ?? "[]") as string[]) lyraSaid.add(id);
+      lyraStored = window.localStorage.getItem(LYRA_SAID_KEY);
     } catch {
-      // Storage blocked or unreadable: she starts fresh this visit.
+      // Storage blocked: she starts fresh this visit.
     }
+    const lyraSaid = readSaid(lyraStored, initial.saveStarted);
     const keepLyraSaid = () => {
       try {
-        window.localStorage.setItem(LYRA_SAID_KEY, JSON.stringify([...lyraSaid]));
+        window.localStorage.setItem(LYRA_SAID_KEY, writeSaid(lyraSaid, initial.saveStarted));
       } catch {
         // Storage blocked: what she said lasts this visit.
       }
@@ -5191,8 +5192,9 @@ export default function ArkWalk(props: ArkWalkProps) {
       const place = travel ? lyraPlace : placeOf(deckIndex, compartmentAt(deck, x)?.kind ?? null, sideRoomAt(deck, x, z)?.kind ?? null);
       if (place !== lyraPlace) {
         lyraPlace = place;
-        if (place) pacer.offer(placeRemark(place, stageNow()), seconds);
+        if (place) pacer.offer(placeRemark(place), seconds);
       }
+      if (initial.crew.length > 0) pacer.offer(moodRemark(stageNow()), seconds);
       if (nullLevel.classification === "elevated" || nullLevel.classification === "severe") pacer.offer(nullRemark(stageNow()), seconds);
       if (darkOpening && place === "chamber") pacer.offer(openingRemark("chamber"), seconds);
       if (darkOpening && openingStrikes >= 6) pacer.offer(openingRemark("strike"), seconds);
@@ -5201,7 +5203,7 @@ export default function ArkWalk(props: ArkWalkProps) {
       if (remark) {
         lyra.remark(remark.lines);
         if (remark.once) keepLyraSaid();
-      } else if (quiet) lyra.tick(3, 420);
+      }
     };
     let subtitleUntil = 0;
     let nextOverheard = 0;

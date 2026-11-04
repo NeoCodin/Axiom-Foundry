@@ -3364,6 +3364,7 @@ export default function Home() {
           nullInterference={{ classification: nullSaturation.classification, intensity: nullSaturation.visualIntensity }}
           walkAccent={walkAccent}
           walkDrone={walkDrone}
+          walkSaveStarted={game.startedAt}
           talkContext={{ worldId: campaignWorld.id, worldsSaved: game.missions.worldsSaved, discovered: game.living.discoveredLore }}
           records={{
             discovered: game.living.discoveredLore,

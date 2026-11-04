@@ -51,7 +51,6 @@ export function createLyra(host: HTMLElement, stage: () => LyraStage) {
   /** Which line is current; callbacks from a line that was cut off see a stale number and do nothing. */
   let current = 0;
   let timer: number | null = null;
-  let lastAmbient = performance.now() / 1000;
   const next = () => {
     if (timer !== null) window.clearTimeout(timer);
     timer = null;
@@ -115,17 +114,6 @@ export function createLyra(host: HTMLElement, stage: () => LyraStage) {
     },
     /** Whether she is speaking, or about to. */
     busy: () => busy,
-    /**
-     * Call every frame wherever she could be listening: now and then, late in the story, she
-     * hears something that isn't there. fromStage and gap (seconds) say how late and how rarely.
-     */
-    tick(fromStage: LyraStage = 2, gap = 150) {
-      const now = performance.now() / 1000;
-      if (now - lastAmbient < 10) return;
-      lastAmbient = now;
-      const lines = director.ambient(now, fromStage, gap);
-      if (lines) say(lines, false);
-    },
     dispose() {
       current += 1;
       if (timer !== null) window.clearTimeout(timer);

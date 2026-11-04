@@ -348,6 +348,7 @@ test("recalibration grants the previewed Axiom and retains legacy progress", () 
   state.living.rooms[0].level = 3;
   state.living.discoveredLore = ["awakening.cold-wake"];
   const next = recalibrate(state, 1_000);
+  assert.equal(next.startedAt, state.startedAt, "the same game, for what Lyra has said in it");
   assert.equal(next.axioms, 9);
   assert.equal(next.lifetimeAxioms, 9);
   assert.equal(next.cycle, 2);

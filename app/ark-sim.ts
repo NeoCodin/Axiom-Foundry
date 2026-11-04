@@ -690,9 +690,6 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
     return floor;
   };
   let banner: { text: string; until: number } | null = { text: `${conduit ? "The Conduit" : "Simulation online"} · ${SIM_DIFFICULTIES[difficulty].label}`, until: 2.6 };
-  /** For Lyra: waves after the first, something heavy arriving, a harrier starting its dive. */
-  const cues: LyraCue[] = [];
-  const diving = new Set<number>();
   let audio: SimAudio | null = null;
   const raycaster = new THREE.Raycaster();
   raycaster.far = 90;
@@ -984,7 +981,6 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
       if (event.type === "wave") {
         banner = { text: conduit ? encounterName(state) : `Wave ${event.wave}`, until: state.time + 2 };
         audio?.wave();
-        if (event.wave > 1) cues.push("wave");
       } else if (event.type === "cleared") {
         const done = onCleared?.(event.wave, event.drill) ?? null;
         const named = conduit ? (conduitCleared(state) ? "The Conduit" : ENCOUNTERS[event.wave - 1]?.name ?? "") : `Wave ${event.wave}`;
@@ -992,7 +988,6 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
       } else if (event.type === "scream" || event.type === "spawn") {
         const at = heard(event.x, 1.5, event.z);
         audio?.scream(event.kind, at.pan, at.gain * (event.type === "spawn" ? 0.7 : 1));
-        if (event.type === "spawn" && event.kind === "brute") cues.push("brute");
         // The one that screamed opens its mouth: the nearest of its kind to where the sound came from.
         let screamer: AlienModel | null = null;
         for (const candidate of models.values()) {
@@ -1039,12 +1034,6 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
       }
     }
     state.events.length = 0;
-    for (const alien of state.aliens) {
-      if (alien.kind !== "harrier") continue;
-      if (alien.dive && !diving.has(alien.id)) cues.push("harrier-dive");
-      if (alien.dive) diving.add(alien.id);
-      else diving.delete(alien.id);
-    }
 
     // The aliens' bodies follow the rules' aliens; the fallen come apart.
     const alive = new Set(state.aliens.map((alien) => alien.id));
@@ -1274,9 +1263,6 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
     },
     law(form: CarbineForm) {
       if (switchLaw(state.player.gun, form, state.time)) audio?.law();
-    },
-    cues() {
-      return cues.splice(0);
     },
     update,
     resize(aspect: number) {

@@ -715,7 +715,7 @@ export const ENDING_DOCTRINES: readonly EndingDoctrine[] = [
     commitment:
       "Keep the Foundry. Publish its full memory. Every enforced Axiom expires unless the rescued worlds choose to renew it.",
     lyraResponse:
-      "Then I want to keep every objection anyone makes. Even the ones that lose.",
+      "Okay. I'll open the whole archive, the parts I deleted too. Some of it's about me. Leave that in.",
     epilogue:
       "Vesper crosses inside a smaller pocket of law that people can change. The Tide follows, and this time someone is watching it. The next campaign starts with the whole record public.",
   },
@@ -739,7 +739,7 @@ export const ENDING_DOCTRINES: readonly EndingDoctrine[] = [
     commitment:
       "Make the six rescued worlds its witnesses. Build a universe whose Axioms can be revised without dumping their contradictions into the Null.",
     lyraResponse:
-      "Everything I remember is about keeping things the same. I don't know how to start something new. I'd like to learn.",
+      "I've only ever kept things the way they were. I don't know how to make something new. Show me, and I'll help.",
     epilogue:
       "The Foundry opens up into a seed. Past Vesper, new laws grow, and every one of them can be rewritten.",
   },
@@ -764,7 +764,7 @@ export const ENDING_DOCTRINES: readonly EndingDoctrine[] = [
     commitment:
       "Hand out local anchors to the fleet, take the central Foundry apart, and live with physical law that gets worked out as we go.",
     lyraResponse:
-      "Without the script I might just stop. Keep one copy of me nobody edits, long enough to see what I do.",
+      "I don't know what's left of me once the kernels go dark. Do it anyway. Just tell me before you start.",
     epilogue:
       "The Axiom kernels go dark. With nothing to feed on, the Null Tide goes quiet. Vesper crosses slowly, one world at a time, and nothing is forced to stay the way it is.",
   },

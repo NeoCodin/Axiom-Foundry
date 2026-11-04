@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ABOARD_RECORDS, catchUp, createAboardPacer, heartRemark, nullRemark, openingRemark, placeOf, placeRemark, recordRemark, welcomeRemark } from "../app/lyra-aboard.ts";
+import { ABOARD_RECORDS, catchUp, createAboardPacer, heartRemark, moodRemark, nullRemark, openingRemark, placeOf, placeRemark, readSaid, recordRemark, welcomeRemark, writeSaid } from "../app/lyra-aboard.ts";
 import { DISCOVERY_FRAGMENTS } from "../app/discovery-content.ts";
 
 test("she has a word for each record of the main story, and none for records that don't exist", () => {
@@ -10,14 +10,14 @@ test("she has a word for each record of the main story, and none for records tha
   assert.ok(recordRemark("vesper.revision-ledger")!.lines.some((line) => /forty-three/i.test(line.text)));
 });
 
-test("rooms she speaks of: the vault is the chamber's lower gallery; a voice before the truth and one after", () => {
+test("rooms she speaks of: the vault is the chamber's lower gallery; one word each, about what it's for", () => {
   assert.equal(placeOf(1, "chamber", null), "vault");
   assert.equal(placeOf(0, "chamber", null), "chamber");
   assert.equal(placeOf(1, "education", "library"), "library");
   assert.equal(placeOf(1, "support", "farm"), "support");
   assert.equal(placeOf(0, "habitation", "galley"), null);
-  assert.notEqual(placeRemark("bridge", 0).lines[0].text, placeRemark("bridge", 2).lines[0].text);
-  assert.equal(placeRemark("bridge", 1).lines[0].text, placeRemark("bridge", 0).lines[0].text);
+  assert.match(placeRemark("bridge").lines.map((line) => line.text).join(" "), /Pelagos first.*Vesper last/);
+  assert.ok(!placeRemark("education").lines.some((line) => /long ago|years/.test(line.text)), "she thinks she wrote the lessons just now");
 });
 
 test("opening the walk after a run of finds, she speaks to the newest and lets the rest go", () => {
@@ -31,15 +31,15 @@ test("opening the walk after a run of finds, she speaks to the newest and lets t
 test("the pacer: one at a time, only when quiet, long gaps, rooms let go if they wait too long", () => {
   const said = new Set<string>();
   const pacer = createAboardPacer(said, { gap: 90, recordGap: 40, wait: 20 });
-  pacer.offer(placeRemark("bridge", 0), 0);
+  pacer.offer(placeRemark("bridge"), 0);
   pacer.offer(welcomeRemark(3), 0);
   assert.equal(pacer.next(0, false), null, "not while someone else is talking");
   assert.equal(pacer.next(1, true)?.kind, "welcome", "the welcome comes first");
   assert.equal(pacer.next(2, true), null, "and the room waits its gap");
   assert.equal(pacer.next(30, true), null, "long enough that the room is let go");
-  pacer.offer(placeRemark("bridge", 0), 95);
+  pacer.offer(placeRemark("bridge"), 95);
   assert.equal(pacer.next(95, true)?.id, "place:bridge", "next time AXIOM goes in");
-  pacer.offer(placeRemark("bridge", 0), 300);
+  pacer.offer(placeRemark("bridge"), 300);
   assert.equal(pacer.next(300, true), null, "once ever");
   pacer.offer(recordRemark("core.welcome-back"), 300);
   assert.equal(pacer.next(130, true), null);
@@ -78,10 +78,25 @@ test("she says what the Law-Heart is at each stage it grows to, once each", () =
   assert.equal(heartRemark(7), null);
   assert.match(heartRemark(0)!.lines[0].text, /star/);
   assert.equal(heartRemark(5)!.id, "heart:5");
-  assert.ok(placeRemark("chamber", 0).lines.some((line) => /reactor/.test(line.text)), "and a little of its history, in the chamber");
+  assert.ok(placeRemark("chamber").lines.some((line) => /reactor/.test(line.text)), "and a little of its history, in the chamber");
 });
 
 test("she only mentions the crew once there are people aboard", () => {
   assert.ok(!welcomeRemark(0).lines.some((line) => /crew/.test(line.text)));
   assert.ok(welcomeRemark(4).lines.some((line) => /crew/.test(line.text)));
+});
+
+test("she notices the crew's mood turning, once each, from when they first go quiet", () => {
+  assert.equal(moodRemark(0), null);
+  assert.deepEqual(([1, 2, 3] as const).map((stage) => moodRemark(stage)?.id), ["mood:1", "mood:2", "mood:3"]);
+  assert.ok(!heartRemark(5)!.lines.some((line) => /calm/.test(line.text)), "the red star: as far as anyone got, not a chore");
+});
+
+test("what she has said is kept for this game only: a new game hears her from the start", () => {
+  const kept = writeSaid(new Set(["opening:wake", "place:bridge"]), 1_000);
+  assert.deepEqual([...readSaid(kept, 1_000)], ["opening:wake", "place:bridge"]);
+  assert.equal(readSaid(kept, 2_000).size, 0, "a new game");
+  assert.equal(readSaid(JSON.stringify(["opening:wake"]), 2_000).size, 0, "a list kept before games were told apart is dropped");
+  assert.equal(readSaid("not json", 1_000).size, 0);
+  assert.equal(readSaid(null, 1_000).size, 0);
 });
