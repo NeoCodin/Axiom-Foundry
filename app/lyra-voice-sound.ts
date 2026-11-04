@@ -44,11 +44,23 @@ function steps(bits: number) {
   return curve;
 }
 
+/** Where the voice stops in a clip, in seconds, ignoring the quiet a recording trails off with. */
+function voiceEnds(buffer: AudioBuffer) {
+  const samples = buffer.getChannelData(0);
+  let end = samples.length;
+  while (end > 0 && Math.abs(samples[end - 1]) < 0.02) end -= 1;
+  return end / buffer.sampleRate;
+}
+
+/** A line that breaks: how many times its last sliver repeats, how long each is, and how far apart. */
+const STUTTER = { repeats: 4, sliver: 0.055, gap: 0.075 };
+
 /**
  * Play a recorded line. onEnd when it has been said; onFail when it can't be (no audio yet,
- * or the file won't load), so the caller can fall back to the browser's voice.
+ * or the file won't load), so the caller can fall back to the browser's voice. A glitched
+ * line stops where the voice does and stutters on its last sliver of sound.
  */
-export function playRecorded(file: string, fx: VoiceFx, onEnd: () => void, onFail: () => void) {
+export function playRecorded(file: string, fx: VoiceFx, onEnd: () => void, onFail: () => void, glitch = false) {
   let stopped = false;
   let stopNodes = () => {};
   void (async () => {
@@ -110,10 +122,21 @@ export function playRecorded(file: string, fx: VoiceFx, onEnd: () => void, onFai
     clean.gain.value = 1 - fx.crunch * 0.7;
     mix.connect(crush).connect(crushed).connect(master);
     mix.connect(clean).connect(master);
-    const nodes = [source, low, high, nasal, mix, dry, ring, carrier, ringLevel, behind, drift, driftDepth, doubleLevel, crush, crushed, clean];
+    const ends = voiceEnds(buffer);
+    const slivers = glitch
+      ? Array.from({ length: STUTTER.repeats }, (_, index) => {
+        const sliver = context.createBufferSource();
+        sliver.buffer = buffer;
+        sliver.connect(low);
+        sliver.start(now + ends + index * STUTTER.gap, Math.max(0, ends - STUTTER.sliver), STUTTER.sliver);
+        return sliver;
+      })
+      : [];
+    const last = slivers.at(-1) ?? source;
+    const nodes = [source, ...slivers, low, high, nasal, mix, dry, ring, carrier, ringLevel, behind, drift, driftDepth, doubleLevel, crush, crushed, clean];
     const silence = () => {
-      source.onended = null;
-      for (const oscillator of [source, carrier, drift]) {
+      last.onended = null;
+      for (const oscillator of [source, ...slivers, carrier, drift]) {
         try {
           oscillator.stop();
         } catch {
@@ -123,13 +146,13 @@ export function playRecorded(file: string, fx: VoiceFx, onEnd: () => void, onFai
       for (const node of nodes) node.disconnect();
     };
     stopNodes = silence;
-    source.onended = () => {
+    last.onended = () => {
       silence();
       onEnd();
     };
     carrier.start(now);
     drift.start(now);
-    source.start(now);
+    source.start(now, 0, glitch ? ends : undefined);
   })();
   return {
     stop() {

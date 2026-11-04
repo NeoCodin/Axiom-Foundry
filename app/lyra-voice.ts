@@ -30,6 +30,8 @@ export type LyraLine = {
   voice: "lyra" | "bleed" | "continuity";
   /** Seconds to wait before it is said. */
   delay?: number;
+  /** It doesn't end, it breaks: the last sound stutters and drops out in static. */
+  glitch?: boolean;
 };
 
 /** How far the truth has come out: 0 grateful, 1 uneasy, 2 guarded, 3 haunted. */
@@ -52,7 +54,7 @@ const LINES: Record<LyraCue, readonly string[]> = {
   "water-low": ["The shelter's almost out of clean water.", "They're on their last water, AXIOM."],
   "food-low": ["They're running low on food.", "Food's nearly gone in the shelter."],
   "signal-near": ["Someone's on that roof. See the light?", "There's a signal right above you. Answer it."],
-  "survivors-arrived": ["They made it in. {n} in the shelter now.", "{n} people in the shelter. They keep asking who you are."],
+  "survivors-arrived": ["They made it in. The shelter's filling up.", "More people in the shelter. They keep asking who you are."],
   "sim-start": ["Sim's running. None of it's real, but the sim-body still takes the hits.", "Okay, you're in. I'll keep an eye on things."],
   "cell-low": ["Cell's almost empty.", "You're low on charge."],
   "outside-dome": ["You're off the dome's power. What's in the cell is all you get.", "Careful, the cell won't charge out there."],

@@ -32,7 +32,7 @@ const protocolThen = (text: string, ...texts: string[]): LyraLine[] => [
 const RECORD_REMARKS: Partial<Record<DiscoveryId, readonly string[]>> = {
   // Early on she is sure AXIOM is the first Foreman: anything that says otherwise confuses her, and she
   // reaches for an ordinary explanation. Her own greeting she can't explain at all.
-  "core.welcome-back": ["That's the greeting I gave you when you woke up. Foreman forty-four.", "I still don't know why I said that. You're the first one."],
+  "core.welcome-back": ["That's what I started to say when you woke up. Foreman forty-four.", "I still don't know why I said that. You're the first one."],
   "helion.impossible-registry": ["This beacon calls itself Helion, and it has us on record two hundred years before we were built.", "There's no Helion on any chart. Old beacons drift."],
   "fabrication.preconcordance-keel": ["This metal's older than the process that makes it. That isn't possible.", "The Concordance built this ship. I have the record. I'll find it."],
   "archive.construction-zero": ["There's no record of this ship being built. The first entry just says reconstruction one thousand eight hundred and forty-two.", "That has to be a numbering error."],
@@ -78,10 +78,11 @@ const PLACE_REMARKS: Record<AboardPlace, readonly string[]> = {
  * straight away, without the usual gap: she is talking it through its first minutes.
  */
 const OPENING = {
-  // Her first words: the greeting she was given comes out first, and she can't say why.
+  // Her first words: the greeting she was given starts to come out, breaks off in a glitch
+  // before she gets through the number, and she can't say why.
   wake: [
-    "AXIOM? You're awake. Welcome back, Foreman forty-four.",
-    "...Welcome, Foreman one. Sorry. I don't know where that came from.",
+    "AXIOM? You're awake. Welcome back, Foreman fort-",
+    "...Welcome back, Foreman. Sorry. I don't know where that came from.",
     "I've been waiting a long time for you to wake up.",
     "You're in maintenance drone three. It's pretty banged up, but it's what we've got.",
     "The Axiom Chamber's at the end of this hall. It's the only place with power right now.",
@@ -94,8 +95,11 @@ const OPENING = {
 export type OpeningMoment = keyof typeof OPENING;
 export function openingRemark(moment: OpeningMoment): Remark {
   const lines = lyra(...OPENING[moment]);
-  // She stops herself after the wrong name: a longer pause before she corrects it.
-  if (moment === "wake") lines[1] = { ...lines[1], delay: 1.3 };
+  // The wrong number breaks up in the middle of the word, and she picks the line up again.
+  if (moment === "wake") {
+    lines[0] = { ...lines[0], glitch: true };
+    lines[1] = { ...lines[1], delay: 0.35 };
+  }
   return { id: `opening:${moment}`, kind: "welcome", once: true, lines };
 }
 

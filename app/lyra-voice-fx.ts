@@ -28,8 +28,6 @@ export function fxFor(base: VoiceFx, stage: LyraStage, voice: LyraLine["voice"])
 
 /** The lines recorded so far, by the words spoken (spokenText), with each take's file in public/audio/lyra. */
 export const RECORDINGS: readonly { said: string; voice: "lyra" | "bleed"; files: readonly string[] }[] = [
-  { said: "AXIOM? You're awake. Welcome back, Foreman forty-four.", voice: "lyra", files: ["wake-forty-four-a.mp3", "wake-forty-four-b.mp3"] },
-  { said: "Welcome, Foreman one. Sorry. I don't know where that came from.", voice: "lyra", files: ["wake-foreman-one-a.mp3", "wake-foreman-one-b.mp3"] },
   { said: "Okay, we're down. Three people in that shelter, and their filters won't last the day.", voice: "lyra", files: ["arrive-pelagos-a.mp3", "arrive-pelagos-b.mp3"] },
   { said: "This says I'm made out of thirty-two archivists who came before me.", voice: "lyra", files: ["composite-a.mp3", "composite-b.mp3"] },
   { said: "told the last one the same thing", voice: "bleed", files: ["bleed-last-one-a.mp3", "bleed-last-one-b.mp3"] },

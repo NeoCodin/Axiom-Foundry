@@ -67,9 +67,10 @@ test("in the Cold Wake opening she talks AXIOM through its first minutes without
 
 test("her first words are the greeting she was given, and she can't say why", () => {
   const wake = openingRemark("wake").lines;
-  assert.match(wake[0].text, /Foreman forty-four/);
-  assert.match(wake[1].text, /Foreman one/);
-  assert.ok((wake[1].delay ?? 0) >= 1, "she stops herself first");
+  assert.match(wake[0].text, /Welcome back, Foreman fort-$/, "it breaks off in the middle of the number");
+  assert.equal(wake[0].glitch, true);
+  assert.ok(!wake.some((line) => /forty-four/.test(line.text)), "she never gets through it");
+  assert.match(wake[1].text, /^\.\.\.Welcome back, Foreman\./, "then she picks the line up again");
   assert.ok(!wake.some((line) => /corrupt|glitch|error/i.test(line.text)), "she doesn't know it was wrong");
 });
 

@@ -1,4 +1,4 @@
-import { getPulseAudioOutput, isPulseAudioEnabled, playLyraKey, playLyraVoice } from "./law-heart-audio";
+import { getPulseAudioOutput, isPulseAudioEnabled, playLyraKey, playLyraVoice, playNullStatic } from "./law-heart-audio";
 import { chooseVoice, createLyraDirector, isUrgent, lineSeconds, SPOKEN, spokenText, type LyraCue, type LyraLine, type LyraStage } from "./lyra-voice";
 import { fxFor, readVoiceLab, recordingOf, VOICE_LAB_KEY } from "./lyra-voice-fx";
 import { playRecorded } from "./lyra-voice-sound";
@@ -51,8 +51,13 @@ export function createLyra(host: HTMLElement, stage: () => LyraStage) {
 
   let clip: { stop(): void } | null = null;
   /** Say a line aloud; false when there is no voice to say it with (or sound is off), so it is only shown. */
-  const speak = (line: LyraLine, done: () => void) => {
+  const speak = (line: LyraLine, said: () => void) => {
     if (!isPulseAudioEnabled()) return false;
+    // A line that breaks drops out in static, whichever voice said it.
+    const done = () => {
+      if (line.glitch) playNullStatic(0.8);
+      said();
+    };
     let lab = readVoiceLab(null);
     try {
       lab = readVoiceLab(window.localStorage.getItem(VOICE_LAB_KEY));
@@ -63,7 +68,7 @@ export function createLyra(host: HTMLElement, stage: () => LyraStage) {
     if (!file || !getPulseAudioOutput()) return speakAloud(line, done);
     clip = playRecorded(file, fxFor(lab.fx, stage(), line.voice), done, () => {
       if (!speakAloud(line, done)) done();
-    });
+    }, line.glitch);
     return true;
   };
 
