@@ -55,7 +55,7 @@ const LINES: Record<LyraCue, readonly string[]> = {
   "signal-near": ["There. A light on the roof. They're waving.", "Someone's up there. Answer them."],
   "survivors-arrived": ["They made it in. {n} in the shelter now.", "{n} people in the shelter. They keep asking about you."],
   "sim-start": ["The simulation's live. None of it is real, but it will still hurt the sim-body.", "Simulation running. I'll be watching."],
-  "wave": ["Movement in the trees.", "Here they come."],
+  "wave": ["Here they come.", "Movement ahead.", "More of them. Get ready."],
   "harrier-dive": ["Above you!", "One's diving. Look up."],
   "brute": ["Something heavy's coming. Don't let it close.", "That one's big. Keep moving."],
   "heat-high": ["Coils at ninety percent.", "You're running hot."],
@@ -100,7 +100,7 @@ const PHANTOMS = ["Behind you.", "Something's above you.", "Did you hear that?"]
 /** Late warnings, said once the moment has passed. */
 const LATE: Partial<Record<LyraCue, string>> = {
   "harrier-dive": "It was above you.",
-  "wave": "They were already in the trees.",
+  "wave": "They were already on you.",
   "heat-high": "The coils were at ninety percent.",
   "link-25": "The link was at a quarter. I should have said.",
 };

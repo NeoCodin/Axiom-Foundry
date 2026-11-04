@@ -13,12 +13,14 @@ import * as THREE from "three";
 import { carbineReadout, DEFAULT_LOADOUT, OPTICS, switchLaw, type CarbineForm, type CarbineLoadout } from "./arc-carbine";
 import { createArcs, dressCarbine, heatColour } from "./arc-carbine-model";
 import { createSimAudio, type SimAudio } from "./ark-sim-audio";
+import { conduitCleared, conduitCourse, encounterName, ENCOUNTERS } from "./ark-sim-conduit";
+import { buildConduit } from "./ark-sim-conduit-scene";
 import type { LyraCue } from "./lyra-voice";
 import {
   ARENA_RADIUS,
   SIM_DIFFICULTIES,
   SIM_DOME,
-  underDome,
+  isPowered,
   createSim,
   dodge,
   fireCarbine,
@@ -32,8 +34,8 @@ import {
   type SimState,
 } from "./ark-sim-rules";
 
-/** The simulation modes: waves of aliens in the jungle, or a rescue from a ruined building. */
-export type SimMode = "swarm" | "extraction";
+/** The simulation modes: waves of aliens in the jungle, a rescue from a ruined building, or a flight down the Conduit. */
+export type SimMode = "swarm" | "extraction" | "conduit";
 
 export type SimInput = {
   forward: number;
@@ -53,7 +55,7 @@ export type SimInput = {
 };
 
 /** The Arc Carbine as the heads-up display shows it, and whether its cell is drawing power. */
-export type SimCarbine = ReturnType<typeof carbineReadout> & { powered: boolean };
+export type SimCarbine = ReturnType<typeof carbineReadout> & { powered: boolean; /** Fed by a power pack on AXIOM's back rather than a dome. */ pack?: boolean };
 
 export type SimHud = {
   health: number;
@@ -203,14 +205,17 @@ export type SimWorldOptions = {
   loadout?: CarbineLoadout;
   /** The Ark's Law-Heart beat, carried into the simulation: shots on it strike harder. */
   beatPeriodMs?: number;
+  /** The open jungle, or the Conduit's tubes and hall (ark-sim-conduit.ts). */
+  map?: "jungle" | "conduit";
 };
 
 /** How far a bolt fired from the hip can stray, on top of its firing law's own spread. */
 const HIP_SPREAD = 0.004;
 
-export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = false, onCleared, loadout = DEFAULT_LOADOUT, beatPeriodMs = 1300 }: SimWorldOptions = {}) {
+export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = false, onCleared, loadout = DEFAULT_LOADOUT, beatPeriodMs = 1300, map = "jungle" }: SimWorldOptions = {}) {
   const random = seeded(Math.floor(Math.random() * 1e9));
-  const state: SimState = createSim(difficulty, random, loadout);
+  const conduit = map === "conduit";
+  const state: SimState = createSim(difficulty, random, loadout, conduit ? conduitCourse() : undefined);
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(72, 1, 0.05, 400);
   camera.rotation.order = "YXZ";
@@ -227,41 +232,44 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
     return object;
   };
 
-  // ---- The sky, the light, the haze. ----
-  scene.background = new THREE.Color("#3f6a4c");
-  scene.fog = new THREE.Fog("#557f5a", 16, 74);
-  scene.add(new THREE.HemisphereLight("#e8f5d0", "#2a3a1e", 1.25));
-  scene.add(new THREE.AmbientLight("#9ab88a", 0.35));
-  const sunlight = new THREE.DirectionalLight("#fff2c8", 1.3);
-  sunlight.position.set(-40, 80, 30);
-  scene.add(sunlight);
-  const moon = inert(new THREE.Mesh(new THREE.CircleGeometry(26, 24), glow("#f2ecd8", { fog: false })));
-  moon.position.set(-90, 95, -220);
-  moon.lookAt(0, 0, 0);
-  const halo = inert(new THREE.Mesh(new THREE.RingGeometry(27, 40, 24), glow("#f2ecd8", { fog: false, transparent: true, opacity: 0.12 })));
-  halo.position.copy(moon.position);
-  halo.lookAt(0, 0, 0);
-  scene.add(moon, halo);
-
-  // ---- The ground: rolling, mossy, darker in the hollows. ----
-  const groundGeometry = keep(new THREE.PlaneGeometry(150, 150, 75, 75));
-  groundGeometry.rotateX(-Math.PI / 2);
-  const groundPositions = groundGeometry.attributes.position;
-  const groundColors: number[] = [];
   const tint = new THREE.Color();
-  for (let index = 0; index < groundPositions.count; index += 1) {
-    const x = groundPositions.getX(index);
-    const z = groundPositions.getZ(index);
-    const y = groundAt(x, z);
-    groundPositions.setY(index, y);
-    const patch = Math.sin(x * 0.31) * Math.cos(z * 0.27);
-    tint.set(patch > 0.45 ? "#6a7a3a" : y < -0.6 ? "#2f4a26" : patch < -0.5 ? "#3f6a2e" : "#4a7a34");
-    groundColors.push(tint.r, tint.g, tint.b);
+  // The jungle's own sky and ground; the Conduit brings its own (ark-sim-conduit-scene.ts).
+  if (!conduit) {
+    // ---- The sky, the light, the haze. ----
+    scene.background = new THREE.Color("#3f6a4c");
+    scene.fog = new THREE.Fog("#557f5a", 16, 74);
+    scene.add(new THREE.HemisphereLight("#e8f5d0", "#2a3a1e", 1.25));
+    scene.add(new THREE.AmbientLight("#9ab88a", 0.35));
+    const sunlight = new THREE.DirectionalLight("#fff2c8", 1.3);
+    sunlight.position.set(-40, 80, 30);
+    scene.add(sunlight);
+    const moon = inert(new THREE.Mesh(new THREE.CircleGeometry(26, 24), glow("#f2ecd8", { fog: false })));
+    moon.position.set(-90, 95, -220);
+    moon.lookAt(0, 0, 0);
+    const halo = inert(new THREE.Mesh(new THREE.RingGeometry(27, 40, 24), glow("#f2ecd8", { fog: false, transparent: true, opacity: 0.12 })));
+    halo.position.copy(moon.position);
+    halo.lookAt(0, 0, 0);
+    scene.add(moon, halo);
+
+    // ---- The ground: rolling, mossy, darker in the hollows. ----
+    const groundGeometry = keep(new THREE.PlaneGeometry(150, 150, 75, 75));
+    groundGeometry.rotateX(-Math.PI / 2);
+    const groundPositions = groundGeometry.attributes.position;
+    const groundColors: number[] = [];
+    for (let index = 0; index < groundPositions.count; index += 1) {
+      const x = groundPositions.getX(index);
+      const z = groundPositions.getZ(index);
+      const y = groundAt(x, z);
+      groundPositions.setY(index, y);
+      const patch = Math.sin(x * 0.31) * Math.cos(z * 0.27);
+      tint.set(patch > 0.45 ? "#6a7a3a" : y < -0.6 ? "#2f4a26" : patch < -0.5 ? "#3f6a2e" : "#4a7a34");
+      groundColors.push(tint.r, tint.g, tint.b);
+    }
+    groundGeometry.setAttribute("color", new THREE.Float32BufferAttribute(groundColors, 3));
+    groundGeometry.computeVertexNormals();
+    const ground = new THREE.Mesh(groundGeometry, lambert("#ffffff", { vertexColors: true }));
+    scene.add(ground);
   }
-  groundGeometry.setAttribute("color", new THREE.Float32BufferAttribute(groundColors, 3));
-  groundGeometry.computeVertexNormals();
-  const ground = new THREE.Mesh(groundGeometry, lambert("#ffffff", { vertexColors: true }));
-  scene.add(ground);
 
   // ---- The jungle: trees with canopies, palms, boulders, undergrowth and glowing flowers. ----
   /** Something in the way: a trunk reaches the canopy, a boulder only as high as its top. */
@@ -277,7 +285,7 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
     );
   const LEAF = ["#2f6a2a", "#3a7a30", "#4f8a34", "#5a9a3a", "#2a5a2a"];
   const placed: { x: number; z: number }[] = [];
-  for (let attempt = 0; attempt < 900 && placed.length < 190; attempt += 1) {
+  for (let attempt = 0; !conduit && attempt < 900 && placed.length < 190; attempt += 1) {
     const angle = random() * Math.PI * 2;
     const reach = 9 + Math.sqrt(random()) * 58;
     const x = Math.cos(angle) * reach;
@@ -341,7 +349,7 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
   // Undergrowth and glowing flowers, which the drone's rounds pass through.
   const brush: { matrix: THREE.Matrix4; color: string }[] = [];
   const blooms: { matrix: THREE.Matrix4; color: string }[] = [];
-  for (let plant = 0; plant < 520; plant += 1) {
+  for (let plant = 0; !conduit && plant < 520; plant += 1) {
     const angle = random() * Math.PI * 2;
     const reach = 4 + Math.sqrt(random()) * 64;
     const x = Math.cos(angle) * reach;
@@ -354,7 +362,7 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
   inert(instanced(brush, lambert("#ffffff")));
   inert(instanced(blooms, glow("#ffffff")));
   // Fireflies drifting in the dusk.
-  const fireflyCount = 140;
+  const fireflyCount = conduit ? 0 : 140;
   const fireflyPositions = new Float32Array(fireflyCount * 3);
   const fireflySeeds = Array.from({ length: fireflyCount }, () => ({ x: (random() - 0.5) * 100, z: (random() - 0.5) * 100, phase: random() * 10 }));
   const fireflyGeometry = keep(new THREE.BufferGeometry());
@@ -374,7 +382,15 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
     keep(new THREE.MeshBasicMaterial({ map: gridTexture, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })),
   ));
   edge.position.y = 10;
+  edge.visible = !conduit;
   scene.add(edge);
+
+  // ---- Or the Conduit's tubes and hall instead. ----
+  const conduitScene = conduit ? buildConduit(scene, keep) : null;
+  /** The Conduit's walls, floors and anchors: what bolts and the tether meet. */
+  const surfaces = conduitScene?.surfaces ?? [];
+  /** The floor's height: the jungle's rolling ground, or the Conduit's level one. */
+  const levelAt = conduit ? () => 0 : groundAt;
 
   // ---- The aliens. ----
   const models = new Map<number, AlienModel>();
@@ -614,6 +630,7 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
   domeEdge.rotation.x = -Math.PI / 2;
   domeEdge.position.set(SIM_DOME.x, groundAt(SIM_DOME.x, SIM_DOME.z) + 0.05, SIM_DOME.z);
   scene.add(domeEdge);
+  dome.visible = domeEdge.visible = !conduit;
   const spark = inert(new THREE.Mesh(unitBox, glow("#ffe9a8")));
   spark.scale.setScalar(0.25);
   spark.visible = false;
@@ -630,7 +647,7 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
   let shake = 0;
   let bob = 0;
   // The sim-body's feet: how high they are, how fast they rise or fall, and the jolt of landing.
-  let feet = groundAt(0, 0);
+  let feet = levelAt(0, 0);
   let rise = 0;
   let landing = 0;
   // Moving like a machine: momentum, three dash charges, a slide, a slam and its bounce,
@@ -658,15 +675,21 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
   let beatGlow = 0;
   let resonantWindow = false;
   const held = { jump: false, dash: false, crouch: false, punch: false, tether: false };
+  // The Conduit is simulated space: lighter, with thrusters that last longer and top up even in
+  // the air, and a hall big enough to need a longer tether.
+  const gravity = conduit ? 9.5 : GRAVITY;
+  const fuelSeconds = conduit ? 2.4 : FUEL_SECONDS;
+  const airRefill = conduit ? 0.3 : 0;
+  const tetherRange = conduit ? 48 : TETHER_RANGE;
   /** What the feet stand on here: the ground, or the top of a boulder underfoot. */
   const floorAt = (x: number, z: number) => {
-    let floor = groundAt(x, z);
+    let floor = levelAt(x, z);
     for (const obstacle of obstacles) {
       if (obstacle.top < Infinity && obstacle.top > floor && Math.hypot(x - obstacle.x, z - obstacle.z) < obstacle.r) floor = obstacle.top;
     }
     return floor;
   };
-  let banner: { text: string; until: number } | null = { text: `Simulation online · ${SIM_DIFFICULTIES[difficulty].label}`, until: 2.6 };
+  let banner: { text: string; until: number } | null = { text: `${conduit ? "The Conduit" : "Simulation online"} · ${SIM_DIFFICULTIES[difficulty].label}`, until: 2.6 };
   /** For Lyra: waves after the first, something heavy arriving, a harrier starting its dive. */
   const cues: LyraCue[] = [];
   const diving = new Set<number>();
@@ -686,7 +709,7 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
 
   /** Fire: each bolt the firing law throws strays a little, less down the sights, and strikes what it meets. */
   const pull = (aiming: boolean) => {
-    const targets: THREE.Object3D[] = [trunkMesh, ...[...models.values()].map((model) => model.group)];
+    const targets: THREE.Object3D[] = [trunkMesh, ...surfaces, ...[...models.values()].map((model) => model.group)];
     const ends: THREE.Vector3[] = [];
     let struck = false;
     const shot = fireCarbine(state, (discharge) => Array.from({ length: discharge.bolts }, () => {
@@ -791,17 +814,18 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
       thrusting = Boolean(input.jump) && !grounded && !slamming && !tether && fuel > 0 && rise < JUMP * 0.5;
       if (thrusting) {
         rise = Math.min(rise + THRUST * dt, 7);
-        fuel = Math.max(0, fuel - dt / FUEL_SECONDS);
+        fuel = Math.max(0, fuel - dt / fuelSeconds);
       }
       if (grounded) fuel = Math.min(1, fuel + dt / FUEL_REFILL);
+      else if (!thrusting) fuel = Math.min(1, fuel + airRefill * dt);
       audio?.thrust(thrusting ? 1 : 0);
 
       // F: the Containment tether, fired at whatever is in the middle of the view.
       if (pressed(input.light, "tether") && t >= tetherReady) {
         tetherReady = t + 0.45;
         raycaster.setFromCamera(centre, camera);
-        raycaster.far = TETHER_RANGE;
-        const hit = raycaster.intersectObjects([trunkMesh, canopyMesh, ...[...models.values()].map((model) => model.group)], true)[0];
+        raycaster.far = tetherRange;
+        const hit = raycaster.intersectObjects([trunkMesh, canopyMesh, ...surfaces, ...[...models.values()].map((model) => model.group)], true)[0];
         raycaster.far = 90;
         if (hit) {
           let alienId: number | null = null;
@@ -900,10 +924,17 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
           player.z = obstacle.z + ((player.z - obstacle.z) / apart) * room;
         }
       }
-      const reach = Math.hypot(player.x, player.z);
-      if (reach > ARENA_RADIUS - 0.6) {
-        player.x *= (ARENA_RADIUS - 0.6) / reach;
-        player.z *= (ARENA_RADIUS - 0.6) / reach;
+      if (state.course) {
+        // The Conduit's walls; high in the hall, the wall over a tube's mouth.
+        const inside = state.course.confine(player.x, player.z, BODY + 0.2, feet - levelAt(player.x, player.z));
+        player.x = inside.x;
+        player.z = inside.z;
+      } else {
+        const reach = Math.hypot(player.x, player.z);
+        if (reach > ARENA_RADIUS - 0.6) {
+          player.x *= (ARENA_RADIUS - 0.6) / reach;
+          player.z *= (ARENA_RADIUS - 0.6) / reach;
+        }
       }
 
       // Up and down: the tether holds it up, a dash in the air holds its height, otherwise gravity;
@@ -916,7 +947,7 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
       } else if (t < dashUntil && !onGround) {
         rise = 0;
       } else if (!onGround) {
-        rise -= GRAVITY * dt;
+        rise -= gravity * dt;
         feet += rise * dt;
         if (feet <= below) {
           if (slamming) {
@@ -935,7 +966,15 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
           rise = 0;
         }
       }
-      player.lift = Math.max(0, feet - groundAt(player.x, player.z));
+      // Under the Conduit's roofs, the head stops at the ceiling.
+      if (state.course) {
+        const roof = levelAt(player.x, player.z) + state.course.ceilingAt(player.x, player.z) - EYE - 0.25;
+        if (feet > roof) {
+          feet = roof;
+          rise = Math.min(rise, 0);
+        }
+      }
+      player.lift = Math.max(0, feet - levelAt(player.x, player.z));
       if (input.firing) pull(aiming);
       stepSim(state, dt, random);
     }
@@ -943,12 +982,13 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
     // What happened: sounds, flashes, banners.
     for (const event of state.events) {
       if (event.type === "wave") {
-        banner = { text: `Wave ${event.wave}`, until: state.time + 2 };
+        banner = { text: conduit ? encounterName(state) : `Wave ${event.wave}`, until: state.time + 2 };
         audio?.wave();
         if (event.wave > 1) cues.push("wave");
       } else if (event.type === "cleared") {
         const done = onCleared?.(event.wave, event.drill) ?? null;
-        banner = { text: done ? `Wave ${event.wave} cleared · ${done}` : `Wave ${event.wave} cleared`, until: state.time + 2.6 };
+        const named = conduit ? (conduitCleared(state) ? "The Conduit" : ENCOUNTERS[event.wave - 1]?.name ?? "") : `Wave ${event.wave}`;
+        banner = { text: done ? `${named} cleared · ${done}` : `${named} cleared`, until: state.time + 2.6 };
       } else if (event.type === "scream" || event.type === "spawn") {
         const at = heard(event.x, 1.5, event.z);
         audio?.scream(event.kind, at.pan, at.gain * (event.type === "spawn" ? 0.7 : 1));
@@ -1031,7 +1071,7 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
       const lungeOffset = Math.sin(model.lunge * Math.PI) * 0.6;
       const toX = alien.x + Math.sin(facing) * lungeOffset;
       const toZ = alien.z + Math.cos(facing) * lungeOffset;
-      let toY = groundAt(alien.x, alien.z) + (alien.height ?? 0);
+      let toY = levelAt(alien.x, alien.z) + (alien.height ?? 0);
       if (flying && !alien.dive) toY += Math.sin(now * 0.004 + alien.id) * 0.25;
       if (alien.kind === "spitter") toY += Math.sin(now * 0.006 + alien.id) * 0.08;
       // The Null keeps losing track of them: now and then one hangs where it was for a moment,
@@ -1086,7 +1126,7 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
         scene.add(mesh);
         spitMeshes.set(blob.id, mesh);
       }
-      mesh.position.set(blob.x, groundAt(blob.x, blob.z) + 1.2, blob.z);
+      mesh.position.set(blob.x, levelAt(blob.x, blob.z) + 1.2, blob.z);
     }
     for (const [id, group] of pickupMeshes) {
       if (state.pickups.some((pickup) => pickup.id === id)) continue;
@@ -1099,7 +1139,7 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
         group = buildPickup(pickup.kind);
         pickupMeshes.set(pickup.id, group);
       }
-      group.position.set(pickup.x, groundAt(pickup.x, pickup.z) + 0.6 + Math.sin(now * 0.004 + pickup.id) * 0.1, pickup.z);
+      group.position.set(pickup.x, levelAt(pickup.x, pickup.z) + 0.6 + Math.sin(now * 0.004 + pickup.id) * 0.1, pickup.z);
       group.rotation.y = now * 0.0015;
     }
     for (let index = bursts.length - 1; index >= 0; index -= 1) {
@@ -1189,8 +1229,35 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
       fireflyPositions.set([x, groundAt(x, z) + 1 + Math.sin(now * 0.001 + seed.phase) * 0.6 + 0.6, z], index * 3);
     }
     fireflyGeometry.attributes.position.needsUpdate = true;
+    conduitScene?.update(now, beatGlow);
     gridTexture.offset.y = (now * 0.00005) % 1;
     if (banner && state.time > banner.until) banner = null;
+  };
+
+  /** The Conduit's objective, where AXIOM is, and the results once the run is over. */
+  let endedAt: number | null = null;
+  const conduitHud = (): Partial<SimHud> => {
+    const cleared = conduitCleared(state);
+    if ((cleared || !state.player.alive) && endedAt === null) endedAt = performance.now();
+    const left = state.aliens.length + state.roster.length;
+    const next = ENCOUNTERS[state.wave]?.name ?? "";
+    const objective = cleared ? "Cleared" : state.wave === 0 ? "Into the tube" : left > 0 ? `${encounterName(state)} · ${left} left` : `On to ${next}`;
+    const seconds = Math.floor(state.time);
+    const time = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+    return {
+      location: "The Conduit",
+      objective: `${objective} · ${state.score} pts`,
+      result: endedAt !== null && performance.now() - endedAt > 1400
+        ? {
+          success: cleared,
+          title: cleared ? "The Conduit cleared" : "Simulation ended",
+          lines: [
+            `${SIM_DIFFICULTIES[difficulty].label} · ${time} · ${state.kills} down`,
+            cleared ? "Every stretch of tube, and the hall's last wave" : `Fell in ${encounterName(state) || "the first tube"}`,
+          ],
+        }
+        : null,
+    };
   };
 
   return {
@@ -1221,7 +1288,8 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
       return {
         health: player.health,
         maxHealth: player.maxHealth,
-        carbine: { ...carbineReadout(player.gun, state.time), powered: underDome(state) },
+        carbine: { ...carbineReadout(player.gun, state.time), powered: isPowered(state), pack: conduit },
+        ...(conduit ? conduitHud() : {}),
         motion: { dashes, fuel, sliding, tethered: Boolean(tether) },
         beat: beatGlow,
         aiming: aimBlend > 0.5,

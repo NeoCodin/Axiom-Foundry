@@ -18,9 +18,14 @@
  * minutes of their training, more on harder settings, capped for each run.
  * Pure rules, advanced in place; ark-sim.ts draws the jungle and
  * ark-sim-audio.ts gives it voice.
+ *
+ * A run can also follow a course instead of the open jungle (ark-sim-conduit.ts):
+ * walls that hold everything in, encounters that wait for AXIOM to reach them,
+ * and a power pack on its back that feeds the carbine everywhere, harder, while
+ * the sim-body mends itself between blows.
  */
 
-import { CELLS, createCarbine, DEFAULT_LOADOUT, FORMS, pullTrigger, stepCarbine, swapCell, type Carbine, type CarbineLoadout, type Discharge } from "./arc-carbine.ts";
+import { CELLS, createCarbine, DEFAULT_LOADOUT, FORMS, pullTrigger, RECHARGE_RATE, stepCarbine, swapCell, type Carbine, type CarbineLoadout, type Discharge } from "./arc-carbine.ts";
 
 export type SimDifficulty = "recruit" | "soldier" | "veteran";
 export type AlienKind = "stalker" | "spitter" | "brute" | "harrier";
@@ -162,8 +167,29 @@ export type SimEvent =
   | { type: "shot" | "dry" | "reload" | "reloaded" | "vent" | "vented" | "charged" | "punch" | "parry" | "slam" | "dodged" | "flux" | "resonant" | "death" }
   | { type: "pickup"; kind: SimPickup["kind"] };
 
+/** A map other than the open jungle: where things can be, where they come from, and what AXIOM carries. */
+export type SimCourse = {
+  /** Keep something this wide inside the map; height above the floor, where the map has ceilings that matter. */
+  confine(x: number, z: number, margin: number, height?: number): { x: number; z: number };
+  /** How high the space goes here, above the floor. */
+  ceilingAt(x: number, z: number): number;
+  /** Where an alien of this kind comes in. */
+  spawnAt(state: SimState, kind: AlienKind, random: () => number): { x: number; z: number };
+  /** The next encounter's aliens once AXIOM has gone far enough for it; null until then, or once there are none left. */
+  nextWave(state: SimState): AlienKind[] | null;
+  /** A power pack: the cell fills everywhere at this many times a Lawheart's rate, and bolts strike this much harder. */
+  pack: { recharge: number; damage: number };
+  /** Health the sim-body mends each second, as a share of its most, once a moment has passed since the last blow. */
+  regen: number;
+};
+
+/** How long after a blow the sim-body starts to mend, on a course that mends it. */
+export const MEND_DELAY = 1.5;
+
 export type SimState = {
   difficulty: SimDifficulty;
+  /** Set when the run follows a course rather than the open jungle. */
+  course?: SimCourse;
   time: number;
   wave: number;
   /** Aliens still to arrive this wave, in order, and when the next comes. */
@@ -187,6 +213,8 @@ export type SimState = {
     /** Until when a dash carries it through blows, and when it can punch again. */
     dodgeUntil: number;
     punchReady: number;
+    /** When it last took a blow. */
+    hurtAt: number;
   };
   aliens: SimAlien[];
   spit: SimSpit[];
@@ -203,10 +231,11 @@ const clampToArena = (x: number, z: number, margin = 1) => {
 };
 
 /** A fresh run: the player in the clearing under the dome, a few spare cells about. */
-export function createSim(difficulty: SimDifficulty, random: () => number = Math.random, loadout: CarbineLoadout = DEFAULT_LOADOUT): SimState {
+export function createSim(difficulty: SimDifficulty, random: () => number = Math.random, loadout: CarbineLoadout = DEFAULT_LOADOUT, course?: SimCourse): SimState {
   const rules = SIM_DIFFICULTIES[difficulty];
   const state: SimState = {
     difficulty,
+    ...(course ? { course } : {}),
     time: 0,
     wave: 0,
     roster: [],
@@ -220,11 +249,13 @@ export function createSim(difficulty: SimDifficulty, random: () => number = Math
       z: 0,
       health: rules.playerHealth,
       maxHealth: rules.playerHealth,
-      gun: createCarbine(loadout, rules.cells),
+      // On a course the power pack feeds the seated cell; there are no spares to find.
+      gun: createCarbine(loadout, course ? 0 : rules.cells),
       alive: true,
       lift: 0,
       dodgeUntil: -Infinity,
       punchReady: 0,
+      hurtAt: -Infinity,
     },
     aliens: [],
     spit: [],
@@ -232,7 +263,7 @@ export function createSim(difficulty: SimDifficulty, random: () => number = Math
     nextId: 1,
     events: [],
   };
-  if (Number.isFinite(rules.cells)) {
+  if (Number.isFinite(rules.cells) && !course) {
     for (let crate = 0; crate < 4; crate += 1) {
       const angle = (crate / 4) * Math.PI * 2 + random() * 0.8;
       const reach = 10 + random() * 20;
@@ -256,10 +287,10 @@ export function waveRoster(difficulty: SimDifficulty, wave: number, random: () =
 
 function spawn(state: SimState, kind: AlienKind, random: () => number) {
   const rules = SIM_DIFFICULTIES[state.difficulty];
-  // Out of the trees, somewhere ahead or behind, never on top of the player.
+  // Out of the trees, somewhere ahead or behind, never on top of the player; or where the course says.
   const angle = random() * Math.PI * 2;
   const reach = 22 + random() * 8;
-  const at = clampToArena(state.player.x + Math.cos(angle) * reach, state.player.z + Math.sin(angle) * reach, 2);
+  const at = state.course?.spawnAt(state, kind, random) ?? clampToArena(state.player.x + Math.cos(angle) * reach, state.player.z + Math.sin(angle) * reach, 2);
   const health = Math.ceil(ALIENS[kind].health * rules.toughness);
   state.aliens.push({
     id: state.nextId++,
@@ -284,6 +315,7 @@ function strike(state: SimState, alien: SimAlien) {
   }
   const amount = ALIENS[alien.kind].damage * SIM_DIFFICULTIES[state.difficulty].bite;
   state.player.health -= amount;
+  state.player.hurtAt = state.time;
   state.events.push({ type: "strike", kind: alien.kind, x: alien.x, z: alien.z }, { type: "hurt", amount });
 }
 
@@ -306,7 +338,8 @@ function hurtAlien(state: SimState, alien: SimAlien, damage: number, random: () 
     gun.charge = Math.min(capacity, gun.charge + capacity * KILL_FLUX);
     state.events.push({ type: "flux" });
   }
-  const roll = random();
+  // On a course nothing drops: the pack feeds the cell and the sim-body mends itself.
+  const roll = state.course ? 1 : random();
   if (roll < rules.cellDrop) state.pickups.push({ id: state.nextId++, kind: "cell", x: alien.x, z: alien.z });
   else if (roll < rules.cellDrop + rules.healthDrop) state.pickups.push({ id: state.nextId++, kind: "health", x: alien.x, z: alien.z });
   return true;
@@ -424,17 +457,27 @@ export function stepSim(state: SimState, dt: number, random: () => number = Math
   const player = state.player;
   state.time += dt;
 
-  // The carbine: a cell swap finishes, the coils cool or vent, and under the dome the cell fills.
-  for (const happened of stepCarbine(player.gun, state.time, dt, underDome(state))) {
+  // The carbine: a cell swap finishes, the coils cool or vent, and under the dome (or off a power pack) the cell fills.
+  const pack = state.course?.pack;
+  for (const happened of stepCarbine(player.gun, state.time, dt, isPowered(state), RECHARGE_RATE * (pack?.recharge ?? 1))) {
     state.events.push({ type: happened === "swapped" ? "reloaded" : happened });
   }
+  // On a course the sim-body mends between blows.
+  if (state.course && state.time - player.hurtAt > MEND_DELAY) {
+    player.health = Math.min(player.maxHealth, player.health + player.maxHealth * state.course.regen * dt);
+  }
 
-  // Waves: a breather, then the next comes out of the jungle a few at a time.
+  // Waves: a breather, then the next comes out of the jungle a few at a time; on a course, once AXIOM reaches it.
   if (state.roster.length === 0 && state.aliens.length === 0 && state.time >= state.nextArrival) {
-    state.wave += 1;
-    state.roster = waveRoster(state.difficulty, state.wave, random);
-    state.nextArrival = state.time + 0.5;
-    state.events.push({ type: "wave", wave: state.wave });
+    const roster = state.course ? state.course.nextWave(state) : waveRoster(state.difficulty, state.wave + 1, random);
+    if (roster) {
+      state.wave += 1;
+      state.roster = roster;
+      state.nextArrival = state.time + 0.5;
+      state.events.push({ type: "wave", wave: state.wave });
+    } else {
+      state.nextArrival = state.time + 0.25;
+    }
   }
   if (state.roster.length > 0 && state.time >= state.nextArrival && state.aliens.length < rules.crowd) {
     spawn(state, state.roster.shift()!, random);
@@ -469,11 +512,13 @@ export function stepSim(state: SimState, dt: number, random: () => number = Math
     } else if (alien.kind === "harrier") {
       // Circling overhead; when ready it folds its wings and dives at AXIOM, strikes, and climbs away.
       const height = alien.height ?? HARRIER_CRUISE;
+      // Under a low ceiling it circles lower.
+      const cruise = Math.min(HARRIER_CRUISE, (state.course?.ceilingAt(alien.x, alien.z) ?? Infinity) - 1.5);
       if (!alien.dive) {
         const want = distance > HARRIER_RING + 2 ? 1 : distance < HARRIER_RING - 2 ? -1 : 0;
         moveX = (dx / distance) * want + (-dz / distance) * alien.circle;
         moveZ = (dz / distance) * want + (dx / distance) * alien.circle;
-        alien.height = height + (HARRIER_CRUISE - height) * Math.min(1, dt * 1.5);
+        alien.height = height + (cruise - height) * Math.min(1, dt * 1.5);
         if (alien.cooldown <= 0) {
           alien.dive = true;
           state.events.push({ type: "scream", kind: alien.kind, x: alien.x, z: alien.z });
@@ -509,7 +554,9 @@ export function stepSim(state: SimState, dt: number, random: () => number = Math
     const length = Math.hypot(moveX, moveZ);
     if (length > 0.001) {
       const step = Math.min(length, 1.5) / length;
-      const at = clampToArena(alien.x + moveX * step * speed * dt, alien.z + moveZ * step * speed * dt);
+      const toX = alien.x + moveX * step * speed * dt;
+      const toZ = alien.z + moveZ * step * speed * dt;
+      const at = state.course ? state.course.confine(toX, toZ, kind.radius) : clampToArena(toX, toZ);
       alien.x = at.x;
       alien.z = at.z;
     }
@@ -545,6 +592,7 @@ export function stepSim(state: SimState, dt: number, random: () => number = Math
       }
       const amount = ALIENS.spitter.damage * rules.bite;
       player.health -= amount;
+      player.hurtAt = state.time;
       state.events.push({ type: "hurt", amount });
     }
   }
@@ -580,6 +628,8 @@ export function stepSim(state: SimState, dt: number, random: () => number = Math
 
 /** Whether the sim-body stands under the training dome, where the cell draws power. */
 export const underDome = (state: SimState) => Math.hypot(state.player.x - SIM_DOME.x, state.player.z - SIM_DOME.z) <= SIM_DOME.radius;
+/** Whether the cell is drawing power: under the dome, or always, off a course's power pack. */
+export const isPowered = (state: SimState) => Boolean(state.course) || underDome(state);
 
 /** Change the carbine's cell, if there is a spare and the seated one has room. */
 export function reloadCarbine(state: SimState) {
@@ -613,11 +663,11 @@ export function fireCarbine(state: SimState, aim: BoltAim, random: () => number 
   if (resonant) state.events.push({ type: "resonant" });
   if (shot.vent) state.events.push({ type: "vent" });
   const hits = typeof aim === "function" ? aim(shot) : Array.from({ length: shot.bolts }, () => aim);
-  const damage = shot.damage * (resonant ? RESONANT : 1);
+  const damage = shot.damage * (resonant ? RESONANT : 1) * (state.course?.pack.damage ?? 1);
   for (const hitId of hits) {
     const alien = hitId === null ? undefined : state.aliens.find((candidate) => candidate.id === hitId);
     if (alien) hurtAlien(state, alien, damage, random);
   }
-  if (player.gun.charge < FORMS[player.gun.loadout.form].cost && !underDome(state)) reloadCarbine(state);
+  if (player.gun.charge < FORMS[player.gun.loadout.form].cost && !isPowered(state)) reloadCarbine(state);
   return shot;
 }

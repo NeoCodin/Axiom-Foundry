@@ -115,9 +115,10 @@ export type CarbineEvent = "swapped" | "vented" | "charged";
 
 /**
  * Advance the carbine: a swap finishes, the coils cool or vent, and inside a
- * Lawheart's reach the seated cell fills.
+ * Lawheart's reach the seated cell fills (at rate a second; a power pack on
+ * AXIOM's back feeds it faster).
  */
-export function stepCarbine(gun: Carbine, time: number, dt: number, powered: boolean): CarbineEvent[] {
+export function stepCarbine(gun: Carbine, time: number, dt: number, powered: boolean, rate = RECHARGE_RATE): CarbineEvent[] {
   const events: CarbineEvent[] = [];
   const cell = CELLS[gun.loadout.cell];
   if (gun.swapUntil !== null && time >= gun.swapUntil) {
@@ -137,7 +138,7 @@ export function stepCarbine(gun: Carbine, time: number, dt: number, powered: boo
     gun.heat = Math.max(0, gun.heat - COOL_RATE * cell.cooling * dt);
   }
   if (powered && gun.swapUntil === null && gun.charge < cell.capacity) {
-    gun.charge = Math.min(cell.capacity, gun.charge + RECHARGE_RATE * dt);
+    gun.charge = Math.min(cell.capacity, gun.charge + rate * dt);
     if (gun.charge >= cell.capacity) events.push("charged");
   }
   return events;

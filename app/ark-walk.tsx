@@ -4327,6 +4327,7 @@ const LOADOUT_PARTS: readonly { key: keyof CarbineLoadout; label: string; option
 const SIM_MODES: readonly { id: SimMode; label: string; blurb: string }[] = [
   { id: "swarm", label: "Swarm", blurb: "Hold a jungle clearing against waves of aliens." },
   { id: "extraction", label: "Extraction", blurb: "Free survivors held by Wreckers in a dark ruin, and get them to the shuttle. Aliens and the Hollowed are in there too." },
+  { id: "conduit", label: "Conduit", blurb: "Fly the tubes into the Core Hall on a power pack: the carbine refills as you go, hits harder, and the sim-body mends between blows." },
 ];
 
 /** The simulator console's training roll: who is in the pods, how near each is to a soldier, and the intake. */
@@ -4655,7 +4656,7 @@ export default function ArkWalk(props: ArkWalkProps) {
       simDrilled = 0;
       simGraduates = [];
       aiming = false;
-      sim = (mode === "extraction" ? createOpsWorld : createSimWorld)(difficulty, { reducedMotion, onCleared: drillTrainees, loadout: loadoutRef.current, beatPeriodMs: propsRef.current.beatPeriodMs });
+      sim = (mode === "extraction" ? createOpsWorld : createSimWorld)(difficulty, { reducedMotion, onCleared: drillTrainees, loadout: loadoutRef.current, beatPeriodMs: propsRef.current.beatPeriodMs, map: mode === "conduit" ? "conduit" : "jungle" });
       sim.resize(camera.aspect);
       simMenu = false;
       simPaused = false;
@@ -4707,7 +4708,7 @@ export default function ArkWalk(props: ArkWalkProps) {
       // The carbine: shots left in the cell (or what it is busy doing), the cell's charge or the swap's progress, the coils' heat.
       const gun = hud.carbine;
       if (simAmmoRef.current) simAmmoRef.current.textContent = gun.swapping !== null ? "Changing cell" : gun.venting ? "Venting" : `${gun.shots}`;
-      if (simCellRef.current) simCellRef.current.textContent = `${gun.form} · ${Number.isFinite(gun.spare) ? `${gun.spare} spare ${gun.spare === 1 ? "cell" : "cells"}` : "spare cells ∞"}${gun.powered ? " · recharging" : ""}`;
+      if (simCellRef.current) simCellRef.current.textContent = gun.pack ? `${gun.form} · power pack` : `${gun.form} · ${Number.isFinite(gun.spare) ? `${gun.spare} spare ${gun.spare === 1 ? "cell" : "cells"}` : "spare cells ∞"}${gun.powered ? " · recharging" : ""}`;
       if (simReloadRef.current) {
         simReloadRef.current.style.setProperty("--sim-reload", (gun.swapping ?? gun.charge).toFixed(3));
         simReloadRef.current.dataset.state = gun.swapping !== null ? "swap" : gun.powered ? "charging" : "charge";
@@ -4768,8 +4769,8 @@ export default function ArkWalk(props: ArkWalkProps) {
       for (const cue of [...simCues(simReading, reading), ...(sim.cues?.() ?? [])]) lyra.cue(cue);
       simReading = reading;
       if (!simPaused && hud.alive) lyra.tick();
-      // A swarm run ends when the sim-body falls; an extraction when the mission does.
-      const over = runningMode === "extraction" ? Boolean(hud.result) : !hud.alive;
+      // A swarm run ends when the sim-body falls; an extraction or the Conduit when the run says it's over.
+      const over = runningMode === "swarm" ? !hud.alive : Boolean(hud.result);
       if (over && !simOver) {
         simOver = true;
         firing = false;
@@ -5735,7 +5736,7 @@ export default function ArkWalk(props: ArkWalkProps) {
                   <small>
                     {simMode === "extraction"
                       ? `A rescue · up to +${Math.min(DRILL_CAP_SECONDS, SIM_DIFFICULTIES[level].drill * 7) / 60} min training`
-                      : `Each wave cleared · +${SIM_DIFFICULTIES[level].drill / 60} min training`}
+                      : `Each ${simMode === "conduit" ? "stretch" : "wave"} cleared · +${SIM_DIFFICULTIES[level].drill / 60} min training`}
                   </small>
                 )}
                 <small className="ark-sim-best">Best · {bestSimScore(level, undefined, simMode)}</small>
@@ -5759,7 +5760,7 @@ export default function ArkWalk(props: ArkWalkProps) {
           <p className="ark-sim-best">{simScreen.record ? "A new best on this device" : `Best · ${simScreen.best}`}</p>
           {simScreen.drilled > 0 && (
             <p className="ark-sim-drilled">
-              {simScreen.mode === "extraction" ? "The rescue" : "Your waves"} drilled the trainees: +{Math.round(simScreen.drilled / 60)} min of Security training each.
+              {simScreen.mode === "extraction" ? "The rescue" : simScreen.mode === "conduit" ? "The run" : "Your waves"} drilled the trainees: +{Math.round(simScreen.drilled / 60)} min of Security training each.
               {simScreen.graduates.length > 0 && ` Now soldiers: ${simScreen.graduates.join(", ")}.`}
             </p>
           )}
