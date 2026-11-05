@@ -9,6 +9,10 @@ import { drawPixelWorldSurface, PIXEL_WORLD_DAY_SECONDS } from "./ark-pixel-worl
 import {
   buildWalkLayout,
   sealedSideRooms,
+  hallFills,
+  DESK_BLOCK,
+  LIBRARY_STACKS,
+  LIBRARY_TABLES,
   compartmentAt,
   DOCK_BOARD,
   dockMoment,
@@ -240,8 +244,8 @@ export type ArkWalkProps = {
 const PIXEL_SCALE = 3;
 const EYE_HEIGHT = 1.6;
 // A drone, not a person: quick, and quicker still when hurried.
-const SPEED = 6;
-const SPRINT = 11;
+const SPEED = 8;
+const SPRINT = 15;
 /** Space fires the thrusters: hardest at once, spent in a third of a second (about four metres), then a moment to recharge. */
 const DASH_SPEED = 26;
 const DASH_SECONDS = 0.32;
@@ -281,7 +285,7 @@ function writeSpot(spot: DroneSpot) {
   }
 }
 /** The Law-Heart's radius at each stage, from Dormant Seed to Transcendent Star. */
-const STAR_RADII = [1, 1.4, 1.7, 1.9, 2.1, 2.3, 2.5];
+const STAR_RADII = [2.6, 3.5, 4.2, 4.8, 5.3, 5.8, 6.3];
 const HULL = 0.3;
 /** A team returning or launching within this many game seconds is shown leaving. */
 const FRESH_LAUNCH_SECONDS = 120;
@@ -1717,6 +1721,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
           fit(3.4, 0.7, 0.06, glow(screenColor), room.x0 + 4, 1.5, side * 5.62);
         }
       } else if (room.kind === "support") {
+        const growing = !dark && room.fill > 0;
         hear("tanks", room.x0 + 7, 1.5, towardWalls(-5.4, half));
         hear("fan", room.x0 + 7, room.height - 0.3, 0);
         // Four culture tanks keep the air breathable.
@@ -1746,8 +1751,8 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         addConsole(fit(2.8, 0.8, 0.06, glow(screenColor), room.x0 + 6.7, 1.6, 4.97));
         for (const level of [0.5, 1.3, 2.1]) {
           fit(3.8, 0.08, 0.6, solid(metalLight), room.x0 + 11.3, level, 6.4);
-          fit(3.8, 0.04, 0.04, glow(dark ? PALETTE.dark : "#ff9adf"), room.x0 + 11.3, level + 0.7, 6.4);
-          if (dark) continue;
+          fit(3.8, 0.04, 0.04, glow(growing ? "#ff9adf" : PALETTE.dark), room.x0 + 11.3, level + 0.7, 6.4);
+          if (!growing) continue;
           for (let leaf = 0; leaf < 8; leaf += 1) {
             fit(0.26, 0.24 + (leaf % 3) * 0.1, 0.3, solid(PALETTE.leaf), room.x0 + 9.75 + leaf * 0.45, level + 0.18, 6.35);
           }
@@ -1782,12 +1787,15 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         scene.add(board);
         addConsole(board);
         for (const by of [0.84, 3.36]) fit(6.2, 0.14, 0.12, solid(PALETTE.wood), room.x0 + 7, by, -6.9);
-        fit(0.8, 1.2, 0.6, solid(PALETTE.wood), room.x0 + 7, 0.6, -5.1);
-        for (const rowZ of [2, 3.6, 5.2]) {
-          for (const deskX of [3, 5.67, 8.33, 11]) {
-            fit(1.6, 0.75, 0.6, solid(PALETTE.wood), room.x0 + deskX, 0.375, rowZ);
-            fit(0.5, 0.04, 0.32, glow(screenColor), room.x0 + deskX, 0.77, rowZ);
-            fit(0.5, 0.45, 0.4, solid(metalLight), room.x0 + deskX, 0.22, rowZ + 0.55);
+        if (room.fill > 0) fit(0.8, 1.2, 0.6, solid(PALETTE.wood), room.x0 + 7, 0.6, -5.1);
+        for (let block = 0; block < room.fill; block += 1) {
+          for (const rowZ of [2, 3.6, 5.2]) {
+            for (const deskX of [3, 5.67, 8.33, 11]) {
+              const at = room.x0 + deskX + block * DESK_BLOCK;
+              fit(1.6, 0.75, 0.6, solid(PALETTE.wood), at, 0.375, rowZ);
+              fit(0.5, 0.04, 0.32, glow(screenColor), at, 0.77, rowZ);
+              fit(0.5, 0.45, 0.4, solid(metalLight), at, 0.22, rowZ + 0.55);
+            }
           }
         }
         // A globe of the world below, turning on its stand.
@@ -1808,9 +1816,9 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       put(0.4, UPPER_FLOOR, half * 2, bulkheadFaces(last, null, half * 2, 0, UPPER_FLOOR), endX, UPPER_FLOOR / 2, 0);
       return;
     }
-    const windowWidth = 12;
+    const windowWidth = 26;
     const windowLow = 1;
-    const windowHigh = 5.6;
+    const windowHigh = 9;
     const sideDepth = (half * 2 - windowWidth) / 2;
     put(0.4, last.height, sideDepth, bulkheadFaces(last, null, sideDepth, 0, last.height), endX, last.height / 2, -(windowWidth / 2 + sideDepth / 2));
     put(0.4, last.height, sideDepth, bulkheadFaces(last, null, sideDepth, 0, last.height), endX, last.height / 2, windowWidth / 2 + sideDepth / 2);
@@ -1820,7 +1828,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     bowGlass.position.set(endX, y0 + (windowLow + windowHigh) / 2, 0);
     bowGlass.rotation.y = -Math.PI / 2;
     scene.add(bowGlass);
-    for (const mullion of [-3, 0, 3]) put(0.2, windowHigh - windowLow, 0.12, trimMaterial, endX - 0.15, (windowLow + windowHigh) / 2, mullion);
+    for (const mullion of [-9, -4.5, 0, 4.5, 9]) put(0.2, windowHigh - windowLow, 0.12, trimMaterial, endX - 0.15, (windowLow + windowHigh) / 2, mullion);
   });
 
   /**
@@ -1838,7 +1846,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     const innerZ = core.z1 - wall;
     const innerX = core.x1 - cx - wall;
     const coreMetal = solid(tinted("#2a2638", accent, 0.08));
-    const levels: [number, number][] = [[0.9, 5.8], [UPPER_FLOOR + 0.9, UPPER_FLOOR + 5.4]];
+    const levels: [number, number][] = [[0.9, UPPER_FLOOR - 1], [UPPER_FLOOR + 0.9, height - 1.4]];
     const coreGlass = new THREE.MeshBasicMaterial({ map: glassTexture(tinted(spec.limb, "#ffffff", 0.3)), transparent: true, depthWrite: false, side: THREE.DoubleSide });
 
     const coreWall = (alongX: boolean, fixed: number, a0: number, a1: number, open0: number, open1: number) => {
@@ -1867,7 +1875,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         slab(0.18, tall, wall + 0.24, trimMaterial, opening.a1, y);
       }
     };
-    for (const side of [-1, 1]) coreWall(true, side * zWall, core.x0, core.x1, cx - 4.8, cx + 4.8);
+    for (const side of [-1, 1]) coreWall(true, side * zWall, core.x0, core.x1, cx - xWall + 1.4, cx + xWall - 1.4);
     for (const end of [-1, 1]) coreWall(false, cx + end * xWall, -innerZ, innerZ, -(innerZ - 1.2), innerZ - 1.2);
 
     // Hazard stripes round its foot on both levels, and its name over the end windows.
@@ -3383,7 +3391,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
 
     // Its walls: a partition shared with the room beside it, or a thick end wall.
     const before = deck.sideRooms.find((other) => Math.abs(other.x1 - (room.x0 - 0.2)) < 0.01);
-    const after = deck.sideRooms.some((other) => Math.abs(other.x0 - (room.x1 + 0.2)) < 0.01);
+    const after = deck.sideRooms.some((other) => Math.abs(other.x0 - (room.x1 + 0.2)) < 0.01 && other.z0 <= room.z0 + 0.01);
     const sternThick = before ? 0.2 : 0.4;
     put(sternThick, room.height, depth, [
       wallCut(key, room.height, depth, 0, room.height),
@@ -3811,38 +3819,71 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         break;
       }
       case "library": {
-        // Shelves of books, floor to ceiling, along the far wall and the stern wall.
-        const shelves: Part[] = [{ w: width - 0.2, h: 2.8, d: 0.04, x: cx, y: 1.4, z: z0 + 0.12, color: "#3a2616" }];
-        const sternFrom = z0 + 0.6;
-        const sternTo = z1 - 2.8;
-        for (let level = 0; level < 5; level += 1) {
-          const y = 0.1 + level * 0.55;
-          shelves.push({ w: width - 0.2, h: 0.04, d: 0.5, x: cx, y, z: z0 + 0.35, color: "#5a3a24" });
-          shelves.push({ w: 0.5, h: 0.04, d: sternTo - sternFrom, x: x0 + 0.35, y, z: (sternFrom + sternTo) / 2, color: "#5a3a24" });
-          shelves.push(...books(x0 + 0.15, x1 - 0.15, y + 0.02, z0 + 0.32, true, level * 13 + 1));
-          shelves.push(...books(sternFrom + 0.05, sternTo - 0.05, y + 0.02, x0 + 0.32, false, 70 + level * 11));
+        // The size of a university's: two storeys of shelves round the walls with a balcony
+        // along them, stacks on the floor, long reading tables. The shelves start bare and
+        // fill as people bring books aboard and write their own.
+        const filled = Math.min(1, props.crew.length / 30);
+        const stocked = (seed: number) => hash(seed * 3.1) < filled;
+        const shelfWood = "#5a3a24";
+        const backing = "#3a2616";
+        const shelves: Part[] = [];
+        const wallShelves = (from: number, to: number, at: number, alongX: boolean, base: number, seed: number) => {
+          const middle = (from + to) / 2;
+          const length = to - from;
+          shelves.push(alongX
+            ? { w: length, h: 4.4, d: 0.04, x: middle, y: base + 2.2, z: at - 0.23, color: backing }
+            : { w: 0.04, h: 4.4, d: length, x: at - 0.23, y: base + 2.2, z: middle, color: backing });
+          for (let level = 0; level < 8; level += 1) {
+            const y = base + 0.1 + level * 0.6;
+            shelves.push(alongX
+              ? { w: length, h: 0.04, d: 0.5, x: middle, y, z: at, color: shelfWood }
+              : { w: 0.5, h: 0.04, d: length, x: at, y, z: middle, color: shelfWood });
+            if (stocked(seed + level)) shelves.push(...books(from + 0.05, to - 0.05, y + 0.02, at - 0.03, alongX, seed + level * 7));
+          }
+        };
+        for (const [floor, base] of [[0, 0], [1, 5.3]] as const) {
+          wallShelves(x0 + 0.1, x1 - 0.1, z0 + 0.35, true, base, 1 + floor * 40);
+          wallShelves(z0 + 0.6, z1 - 1, x0 + 0.35, false, base, 90 + floor * 40);
         }
+        // Stacks out on the floor, shelved on both faces.
+        LIBRARY_STACKS.forEach((row, stack) => {
+          const stackZ = z0 + row;
+          shelves.push({ w: 5, h: 3.4, d: 0.14, x: x0 + 4.1, y: 1.7, z: stackZ, color: backing });
+          for (let level = 0; level < 5; level += 1) {
+            const y = 0.1 + level * 0.64;
+            for (const face of [-1, 1]) {
+              shelves.push({ w: 5, h: 0.04, d: 0.28, x: x0 + 4.1, y, z: stackZ + face * 0.2, color: shelfWood });
+              if (stocked(200 + stack * 11 + level + face)) shelves.push(...books(x0 + 1.65, x0 + 6.55, y + 0.02, stackZ + face * 0.2, true, 300 + stack * 13 + level * 5 + face));
+            }
+          }
+        });
         const shelving = merged(shelves);
-        if (shelving) label(shelving, "The library: books carried aboard, and books written here");
-        // The reading table: lamps, open books, two chairs.
-        const tableX = x0 + 3.1;
-        const tableZ = z0 + 3;
-        put(1.8, 0.06, 1.2, solid(PALETTE.wood), tableX, 0.76, tableZ);
-        for (const dx of [-0.8, 0.8]) for (const dz of [-0.5, 0.5]) put(0.06, 0.73, 0.06, solid(PALETTE.wood), tableX + dx, 0.37, tableZ + dz);
-        for (const lampX of [tableX - 0.5, tableX + 0.5]) {
-          put(0.03, 0.3, 0.03, solid(metalLight), lampX, 0.94, tableZ - 0.35);
-          put(0.18, 0.12, 0.18, glow("#ffe2a8"), lampX, 1.12, tableZ - 0.35);
-        }
-        put(0.42, 0.02, 0.3, solid("#efe6d2"), tableX - 0.3, 0.8, tableZ + 0.25);
-        put(0.42, 0.02, 0.3, solid("#efe6d2"), tableX + 0.35, 0.8, tableZ - 0.15);
-        for (const [seatZ, back] of [[z0 + 4.15, 0.22], [z0 + 1.85, -0.22]]) {
-          put(0.45, 0.06, 0.45, solid(colorAt(2)), tableX, 0.45, seatZ);
-          put(0.45, 0.5, 0.06, solid(colorAt(2)), tableX, 0.72, seatZ + back);
+        if (shelving) label(shelving, filled < 0.15 ? "The library: mostly empty shelves, for now" : "The library: books carried aboard, and books written here");
+        // The balcony along the upper shelves, with its rail.
+        put(width - 0.2, 0.12, 1.4, solid(shelfWood), cx, 5.2, z0 + 1.2);
+        put(1.4, 0.12, z1 - z0 - 2.6, solid(shelfWood), x0 + 1.1, 5.2, (z0 + 2 + z1 - 1) / 2);
+        put(width - 1.9, 0.06, 0.06, solid(metalLight), cx + 0.85, 6.2, z0 + 1.88);
+        put(0.06, 0.06, z1 - z0 - 3, solid(metalLight), x0 + 1.78, 6.2, (z0 + 2 + z1 - 1) / 2);
+        for (let post = 0; post < 6; post += 1) put(0.06, 1, 0.06, solid(metalLight), x0 + 2 + post * 3, 5.7, z0 + 1.88);
+        // The long reading tables: lamps down the middle, chairs either side.
+        for (const row of LIBRARY_TABLES) {
+          const tableZ = z0 + row;
+          const tableX = x0 + 11.7;
+          put(4.4, 0.06, 1.2, solid(PALETTE.wood), tableX, 0.76, tableZ);
+          for (const dx of [-2, 2]) for (const dz of [-0.5, 0.5]) put(0.06, 0.73, 0.06, solid(PALETTE.wood), tableX + dx, 0.37, tableZ + dz);
+          for (const seat of [-1.5, 0, 1.5]) {
+            put(0.03, 0.3, 0.03, solid(metalLight), tableX + seat, 0.94, tableZ);
+            put(0.18, 0.12, 0.18, glow("#ffe2a8"), tableX + seat, 1.12, tableZ);
+            for (const side of [-1, 1]) {
+              put(0.45, 0.06, 0.45, solid(colorAt(2)), tableX + seat, 0.45, tableZ + side * 0.95);
+              put(0.45, 0.5, 0.06, solid(colorAt(2)), tableX + seat, 0.72, tableZ + side * 1.17);
+            }
+          }
         }
         // A globe of the world below on its stand, by the door.
-        put(0.06, 0.9, 0.06, solid(PALETTE.wood), x1 - 0.6, 0.45, z1 - 0.8);
+        put(0.06, 0.9, 0.06, solid(PALETTE.wood), x1 - 1.6, 0.45, z1 - 1.6);
         const globe = inert(new THREE.Mesh(new THREE.IcosahedronGeometry(0.3, 1), solid(tinted(accent, PALETTE.dark, 0.25))));
-        globe.position.set(x1 - 0.6, y0 + 1.2, z1 - 0.8);
+        globe.position.set(x1 - 1.6, y0 + 1.2, z1 - 1.6);
         scene.add(globe);
         animated.push((time) => { globe.rotation.y = time * 0.0005; });
         break;
@@ -4690,6 +4731,7 @@ export default function ArkWalk(props: ArkWalkProps) {
     const layout = buildWalkLayout(initial.rooms.map((room) => ({ kind: room.kind, label: room.label, online: room.online })), {
       residents: preview ?? initial.crew.length,
       sealed: preview === null ? sealedSideRooms(initial.crew, reconWorking) : [],
+      fills: preview === null ? hallFills(initial.crew) : {},
       armory: Boolean(initial.armory?.unlocked),
     });
     const decor = planDecor(layout, preview ?? initial.crew.length, {

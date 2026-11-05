@@ -78,7 +78,7 @@ export const RECORD_PLACES: readonly RecordPlace[] = [
   // ---- Lower deck ----
   {
     id: "seed-vault", label: "Seeds from Viridia's vault", deck: 1, section: "support", side: "farm",
-    mount: "far", along: 12.1, height: 1.8, form: "case", item: "seeds", records: ["cinderwake.command-recognition"], brought: true,
+    mount: "far", along: 23.4, height: 1.8, form: "case", item: "seeds", records: ["cinderwake.command-recognition"], brought: true,
   },
   {
     id: "recalibration-vault", label: "The Recalibration Vault", deck: 1, section: "chamber",

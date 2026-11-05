@@ -13,6 +13,8 @@ import {
   dockMoment,
   wallPieces,
   HALF_DEPTH,
+  hallFills,
+  sealedSideRooms,
   INNER_WALL,
   sideRoomAt,
   type WalkDeck,
@@ -232,4 +234,28 @@ test("the rooms behind a hall sit behind its wall, inside its length, and never 
       }
     }
   }
+});
+
+test("rooms wait for someone to need them, and halls fill with the crew", () => {
+  const nobody: { role: string; ageGroup?: string | null }[] = [];
+  assert.deepEqual(sealedSideRooms(nobody, false), ["farm", "classroom", "playroom", "simulator", "briefing"]);
+  assert.deepEqual(sealedSideRooms([{ role: "farmer" }, { role: "teacher" }, { role: "civilian", ageGroup: "child" }], true), []);
+  assert.deepEqual(hallFills(nobody), { education: 0, support: 0 }, "no desks before a teacher, nothing growing before a farmer");
+  const crew = (count: number) => Array.from({ length: count }, (_, index) => ({ role: index === 0 ? "teacher" : "farmer" }));
+  assert.deepEqual([crew(5), crew(12), crew(30)].map((members) => hallFills(members).education), [1, 2, 3], "more desks as more people come aboard");
+  const rooms = [...new Set<WalkRoomKind>([...UPPER_DECK, ...LOWER_DECK])].map((kind) => ({ kind, label: kind, online: true }));
+  const bare = buildWalkLayout(rooms, { residents: 2, sealed: ["farm"], fills: { education: 0 } });
+  assert.equal(bare.decks[1].sideRooms.find((room) => room.kind === "farm")?.open, false);
+  assert.equal(bare.decks[1].compartments.find((room) => room.kind === "education")?.fill, 0);
+  const full = buildWalkLayout(rooms, { residents: 40, fills: { education: 3 } });
+  assert.ok(full.decks[1].blockers.length > bare.decks[1].blockers.length, "desks people have to walk round");
+});
+
+test("the Ark is big: about 150 metres long, 40 across, and the core takes up its middle", () => {
+  const rooms = [...new Set<WalkRoomKind>([...UPPER_DECK, ...LOWER_DECK])].map((kind) => ({ kind, label: kind, online: true }));
+  const layout = buildWalkLayout(rooms, { residents: 30 });
+  const [upper, lower] = layout.decks;
+  assert.ok(upper.compartments.at(-1)!.x1 > 150);
+  assert.equal(upper.compartments.at(-1)!.x1, lower.compartments.at(-1)!.x1, "both decks end together");
+  assert.ok(layout.core.x1 - layout.core.x0 >= 20 && layout.core.z1 - layout.core.z0 >= 26);
 });
