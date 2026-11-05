@@ -97,7 +97,7 @@ export const RECORD_PLACES: readonly RecordPlace[] = [
   // Launch after launch, a wall plate works loose. Nothing points at it; it just happens.
   {
     id: "worn-plate", label: "A wall plate peeling away", deck: 1, section: "hangar",
-    mount: "port", along: 17.5, height: 2, form: "peel", records: ["fabrication.preconcordance-keel"],
+    mount: "port", along: 36, height: 2.4, form: "peel", records: ["fabrication.preconcordance-keel"],
   },
   {
     id: "dead-relay", label: "The relay from beyond the chart", deck: 1, section: "hangar", side: "briefing",
