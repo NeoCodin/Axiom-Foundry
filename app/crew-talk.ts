@@ -161,7 +161,7 @@ function secretLines(hook: string, context: TalkContext): string[] | null {
  */
 const RUMOURS: readonly (readonly [string, string])[] = [
   ["helion.impossible-registry", "The Helion beacon knew this ship. Two hundred years before it was supposedly built. Called it Iteration Nineteen."],
-  ["fabrication.preconcordance-keel", "They say the metal under the Fabrication floor is older than the way it was made. And the room grew around something that isn't there any more."],
+  ["fabrication.preconcordance-keel", "A plate came off the Recon Dock wall. They say the metal behind it is older than the way it was made. And the room grew around something that isn't there any more."],
   ["archive.construction-zero", "Apparently there's no record of this ship ever being built. The oldest line just says reconstruction eighteen hundred and forty-two."],
   ["pelagos.returning-salt", "There's Pelagos salt in the keel, and one layer of it is from ninety-one years from now. That's what they're saying."],
   ["foreman.message-seven", "There's a recording in the Recalibration Vault. Some Foreman, the seventh one. People say it sounds like the drone."],
@@ -185,16 +185,18 @@ const RUMOURS: readonly (readonly [string, string])[] = [
  * campaigns, or Lyra's making, are out.
  */
 export type CrewMood = "grateful" | "uneasy" | "guarded" | "haunted";
+/** Worlds saved on reaching Nox: until then the crew trust the Ark, and the records stay between AXIOM and Lyra. */
+const TRUST_HOLDS_UNTIL = 4;
 export function crewMood(context: TalkContext): CrewMood {
+  if (context.worldsSaved < TRUST_HOLDS_UNTIL) return "grateful";
   const found = new Set(context.discovered);
   if (found.has("vesper.revision-ledger") || found.has("archive.lyra-composite-index")) return "haunted";
-  if (found.has("archive.suppressed-correlation")) return "guarded";
-  const contradictions = RUMOURS.filter(([id]) => found.has(id)).length;
-  return contradictions >= 2 ? "uneasy" : "grateful";
+  return found.has("archive.suppressed-correlation") ? "guarded" : "uneasy";
 }
 
 /** The newest things people are whispering about, newest first. */
 export function rumours(context: TalkContext, count = 2) {
+  if (context.worldsSaved < TRUST_HOLDS_UNTIL) return [];
   const found = new Set(context.discovered);
   return RUMOURS.filter(([id]) => found.has(id)).map(([, text]) => text).reverse().slice(0, count);
 }

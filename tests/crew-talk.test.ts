@@ -73,20 +73,21 @@ test("the Altered can be asked about the Null; children and the hurt talk differ
 test("rumours follow the records the Ark has found, newest first", () => {
   assert.deepEqual(rumours(early), []);
   assert.ok(!topics(person()).includes("rumour"), "nothing to whisper about yet");
-  const later = { ...early, discovered: ["helion.impossible-registry", "fabrication.preconcordance-keel"] };
-  assert.match(rumours(later)[0], /Fabrication floor/);
+  const later = { ...early, worldsSaved: 4, discovered: ["helion.impossible-registry", "fabrication.preconcordance-keel"] };
+  assert.deepEqual(rumours({ ...later, worldsSaved: 3 }), [], "until Nox the records stay between AXIOM and Lyra");
+  assert.match(rumours(later)[0], /Recon Dock wall/);
   assert.match(rumours(later)[1], /beacon knew this ship/);
   assert.match(answer(person(), "rumour", later), /older than the way it was made/);
 });
 
 test("the crew grow wary of the drone as the truth comes out", () => {
-  const at = (discovered: string[]): TalkContext => ({ ...early, discovered });
-  const grateful = at(["lyra.official-brief", "helion.impossible-registry"]);
+  const at = (discovered: string[]): TalkContext => ({ ...early, worldsSaved: 4, discovered });
+  const grateful = { ...at(["helion.impossible-registry", "archive.construction-zero", "ilyra.axiom-wake"]), worldsSaved: 3 };
   const uneasy = at(["helion.impossible-registry", "archive.construction-zero"]);
   const guarded = at(["helion.impossible-registry", "archive.suppressed-correlation"]);
   const haunted = at(["vesper.revision-ledger"]);
-  assert.equal(crewMood(grateful), "grateful", "one odd record is just a story");
-  assert.equal(crewMood(uneasy), "uneasy");
+  assert.equal(crewMood(grateful), "grateful", "whatever has been found, trust holds until Nox");
+  assert.equal(crewMood(uneasy), "uneasy", "the second-to-last world");
   assert.equal(crewMood(guarded), "guarded", "once it is plain the Foundry feeds the Null");
   assert.equal(crewMood(haunted), "haunted");
   assert.equal(crewMood(at(["archive.lyra-composite-index"])), "haunted", "or once Lyra's making is out");
@@ -127,7 +128,7 @@ test("busy crew say a word in passing; two crew have a short exchange", () => {
   const pair = chatter(person(), person({ name: "Tobin Ash", origin: "cinder", role: "engineer" }), early, 0);
   assert.ok(pair.length >= 2 && pair.length <= 3);
   assert.deepEqual([...new Set(pair.map((line) => line.speaker))].sort(), ["Ama", "Tobin"]);
-  const gossip = chatter(person(), person({ name: "Tobin Ash" }), { ...early, discovered: ["helion.impossible-registry"] }, 1);
+  const gossip = chatter(person(), person({ name: "Tobin Ash" }), { ...early, worldsSaved: 4, discovered: ["helion.impossible-registry"] }, 1);
   assert.match(gossip[0].text, /Have you heard\? .*beacon knew this ship/);
   assert.ok(standInProfile("Crew 3", "engineer").origin.length > 0, "the QA crew can talk too");
 });

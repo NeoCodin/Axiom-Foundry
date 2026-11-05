@@ -532,8 +532,9 @@ function ArkDeck({
                 {
                   kind: "hangar",
                   label: "Recon Dock",
-                  // The dock (with the recon ships and the simulator behind it) wakes with expeditions.
-                  online: Boolean(onOpenExpeditions),
+                  // The rescue shuttle flies from here, so the dock opens with the SOS. Its desk, and
+                  // the simulator and briefing room behind it, wake with expeditions.
+                  online: beaconOnline || crew.length > 0 || Boolean(onOpenExpeditions),
                   interactive: Boolean(onOpenExpeditions),
                   onActivate: () => onOpenExpeditions?.(),
                 },

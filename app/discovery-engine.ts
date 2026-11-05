@@ -19,10 +19,14 @@ function requirementsMet(
   return (fragment.unlock.requires ?? []).every((id) => discovered.has(id));
 }
 
+/** What has happened that a record can come from without a search. */
+export type StoryEvents = { peopleAboard: boolean; flights: number };
+
 export function syncAutomaticDiscoveries(
   discoveryIds: readonly string[],
   worldsSaved: number,
   orientationComplete: boolean,
+  events: StoryEvents = { peopleAboard: false, flights: 0 },
 ) {
   const discovered = new Set<string>(discoveryIds);
   let changed = true;
@@ -37,10 +41,12 @@ export function syncAutomaticDiscoveries(
       const unlock = fragment.unlock;
       const shouldUnlock =
         unlock.kind === "start"
-          ? orientationComplete
+          ? orientationComplete && (unlock.event !== "first-people-aboard" || events.peopleAboard || worldsSaved >= 2)
           : unlock.kind === "saved-worlds"
             ? worldsSaved >= unlock.count
-            : false;
+            : unlock.kind === "flight-wear"
+              ? events.flights >= unlock.flights || worldsSaved >= unlock.worldsSaved
+              : false;
 
       if (shouldUnlock) {
         discovered.add(fragment.id);
@@ -71,9 +77,11 @@ export function getStoryRecordsAtArrival(worldIndex: number) {
       }
     }
   };
-  sweep((fragment) => fragment.unlock.kind === "start");
+  sweep(({ unlock }) => unlock.kind === "start" && unlock.event === "orientation-complete");
   for (let saved = 1; saved <= worldIndex; saved += 1) {
-    sweep((fragment) => fragment.unlock.kind !== "start" && fragment.unlock.kind !== "saved-worlds");
+    // People come aboard during Pelagos (saved 2), and launch wear shows during Viridia (saved 3).
+    if (saved >= 2) sweep(({ unlock }) => unlock.kind === "start");
+    sweep(({ unlock }) => unlock.kind === "archive-action" || unlock.kind === "room-action" || unlock.kind === "expedition-discovery" || (unlock.kind === "flight-wear" && saved >= 3));
     sweep(({ unlock }) => unlock.kind === "saved-worlds" && unlock.count <= saved);
   }
   return DISCOVERY_FRAGMENTS.filter((fragment) => found.has(fragment.id)).map((fragment) => fragment.id);

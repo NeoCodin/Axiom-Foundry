@@ -8,6 +8,7 @@ import type { ArkCutawayRoomKind } from "./ark-cutaway";
 import { drawPixelWorldSurface, PIXEL_WORLD_DAY_SECONDS } from "./ark-pixel-world";
 import {
   buildWalkLayout,
+  sealedSideRooms,
   compartmentAt,
   DOCK_BOARD,
   dockMoment,
@@ -1418,7 +1419,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
           put(0.24, DOOR_HEIGHT - 0.4, 0.06, glow(tinted(PALETTE.alert, PALETTE.dark, 0.35)), wx, DOOR_HEIGHT / 2, 0);
           for (const rung of [1.1, 2.3, 3.5]) put(0.24, 0.1, DOOR_HALF_WIDTH * 2 - 0.4, solid(PALETTE.metalLight), wx, rung, 0);
           for (const facing of [-1, 1]) {
-            const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.26), new THREE.MeshBasicMaterial({ map: signTexture("OFFLINE · NO POWER", PALETTE.alert) }));
+            const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.26), new THREE.MeshBasicMaterial({ map: signTexture("OFFLINE", PALETTE.alert) }));
             sign.position.set(wx + facing * 0.13, y0 + 2.9, 0);
             sign.rotation.y = facing * Math.PI / 2;
             sign.raycast = () => {};
@@ -2058,7 +2059,8 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     laidUp.ramp.rotation.x = 0.42;
     scene.add(laidUp.group);
     // The second ship is the way down for the reclamation prototype.
-    interactables.push({ kind: "planet", object: laidUp.group, label: "Recon ship two · E · fly the drone down to Pelagos (prototype)" });
+    // Once the first witnesses are aboard, to tell AXIOM what is down there.
+    if (props.crew.length > 0) interactables.push({ kind: "planet", object: laidUp.group, label: "Recon ship two · E · fly the drone down to Pelagos (prototype)" });
     const serviceDrone = droneModel(PALETTE.amber);
     scene.add(serviceDrone);
     const flyer = reconShip(true);
@@ -4352,20 +4354,14 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       });
       const screen = () => new THREE.MeshBasicMaterial({ map: recordText });
       switch (place.form) {
-        case "seam": {
-          // A crack across the deck plate with light coming up through it; once searched, a plate lifted out beside it.
-          for (let step = 0; step < 8; step += 1) {
-            const at = { x: (hash(step * 3.7) - 0.5) * 0.35, z: -2.1 + step * 0.6, turn: (hash(step * 5.3) - 0.5) * 0.6 };
-            const edge = part(new THREE.BoxGeometry(0.2, 0.014, 0.7), solid(PALETTE.dark), at.x, 0.012, at.z);
-            const crack = part(new THREE.BoxGeometry(0.06, 0.03, 0.66), aura, at.x, 0.02, at.z);
-            edge.rotation.y = at.turn;
-            crack.rotation.y = at.turn;
-          }
-          if (lit) {
-            part(new THREE.BoxGeometry(1.1, 0.02, 0.9), solid(PALETTE.dark), 0.75, 0.012, 0.3);
-            const plate = part(new THREE.BoxGeometry(1.1, 0.06, 0.9), solid(metalLight), 1.55, 0.3, 0.3);
-            plate.rotation.z = 0.55;
-          }
+        case "peel": {
+          // A wall plate worn loose by the launches, curling off metal far older than the ship.
+          part(new THREE.BoxGeometry(1.9, 1.5, 0.04), solid(PALETTE.dark), 0, 0, 0.02);
+          part(new THREE.BoxGeometry(1.5, 1.1, 0.05), solid("#6a5a48"), 0, -0.1, 0.03);
+          part(new THREE.BoxGeometry(1.4, 0.03, 0.06), aura, 0, 0.3, 0.05);
+          const plate = part(new THREE.BoxGeometry(1.9, 0.9, 0.05), solid(metalLight), 0.1, 0.72, 0.34);
+          plate.rotation.x = -0.75;
+          plate.rotation.z = 0.08;
           break;
         }
         case "plate": {
@@ -4690,8 +4686,10 @@ export default function ArkWalk(props: ArkWalkProps) {
     // People make the ship theirs: the more aboard, the more cabins are lived in and the more is put up.
     // ?qa=1&people=N previews a crew of N.
     const preview = search.has("qa") && search.has("people") ? Number(search.get("people")) : null;
+    const reconWorking = initial.rooms.some((room) => room.kind === "hangar" && room.interactive);
     const layout = buildWalkLayout(initial.rooms.map((room) => ({ kind: room.kind, label: room.label, online: room.online })), {
       residents: preview ?? initial.crew.length,
+      sealed: preview === null ? sealedSideRooms(initial.crew, reconWorking) : [],
       armory: Boolean(initial.armory?.unlocked),
     });
     const decor = planDecor(layout, preview ?? initial.crew.length, {

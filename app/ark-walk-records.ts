@@ -1,8 +1,8 @@
 /*
  * Where the Ark keeps its story, for the drone view. Every record the Lore Archive
  * can hold has a place aboard. What the ship itself holds is there from the start
- * (the boot buffer, the Recalibration Vault, the Memory Archive's terminal), or shows
- * once the story points at it (a seam the Fabrication refit opened, scratches in the
+ * (the Recalibration Vault, the Memory Archive's terminal), or shows once it has
+ * happened (a Recon Dock wall plate worn loose by the launches, scratches in the
  * vault's wall). What was found on a world or by a recon team is brought aboard, and
  * nothing shows in its place until then: the Helion beacon's registry and Vesper's
  * ledger either side of the bridge door, a core from Pelagos's Gravity Keel in the
@@ -15,8 +15,8 @@
 import { DISCOVERY_FRAGMENTS, type DiscoveryFragment, type DiscoveryId, type RoomId } from "./discovery-content.ts";
 import { HALF_DEPTH, type SideRoomKind, type WalkLayout, type WalkRoomKind } from "./ark-walk-layout.ts";
 
-/** How a place looks: a crack in the floor, a wall screen, a case on the wall, the vault door, the archive's terminal, carved marks. */
-export type RecordForm = "seam" | "plate" | "case" | "vault" | "terminal" | "scar";
+/** How a place looks: a wall plate peeling away, a wall screen, a case on the wall, the vault door, the archive's terminal, carved marks. */
+export type RecordForm = "peel" | "plate" | "case" | "vault" | "terminal" | "scar";
 /** What a case holds. */
 export type RecordItem = "salt" | "prism" | "seeds" | "relay" | "bloom" | "origin";
 
@@ -54,16 +54,8 @@ export type RecordPlace = {
 export const RECORD_PLACES: readonly RecordPlace[] = [
   // ---- Upper deck ----
   {
-    id: "foundation-seam", label: "A seam in the deck plate", deck: 0, section: "fabrication",
-    mount: "floor", along: 9, across: 0, height: 0, form: "seam", records: ["fabrication.preconcordance-keel"],
-  },
-  {
     id: "keel-sample", label: "A core cut from Pelagos's Gravity Keel", deck: 0, section: "fabrication", side: "workshop",
     mount: "far", along: 8, height: 1.5, form: "case", item: "salt", records: ["pelagos.returning-salt"], brought: true,
-  },
-  {
-    id: "boot-buffer", label: "Boot buffer A", deck: 0, section: "chamber",
-    mount: "port", along: 6.2, height: 1.7, form: "plate", records: ["core.welcome-back"],
   },
   // What the drones bring back gets studied in the labs.
   {
@@ -100,7 +92,12 @@ export const RECORD_PLACES: readonly RecordPlace[] = [
   {
     id: "memory-archive", label: "The Memory Archive", deck: 1, section: "education", side: "library",
     mount: "bow", across: 4.4, height: 1.4, form: "terminal", archive: true,
-    records: ["lyra.official-brief", "archive.construction-zero", "archive.suppressed-correlation", "archive.lyra-composite-index", "lyra.private-amendment"],
+    records: ["lyra.official-brief", "core.welcome-back", "archive.construction-zero", "archive.suppressed-correlation", "archive.lyra-composite-index", "lyra.private-amendment"],
+  },
+  // Launch after launch, a wall plate works loose. Nothing points at it; it just happens.
+  {
+    id: "worn-plate", label: "A wall plate peeling away", deck: 1, section: "hangar",
+    mount: "port", along: 17.5, height: 2, form: "peel", records: ["fabrication.preconcordance-keel"],
   },
   {
     id: "dead-relay", label: "The relay from beyond the chart", deck: 1, section: "hangar", side: "briefing",
@@ -171,10 +168,10 @@ export function placeState(
   const found = place.records.filter((id) => have.has(id)).map((id) => FRAGMENTS.get(id)!).filter(Boolean);
   const search = searchRecordId !== null && (place.records as readonly string[]).includes(searchRecordId);
   const crossIndex = Boolean(place.archive && crossIndexReady);
-  // What was brought aboard shows once it is; the boot buffer, the vault and the archive
-  // are part of the ship; a seam shows once the story points at it, and the scratches
-  // once Foreman Seven has said what they are.
-  const shipPart = !place.brought && !place.appearsWith && place.form !== "seam" && place.form !== "scar";
+  // What was brought aboard shows once it is; the vault and the archive are part of the
+  // ship; the peeling plate shows once it has happened, and the scratches once Foreman
+  // Seven has said what they are.
+  const shipPart = !place.brought && !place.appearsWith && place.form !== "peel" && place.form !== "scar";
   const visible = found.length > 0 || search || crossIndex || shipPart || Boolean(place.appearsWith && have.has(place.appearsWith));
   return { found, search, crossIndex, visible };
 }

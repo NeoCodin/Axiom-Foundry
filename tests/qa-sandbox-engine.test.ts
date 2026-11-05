@@ -198,9 +198,10 @@ test("QA completes only the active Research project when requested", () => {
 test("jumping to a world brings the story a player would have brought there", () => {
   const records = (index: number) => createQaCheckpoint(index, 1_000).living.discoveredLore;
   const mood = (index: number) => crewMood({ worldId: CAMPAIGN_WORLD_IDS[index], worldsSaved: index, discovered: records(index) });
-  assert.deepEqual(records(1), ["lyra.official-brief", "core.welcome-back", "helion.impossible-registry"], "reaching Pelagos");
-  assert.ok(records(2).includes("archive.construction-zero") && records(2).includes("pelagos.returning-salt"), "the searches made on Pelagos, and what leaving it gave");
-  assert.ok(records(3).includes("cinderwake.command-recognition"));
+  assert.deepEqual(records(1), ["lyra.official-brief", "helion.impossible-registry"], "reaching Pelagos, with nobody aboard yet");
+  assert.ok(records(2).includes("core.welcome-back") && records(2).includes("pelagos.returning-salt"), "her greeting once people came aboard, and what leaving Pelagos gave");
+  assert.ok(!records(2).includes("fabrication.preconcordance-keel"), "the dock hasn't worn yet");
+  assert.ok(records(3).includes("cinderwake.command-recognition") && records(3).includes("archive.construction-zero"));
   assert.ok(records(4).includes("ilyra.axiom-wake"));
   assert.ok(records(5).includes("orison.borrowed-childhoods"));
   assert.ok(!records(5).includes("vesper.revision-ledger"), "nothing from a world not yet saved");
@@ -212,5 +213,5 @@ test("jumping to a world brings the story a player would have brought there", ()
       assert.ok((fragment.unlock.requires ?? []).every((needed) => records(index).includes(needed)), `${id}: what it needs is there too`);
     }
   }
-  assert.deepEqual([1, 2, 3, 4, 5].map(mood), ["grateful", "uneasy", "uneasy", "uneasy", "guarded"], "the crew follow the story");
+  assert.deepEqual([1, 2, 3, 4, 5].map(mood), ["grateful", "grateful", "grateful", "uneasy", "guarded"], "trust holds until Nox");
 });

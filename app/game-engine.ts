@@ -8,7 +8,7 @@ import {
   syncLivingFoundryState,
   type LivingFoundryState,
 } from "./living-foundry-engine.ts";
-import { syncAutomaticDiscoveries } from "./discovery-engine.ts";
+import { syncAutomaticDiscoveries, type StoryEvents } from "./discovery-engine.ts";
 import { getResonantFlux, type PulseJudgement } from "./law-heart-pulse.ts";
 import {
   abandonStrandedParty,
@@ -5602,6 +5602,14 @@ export function getPassiveSalvagePerSecond(state: GameState) {
   );
 }
 
+/** What has happened so far that the story's records can come from: a flight is a shuttle rescue or a recon mission. */
+export function getStoryEvents(state: GameState): StoryEvents {
+  return {
+    peopleAboard: state.survivors.survivors.length > 0,
+    flights: state.survivors.signalsResolved + state.expeditions.stats.completed,
+  };
+}
+
 export function simulateGame(
   state: GameState,
   elapsedSeconds: number,
@@ -6036,6 +6044,12 @@ export function simulateGame(
         }
       }
     }
+  }
+  // Records that come from what has happened: the first people aboard, launch wear on the dock.
+  const loreIds = syncAutomaticDiscoveries(next.living.discoveredLore, next.missions.worldsSaved, next.settings.tutorialComplete, getStoryEvents(next));
+  if (loreIds.length > next.living.discoveredLore.length) {
+    if (next === state) next = cloneGameState(next);
+    next.living = grantLivingFoundryRewards(next.living, { loreIds });
   }
   return next;
 }

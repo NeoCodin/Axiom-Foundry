@@ -452,15 +452,30 @@ function buildDeck(
 }
 
 /**
+ * Rooms wait for someone to need them: the farm its first farmer, the classroom its first
+ * teacher, the playroom its first child, and the simulator and briefing room the recon teams.
+ */
+export function sealedSideRooms(crew: readonly { role: string; ageGroup?: string | null }[], reconWorking: boolean) {
+  const sealed: SideRoomKind[] = [];
+  if (!crew.some((member) => member.role === "farmer")) sealed.push("farm");
+  if (!crew.some((member) => member.role === "teacher")) sealed.push("classroom");
+  if (!crew.some((member) => member.ageGroup === "child")) sealed.push("playroom");
+  if (!reconWorking) sealed.push("simulator", "briefing");
+  return sealed;
+}
+
+/**
  * The ship for this crew: cabins are lived in once enough people are aboard, the
- * galley whenever Habitation is, and the Armory once it has been unlocked.
+ * galley whenever Habitation is, the Armory once it has been unlocked, and the rooms
+ * in sealed once someone needs them.
  */
 export function buildWalkLayout(
   rooms: readonly { kind: WalkRoomKind; label: string; online: boolean }[],
-  { residents = 0, armory = false }: { residents?: number; armory?: boolean } = {},
+  { residents = 0, armory = false, sealed = [] }: { residents?: number; armory?: boolean; sealed?: readonly SideRoomKind[] } = {},
 ): WalkLayout {
   const byKind = new Map(rooms.map((room) => [room.kind, room]));
   const opens = (plan: SideRoomPlan) => {
+    if (sealed.includes(plan.kind)) return false;
     if (plan.kind === "cabin") return residents >= (CABIN_OPENS_AT[Number(plan.id.split("-")[1])] ?? Infinity);
     return plan.kind === "armory" ? armory : true;
   };

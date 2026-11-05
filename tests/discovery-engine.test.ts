@@ -16,26 +16,36 @@ import { ROOM_DEFINITIONS } from "../app/living-foundry-engine.ts";
 
 test("orientation and saved worlds reveal only the next supported truths", () => {
   const started = syncAutomaticDiscoveries([], 0, true);
-  assert.deepEqual(started, ["lyra.official-brief", "core.welcome-back"]);
+  assert.deepEqual(started, ["lyra.official-brief"]);
 
   const helion = syncAutomaticDiscoveries(started, 1, true);
   assert.ok(helion.includes("helion.impossible-registry"));
   assert.equal(helion.includes("archive.construction-zero"), false);
+  assert.equal(helion.includes("core.welcome-back"), false, "her greeting waits for people aboard");
+  assert.ok(syncAutomaticDiscoveries(helion, 1, true, { peopleAboard: true, flights: 1 }).includes("core.welcome-back"));
+});
+
+test("launch wear exposes the alloy after ten flights, and by Nox at the latest", () => {
+  const keel = "fabrication.preconcordance-keel";
+  const found = syncAutomaticDiscoveries([], 1, true);
+  assert.equal(syncAutomaticDiscoveries(found, 3, true, { peopleAboard: true, flights: 9 }).includes(keel), false);
+  assert.ok(syncAutomaticDiscoveries(found, 3, true, { peopleAboard: true, flights: 10 }).includes(keel));
+  assert.ok(syncAutomaticDiscoveries(found, 4, true).includes(keel), "it can't be missed");
 });
 
 test("room investigations respect requirements and room level", () => {
   const discovered = [
     "lyra.official-brief",
-    "core.welcome-back",
     "helion.impossible-registry",
+    "pelagos.returning-salt",
   ];
   assert.equal(
-    getNextRoomDiscovery(discovered, "fabrication-floor", 1),
+    getNextRoomDiscovery(discovered, "recalibration-vault", 0),
     null,
   );
   assert.equal(
-    getNextRoomDiscovery(discovered, "fabrication-floor", 2)?.id,
-    "fabrication.preconcordance-keel",
+    getNextRoomDiscovery(discovered, "recalibration-vault", 1)?.id,
+    "foreman.message-seven",
   );
 });
 
@@ -77,15 +87,14 @@ test("doctrine choices unlock from discoveries rather than timers", () => {
 });
 
 test("the room the story is waiting on is named, and searchable once reinforced", () => {
-  const discovered = syncAutomaticDiscoveries([], 1, true);
-  const rooms = (level: number) => [{ id: "fabrication-floor" as const, level }];
-  const sealed = getRoomInvestigation(discovered, [{ id: "fabrication-floor", level: 0 }]);
-  assert.equal(sealed?.fragment.id, "fabrication.preconcordance-keel");
+  const discovered = syncAutomaticDiscoveries([], 2, true);
+  const rooms = (level: number) => [{ id: "recalibration-vault" as const, level }];
+  const sealed = getRoomInvestigation(discovered, rooms(0));
+  assert.equal(sealed?.fragment.id, "foreman.message-seven");
   assert.equal(sealed?.ready, false);
-  assert.equal(getRoomInvestigation(discovered, rooms(1))?.ready, false, "the seam needs a reinforced floor");
-  const ready = getRoomInvestigation(discovered, rooms(2));
+  const ready = getRoomInvestigation(discovered, rooms(1));
   assert.equal(ready?.ready, true);
-  assert.equal(ready?.roomId, "fabrication-floor");
+  assert.equal(ready?.roomId, "recalibration-vault");
   assert.equal(getRoomInvestigation(syncAutomaticDiscoveries([], 0, true), rooms(2)), null, "nothing to search before the evidence");
 });
 

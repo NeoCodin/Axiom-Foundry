@@ -106,7 +106,14 @@ export type DiscoveryId = (typeof DISCOVERY_IDS)[number];
 export type DiscoveryUnlock =
   | {
       kind: "start";
-      event: "orientation-complete" | "first-room-woken";
+      event: "orientation-complete" | "first-people-aboard";
+      requires?: readonly DiscoveryId[];
+    }
+  | {
+      /** Launch wear exposes it after this many flights, or on reaching this many saved worlds at the latest. */
+      kind: "flight-wear";
+      flights: number;
+      worldsSaved: number;
       requires?: readonly DiscoveryId[];
     }
   | {
@@ -170,10 +177,10 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     id: "core.welcome-back",
     arc: "impossible-origin",
     title: "A greeting for Foreman 44",
-    source: "Axiom Chamber · boot buffer A",
+    source: "Memory Archive · boot log",
     unlock: {
       kind: "start",
-      event: "first-room-woken",
+      event: "first-people-aboard",
       requires: ["lyra.official-brief"],
     },
     excerpt: [
@@ -191,7 +198,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
       kind: "saved-worlds",
       count: 1,
       worldId: "cold-wake",
-      requires: ["core.welcome-back"],
+      requires: ["lyra.official-brief"],
     },
     excerpt: [
       "A beacon drifting at the edge of the Pelagos system still calls itself HELION. No world by that name is on any chart.",
@@ -204,12 +211,11 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     id: "fabrication.preconcordance-keel",
     arc: "impossible-origin",
     title: "Alloy older than its own process",
-    source: "Fabrication Floor · seam opened by the refit",
+    source: "Recon Dock · wall plate worn loose by the launches",
     unlock: {
-      kind: "room-action",
-      roomId: "fabrication-floor",
-      actionId: "inspect-foundation-seam",
-      repeat: 2,
+      kind: "flight-wear",
+      flights: 10,
+      worldsSaved: 4,
       requires: ["helion.impossible-registry"],
     },
     excerpt: [
@@ -222,14 +228,11 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
     id: "archive.construction-zero",
     arc: "impossible-origin",
     title: "There is no construction record",
-    source: "Memory Archive · manifest searched for the keel's serial",
+    source: "Memory Archive · manifest searched for the alloy's serial",
     unlock: {
       kind: "archive-action",
       actionId: "restore-construction-manifest",
-      requires: [
-        "helion.impossible-registry",
-        "fabrication.preconcordance-keel",
-      ],
+      requires: ["fabrication.preconcordance-keel"],
     },
     excerpt: [
       "No launch, keel-laying, or commissioning entry survives.",
@@ -247,7 +250,7 @@ export const DISCOVERY_FRAGMENTS: readonly DiscoveryFragment[] = [
       kind: "saved-worlds",
       count: 2,
       worldId: "pelagos",
-      requires: ["archive.construction-zero"],
+      requires: ["helion.impossible-registry"],
     },
     excerpt: [
       "The new Gravity Keel has layers of Pelagos salt in it, laid down by age. One layer is from ninety-one years from now.",
