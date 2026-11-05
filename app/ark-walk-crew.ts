@@ -9,7 +9,7 @@
  * Pure planning; ark-walk.tsx animates it.
  */
 
-import { CORE_HALF_Z, DOCK_WALL_Z, HALF_DEPTH, SIDE_ROOM_PLANS, towardWalls, type WalkRoomKind } from "./ark-walk-layout.ts";
+import { CORE_HALF_Z, DOCK_WALL_Z, HALF_DEPTH, LIBRARY_TABLES, SIDE_ROOM_PLANS, towardWalls, type WalkRoomKind } from "./ark-walk-layout.ts";
 import type { TalkProfile } from "./crew-talk.ts";
 
 export type WalkCrewMember = {
@@ -130,14 +130,14 @@ export const ROOM_SPOTS: Record<WalkRoomKind, readonly Spot[]> = {
     { activity: "talk", at: point(6.5, 2.4), look: point(-1, 0), pair: "fabrication" },
   ],
   research: [
-    { activity: "type", at: point(3.5, w(-4.8)), look: point(0, -1) },
+    { activity: "type", at: point(3.5, (-4.8)), look: point(0, -1) },
     { activity: "type", at: point(LAB.from + 3.75, LAB.z0 + 4.6), look: point(0, -1), for: RESEARCHERS, area: "lab" },
-    { activity: "type", at: point(6, w(-4.8)), look: point(0, -1) },
+    { activity: "type", at: point(6, (-4.8)), look: point(0, -1) },
     { activity: "inspect", at: point(LAB.from + 10.2, LAB.z0 + 1.6), to: point(LAB.from + 14, LAB.z0 + 1.6), look: point(0, -1), for: RESEARCHERS, area: "lab" },
-    { activity: "point", at: point(5.7, w(3.4)), look: point(1, 0), pair: "holo-table" },
-    { activity: "talk", at: point(9.3, w(3.4)), look: point(-1, 0), pair: "holo-table" },
-    { activity: "type", at: point(10, w(-4.8)), look: point(0, -1) },
-    { activity: "type", at: point(2.8, w(5.1)), look: point(0, 1) },
+    { activity: "point", at: point(5.7, (3.4)), look: point(1, 0), pair: "holo-table" },
+    { activity: "talk", at: point(9.3, (3.4)), look: point(-1, 0), pair: "holo-table" },
+    { activity: "type", at: point(10, (-4.8)), look: point(0, -1) },
+    { activity: "type", at: point(2.8, (5.1)), look: point(0, 1) },
     { activity: "type", at: point(LAB.from + 11.25, LAB.z0 + 4.6), look: point(0, -1), for: RESEARCHERS, area: "lab" },
   ],
   bridge: [
@@ -149,39 +149,37 @@ export const ROOM_SPOTS: Record<WalkRoomKind, readonly Spot[]> = {
   support: [
     // The wounded are nursed in the infirmary, two beds at its far wall and two by its door.
     { activity: "heal", at: point(INFIRMARY.from + 2.1, INFIRMARY.z0 + 1.3), look: point(-1, 0), for: ["doctor"], area: "infirmary" },
-    { activity: "tend", at: point(9.9, w(5.6)), to: point(11.1, w(5.6)), look: point(0, 1), for: ["farmer"] },
+    { activity: "tend", at: point(9.9, (5.6)), to: point(11.1, (5.6)), look: point(0, 1), for: ["farmer"] },
     { activity: "tend", at: point(FARM.from + 2, FARM.z0 + 2.1), to: point(FARM.from + 11, FARM.z0 + 2.1), look: point(0, -1), for: FARMERS, area: "farm" },
-    { activity: "type", at: point(6.7, w(4.4)), look: point(0, 1) },
-    { activity: "tend", at: point(11.7, w(5.6)), to: point(12.9, w(5.6)), look: point(0, 1), for: ["farmer"] },
+    { activity: "type", at: point(6.7, (4.4)), look: point(0, 1) },
+    { activity: "tend", at: point(11.7, (5.6)), to: point(12.9, (5.6)), look: point(0, 1), for: ["farmer"] },
     { activity: "tend", at: point(FARM.from + 2, FARM.z0 + 3.9), to: point(FARM.from + 11, FARM.z0 + 3.9), look: point(0, 1), for: FARMERS, area: "farm" },
-    { activity: "inspect", at: point(2.6, w(-3.6)), to: point(11.4, w(-3.6)), look: point(0, -1) },
+    { activity: "inspect", at: point(2.6, (-3.6)), to: point(11.4, (-3.6)), look: point(0, -1) },
     // Lying figures are centred on their bed, head towards the look direction.
     ...[[0.65, 1.25], [INFIRMARY.to - INFIRMARY.from - 0.65, 1.25], [0.65, 4.45], [INFIRMARY.to - INFIRMARY.from - 0.65, 4.45]].map(([x, z]): Spot => ({
       activity: "patient", at: point(INFIRMARY.from + x, INFIRMARY.z0 + z), look: point(0, -1), y: 0.72, area: "infirmary",
     })),
   ],
   education: [
-    { activity: "teach", at: point(4.5, w(-4.2)), to: point(9.5, w(-4.2)), look: point(0, 1), for: ["teacher"] },
-    // Desks in the hall and in the classroom behind it fill in turn; then the library's reading table.
-    ...interleave(
-      [2, 3.6, 5.2].flatMap((row) => [3, 5.67, 8.33, 11].map((deskX): Spot => ({ activity: "study", at: point(deskX, w(row + 0.55)), look: point(0, -1), y: 0.45 }))),
-      [2.4, 4].flatMap((row) => [1.5, 3.3, 5.1].map((deskX): Spot => ({
-        activity: "study", at: point(CLASSROOM.from + deskX, CLASSROOM.z0 + row + 0.55), look: point(0, -1), y: 0.45, area: "classroom",
-      }))),
-    ),
-    { activity: "study", at: point(LIBRARY.from + 3.1, LIBRARY.z0 + 4.15), look: point(0, -1), y: 0.45, area: "library" },
-    { activity: "study", at: point(LIBRARY.from + 3.1, LIBRARY.z0 + 1.85), look: point(0, 1), y: 0.45, area: "library" },
+    { activity: "teach", at: point(4.5, (-4.2)), to: point(9.5, (-4.2)), look: point(0, 1), for: ["teacher"] },
+    // The classroom's desks fill first, then the library's long reading tables.
+    ...[2.4, 4].flatMap((row) => [1.5, 3.3, 5.1].map((deskX): Spot => ({
+      activity: "study", at: point(CLASSROOM.from + deskX, CLASSROOM.z0 + row + 0.55), look: point(0, -1), y: 0.45, area: "classroom",
+    }))),
+    ...LIBRARY_TABLES.flatMap((row) => [10.2, 11.7, 13.2].flatMap((seatX) => [-1, 1].map((side): Spot => ({
+      activity: "study", at: point(LIBRARY.from + seatX, LIBRARY.z0 + row + side * 0.95), look: point(0, -side), y: 0.45, area: "library",
+    })))),
   ],
   habitation: [
-    { activity: "eat", at: point(12.6, w(2.25)), look: point(0, 1), y: 0.55 },
-    { activity: "eat", at: point(14.2, w(4.55)), look: point(0, -1), y: 0.55 },
-    { activity: "eat", at: point(14.2, w(2.25)), look: point(0, 1), y: 0.55 },
-    { activity: "eat", at: point(12.6, w(4.55)), look: point(0, -1), y: 0.55 },
+    { activity: "eat", at: point(12.6, (2.25)), look: point(0, 1), y: 0.55 },
+    { activity: "eat", at: point(14.2, (4.55)), look: point(0, -1), y: 0.55 },
+    { activity: "eat", at: point(14.2, (2.25)), look: point(0, 1), y: 0.55 },
+    { activity: "eat", at: point(12.6, (4.55)), look: point(0, -1), y: 0.55 },
     { activity: "talk", at: point(5, -3), look: point(0, 1), pair: "habitation-a" },
     { activity: "talk", at: point(5, -2.1), look: point(0, -1), pair: "habitation-a" },
     { activity: "talk", at: point(7, 3.2), look: point(1, 0), pair: "habitation-b" },
     { activity: "talk", at: point(7.9, 3.2), look: point(-1, 0), pair: "habitation-b" },
-    { activity: "type", at: point(3, w(5.6)), look: point(0, 1) },
+    { activity: "type", at: point(3, (5.6)), look: point(0, 1) },
     { activity: "cook", at: point(GALLEY.from + 1.5, GALLEY.z0 + 1.5), look: point(0, -1), area: "galley" },
     { activity: "cook", at: point(GALLEY.to - 1.5, GALLEY.z0 + 1.5), look: point(0, -1), area: "galley" },
     // Two to a cabin, in its bunk, head to the far wall.

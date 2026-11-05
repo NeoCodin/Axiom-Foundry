@@ -10,7 +10,7 @@ import {
   buildWalkLayout,
   sealedSideRooms,
   hallFills,
-  DESK_BLOCK,
+  hallHalf,
   LIBRARY_STACKS,
   LIBRARY_TABLES,
   compartmentAt,
@@ -93,6 +93,7 @@ import { createNullFeed, misreadLabel, type NullClass, type NullFeed } from "./a
 import { AxiomEye } from "./axiom-eye";
 import { CIVILIAN_COLOR, CREW_ROLE_COLORS, getCrewHead } from "./crew-portrait";
 import { playBulkhead, playChannelSwitch, playDash, playMurmur, playNullStatic, playPulseStrike, playRecordFound, schedulePulseBeat, unlockPulseAudio } from "./law-heart-audio";
+import { cellParts, type CellPart } from "./ark-walk-cells";
 import { fragmentOf, placeState, RECORD_PLACES, recordLines, recordSpot, type RecordPlace } from "./ark-walk-records";
 import { switchChannel } from "./channel-switch";
 import PelagosView from "./pelagos-view";
@@ -1252,7 +1253,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       const faces = side > 0
         ? [hullSkin, hullSkin, hullSkin, hullSkin, hullSkin, inner]
         : [hullSkin, hullSkin, hullSkin, hullSkin, inner, hullSkin];
-      box(w, h, thick, faces, (piece.a0 + piece.a1) / 2, y0 + (piece.y0 + piece.y1) / 2, side * (half + thick / 2));
+      box(w, h, thick, faces, (piece.a0 + piece.a1) / 2, y0 + (piece.y0 + piece.y1) / 2, side * (room.half + thick / 2));
     }
   };
   /** Glass and a frame in a hull window. */
@@ -1280,10 +1281,10 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     const dark = !room.online;
     const bays = Math.max(2, Math.round(width / 3.5));
     for (let bay = 1; bay < bays; bay += 1) {
-      box(0.3, 0.35, half * 2, solid(metal), room.x0 + (width * bay) / bays, y0 + room.height - 0.175, 0);
+      box(0.3, 0.35, room.half * 2, solid(metal), room.x0 + (width * bay) / bays, y0 + room.height - 0.175, 0);
     }
     for (const side of sides) {
-      const wallZ = side * half;
+      const wallZ = side * room.half;
       const openings = openingsBySide.get(side) ?? [];
       for (let bay = 1; bay < bays; bay += 1) {
         const ribX = room.x0 + (width * bay) / bays;
@@ -1331,11 +1332,11 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       const dock = room.kind === "hangar";
 
       if (!coreTop) {
-        const floor = new THREE.Mesh(new THREE.PlaneGeometry(width, half * 2), floorMaterial(room.kind, width, half * 2));
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(width, room.half * 2), floorMaterial(room.kind, width, room.half * 2));
         floor.rotation.x = -Math.PI / 2;
         floor.position.set(cx, y0, 0);
         scene.add(floor);
-        const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(width, half * 2), lambert("#ffffff", { map: repeated(ceilingTexture, width / 2, half) }));
+        const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(width, room.half * 2), lambert("#ffffff", { map: repeated(ceilingTexture, width / 2, room.half) }));
         ceiling.rotation.x = Math.PI / 2;
         ceiling.position.set(cx, y0 + room.height, 0);
         scene.add(ceiling);
@@ -1353,9 +1354,9 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
             y0: low,
             y1: high,
           })));
-          // Doors to the rooms behind the hall go through its port wall, which is thicker there.
-          const sideDoors: Rect[] = side < 0
-            ? deck.sideRooms.filter((sideRoom) => sideRoom.section === room.kind).map((sideRoom) => ({ a0: sideRoom.door.x0, a1: sideRoom.door.x1, y0: 0, y1: SIDE_DOOR_HEIGHT }))
+          // Doors to the rooms off the hall go through its wall, which is thinner there.
+          const sideDoors: Rect[] = deck.sideRooms.some((sideRoom) => sideRoom.section === room.kind && Boolean(sideRoom.starboard) === (side > 0))
+            ? deck.sideRooms.filter((sideRoom) => sideRoom.section === room.kind && Boolean(sideRoom.starboard) === (side > 0)).map((sideRoom) => ({ a0: sideRoom.door.x0, a1: sideRoom.door.x1, y0: 0, y1: SIDE_DOOR_HEIGHT }))
             : [];
           const openings = [
             ...(dock && side === 1 ? [...windows, { a0: layout.dock.opening.x0, a1: layout.dock.opening.x1, y0: 0.4, y1: 5.2 }] : windows),
@@ -1456,9 +1457,9 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
 
       // The room's furniture and its console, set against the walls of the wide ship.
       const fit = (w: number, h: number, d: number, material: THREE.Material | THREE.Material[], x: number, y: number, z: number) =>
-        box(w, h, d, material, x, y0 + y, towardWalls(z, half));
+        box(w, h, d, material, x, y0 + y, towardWalls(z, room.half));
       const fitCylinder = (top: number, bottom: number, h: number, material: THREE.Material, x: number, y: number, z: number, sides?: number, open?: boolean) =>
-        cylinder(top, bottom, h, material, x, y, towardWalls(z, half), sides, open);
+        cylinder(top, bottom, h, material, x, y, towardWalls(z, room.half), sides, open);
       const consoleRoom = roomsByKind.get(room.kind) ?? null;
       const addConsole = (object: THREE.Object3D, prompt?: () => string) =>
         interactables.push({ kind: "console", object, label: room.label, room: consoleRoom, online: room.online, deck: deckIndex, prompt });
@@ -1651,7 +1652,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         put(core.x0 - room.x0 - 1.8, 0.06, 0.06, rail, (room.x0 + core.x0) / 2 + 0.9, 1, core.z0);
         put(room.x1 - core.x1 - 1.8, 0.06, 0.06, rail, (core.x1 + room.x1) / 2 - 0.9, 1, core.z1);
       } else if (room.kind === "habitation") {
-        hear("mess", room.x1 - 3.6, 1, towardWalls(3.4, half));
+        hear("mess", room.x1 - 3.6, 1, towardWalls(3.4, room.half));
         // The mess table and chairs; the table is the habitation console.
         const tableX = room.x1 - 3.6;
         addConsole(fit(3.2, 0.14, 1.6, solid(PALETTE.wood), tableX, 0.85, 3.4));
@@ -1665,7 +1666,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         for (const [dx, color] of [[-0.6, "#e9e4da"], [0.3, PALETTE.amber], [0.9, "#7fb7ff"]] as const) fit(0.14, 0.18, 0.14, solid(color), tableX + dx, 1.01, 3.3);
         const rug = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 3.2), solid(tinted(PALETTE.bunk, accent, 0.4)));
         rug.rotation.x = -Math.PI / 2;
-        rug.position.set(tableX, y0 + 0.01, towardWalls(3.4, half));
+        rug.position.set(tableX, y0 + 0.01, towardWalls(3.4, room.half));
         scene.add(rug);
         // Lockers along the starboard wall and a plant in the corner.
         for (let locker = 0; locker < 4; locker += 1) {
@@ -1676,7 +1677,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         fit(0.6, 0.6, 0.6, solid(PALETTE.wood), room.x1 - 1, 0.3, 6.1);
         for (let leaf = 0; leaf < 5; leaf += 1) fit(0.25, 0.5 + leaf * 0.1, 0.25, solid(PALETTE.leaf), room.x1 - 1.2 + (leaf % 3) * 0.2, 0.85 + leaf * 0.08, 6 + (leaf % 2) * 0.2);
       } else if (room.kind === "research") {
-        hear("servers", room.x0 + 2.8, 1.2, towardWalls(6.25, half));
+        hear("servers", room.x0 + 2.8, 1.2, towardWalls(6.25, room.half));
         // Two desks under wall screens, the door to the labs between them; the second screen is the console.
         for (const [from, to] of [[1, 6.4], [8.6, width - 1]]) fit(to - from, 1, 1.4, solid(metal), room.x0 + (from + to) / 2, 0.5, -6.15);
         const screenAt = [2.4, 5, 10, 12.6];
@@ -1687,7 +1688,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         fitCylinder(1.2, 1.3, 1, solid(metal), cx, y0 + 0.5, 3.4, 12);
         fitCylinder(1.05, 1.05, 0.04, glow(dark ? PALETTE.dark : screenGlow), cx, y0 + 1.02, 3.4, 12);
         const hologram = inert(new THREE.Mesh(new THREE.IcosahedronGeometry(0.85, 1), new THREE.MeshBasicMaterial({ color: screenGlow, wireframe: true, transparent: true, opacity: dark ? 0 : 0.7 })));
-        hologram.position.set(cx, y0 + 2.2, towardWalls(3.4, half));
+        hologram.position.set(cx, y0 + 2.2, towardWalls(3.4, room.half));
         scene.add(hologram);
         const orbit = inert(new THREE.Mesh(new THREE.TorusGeometry(1.2, 0.02, 4, 32), ghost(screenGlow, dark ? 0 : 0.6)));
         orbit.position.copy(hologram.position);
@@ -1722,7 +1723,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         }
       } else if (room.kind === "support") {
         const growing = !dark && room.fill > 0;
-        hear("tanks", room.x0 + 7, 1.5, towardWalls(-5.4, half));
+        hear("tanks", room.x0 + 7, 1.5, towardWalls(-5.4, room.half));
         hear("fan", room.x0 + 7, room.height - 0.3, 0);
         // Four culture tanks keep the air breathable.
         const glassMaterialTank = lambert(glass, { transparent: true, opacity: 0.25, depthWrite: false });
@@ -1742,7 +1743,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
             bubbles.forEach((bubble, bubbleIndex) => {
               bubble.visible = !dark;
               const rise = ((time * 0.0003) + bubbleIndex / 4 + tankIndex * 0.21) % 1;
-              bubble.position.set(tx + Math.sin(rise * 9 + bubbleIndex) * 0.4, y0 + 0.5 + rise * (level - 0.2), towardWalls(-5.4, half) + Math.cos(bubbleIndex * 2.1) * 0.4);
+              bubble.position.set(tx + Math.sin(rise * 9 + bubbleIndex) * 0.4, y0 + 0.5 + rise * (level - 0.2), towardWalls(-5.4, room.half) + Math.cos(bubbleIndex * 2.1) * 0.4);
             });
           });
         });
@@ -1769,7 +1770,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         scene.add(fan);
         animated.push((time) => { if (!dark) fan.rotation.y = time * 0.002; });
       } else if (room.kind === "education") {
-        // A chalkboard (the console), a lectern, and three rows of desks with slates.
+        // A chalkboard in the corridor (the console); the teaching happens in the rooms off it.
         const board = new THREE.Mesh(
           new THREE.PlaneGeometry(6, 2.4),
           lambert("#ffffff", {
@@ -1783,25 +1784,14 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
             }),
           }),
         );
-        board.position.set(room.x0 + 7, y0 + 2.1, towardWalls(-6.94, half));
+        board.position.set(room.x0 + 7, y0 + 2.1, towardWalls(-6.94, room.half));
         scene.add(board);
         addConsole(board);
         for (const by of [0.84, 3.36]) fit(6.2, 0.14, 0.12, solid(PALETTE.wood), room.x0 + 7, by, -6.9);
-        if (room.fill > 0) fit(0.8, 1.2, 0.6, solid(PALETTE.wood), room.x0 + 7, 0.6, -5.1);
-        for (let block = 0; block < room.fill; block += 1) {
-          for (const rowZ of [2, 3.6, 5.2]) {
-            for (const deskX of [3, 5.67, 8.33, 11]) {
-              const at = room.x0 + deskX + block * DESK_BLOCK;
-              fit(1.6, 0.75, 0.6, solid(PALETTE.wood), at, 0.375, rowZ);
-              fit(0.5, 0.04, 0.32, glow(screenColor), at, 0.77, rowZ);
-              fit(0.5, 0.45, 0.4, solid(metalLight), at, 0.22, rowZ + 0.55);
-            }
-          }
-        }
         // A globe of the world below, turning on its stand.
         fit(0.12, 1.2, 0.12, solid(metalLight), room.x1 - 1.4, 0.6, -5.8);
         const globe = inert(new THREE.Mesh(new THREE.IcosahedronGeometry(0.45, 1), solid(tinted(accent, PALETTE.dark, 0.3))));
-        globe.position.set(room.x1 - 1.4, y0 + 1.6, towardWalls(-5.8, half));
+        globe.position.set(room.x1 - 1.4, y0 + 1.6, towardWalls(-5.8, room.half));
         scene.add(globe);
         animated.push((time) => { globe.rotation.y = time * 0.0006; });
       } else if (dock) {
@@ -3344,8 +3334,113 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
   // ---- The rooms behind the halls: the crew's cabins and their galley, the Armory. ----
   const sideLabels = new Map<string, string>();
   layout.decks.forEach((deck, deckIndex) => {
-    for (const room of deck.sideRooms) buildSideRoom(room, deck, deckIndex);
+    for (const room of deck.sideRooms) (room.cell ? buildCell : buildSideRoom)(room, deck, deckIndex);
   });
+
+  /** Many small boxes as one mesh, each its own colour. y is above the deck. */
+  type Part = { w: number; h: number; d: number; x: number; y: number; z: number; color: string };
+  function mergedBoxes(parts: readonly Part[], y0: number, glowing = false) {
+    if (parts.length === 0) return null;
+    const tint = new THREE.Color();
+    const mesh = new THREE.Mesh(
+      mergeGeometries(parts.map((part) => {
+        const geometry = new THREE.BoxGeometry(part.w, part.h, part.d);
+        geometry.translate(part.x, y0 + part.y, part.z);
+        tint.set(part.color);
+        const rgb = [tint.r, tint.g, tint.b];
+        geometry.setAttribute("color", new THREE.Float32BufferAttribute(Array.from({ length: geometry.attributes.position.count * 3 }, (_, index) => rgb[index % 3]), 3));
+        return geometry;
+      })),
+      glowing ? new THREE.MeshBasicMaterial({ vertexColors: true }) : new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }),
+    );
+    scene.add(mesh);
+    return mesh;
+  }
+
+  /**
+   * A room along a corridor, built from its plan (ark-walk-cells.ts): named at its door, lit by
+   * panels in its ceiling, and furnished once it is open. No lamp of its own, to keep the
+   * ship's light count down. Shut, it is a door with a sign.
+   */
+  function buildCell(room: SideRoom, deck: WalkDeck, deckIndex: number) {
+    const y0 = deck.floorY;
+    const hallWall = hallHalf(room.section);
+    const side = room.starboard ? 1 : -1;
+    const put = (w: number, h: number, d: number, material: THREE.Material | THREE.Material[], x: number, y: number, z: number) => box(w, h, d, material, x, y0 + y, z);
+    const paint = paintOf(room.section);
+    const doorX = (room.door.x0 + room.door.x1) / 2;
+    const doorWidth = room.door.x1 - room.door.x0;
+    const doorZ = side * (hallWall + INNER_WALL / 2);
+    const frame = solid(paint);
+    const corridorFace = side * (hallWall - 0.04);
+    for (const edge of [room.door.x0 - 0.07, room.door.x1 + 0.07]) put(0.14, SIDE_DOOR_HEIGHT + 0.14, 0.08, frame, edge, (SIDE_DOOR_HEIGHT + 0.14) / 2, corridorFace);
+    put(doorWidth + 0.28, 0.14, 0.08, frame, doorX, SIDE_DOOR_HEIGHT + 0.07, corridorFace);
+    put(0.12, 0.12, 0.04, glow(room.open ? PALETTE.ok : PALETTE.alert), room.door.x1 + 0.35, 1.5, side * (hallWall - 0.03));
+    const leafMaterial = solid(tinted(PALETTE.metal, paint, 0.2));
+    const leaves = [-1, 1].map((sideSign) => {
+      const leaf = new THREE.Mesh(new THREE.BoxGeometry(doorWidth / 2, SIDE_DOOR_HEIGHT, 0.08), leafMaterial);
+      leaf.position.set(doorX + (sideSign * doorWidth) / 4, y0 + SIDE_DOOR_HEIGHT / 2, doorZ);
+      scene.add(leaf);
+      return { leaf, sideSign };
+    });
+    let opening = 0;
+    animated.push((_time, drone) => {
+      const near = room.open && drone.deck === deckIndex && Math.hypot(drone.x - doorX, drone.z - doorZ) < 2.6;
+      opening += ((near ? 1 : 0) - opening) * Math.min(1, drone.dt * 6);
+      for (const { leaf, sideSign } of leaves) leaf.position.x = doorX + sideSign * (doorWidth / 4 + (opening * doorWidth) / 2);
+    });
+    const sign = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.8, 0.26),
+      new THREE.MeshBasicMaterial({ map: signTexture((room.open ? room.label : `${room.label} · offline`).toUpperCase(), tinted(paint, "#ffffff", 0.3)) }),
+    );
+    sign.position.set(doorX, y0 + SIDE_DOOR_HEIGHT + 0.36, side * (hallWall - 0.03));
+    if (side > 0) sign.rotation.y = Math.PI;
+    scene.add(sign);
+    if (!room.open) return;
+
+    const firstInside = scene.children.length;
+    const width = room.x1 - room.x0;
+    const depth = room.z1 - room.z0;
+    const cx = (room.x0 + room.x1) / 2;
+    const cz = (room.z0 + room.z1) / 2;
+    const height = room.height;
+    const floorKind = room.cell === "lounge" || room.cell === "seminar" || room.cell === "lecture" ? "habitation" : room.cell === "plant" || room.cell === "store" ? "fabrication" : room.section;
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), floorMaterial(floorKind, width, depth));
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.set(cx, y0, cz);
+    const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), lambert("#ffffff", { map: repeated(ceilingTexture, width / 2, depth / 2) }));
+    ceiling.rotation.x = Math.PI / 2;
+    ceiling.position.set(cx, y0 + height, cz);
+    scene.add(floor, ceiling);
+    put(doorWidth, 0.06, INNER_WALL + 0.02, floorMaterial(room.section, doorWidth, INNER_WALL), doorX, -0.03, doorZ);
+    const wall = solid(tinted(paint, "#ffffff", 0.45));
+    const farZ = room.starboard ? room.z1 : room.z0;
+    put(width + 0.4, height, 0.2, wall, cx, height / 2, farZ + side * 0.1);
+    put(0.2, height, depth, wall, room.x0 - 0.1, height / 2, cz);
+    put(0.2, height, depth, wall, room.x1 + 0.1, height / 2, cz);
+    // The corridor wall from inside, round the door.
+    const nearZ = room.starboard ? room.z0 + 0.03 : room.z1 - 0.03;
+    for (const piece of wallPieces(room.x0, room.x1, height, [{ a0: room.door.x0, a1: room.door.x1, y0: 0, y1: SIDE_DOOR_HEIGHT }])) {
+      put(piece.a1 - piece.a0, piece.y1 - piece.y0, 0.04, wall, (piece.a0 + piece.a1) / 2, (piece.y0 + piece.y1) / 2, nearZ);
+    }
+    // Light panels across the ceiling.
+    for (let panel = 2.5; panel < depth - 1; panel += 4) put(width - 1.6, 0.06, 0.5, glow(PALETTE.light), cx, height - 0.05, room.starboard ? room.z0 + panel : room.z1 - panel);
+    // What is in it, on its own plan.
+    const parts = cellParts(room.cell!, width, depth);
+    const placed = (part: CellPart): Part => ({
+      w: part.w, h: part.h, d: part.d, x: room.x0 + part.u, y: part.y, z: room.starboard ? room.z0 + part.v : room.z1 - part.v, color: part.color,
+    });
+    const body = mergedBoxes(parts.filter((part) => !part.glow).map(placed), y0);
+    mergedBoxes(parts.filter((part) => part.glow).map(placed), y0, true);
+    if (body) label(body, room.label);
+    // Behind a shut door nothing shows, so there are dozens of these and only the near ones are drawn.
+    const inside = new THREE.Group();
+    inside.add(...scene.children.slice(firstInside));
+    scene.add(inside);
+    animated.push((_time, drone) => {
+      inside.visible = drone.deck === deckIndex && (Math.hypot(drone.x - doorX, drone.z - doorZ) < 7 || (drone.x > room.x0 && drone.x < room.x1 && drone.z > room.z0 && drone.z < room.z1));
+    });
+  }
 
   function buildSideRoom(room: SideRoom, deck: WalkDeck, deckIndex: number) {
     const y0 = deck.floorY;
@@ -3359,7 +3454,8 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     const cz = (room.z0 + room.z1) / 2;
     const doorX = (room.door.x0 + room.door.x1) / 2;
     const doorWidth = room.door.x1 - room.door.x0;
-    const wallZ = -(half + INNER_WALL / 2);
+    const hallWall = hallHalf(room.section);
+    const wallZ = -(hallWall + INNER_WALL / 2);
     const keyOf = (other: SideRoom) => (other.kind === "cabin" ? other.id : other.kind);
     const nth = <T,>(list: readonly T[], index: number) => list[((index % list.length) + list.length) % list.length];
 
@@ -3370,7 +3466,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     const names = household.map((member) => member.name.split(" ")[0]);
     const title = room.kind === "cabin"
       ? (room.open ? (names.length > 0 ? `Quarters · ${names.join(" & ")}` : "Quarters") : "Unassigned quarters")
-      : room.open ? room.label : `${room.label} · sealed`;
+      : room.open ? room.label : `${room.label} · offline`;
     sideLabels.set(room.id, title);
 
     // Floor, ceiling, and the floor through the doorway.
@@ -3427,7 +3523,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
 
     // The door: framed in the room's colour, sliding open as the drone comes, shut fast if sealed.
     const frame = solid(paint);
-    for (const face of [-half + 0.04, room.z1 - 0.04]) {
+    for (const face of [-hallWall + 0.04, room.z1 - 0.04]) {
       for (const edge of [room.door.x0 - 0.07, room.door.x1 + 0.07]) put(0.14, SIDE_DOOR_HEIGHT + 0.14, 0.08, frame, edge, (SIDE_DOOR_HEIGHT + 0.14) / 2, face);
       put(doorWidth + 0.28, 0.14, 0.08, frame, doorX, SIDE_DOOR_HEIGHT + 0.07, face);
     }
@@ -3442,7 +3538,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       scene.add(leaf);
       return { leaf, sideSign };
     });
-    put(0.12, 0.12, 0.04, glow(room.open ? PALETTE.ok : PALETTE.alert), room.door.x1 + 0.35, 1.5, -half + 0.03);
+    put(0.12, 0.12, 0.04, glow(room.open ? PALETTE.ok : PALETTE.alert), room.door.x1 + 0.35, 1.5, -hallWall + 0.03);
     let opening = 0;
     animated.push((_time, drone) => {
       const near = room.open && drone.deck === deckIndex && Math.hypot(drone.x - doorX, drone.z - wallZ) < 2.6;
@@ -3453,7 +3549,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       new THREE.PlaneGeometry(Math.max(2.2, doorWidth + 0.8), 0.24),
       new THREE.MeshBasicMaterial({ map: signTexture(title.toUpperCase(), tinted(paint, "#ffffff", 0.3)) }),
     );
-    sign.position.set(doorX, y0 + SIDE_DOOR_HEIGHT + 0.36, -half + 0.03);
+    sign.position.set(doorX, y0 + SIDE_DOOR_HEIGHT + 0.36, -hallWall + 0.03);
     scene.add(sign);
     // Beside a cabin's door, a photo of who lives there.
     if (room.kind === "cabin" && room.open && household.length > 0) {
@@ -3472,7 +3568,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
           }
         });
       }));
-      plate.position.set(room.door.x0 - 0.45, y0 + 1.6, -half + 0.03);
+      plate.position.set(room.door.x0 - 0.45, y0 + 1.6, -hallWall + 0.03);
       scene.add(plate);
       label(plate, title);
     }
@@ -3596,25 +3692,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     const hear = (kind: SoundPlace["kind"], x: number, z: number) => soundPlaces.push({ kind, x, y: y0 + 1.2, z, deck: deckIndex, online: true });
     const BRIGHT = ["#c8605a", "#4f6ad0", "#d8a03a", "#5a8a4a", "#8a5a9a", "#e9e4da", "#e2786a"];
     const colorAt = (index: number) => BRIGHT[((index % BRIGHT.length) + BRIGHT.length) % BRIGHT.length];
-    type Part = { w: number; h: number; d: number; x: number; y: number; z: number; color: string };
-    /** Many small boxes as one mesh, each its own colour: books, crops, toys. y is above the deck. */
-    const merged = (parts: readonly Part[], glowing = false) => {
-      if (parts.length === 0) return null;
-      const tint = new THREE.Color();
-      const mesh = new THREE.Mesh(
-        mergeGeometries(parts.map((part) => {
-          const geometry = new THREE.BoxGeometry(part.w, part.h, part.d);
-          geometry.translate(part.x, y0 + part.y, part.z);
-          tint.set(part.color);
-          const rgb = [tint.r, tint.g, tint.b];
-          geometry.setAttribute("color", new THREE.Float32BufferAttribute(Array.from({ length: geometry.attributes.position.count * 3 }, (_, index) => rgb[index % 3]), 3));
-          return geometry;
-        })),
-        glowing ? new THREE.MeshBasicMaterial({ vertexColors: true }) : new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }),
-      );
-      scene.add(mesh);
-      return mesh;
-    };
+    const merged = (parts: readonly Part[], glowing = false) => mergedBoxes(parts, y0, glowing);
     /** A row of books standing on a shelf that runs along x (or along z), spines out. */
     const books = (from: number, to: number, y: number, at: number, alongX: boolean, seed: number): Part[] => {
       const row: Part[] = [];
@@ -5686,6 +5764,10 @@ export default function ArkWalk(props: ArkWalkProps) {
     if (qa) {
       (window as unknown as { arkWalkQa?: unknown }).arkWalkQa = {
         layout,
+        draws: () => {
+          renderer.render(scene, camera);
+          return { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles };
+        },
         sounding: () => soundscape !== null,
         signal: () => signal,
         sim: () => sim?.state ?? null,

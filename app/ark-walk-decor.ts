@@ -91,12 +91,8 @@ const toward = (x: number, z: number) => ({ x, z });
  */
 const FLOOR: Partial<Record<WalkRoomKind, readonly FloorSlot[]>> = {
   habitation: [
-    { kind: "rug", x: 6.5, z: -6.6, w: 5.2, d: 3.4 },
     { kind: "plant", x: 1, z: 5.4, w: 0.8, d: 0.8 },
-    { kind: "sofa", x: 6.5, z: -8, w: 3.4, d: 1, face: toward(0, 1) },
-    { kind: "table", x: 6.5, z: -6.5, w: 1.6, d: 0.8 },
     { kind: "rug", x: 3.6, z: 6.4, w: 3, d: 2.6, fromBow: true },
-    { kind: "armchair", x: 3.4, z: -6.4, w: 1, d: 1, face: toward(1, 0) },
     { kind: "plant", x: 1, z: -5.2, w: 0.8, d: 0.8, fromBow: true },
     { kind: "armchair", x: 9.6, z: -6.4, w: 1, d: 1, face: toward(-1, 0) },
     { kind: "shelf", x: 0.35, z: 6.6, w: 0.5, d: 2.2, face: toward(1, 0) },
@@ -117,15 +113,15 @@ const FLOOR: Partial<Record<WalkRoomKind, readonly FloorSlot[]>> = {
     { kind: "planter", x: 24, z: -6.4, w: 3.2, d: 1 },
   ],
   support: [
-    { kind: "planter", x: 5, z: -6.6, w: 3.2, d: 1 },
+    { kind: "planter", x: 16, z: -6.4, w: 3.2, d: 1 },
     { kind: "plant", x: 1.2, z: 6.2, w: 0.8, d: 0.8 },
-    { kind: "bench", x: 4.2, z: 6.6, w: 2, d: 0.7, face: toward(0, -1) },
-    { kind: "planter", x: 10.6, z: -6.6, w: 3.2, d: 1 },
+    { kind: "bench", x: 18.4, z: 6.6, w: 2, d: 0.7, face: toward(0, -1) },
+    { kind: "planter", x: 21.6, z: -6.4, w: 3.2, d: 1 },
     { kind: "plant", x: 1.2, z: 5.6, w: 0.8, d: 0.8, fromBow: true },
   ],
   research: [
-    { kind: "plant", x: 1, z: -5.2, w: 0.8, d: 0.8 },
-    { kind: "sofa", x: 7.5, z: -7.2, w: 3, d: 1, face: toward(0, 1) },
+    { kind: "plant", x: 0.6, z: 4.6, w: 0.8, d: 0.8 },
+    { kind: "sofa", x: 14.6, z: 6.4, w: 3, d: 1, face: toward(0, -1) },
     { kind: "plant", x: 1, z: 5.4, w: 0.8, d: 0.8, fromBow: true },
   ],
   bridge: [
@@ -211,7 +207,7 @@ export function decorSlots(layout: WalkLayout): DecorPiece[] {
             room: room.kind,
             seed,
             order: 0,
-            wall: { normal: "z", plane: side * (half - 0.04), facing: side > 0 ? -1 : 1, along: room.x0 + (from + to) / 2, y: artY, width: Math.min(2.2, to - from - 0.7), height: 1.5 },
+            wall: { normal: "z", plane: side * (room.half - 0.04), facing: side > 0 ? -1 : 1, along: room.x0 + (from + to) / 2, y: artY, width: Math.min(2.2, to - from - 0.7), height: 1.5 },
           });
         }
       }
@@ -223,7 +219,7 @@ export function decorSlots(layout: WalkLayout): DecorPiece[] {
       for (const { end, plane, facing } of ends) {
         for (const side of [-1, 1] as const) {
           // In the dock only the gallery side of the pressure wall is indoors.
-          const reach = dock && side > 0 ? DOCK_WALL_Z - 0.6 : half - 1.2;
+          const reach = dock && side > 0 ? DOCK_WALL_Z - 0.6 : room.half - 1.2;
           const seed = seedBase + 60 + (end === "bow" ? 10 : 0) + (side + 1) * 2;
           const mural = MURALS.some((plan) => plan.room === room.kind && plan.end === end && plan.side === side);
           if (mural) {
@@ -292,7 +288,7 @@ export function decorSlots(layout: WalkLayout): DecorPiece[] {
           room: room.kind,
           seed: seedBase + 90 + index,
           order: line.after + WARMTH[room.kind] * 0.35,
-          line: { x: room.x0 + (room.x1 - room.x0) * line.at, z0: -half + 0.3, z1: dock ? DOCK_WALL_Z - 0.3 : half - 0.3, y: room.height - 1.1 },
+          line: { x: room.x0 + (room.x1 - room.x0) * line.at, z0: -room.half + 0.3, z1: dock ? DOCK_WALL_Z - 0.3 : room.half - 0.3, y: room.height - 1.1 },
         });
       }
     });

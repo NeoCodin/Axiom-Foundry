@@ -38,11 +38,14 @@ export type WalkCompartment = {
   x1: number;
   /** Ceiling height above this deck's floor. */
   height: number;
-  /** How far people have filled it: 0 is bare, and more rows of desks follow the crew. */
+  /** How far people have filled it: 0 is bare. */
   fill: number;
+  /** Half its width: the corridors are narrower than the open halls. */
+  half: number;
 };
 
 export type SideRoomKind =
+  | "cell"
   | "cabin"
   | "galley"
   | "armory"
@@ -68,6 +71,10 @@ export type SideRoom = Box & {
   height: number;
   /** The doorway through the hall's wall. */
   door: Box;
+  /** A room along a corridor, drawn from its plan (ark-walk-cells.ts). */
+  cell?: CellTemplate;
+  /** On the starboard side of its corridor, where z0 is the corridor's side. */
+  starboard?: boolean;
 };
 
 export type WalkDeck = {
@@ -113,6 +120,8 @@ export type WalkLayout = {
 export const UPPER_DECK: readonly WalkRoomKind[] = ["fabrication", "chamber", "habitation", "research", "bridge"];
 export const LOWER_DECK: readonly WalkRoomKind[] = ["support", "chamber", "education", "hangar"];
 
+import { cellParts, type CellTemplate } from "./ark-walk-cells.ts";
+
 export const UPPER_FLOOR = 11.5;
 /** Half the ship's width: 40 metres across, room enough to feel empty. */
 export const HALF_DEPTH = 20;
@@ -123,6 +132,13 @@ export const LIFT_RADIUS = 0.9;
 /** Half the core room's outside size: the gallery round it is what is left of the chamber. */
 export const CORE_HALF_X = 11;
 export const CORE_HALF_Z = 14;
+/** The halls that are buildings: a corridor with rooms off both sides, not one wide floor. */
+export const CORRIDOR_HALF = 7;
+const CORRIDORS: readonly WalkRoomKind[] = ["habitation", "education", "research", "support"];
+export const hallHalf = (kind: WalkRoomKind) => (CORRIDORS.includes(kind) ? CORRIDOR_HALF : HALF_DEPTH);
+/** How far a corridor's rooms run back from it, and how high they are. */
+export const CELL_DEPTH = 12;
+export const CELL_HEIGHT = 4.6;
 
 /** Hull windows: their size, and where they sit, from each room's stern end, on the port (-z) and starboard (+z) walls. */
 export const WINDOW_WIDTH = 3;
@@ -130,11 +146,7 @@ export const WINDOW_LOW = 1.2;
 export const WINDOW_HIGH = 6.5;
 export const WINDOWS: Partial<Record<WalkRoomKind, { port?: readonly number[]; starboard?: readonly number[] }>> = {
   fabrication: { starboard: [6, 10, 14, 26, 30] },
-  habitation: { starboard: [7.5, 11, 14.5, 20, 23.5, 27] },
-  research: { starboard: [6, 9.5, 13, 19] },
   bridge: { port: [8, 11.5, 15, 18.5], starboard: [8, 11.5, 15, 18.5] },
-  support: { starboard: [2.5, 6.7, 14.8, 22, 26, 30] },
-  education: { starboard: [2.5, 6, 9.5, 13, 19, 22.5, 26] },
   // The dock's back wall is the Armory's, with the recon board on it.
   // The stretch past the lounge window is the combat simulator's wall.
   hangar: { port: [3.5] },
@@ -158,8 +170,8 @@ export function towardWalls(z: number, half = HALF_DEPTH) {
 }
 
 /** A piece of furniture moved out to the wall, keeping its size. */
-function againstWall(box: Box): Box {
-  const middle = towardWalls((box.z0 + box.z1) / 2);
+function againstWall(box: Box, half: number): Box {
+  const middle = towardWalls((box.z0 + box.z1) / 2, half);
   const depth = (box.z1 - box.z0) / 2;
   return { ...box, z0: middle - depth, z1: middle + depth };
 }
@@ -189,6 +201,11 @@ export type SideRoomPlan = {
   /** The door's centre along the hall, and half its width. */
   door: number;
   doorHalf: number;
+  /** A room along a corridor: what it is, which side, how many aboard before it opens, and whose room it waits for. */
+  cell?: CellTemplate;
+  side?: 1;
+  opensAt?: number;
+  needs?: SideRoomKind;
 };
 
 const behind = (depth: number) => ({ z0: -(HALF_DEPTH + INNER_WALL + depth), z1: -(HALF_DEPTH + INNER_WALL) });
@@ -199,7 +216,17 @@ const sideRoom = (kind: SideRoomKind, label: string, from: number, to: number, d
   id: kind, kind, label, from, to, ...behind(depth), height, door, doorHalf,
 });
 
-/** The rooms behind each hall, stern to bow. */
+/** The rooms behind a corridor start at the corridor's wall, not the hull. */
+const offCorridor = (plans: readonly SideRoomPlan[]) => plans.map((plan) => ({ ...plan, z0: plan.z0 + HALF_DEPTH - CORRIDOR_HALF, z1: plan.z1 + HALF_DEPTH - CORRIDOR_HALF }));
+/** A room along a corridor, to starboard unless it says port. */
+const cell = (id: string, label: string, template: CellTemplate, from: number, to: number, opensAt: number, { port = false, door = (from + to) / 2, needs }: { port?: boolean; door?: number; needs?: SideRoomKind } = {}): SideRoomPlan => ({
+  id, kind: "cell", label, from, to, height: CELL_HEIGHT, door, doorHalf: 1, cell: template, opensAt, needs,
+  ...(port
+    ? { z0: -(CORRIDOR_HALF + INNER_WALL + CELL_DEPTH), z1: -(CORRIDOR_HALF + INNER_WALL) }
+    : { z0: CORRIDOR_HALF + INNER_WALL, z1: CORRIDOR_HALF + INNER_WALL + CELL_DEPTH, side: 1 as const }),
+});
+
+/** The rooms off each hall, stern to bow. */
 export const SIDE_ROOM_PLANS: Partial<Record<WalkRoomKind, readonly SideRoomPlan[]>> = {
   // Doors go where each hall's wall is clear: past the press and the racks, between the
   // research desks, either side of the chalkboard, past the culture tanks, beside the cargo.
@@ -207,18 +234,40 @@ export const SIDE_ROOM_PLANS: Partial<Record<WalkRoomKind, readonly SideRoomPlan
     sideRoom("stores", "Stores", 0, 6.6, 7, 6, 1, 0.75),
     sideRoom("workshop", "Machine shop", 6.8, 17, 7, 6, 15, 0.9),
   ],
-  research: [sideRoom("lab", "Analysis labs", 0, 24, 10, 7, 7.5)],
+  research: [
+    ...offCorridor([sideRoom("lab", "Analysis labs", 0, 24, 10, 7, 7.5)]),
+    cell("samples", "Sample store", "store", 1, 8, 1, { door: 6 }),
+    cell("cleanroom", "Clean room", "cleanroom", 8.2, 15, 6),
+    cell("analysis-offices", "Analysis offices", "office", 15.2, 20, 6),
+    cell("meeting", "Meeting room", "seminar", 20.2, 24, 14),
+  ],
   education: [
+    ...offCorridor([
     // The library is the size of a university's: tall stacks round a long reading floor.
-    sideRoom("library", "Library", 0, 17, 16, 10.5, 8.5, 1.6),
+    sideRoom("library", "Library", 0, 17, 16, 10.5, 2.2, 1.6),
     sideRoom("classroom", "Classroom", 17.2, 23.8, 6, 4.2, 20.5),
     sideRoom("playroom", "Playroom", 24, 30, 6, 4.2, 27),
+    ]),
+    cell("staff-offices", "Staff offices", "office", 30.2, 34, 6, { port: true, needs: "classroom" }),
+    cell("lecture-theatre", "Lecture theatre", "lecture", 1, 13, 12, { needs: "classroom" }),
+    cell("seminar-a", "Seminar room A", "seminar", 13.2, 20, 1, { needs: "classroom" }),
+    cell("seminar-b", "Seminar room B", "seminar", 20.2, 27, 12, { needs: "classroom" }),
+    cell("computer-room", "Computer room", "computer", 27.2, 34, 24, { needs: "classroom" }),
   ],
   support: [
+    ...offCorridor([
     sideRoom("farm", "Hydroponic farm", 0, 24, 10, 6, 0.75, 0.6),
     sideRoom("infirmary", "Infirmary", 24.2, 30, 7, 5, 27),
+    ]),
+    cell("pharmacy", "Pharmacy", "store", 30.2, 36, 6, { port: true }),
+    cell("water-plant", "Water plant", "plant", 1, 10, 1, { door: 3 }),
+    cell("air-plant", "Air plant", "plant", 10.2, 19, 1, { door: 14.6 }),
+    cell("ration-store", "Ration store", "store", 19.2, 26, 1, { needs: "farm" }),
+    cell("ward-a", "Ward A", "ward", 26.2, 31, 14),
+    cell("ward-b", "Ward B", "ward", 31.2, 36, 36),
   ],
   habitation: [
+    ...offCorridor([
     cabin(0, 0),
     cabin(1, 4.1),
     cabin(2, 8.2),
@@ -227,6 +276,12 @@ export const SIDE_ROOM_PLANS: Partial<Record<WalkRoomKind, readonly SideRoomPlan
     cabin(5, 20.5),
     cabin(6, 24.6),
     { id: "galley", kind: "galley", label: "Galley", from: 28.7, to: 34, ...behind(5.6), height: 3.4, door: 31, doorHalf: 0.9 },
+    ]),
+    cell("common-room", "Common room", "lounge", 1, 11, 1),
+    cell("washrooms", "Washrooms", "washroom", 11.2, 16, 1),
+    cell("laundry", "Laundry", "laundry", 16.2, 22, 6),
+    cell("gym", "Gym", "gym", 22.2, 30, 14),
+    cell("quiet-room", "Quiet room", "lounge", 30.2, 34, 24),
   ],
   hangar: [
     sideRoom("simulator", "Combat simulator", 5.2, 9.4, 9.6, 5.2, 7.3),
@@ -235,17 +290,19 @@ export const SIDE_ROOM_PLANS: Partial<Record<WalkRoomKind, readonly SideRoomPlan
   ],
 };
 
-/** How far along the Learning Deck each further block of desks starts. */
-export const DESK_BLOCK = 11;
-
 /** The library's floor plan, in metres out from its far wall. */
 export const LIBRARY_STACKS = [3.2, 6.2, 9.2, 12.2] as const;
 export const LIBRARY_TABLES = [4.5, 9] as const;
 
 /** The furniture in a room behind a hall, in deck coordinates. */
-function sideFurniture(room: Box & { kind: SideRoomKind }): Box[] {
+function sideFurniture(room: Box & { kind: SideRoomKind; cell?: CellTemplate; starboard?: boolean }): Box[] {
   const { x0, x1, z0, z1 } = room;
   switch (room.kind) {
+    case "cell":
+      return cellParts(room.cell!, x1 - x0, z1 - z0).filter((part) => part.block).map((part) => {
+        const across = room.starboard ? z0 + part.v : z1 - part.v;
+        return { x0: x0 + part.u - part.w / 2, x1: x0 + part.u + part.w / 2, z0: across - part.d / 2, z1: across + part.d / 2 };
+      });
     case "cabin":
       return [
         { x0: x0 + 0.1, x1: x0 + 1.1, z0: z0 + 0.5, z1: z0 + 2.7 }, // the bunk
@@ -395,13 +452,7 @@ function furniture(kind: WalkRoomKind, upper: boolean, x0: number, x1: number, f
         { x0: x0 + 9.4, x1: x0 + 13.2, z0: 6.2, z1: 6.9 }, // hydroponic shelves
       ];
     case "education":
-      if (fill === 0) return [];
-      return [
-        { x0: x0 + 6.6, x1: x0 + 7.4, z0: -5.4, z1: -4.8 }, // the lectern
-        ...Array.from({ length: fill }).flatMap((_, block) => [2, 3.6, 5.2].map((rowZ) => ({
-          x0: x0 + 2 + block * DESK_BLOCK, x1: x0 + 12 + block * DESK_BLOCK, z0: rowZ - 0.3, z1: rowZ + 0.3,
-        }))), // rows of desks
-      ];
+      return []; // a corridor: the teaching happens in the rooms off it
     case "hangar":
       return [
         // The pressure wall between the gallery and the launch bay, either side of the blast doors.
@@ -441,10 +492,12 @@ function buildDeck(
       // The atrium is counted from the lower floor; upstairs only its top part remains.
       height: kind === "chamber" && upper ? HEIGHT.chamber - UPPER_FLOOR : HEIGHT[kind],
       fill,
+      half: hallHalf(kind),
     });
     // The chamber and the dock are laid out at full width; the rest is pushed out to the walls.
+    const half = hallHalf(kind);
     const pieces = furniture(kind, upper, x0, x1, fill);
-    blockers.push(...(kind === "chamber" || kind === "hangar" || kind === "fabrication" ? pieces : pieces.map(againstWall)));
+    blockers.push(...(kind === "chamber" || kind === "hangar" || kind === "fabrication" ? pieces : pieces.map((piece) => againstWall(piece, half))));
     const online = kind === "chamber" ? true : room?.online ?? false;
     for (const plan of SIDE_ROOM_PLANS[kind] ?? []) {
       const side: SideRoom = {
@@ -458,7 +511,10 @@ function buildDeck(
         z0: plan.z0,
         z1: plan.z1,
         height: plan.height,
-        door: { x0: x0 + plan.door - plan.doorHalf, x1: x0 + plan.door + plan.doorHalf, z0: plan.z1, z1: -HALF_DEPTH },
+        door: plan.side === 1
+          ? { x0: x0 + plan.door - plan.doorHalf, x1: x0 + plan.door + plan.doorHalf, z0: hallHalf(kind), z1: plan.z0 }
+          : { x0: x0 + plan.door - plan.doorHalf, x1: x0 + plan.door + plan.doorHalf, z0: plan.z1, z1: -hallHalf(kind) },
+        ...(plan.cell ? { cell: plan.cell, starboard: plan.side === 1 } : {}),
       };
       sideRooms.push(side);
       blockers.push(...sideFurniture(side));
@@ -476,13 +532,9 @@ function buildDeck(
  * Rooms wait for someone to need them: the farm its first farmer, the classroom its first
  * teacher, the playroom its first child, and the simulator and briefing room the recon teams.
  */
-/** How far people have filled each hall: desks wait for a teacher and grow with the crew, plants wait for a farmer. */
+/** How far people have filled each hall: Life Support's plants wait for a farmer. */
 export function hallFills(crew: readonly { role: string }[]): Partial<Record<WalkRoomKind, number>> {
-  const teaching = crew.some((member) => member.role === "teacher");
-  return {
-    education: teaching ? (crew.length >= 30 ? 3 : crew.length >= 12 ? 2 : 1) : 0,
-    support: crew.some((member) => member.role === "farmer") ? 1 : 0,
-  };
+  return { support: crew.some((member) => member.role === "farmer") ? 1 : 0 };
 }
 
 export function sealedSideRooms(crew: readonly { role: string; ageGroup?: string | null }[], reconWorking: boolean) {
@@ -506,6 +558,7 @@ export function buildWalkLayout(
   const byKind = new Map(rooms.map((room) => [room.kind, room]));
   const opens = (plan: SideRoomPlan) => {
     if (sealed.includes(plan.kind)) return false;
+    if (plan.kind === "cell") return residents >= (plan.opensAt ?? 0) && !(plan.needs && sealed.includes(plan.needs));
     if (plan.kind === "cabin") return residents >= (CABIN_OPENS_AT[Number(plan.id.split("-")[1])] ?? Infinity);
     return plan.kind === "armory" ? armory : true;
   };
@@ -568,7 +621,7 @@ function inside(box: Box, x: number, z: number, margin: number) {
 export function isWalkable(deck: WalkDeck, x: number, z: number, radius = 0.3) {
   const open =
     deck.compartments.some((compartment) =>
-      inside({ x0: compartment.x0, x1: compartment.x1, z0: -HALF_DEPTH, z1: HALF_DEPTH }, x, z, radius),
+      inside({ x0: compartment.x0, x1: compartment.x1, z0: -compartment.half, z1: compartment.half }, x, z, radius),
     ) ||
     // A doorway is passable along its whole thickness; the margin applies across it only.
     deck.doorways.some((door) => x >= door.x0 - radius && x <= door.x1 + radius && z >= door.z0 + radius && z <= door.z1 - radius) ||

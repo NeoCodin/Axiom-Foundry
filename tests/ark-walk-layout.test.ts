@@ -18,6 +18,7 @@ import {
   INNER_WALL,
   sideRoomAt,
   type WalkDeck,
+  type WalkRoomKind,
 } from "../app/ark-walk-layout.ts";
 
 const rooms = [
@@ -188,12 +189,15 @@ test("rooms behind the halls open through their doors, and sealed ones stay shut
   for (const [deckIndex, deck] of open.decks.entries()) {
     for (const room of deck.sideRooms) {
       const doorX = (room.door.x0 + room.door.x1) / 2;
-      // Straight in from the hall, through the door, to the middle of the room.
-      for (let z = -HALF_DEPTH + 1; z >= room.z1 - 1.2; z -= 0.1) {
+      const hall = deck.compartments.find((compartment) => compartment.kind === room.section)!;
+      const way = room.starboard ? 1 : -1;
+      const wall = room.starboard ? room.z0 : room.z1;
+      // Straight in from the hall, through the door, into the room.
+      for (let z = way * (hall.half - 1); way * z <= way * (wall + way * 1.2); z += way * 0.1) {
         assert.ok(isWalkable(deck, doorX, z, 0.35), `${room.id} on deck ${deckIndex}: open at ${z.toFixed(1)}`);
       }
-      assert.equal(sideRoomAt(deck, doorX, room.z1 - 1)?.id, room.id);
-      assert.ok(!isWalkable(deck, room.door.x0 - 0.6, room.z1 + INNER_WALL / 2, 0.3), `${room.id}: the wall beside its door is solid`);
+      assert.equal(sideRoomAt(deck, doorX, wall + way)?.id, room.id);
+      assert.ok(!isWalkable(deck, room.door.x0 - 0.6, wall - (way * INNER_WALL) / 2, 0.3), `${room.id}: the wall beside its door is solid`);
       const sealed = shut.decks[deckIndex].sideRooms.find((candidate) => candidate.id === room.id)!;
       if (!sealed.open) {
         assert.ok(!isWalkable(shut.decks[deckIndex], doorX, room.z1 + INNER_WALL / 2, 0.3), `${room.id}: a sealed door stays shut`);
@@ -227,10 +231,10 @@ test("the rooms behind a hall sit behind its wall, inside its length, and never 
     for (const room of deck.sideRooms) {
       const hall = deck.compartments.find((compartment) => compartment.kind === room.section)!;
       assert.ok(room.x0 >= hall.x0 && room.x1 <= hall.x1, `${room.id} stays within its hall's length`);
-      assert.ok(room.z1 <= -HALF_DEPTH - INNER_WALL + 1e-9 && room.z0 < room.z1, `${room.id} is behind the wall`);
+      assert.ok((room.starboard ? room.z0 >= hall.half : room.z1 <= -hall.half - INNER_WALL + 1e-9) && room.z0 < room.z1, `${room.id} is behind the wall`);
       assert.ok(room.door.x0 >= room.x0 && room.door.x1 <= room.x1, `${room.id}'s door opens into it`);
       for (const other of deck.sideRooms) {
-        if (other !== room) assert.ok(room.x1 <= other.x0 || room.x0 >= other.x1, `${room.id} and ${other.id} do not overlap`);
+        if (other !== room) assert.ok(room.x1 <= other.x0 || room.x0 >= other.x1 || room.z1 <= other.z0 || room.z0 >= other.z1, `${room.id} and ${other.id} do not overlap`);
       }
     }
   }
@@ -240,15 +244,37 @@ test("rooms wait for someone to need them, and halls fill with the crew", () => 
   const nobody: { role: string; ageGroup?: string | null }[] = [];
   assert.deepEqual(sealedSideRooms(nobody, false), ["farm", "classroom", "playroom", "simulator", "briefing"]);
   assert.deepEqual(sealedSideRooms([{ role: "farmer" }, { role: "teacher" }, { role: "civilian", ageGroup: "child" }], true), []);
-  assert.deepEqual(hallFills(nobody), { education: 0, support: 0 }, "no desks before a teacher, nothing growing before a farmer");
-  const crew = (count: number) => Array.from({ length: count }, (_, index) => ({ role: index === 0 ? "teacher" : "farmer" }));
-  assert.deepEqual([crew(5), crew(12), crew(30)].map((members) => hallFills(members).education), [1, 2, 3], "more desks as more people come aboard");
+  assert.deepEqual(hallFills(nobody), { support: 0 }, "nothing growing before a farmer");
+  assert.deepEqual(hallFills([{ role: "farmer" }]), { support: 1 });
   const rooms = [...new Set<WalkRoomKind>([...UPPER_DECK, ...LOWER_DECK])].map((kind) => ({ kind, label: kind, online: true }));
-  const bare = buildWalkLayout(rooms, { residents: 2, sealed: ["farm"], fills: { education: 0 } });
+  const bare = buildWalkLayout(rooms, { residents: 2, sealed: ["farm", "classroom"], fills: { support: 0 } });
+  const opened = (layout: typeof bare) => layout.decks.flatMap((deck) => deck.sideRooms).filter((room) => room.cell && room.open).map((room) => room.id);
   assert.equal(bare.decks[1].sideRooms.find((room) => room.kind === "farm")?.open, false);
-  assert.equal(bare.decks[1].compartments.find((room) => room.kind === "education")?.fill, 0);
-  const full = buildWalkLayout(rooms, { residents: 40, fills: { education: 3 } });
-  assert.ok(full.decks[1].blockers.length > bare.decks[1].blockers.length, "desks people have to walk round");
+  assert.equal(bare.decks[1].compartments.find((room) => room.kind === "support")?.fill, 0);
+  assert.ok(opened(bare).includes("water-plant") && opened(bare).includes("common-room"), "what a few people need from the start");
+  assert.ok(!opened(bare).includes("seminar-a"), "teaching rooms wait for a teacher");
+  assert.ok(!opened(bare).includes("ration-store"), "no food put by before the first farmer");
+  assert.deepEqual(opened(buildWalkLayout(rooms, { residents: 0 })), [], "nothing is open with nobody aboard");
+  assert.ok(!opened(bare).includes("gym") && !opened(bare).includes("lecture-theatre"), "the bigger rooms wait for more people");
+  const full = buildWalkLayout(rooms, { residents: 40 });
+  assert.ok(opened(full).includes("lecture-theatre") && opened(full).includes("gym"));
+});
+
+test("the halls with people in them are buildings: corridors with named rooms off both sides", () => {
+  const rooms = [...new Set<WalkRoomKind>([...UPPER_DECK, ...LOWER_DECK])].map((kind) => ({ kind, label: kind, online: true }));
+  const layout = buildWalkLayout(rooms, { residents: 99, armory: true });
+  for (const deck of layout.decks) {
+    for (const hall of deck.compartments) {
+      const offIt = deck.sideRooms.filter((room) => room.section === hall.kind);
+      if (hall.half === HALF_DEPTH) continue;
+      assert.ok(hall.half * 2 < 16, `${hall.kind} is a corridor`);
+      assert.ok(offIt.length >= 4, `${hall.kind} has rooms along it`);
+      assert.ok(offIt.some((room) => room.starboard) && offIt.some((room) => !room.starboard), `${hall.kind} has them on both sides`);
+    }
+  }
+  const corridors = layout.decks.flatMap((deck) => deck.compartments).filter((hall) => hall.half < HALF_DEPTH).map((hall) => hall.kind).sort();
+  assert.deepEqual(corridors, ["education", "habitation", "research", "support"], "the works and the core stay open");
+  assert.ok(layout.decks.flatMap((deck) => deck.sideRooms).length >= 35, "a lot of rooms");
 });
 
 test("the Ark is big: about 150 metres long, 40 across, and the core takes up its middle", () => {
