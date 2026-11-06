@@ -14,6 +14,9 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { playBulkhead, playNullStatic, playRecordFound, unlockPulseAudio } from "./law-heart-audio";
 import { pelagosCues, type LyraCue, type PelagosReading } from "./lyra-voice";
+import { createPixelFinish } from "./pixel-finish";
+import { buildWorldView, WORLD_FAR } from "./world-views";
+import { rockTile } from "./world-view-textures";
 import {
   answerSignal,
   BREACHES,
@@ -149,14 +152,11 @@ export default function PelagosView({ onLeave, lyra }: PelagosViewProps) {
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     mount.appendChild(renderer.domElement);
     const scene = new THREE.Scene();
-    const sky = new THREE.Color("#56646f");
-    scene.background = sky;
-    scene.fog = new THREE.Fog(sky, 45, 135);
-    const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 500);
-    scene.add(new THREE.HemisphereLight("#c3ccd4", "#2b3035", 1.25));
-    const sun = new THREE.DirectionalLight("#e6ecf2", 0.7);
-    sun.position.set(-30, 60, 25);
-    scene.add(sun);
+    // Round the district: the storm sky, the open sea, the towers and the hanging continents.
+    const world = buildWorldView(scene, "Pelagos", { backdrop: true, seaLevel: -0.4 });
+    scene.fog = world.fog;
+    const camera = new THREE.PerspectiveCamera(60, 1, 0.3, WORLD_FAR);
+    const finish = createPixelFinish(renderer);
     const resize = () => {
       const width = Math.max(1, Math.floor(mount.clientWidth / PIXEL_SCALE));
       const height = Math.max(1, Math.floor(mount.clientHeight / PIXEL_SCALE));
@@ -195,7 +195,9 @@ export default function PelagosView({ onLeave, lyra }: PelagosViewProps) {
     const matrix = new THREE.Matrix4();
     const color = new THREE.Color();
     const lowTiles = state.tiles.flatMap((tile, at) => (tile.ground === "block" ? [] : [at]));
-    const terrain = new THREE.InstancedMesh(new THREE.BoxGeometry(TILE, 1, TILE), new THREE.MeshLambertMaterial({ flatShading: true }), lowTiles.length);
+    const stone = rockTile();
+    stone.repeat.set(1, 1);
+    const terrain = new THREE.InstancedMesh(new THREE.BoxGeometry(TILE, 1, TILE), new THREE.MeshLambertMaterial({ map: stone, flatShading: true }), lowTiles.length);
     const terrainOf = new Map<number, number>();
     const groundColor = (at: number) => {
       const tile = state.tiles[at];
@@ -259,9 +261,7 @@ export default function PelagosView({ onLeave, lyra }: PelagosViewProps) {
         }
       }
     }
-    // Beyond the district: the open sea to the east, the land the cliffs hold up everywhere else.
-    const farSea = add(scene, new THREE.PlaneGeometry(400, 600), solid("#3a5866"), SIZE * TILE + 200, -0.2, SIZE);
-    farSea.rotation.x = -Math.PI / 2;
+    // Beyond the district: the land the cliffs hold up, on every side but the open sea to the east.
     for (const [w, d, x, z] of [[400, 200, SIZE - 120, -100], [400, 200, SIZE - 120, SIZE * TILE + 100], [200, SIZE * TILE, -100, SIZE]] as const) {
       const land = add(scene, new THREE.PlaneGeometry(w, d), solid("#4d5149"), x, 2, z);
       land.rotation.x = -Math.PI / 2;
@@ -934,7 +934,8 @@ export default function PelagosView({ onLeave, lyra }: PelagosViewProps) {
       }
       drawPrompt(link);
       if (messageRef.current && !messageRef.current.hidden && now > messageUntil) messageRef.current.hidden = true;
-      renderer.render(scene, camera);
+      world.update(now / 1000, camera, dt);
+      finish.render(scene, camera);
     };
     frame = window.requestAnimationFrame(tick);
 
@@ -962,6 +963,8 @@ export default function PelagosView({ onLeave, lyra }: PelagosViewProps) {
         }
       });
       windows.dispose();
+      world.dispose();
+      finish.dispose();
       renderer.dispose();
       renderer.domElement.remove();
     };

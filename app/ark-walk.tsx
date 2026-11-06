@@ -101,6 +101,7 @@ import { cellParts, type CellPart } from "./ark-walk-cells";
 import { fragmentOf, placeState, RECORD_PLACES, recordLines, recordSpot, type RecordPlace } from "./ark-walk-records";
 import { switchChannel } from "./channel-switch";
 import PelagosView from "./pelagos-view";
+import WorldLookout from "./world-lookout";
 import { lyraStage, simCues, type LyraCue, type LyraStage, type SimReading } from "./lyra-voice";
 import { createLyra, type Lyra } from "./lyra-voice-player";
 import { catchUp, createAboardPacer, heartRemark, moodRemark, nullRemark, openingRemark, placeOf, placeRemark, readSaid, recordRemark, welcomeRemark, worldRemark, writeSaid, type AboardPlace } from "./lyra-aboard";
@@ -781,7 +782,7 @@ type Interactable =
   /** A place where one of the story's records is kept: E reads it, or searches for it. */
   | { kind: "record"; object: THREE.Object3D; place: RecordPlace; deck: number }
   /** The way down to the world below: E flies the drone to Pelagos (the reclamation prototype). */
-  | { kind: "planet"; object: THREE.Object3D; label: string }
+  | { kind: "planet"; object: THREE.Object3D }
   /** The chamber's console, in the Cold Wake opening: E plugs the drone in and gives AXIOM its interface back. */
   | { kind: "link"; object: THREE.Object3D; deck: number }
   /** The repair cradle in Fabrication: E mends a damaged drone, once the fabricators have power. */
@@ -2037,7 +2038,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     scene.add(laidUp.group);
     // The second ship is the way down for the reclamation prototype.
     // Once the first witnesses are aboard, to tell AXIOM what is down there.
-    if (props.crew.length > 0) interactables.push({ kind: "planet", object: laidUp.group, label: "Recon ship two · E · fly the drone down to Pelagos (prototype)" });
+    if (props.crew.length > 0) interactables.push({ kind: "planet", object: laidUp.group });
     const serviceDrone = droneModel(PALETTE.amber);
     scene.add(serviceDrone);
     const flyer = reconShip(true);
@@ -5250,7 +5251,8 @@ export default function ArkWalk(props: ArkWalkProps) {
     let lyraPlace: AboardPlace | null = null;
     let lyraChecked = 0;
     const followLyra = (now: number) => {
-      if (now - lyraChecked < 500) return;
+      // Her remarks are about the ship: they wait while the drone is down on a world.
+      if (now - lyraChecked < 500 || planetOpenRef.current) return;
       lyraChecked = now;
       const seconds = now / 1000;
       for (const id of talkContext().discovered) {
@@ -5539,8 +5541,9 @@ export default function ArkWalk(props: ArkWalkProps) {
       }
     };
 
-    /** Board the second recon ship: the drone's feed changes channel to Pelagos. */
+    /** Board the second recon ship: the drone's feed changes channel to the world below. */
     const openPlanet = () => {
+      if (propsRef.current.worldName.startsWith("Transit")) return;
       if (document.pointerLockElement === renderer.domElement) document.exitPointerLock();
       keys.clear();
       switchChannel(() => {
@@ -5995,7 +5998,7 @@ export default function ArkWalk(props: ArkWalkProps) {
       else if (target.kind === "person") setPrompt(conversation ? "" : target.mood === "talk" ? `${target.label} · E to talk` : target.mood === "busy" ? `${target.label} · busy` : target.label);
       else if (target.kind === "sim") setPrompt("E · step into the combat simulation");
       else if (target.kind === "record") setPrompt(conversation ? "" : recordPrompt(target.place));
-      else if (target.kind === "planet") setPrompt(target.label);
+      else if (target.kind === "planet") setPrompt(propsRef.current.worldName.startsWith("Transit") ? "Recon ship two · held in its clamps until the Ark arrives" : `Recon ship two · E · fly the drone down to ${propsRef.current.worldName}`);
       else if (target.kind === "link") setPrompt("E · plug in to the chamber console");
       else if (target.kind === "cradle") {
         setPrompt(repairing
@@ -6087,17 +6090,18 @@ export default function ArkWalk(props: ArkWalkProps) {
     };
   }, []);
 
+  const leavePlanet = () => switchChannel(() => {
+    planetOpenRef.current = false;
+    setPlanetOpen(false);
+  });
+
   return (
     <div ref={rootRef} className="ark-walk" role="dialog" aria-modal="true" aria-label="Walk the Ark: maintenance drone view">
-      {planetOpen && (
-        <PelagosView
-          lyra={lyraLink}
-          onLeave={() => switchChannel(() => {
-            planetOpenRef.current = false;
-            setPlanetOpen(false);
-          })}
-        />
-      )}
+      {planetOpen && (props.worldName === "Pelagos" ? (
+        <PelagosView lyra={lyraLink} onLeave={leavePlanet} />
+      ) : (
+        <WorldLookout world={props.worldName} onLeave={leavePlanet} />
+      ))}
       <div ref={mountRef} className="ark-walk-viewport" />
       <div className="ark-walk-hud">
         <div className="ark-walk-status">
