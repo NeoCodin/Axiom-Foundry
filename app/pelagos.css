@@ -1,0 +1,257 @@
+/* Pelagos on the ground: the district's view, its heads-up display, and the drone's failing link. */
+
+.pelagos {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  overflow: hidden;
+  background: #0b0c12;
+  color: #efe6d2;
+  user-select: none;
+}
+
+.pelagos-view,
+.pelagos-view canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.pelagos-view canvas {
+  display: block;
+  image-rendering: pixelated;
+}
+
+.pelagos[data-mode="overhead"] .pelagos-view canvas {
+  cursor: crosshair;
+}
+
+/* Snow over the drone's picture as its link thins. */
+.pelagos-static {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  image-rendering: pixelated;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+.pelagos-card {
+  margin: 0;
+  padding: 8px 12px;
+  border: 6px solid transparent;
+  border-image: var(--b-plate-base) 7 fill / 14px / 4px stretch;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.pelagos-left {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  display: grid;
+  gap: 8px;
+  width: min(360px, calc(100% - 32px));
+  pointer-events: none;
+}
+
+.pelagos-drone {
+  display: grid;
+  gap: 4px;
+}
+
+.pelagos-drone strong {
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+
+.pelagos-drone small {
+  color: #b9b2a2;
+}
+
+/* The link: a segmented bar that drains as the drone leaves the dome. */
+.pelagos-link {
+  --link-color: #c9b6ff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.pelagos-link[data-state="weak"] {
+  --link-color: #e8b45a;
+}
+
+.pelagos-link[data-state="critical"] {
+  --link-color: #e46a5a;
+}
+
+.pelagos-link-bar {
+  position: relative;
+  flex: 1;
+  height: 10px;
+  background: #1b1726;
+}
+
+.pelagos-link-bar i {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(90deg, var(--link-color) 0 8px, transparent 8px 10px);
+  transform: scaleX(var(--link, 1));
+  transform-origin: left;
+  transition: transform 0.15s linear;
+}
+
+.pelagos-link[data-state="critical"] .pelagos-link-bar i {
+  animation: pelagos-flicker 0.35s steps(2) infinite;
+}
+
+@keyframes pelagos-flicker {
+  50% { opacity: 0.35; }
+}
+
+.pelagos-objective {
+  color: #f5ecd6;
+}
+
+.pelagos-stats {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 2px 14px;
+  min-width: 210px;
+  pointer-events: none;
+}
+
+.pelagos-stats dt {
+  color: #b9b2a2;
+}
+
+.pelagos-stats dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.pelagos-stats dd[data-alert="true"] {
+  color: #f09a6a;
+}
+
+.pelagos-lost {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  display: grid;
+  gap: 6px;
+  text-align: center;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.pelagos-lost[hidden] {
+  display: none;
+}
+
+.pelagos-lost strong {
+  color: #e46a5a;
+  font-family: var(--font-display);
+  font-size: 30px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.pelagos-message {
+  position: absolute;
+  top: 22%;
+  left: 50%;
+  max-width: min(620px, calc(100% - 48px));
+  margin: 0;
+  padding: 8px 16px;
+  border: 6px solid transparent;
+  border-image: var(--b-plate-base) 7 fill / 14px / 4px stretch;
+  font-size: 15px;
+  text-align: center;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.pelagos-message[hidden] {
+  display: none;
+}
+
+.pelagos-bottom {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  width: min(980px, calc(100% - 32px));
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.pelagos-prompt {
+  min-height: 20px;
+  margin: 0;
+  font-size: 15px;
+  text-align: center;
+  text-shadow: 0 1px 0 #000, 1px 0 0 #000, 0 -1px 0 #000, -1px 0 0 #000;
+}
+
+.pelagos-hotbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  pointer-events: auto;
+}
+
+.pelagos-hotbar button {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  gap: 0 8px;
+  padding: 4px 10px;
+  border: 6px solid transparent;
+  border-image: var(--b-plate-base) 7 fill / 14px / 4px stretch;
+  background: none;
+  color: #e6dfcf;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.pelagos-hotbar button[data-selected="true"] {
+  border-image: var(--b-plate-active) 7 fill / 14px / 4px stretch;
+  color: #fff4e0;
+}
+
+.pelagos-hotbar button small {
+  grid-column: 2;
+  color: #b9b2a2;
+  font-size: 11px;
+}
+
+.pelagos-key {
+  grid-row: span 2;
+  color: #c9b6ff;
+  font-family: var(--font-display);
+}
+
+.pelagos-help {
+  margin: 0;
+  color: #cfc7b6;
+  font-size: 12px;
+  text-align: center;
+  text-shadow: 0 1px 0 #000, 1px 0 0 #000;
+}

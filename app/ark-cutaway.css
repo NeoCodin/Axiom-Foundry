@@ -1,0 +1,308 @@
+/*
+ * Art direction B: the Ark as a living pixel cutaway. Desktop theater only;
+ * phones keep the compartment list (ark-deck.css hides .ark-visual-stage
+ * below 768px), so nothing here changes the mobile layout.
+ */
+
+.ark-cutaway-scene {
+  position: absolute;
+  z-index: 6;
+  top: 236px;
+  left: 50%;
+  width: min(1180px, 86%);
+  transform: translateX(-50%);
+  color: #efe6d2;
+  font-family: var(--font-ui);
+}
+
+.ark-cutaway-frame {
+  position: relative;
+}
+
+/* Phones: the same ship, art only, at the head of the room list. */
+.ark-cutaway-scene.is-compact {
+  position: relative;
+  top: auto;
+  left: auto;
+  width: 100%;
+  transform: none;
+}
+
+.ark-compartment-ship {
+  margin: 0 0 6px;
+  padding: 14px 4px 10px;
+  background: radial-gradient(90% 80% at 50% 60%, rgb(var(--world-accent-rgb, 106 98 144) / 0.12), transparent 70%);
+}
+
+.ark-cutaway-art {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  filter: drop-shadow(0 24px 26px rgb(0 0 0 / 0.75));
+}
+
+.ark-cutaway-room.is-dormant {
+  filter: saturate(0.15) brightness(0.42);
+}
+
+/* Motion: every loop is stepped so it reads as pixel animation, not tweening. */
+.ark-cutaway-drive {
+  transform-box: fill-box;
+  transform-origin: right center;
+  opacity: var(--cutaway-drive, 0.6);
+  animation: ark-cutaway-flame 0.32s steps(1) infinite;
+}
+
+.ark-cutaway-scene.is-in-transit .ark-cutaway-drive {
+  opacity: 1;
+  animation-name: ark-cutaway-flame-long;
+}
+
+.ark-cutaway-screens {
+  animation: ark-cutaway-screen 3.7s steps(1) infinite;
+}
+
+.ark-cutaway-piston {
+  animation: ark-cutaway-piston 1.6s steps(1) infinite;
+}
+
+.ark-cutaway-crates {
+  animation: ark-cutaway-convey 3.2s steps(14) infinite;
+}
+
+.ark-cutaway-bubble {
+  animation: ark-cutaway-bubble 2.4s steps(12) infinite;
+}
+
+.ark-cutaway-heart,
+.ark-cutaway-heart-ring,
+.ark-cutaway-ping {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.ark-cutaway-heart {
+  animation: ark-cutaway-beat var(--cutaway-beat, 1250ms) infinite;
+}
+
+.ark-cutaway-heart-ring {
+  animation: ark-cutaway-approach var(--cutaway-beat, 1250ms) cubic-bezier(0.35, 0, 0.9, 1) infinite;
+}
+
+.ark-cutaway-ping {
+  animation: ark-cutaway-ping 2.4s steps(8) infinite;
+}
+
+.ark-cutaway-beacon.has-signal {
+  animation: ark-cutaway-blink 0.9s steps(1) infinite;
+}
+
+.ark-cutaway-walker {
+  animation-name: ark-cutaway-walk;
+  animation-timing-function: steps(20);
+  animation-iteration-count: infinite;
+}
+
+@keyframes ark-cutaway-flame { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(0.6); } }
+@keyframes ark-cutaway-flame-long { 0%, 100% { transform: scaleX(2.4); } 50% { transform: scaleX(1.8); } }
+@keyframes ark-cutaway-screen { 0%, 38%, 42%, 100% { opacity: 1; } 40% { opacity: 0.55; } }
+@keyframes ark-cutaway-piston { 0%, 40%, 100% { transform: translateY(0); } 55%, 85% { transform: translateY(-3px); } }
+@keyframes ark-cutaway-convey { from { transform: translateX(0); } to { transform: translateX(14px); } }
+@keyframes ark-cutaway-bubble { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-12px); opacity: 0; } }
+@keyframes ark-cutaway-beat { 0% { transform: scale(1); } 7% { transform: scale(1.18); } 15% { transform: scale(1.03); } 22% { transform: scale(1.1); } 38%, 100% { transform: scale(1); } }
+@keyframes ark-cutaway-approach { 0% { transform: scale(1.9); opacity: 0; } 25% { opacity: 0.85; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes ark-cutaway-ping { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(4.5); opacity: 0; } }
+@keyframes ark-cutaway-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0.2; } }
+@keyframes ark-cutaway-walk {
+  0%, 10% { transform: translateX(0); }
+  45%, 55% { transform: translateX(var(--walk, 16px)); }
+  90%, 100% { transform: translateX(0); }
+}
+
+/* Lit rooms open their destination like their tag; crew open Personnel. */
+.ark-cutaway-room.is-interactive,
+.ark-cutaway-person.is-interactive {
+  cursor: pointer;
+}
+
+.ark-cutaway-room.is-interactive:hover {
+  filter: brightness(1.18);
+}
+
+.ark-cutaway-person.is-interactive:hover {
+  filter: brightness(1.35) drop-shadow(0 0 1px #fff4e0);
+}
+
+/* Tags pinned to rooms: the information lives on the ship. */
+.game-shell .ark-cutaway-scene button.ark-cutaway-tag,
+.game-shell .ark-cutaway-scene .ark-cutaway-heart-tag,
+.game-shell .ark-cutaway-scene button.ark-cutaway-signal {
+  position: absolute;
+  left: var(--tag-x);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: max-content;
+  max-width: 200px;
+  min-height: 44px;
+  padding: 6px 10px 7px;
+  border: 0;
+  border-radius: 0;
+  background: #14121f;
+  color: #efe6d2;
+  box-shadow: 0 0 0 2px #efe6d2, 0 0 0 5px #0b0c1d;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: var(--font-ui);
+  transform: translateX(-50%);
+}
+
+.game-shell .ark-cutaway-scene button.ark-cutaway-tag.align-end {
+  transform: translateX(-78%);
+}
+
+.game-shell .ark-cutaway-scene button.ark-cutaway-tag:hover:not(:disabled),
+.game-shell .ark-cutaway-scene button.ark-cutaway-tag:focus-visible,
+.game-shell .ark-cutaway-scene button.ark-cutaway-signal:hover:not(:disabled),
+.game-shell .ark-cutaway-scene button.ark-cutaway-signal:focus-visible {
+  border: 0;
+  background: #1f1b33;
+  color: #fff8e8;
+  box-shadow: 0 0 0 2px #ffd27a, 0 0 0 5px #0b0c1d;
+  transform: translate(-50%, -2px);
+}
+
+.game-shell .ark-cutaway-scene button.ark-cutaway-tag.align-end:hover:not(:disabled),
+.game-shell .ark-cutaway-scene button.ark-cutaway-tag.align-end:focus-visible {
+  transform: translate(-78%, -2px);
+}
+
+.game-shell .ark-cutaway-scene button.ark-cutaway-tag:active:not(:disabled),
+.game-shell .ark-cutaway-scene button.ark-cutaway-signal:active:not(:disabled) {
+  box-shadow: 0 0 0 2px #ffd27a, 0 0 0 5px #0b0c1d;
+  transform: translate(-50%, 1px);
+}
+
+.game-shell .ark-cutaway-scene button.ark-cutaway-tag.align-end:active:not(:disabled) {
+  transform: translate(-78%, 1px);
+}
+
+.game-shell .ark-cutaway-scene button.ark-cutaway-tag:disabled {
+  background: #110f1a;
+  color: #9a94b3;
+  box-shadow: 0 0 0 2px #3b3653, 0 0 0 5px #0b0c1d;
+  cursor: default;
+}
+
+.game-shell .ark-cutaway-scene button.ark-cutaway-tag.is-commissioning {
+  box-shadow: 0 0 0 2px #ffd27a, 0 0 0 5px #0b0c1d;
+  animation: ark-cutaway-commission 1.2s steps(1) infinite;
+}
+
+@keyframes ark-cutaway-commission {
+  0%, 49% { box-shadow: 0 0 0 2px #ffd27a, 0 0 0 5px #0b0c1d; }
+  50%, 100% { box-shadow: 0 0 0 2px #fff1c2, 0 0 0 5px #0b0c1d; }
+}
+
+.ark-cutaway-tag.is-above::after,
+.ark-cutaway-tag.is-below::after,
+.ark-cutaway-heart-tag::after,
+.ark-cutaway-signal::after {
+  position: absolute;
+  left: 50%;
+  width: 2px;
+  height: 14px;
+  background: currentColor;
+  content: "";
+  opacity: 0.55;
+}
+
+.ark-cutaway-tag.align-end::after {
+  left: 78%;
+}
+
+.ark-cutaway-tag.is-above::after,
+.ark-cutaway-heart-tag::after,
+.ark-cutaway-signal::after {
+  top: calc(100% + 2px);
+}
+
+.ark-cutaway-tag.is-below::after {
+  bottom: calc(100% + 2px);
+}
+
+.ark-cutaway-tag strong,
+.ark-cutaway-heart-tag strong,
+.ark-cutaway-signal strong {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.ark-cutaway-tag small,
+.ark-cutaway-heart-tag small,
+.ark-cutaway-signal small {
+  color: #b4aecb;
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.ark-cutaway-tag:disabled small {
+  color: #8f89a6;
+}
+
+.ark-cutaway-tag em {
+  color: #ffd27a;
+  font-size: 11px;
+  font-style: normal;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.game-shell .ark-cutaway-scene .ark-cutaway-heart-tag {
+  color: var(--ark-power-bright, #ff8a6b);
+  box-shadow: 0 0 0 2px var(--ark-power-surface, #ff6b4a), 0 0 0 5px #0b0c1d;
+}
+
+.game-shell .ark-cutaway-scene .ark-cutaway-heart-tag strong {
+  color: var(--ark-power-bright, #ff8a6b);
+}
+
+.game-shell .ark-cutaway-scene button.ark-cutaway-signal {
+  bottom: calc(100% + 18px);
+  max-width: 220px;
+  box-shadow: 0 0 0 2px #ffd27a, 0 0 0 5px #0b0c1d;
+  animation: ark-cutaway-alert 1.2s steps(1) infinite;
+}
+
+.game-shell .ark-cutaway-scene button.ark-cutaway-signal strong {
+  color: #ffd27a;
+}
+
+@keyframes ark-cutaway-alert {
+  0%, 49% { box-shadow: 0 0 0 2px #ffd27a, 0 0 0 5px #0b0c1d; }
+  50%, 100% { box-shadow: 0 0 0 2px #ff6b4a, 0 0 0 5px #0b0c1d; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ark-cutaway-scene *,
+  .game-shell .ark-cutaway-scene button.ark-cutaway-signal,
+  .game-shell .ark-cutaway-scene button.ark-cutaway-tag.is-commissioning {
+    animation: none !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .game-shell .ark-cutaway-scene button.ark-cutaway-tag,
+  .game-shell .ark-cutaway-scene .ark-cutaway-heart-tag,
+  .game-shell .ark-cutaway-scene button.ark-cutaway-signal {
+    border: 2px solid CanvasText;
+  }
+}

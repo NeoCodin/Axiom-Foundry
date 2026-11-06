@@ -1,0 +1,1135 @@
+/* Walk the Ark (proof): the drone view. Loaded with ark-walk.tsx on demand. */
+
+.ark-walk {
+  position: fixed;
+  z-index: 9000;
+  inset: 0;
+  overflow: hidden;
+  background: #07081a;
+  color: #efe6d2;
+  font-family: var(--font-ui);
+  user-select: none;
+}
+
+.ark-walk-viewport,
+.ark-walk-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.ark-walk-canvas {
+  cursor: crosshair;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.ark-walk-hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.ark-walk-status {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 6px solid transparent;
+  border-image: var(--b-plate-active) 7 fill / 14px / 4px stretch;
+}
+
+.ark-walk-eye {
+  display: block;
+  width: 36px;
+  height: 36px;
+  color: var(--world-accent, #c9b6ff);
+}
+
+.ark-walk-status strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.ark-walk-status small {
+  color: #b4aecb;
+  font-size: 13px;
+}
+
+.game-shell .ark-walk button.ark-walk-exit {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  pointer-events: auto;
+}
+
+/* The drone's signal: four bars, fewer as the Null presses on the feed. */
+.ark-walk-signal {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 24px;
+  margin-left: 6px;
+}
+
+.ark-walk-signal i {
+  display: block;
+  width: 5px;
+  background: #3a3548;
+}
+
+.ark-walk-signal i:nth-child(1) { height: 25%; }
+.ark-walk-signal i:nth-child(2) { height: 50%; }
+.ark-walk-signal i:nth-child(3) { height: 75%; }
+.ark-walk-signal i:nth-child(4) { height: 100%; }
+
+.ark-walk-signal[data-bars="4"] i,
+.ark-walk-signal[data-bars="3"] i:nth-child(-n + 3) { background: #efe6d2; }
+.ark-walk-signal[data-bars="2"] i:nth-child(-n + 2) { background: #ffb347; }
+.ark-walk-signal[data-bars="1"] i:nth-child(1) { background: #ff695c; }
+
+.ark-walk-lost {
+  position: absolute;
+  top: 34%;
+  left: 50%;
+  margin: 0;
+  color: #ff695c;
+  font-family: var(--font-display);
+  font-size: 34px;
+  letter-spacing: 0.12em;
+  text-shadow: 3px 3px 0 #07081a;
+  text-transform: uppercase;
+  transform: translateX(-50%);
+}
+
+.ark-walk-lost[hidden] {
+  display: none;
+}
+
+.ark-walk-crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin: -2px 0 0 -2px;
+  background: #efe6d2;
+  box-shadow:
+    -8px 0 0 #efe6d2, 8px 0 0 #efe6d2,
+    0 -8px 0 #efe6d2, 0 8px 0 #efe6d2;
+  opacity: 0.85;
+}
+
+.ark-walk-prompt {
+  position: absolute;
+  top: calc(50% + 28px);
+  left: 50%;
+  margin: 0;
+  color: #fff4e0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: 0.04em;
+  text-shadow: 2px 2px 0 #07081a;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.ark-walk-intro {
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  margin: 0;
+  padding: 10px 16px;
+  border: 6px solid transparent;
+  border-image: var(--b-plate-base) 7 fill / 14px / 4px stretch;
+  font-size: 14px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.ark-walk.is-piloting .ark-walk-intro {
+  display: none;
+}
+
+.ark-walk.is-loading {
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: 24px;
+  letter-spacing: 0.08em;
+}
+
+/* The combat simulation (ark-sim): its own display replaces the drone's while AXIOM is in it. */
+.ark-walk.is-simulating .ark-walk-hud {
+  display: none;
+}
+
+/* What someone is saying: the speaker in the world's colour, their words, and what E does next. */
+.ark-walk-talk {
+  position: absolute;
+  bottom: 74px;
+  left: 50%;
+  display: grid;
+  gap: 8px;
+  width: min(760px, calc(100% - 48px));
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.ark-walk-subtitle {
+  display: grid;
+  gap: 4px;
+  padding: 10px 18px 12px;
+  border: 6px solid transparent;
+  border-image: var(--b-plate-base) 7 fill / 14px / 4px stretch;
+  color: #efe6d2;
+  font-size: 17px;
+  line-height: 1.4;
+}
+
+/* AXIOM's own lines: its name in the colour of its eye, the words a little cooler. */
+.ark-walk-subtitle[data-speaker="axiom"] strong {
+  color: #c9b6ff;
+}
+
+.ark-walk-subtitle[data-speaker="axiom"] span {
+  color: #dcd6f0;
+}
+
+/* A record's own words: where it came from in small capitals, the text like an old printout. */
+.ark-walk-subtitle[data-speaker="record"] strong {
+  color: #d9c79a;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ark-walk-subtitle[data-speaker="record"] span {
+  color: #ece4cc;
+}
+
+/* What AXIOM can say next: numbered, the highlighted one on a lit plate. */
+.ark-walk-choices {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  counter-reset: choice;
+  list-style: none;
+}
+
+.ark-walk-choices[hidden] {
+  display: none;
+}
+
+.ark-walk-choices li {
+  padding: 6px 14px;
+  border: 6px solid transparent;
+  border-image: var(--b-plate-base) 7 fill / 14px / 4px stretch;
+  color: #d8d2e4;
+  font-size: 16px;
+  counter-increment: choice;
+}
+
+.ark-walk-choices li::before {
+  margin-right: 10px;
+  color: #c9b6ff;
+  font-family: var(--font-display);
+  content: counter(choice);
+}
+
+.ark-walk-choices li[data-selected="true"] {
+  border-image: var(--b-plate-active) 7 fill / 14px / 4px stretch;
+  color: #fff4e0;
+}
+
+.ark-walk-subtitle[hidden] {
+  display: none;
+}
+
+.ark-walk-subtitle strong {
+  color: var(--world-accent, #ffd27a);
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ark-walk-subtitle small {
+  justify-self: end;
+  color: #b4aecb;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ark-walk-subtitle small:empty {
+  display: none;
+}
+
+.ark-sim-hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-family: var(--font-ui);
+}
+
+.ark-sim-hud[hidden],
+.ark-sim-banner[hidden],
+.ark-sim-paused[hidden] {
+  display: none;
+}
+
+.ark-sim-hurt {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  box-shadow: inset 0 0 160px 60px rgb(255 60 60 / 0.85);
+}
+
+.ark-sim-crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin: -2px 0 0 -2px;
+  background: #fff4e0;
+  box-shadow:
+    -9px 0 0 #fff4e0, -13px 0 0 #fff4e0, 9px 0 0 #fff4e0, 13px 0 0 #fff4e0,
+    0 -9px 0 #fff4e0, 0 -13px 0 #fff4e0, 0 9px 0 #fff4e0, 0 13px 0 #fff4e0;
+  filter: drop-shadow(0 0 1px #10140e) drop-shadow(0 0 1px #10140e);
+}
+
+.ark-sim-marker {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  border: 3px solid #ffe34a;
+  opacity: 0;
+  transform: rotate(45deg);
+}
+
+.ark-sim-banner {
+  position: absolute;
+  top: 22%;
+  left: 50%;
+  margin: 0;
+  color: #fff4e0;
+  font-family: var(--font-display);
+  font-size: 40px;
+  letter-spacing: 0.1em;
+  text-shadow: 3px 3px 0 #07081a;
+  text-transform: uppercase;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.ark-sim-vitals,
+.ark-sim-ammo,
+.ark-sim-score {
+  position: absolute;
+  display: grid;
+  gap: 6px;
+  padding: 10px 14px;
+  border: 6px solid transparent;
+  border-image: var(--b-plate-base) 7 fill / 14px / 4px stretch;
+  color: #efe6d2;
+}
+
+.ark-sim-vitals {
+  bottom: 24px;
+  left: 24px;
+}
+
+.ark-sim-ammo {
+  right: 24px;
+  bottom: 24px;
+  justify-items: end;
+}
+
+.ark-sim-score {
+  top: 24px;
+  left: 24px;
+  font-family: var(--font-display);
+  font-size: 18px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ark-sim-label {
+  color: #b4aecb;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Health in stepped cells, green to amber to red as it falls. */
+.ark-sim-health {
+  position: relative;
+  display: block;
+  width: 280px;
+  height: 18px;
+  background: #2b2433;
+  outline: 2px solid #07081a;
+}
+
+.ark-sim-health i {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc((100% - 4px) * var(--sim-health, 1));
+  background: repeating-linear-gradient(90deg, var(--sim-health-color, #7cdc5a) 0 12px, transparent 12px 14px);
+}
+
+.ark-sim-health[data-state="low"] {
+  --sim-health-color: #ffb347;
+}
+
+.ark-sim-health[data-state="critical"] {
+  --sim-health-color: #ff695c;
+}
+
+.ark-sim-rounds {
+  font-family: var(--font-display);
+  font-size: 30px;
+  letter-spacing: 0.04em;
+}
+
+.ark-sim-reload {
+  position: relative;
+  display: block;
+  width: 140px;
+  height: 4px;
+  background: #2b2433;
+}
+
+.ark-sim-reload i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(100% * var(--sim-reload, 0));
+  background: #9ac4ff;
+}
+
+/* The cell's charge: brighter while it draws power, amber while a fresh cell seats. */
+.ark-sim-reload[data-state="charging"] i {
+  background: #c9b6ff;
+  animation: ark-sim-charging 0.8s steps(2) infinite;
+}
+
+.ark-sim-reload[data-state="swap"] i {
+  background: #ffd27a;
+}
+
+@keyframes ark-sim-charging {
+  50% { opacity: 0.6; }
+}
+
+/* Swarm's movement kit: three dash charges and the thrusters' fuel, under the health bar. */
+.ark-sim-motion {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 4px 10px;
+}
+
+.ark-sim-motion[hidden] {
+  display: none;
+}
+
+.ark-sim-dashes {
+  display: flex;
+  gap: 4px;
+}
+
+.ark-sim-dashes i {
+  position: relative;
+  display: block;
+  width: 26px;
+  height: 8px;
+  background: #2b2433;
+}
+
+.ark-sim-dashes i::after {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(100% * var(--fill, 1));
+  background: #c9b6ff;
+  content: "";
+}
+
+.ark-sim-fuel {
+  position: relative;
+  display: block;
+  width: 86px;
+  height: 6px;
+  background: #2b2433;
+}
+
+.ark-sim-fuel i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(100% * var(--fuel, 1));
+  background: #ffb36a;
+}
+
+/* On the Law-Heart's beat the crosshair swells: a shot now strikes harder. */
+.ark-sim-crosshair {
+  transition: scale 0.08s;
+}
+
+.ark-sim-hud[data-beat="on"] .ark-sim-crosshair {
+  scale: 1.45;
+}
+
+.ark-sim-cell {
+  color: #d8d2e4;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+/* The coils' heat: orange as it climbs, flashing red while they vent. */
+.ark-sim-heat {
+  position: relative;
+  display: block;
+  width: 140px;
+  height: 4px;
+  background: #2b2433;
+}
+
+.ark-sim-heat i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(100% * var(--sim-heat, 0));
+  background: #ff9a4a;
+}
+
+.ark-sim-heat[data-venting="true"] i {
+  width: 100%;
+  background: #ff4a3a;
+  animation: ark-sim-charging 0.18s steps(2) infinite;
+}
+
+/* Down the sights: a lit dot through the reflex, the scope's round view with its crosshair. */
+.ark-sim-scope,
+.ark-sim-reflex {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s;
+}
+
+.ark-sim-hud[data-sight="scope"] .ark-sim-scope,
+.ark-sim-hud[data-sight="reflex"] .ark-sim-reflex {
+  opacity: 1;
+}
+
+.ark-sim-scope {
+  background: radial-gradient(circle at center, transparent 0 min(34vh, 34vw), #05060a calc(min(34vh, 34vw) + 2px));
+}
+
+.ark-sim-scope::before,
+.ark-sim-scope::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  background: #05060a;
+  content: "";
+  transform: translate(-50%, -50%);
+}
+
+.ark-sim-scope::before {
+  width: min(68vh, 68vw);
+  height: 2px;
+}
+
+.ark-sim-scope::after {
+  width: 2px;
+  height: min(68vh, 68vw);
+}
+
+.ark-sim-reflex::before {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  background: #ff4a3a;
+  content: "";
+  transform: translate(-50%, -50%);
+}
+
+.ark-sim-hud[data-sight="scope"] .ark-sim-crosshair,
+.ark-sim-hud[data-sight="reflex"] .ark-sim-crosshair {
+  opacity: 0;
+}
+
+/* The carbine's loadout on the simulator's console: a firing law, then each attachment. */
+.ark-sim-loadout {
+  display: grid;
+  gap: 6px;
+}
+
+.ark-sim-loadout h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 15px;
+  letter-spacing: 0.06em;
+}
+
+.ark-sim-loadout > p {
+  margin: 0;
+  color: #cfc7b6;
+  font-size: 13px;
+}
+
+.ark-sim-slot {
+  display: grid;
+  grid-template-columns: 90px repeat(3, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+
+.game-shell .ark-walk .ark-sim-panel .ark-sim-slot button {
+  display: grid;
+  gap: 0;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
+.game-shell .ark-walk .ark-sim-panel .ark-sim-slot button[aria-pressed="true"] {
+  border-image: var(--b-plate-active) 7 fill / 14px / 4px stretch;
+}
+
+.game-shell .ark-walk .ark-sim-panel .ark-sim-slot button[aria-pressed="false"] {
+  opacity: 0.72;
+}
+
+.ark-sim-loadout-notes {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  color: #b9b2a2;
+  font-size: 12px;
+  list-style: none;
+}
+
+.ark-sim-paused {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin: 0;
+  padding: 12px 18px;
+  border: 6px solid transparent;
+  border-image: var(--b-plate-active) 7 fill / 14px / 4px stretch;
+  color: #fff4e0;
+  font-size: 16px;
+  transform: translate(-50%, -50%);
+}
+
+.ark-sim-help {
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  margin: 0;
+  color: #d8d2e4;
+  font-size: 13px;
+  text-shadow: 2px 2px 0 #07081a;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.ark-sim-panel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  gap: 14px;
+  width: min(620px, calc(100% - 48px));
+  /* Never taller than the window: what doesn't fit scrolls inside the panel. */
+  max-height: calc(100% - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 22px 26px;
+  border: 6px solid transparent;
+  border-image: var(--b-plate-active) 7 fill / 14px / 4px stretch;
+  color: #efe6d2;
+  transform: translate(-50%, -50%);
+}
+
+/* On a wide screen the console's menu takes two columns: the pods and the modes beside the carbine. */
+@media (min-width: 1100px) {
+  .ark-sim-panel.is-menu {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+    column-gap: 24px;
+    width: min(1100px, calc(100% - 48px));
+  }
+
+  .ark-sim-panel.is-menu > * {
+    grid-column: 1 / -1;
+  }
+
+  .ark-sim-panel.is-menu > .ark-sim-pods,
+  .ark-sim-panel.is-menu > .ark-sim-modes {
+    grid-column: 1;
+  }
+
+  .ark-sim-panel.is-menu > .ark-sim-loadout {
+    grid-row: 3 / span 2;
+    grid-column: 2;
+  }
+
+  .ark-sim-panel.is-menu > .ark-sim-modes {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ark-sim-panel h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ark-sim-panel p {
+  margin: 0;
+  color: #d8d2e4;
+}
+
+.ark-sim-levels {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.game-shell .ark-walk .ark-sim-panel button {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  padding: 12px;
+  border: 6px solid transparent;
+  border-image: var(--b-plate-base) 7 fill / 14px / 4px stretch;
+  background: none;
+  color: #efe6d2;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.game-shell .ark-walk .ark-sim-panel button:hover,
+.game-shell .ark-walk .ark-sim-panel button:focus-visible {
+  border-image: var(--b-plate-active) 7 fill / 14px / 4px stretch;
+}
+
+.ark-sim-panel button strong {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ark-sim-panel button small {
+  color: #b4aecb;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.game-shell .ark-walk .ark-sim-panel button.ark-sim-leave {
+  justify-self: start;
+}
+
+.ark-sim-final {
+  font-family: var(--font-display);
+  font-size: 44px;
+  letter-spacing: 0.04em;
+}
+
+.ark-sim-best {
+  color: #ffd27a;
+}
+
+/* Security training happens here: who is in the pods, and how near each is to a soldier. */
+.ark-sim-pods {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 6px solid transparent;
+  border-image: var(--b-plate-base) 7 fill / 14px / 4px stretch;
+}
+
+.ark-sim-pods ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ark-sim-pods li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px 44px;
+  gap: 12px;
+  align-items: center;
+}
+
+.ark-sim-pods li small {
+  color: #ffd27a;
+  text-align: right;
+}
+
+.ark-sim-pods p small {
+  color: #b4aecb;
+  font-size: 12px;
+}
+
+.ark-sim-training {
+  position: relative;
+  display: block;
+  height: 12px;
+  background: #2b2433;
+  outline: 2px solid #07081a;
+}
+
+.ark-sim-training i {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc((100% - 4px) * var(--sim-training, 0));
+  background: repeating-linear-gradient(90deg, #ffd27a 0 8px, transparent 8px 10px);
+}
+
+.game-shell .ark-walk .ark-sim-panel button.ark-sim-enrol {
+  justify-self: start;
+}
+
+.ark-sim-panel .ark-sim-drilled {
+  color: #ffd27a;
+}
+
+/* The two simulations, chosen before the difficulty. */
+.ark-sim-modes {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.game-shell .ark-walk .ark-sim-panel .ark-sim-modes button[aria-pressed="true"] {
+  border-image: var(--b-plate-active) 7 fill / 14px / 4px stretch;
+}
+
+.game-shell .ark-walk .ark-sim-panel .ark-sim-modes button[aria-pressed="false"] {
+  opacity: 0.72;
+}
+
+/* Extraction: down the sights there is no crosshair, only the carbine's own. */
+.ark-sim-hud[data-aiming="true"] .ark-sim-crosshair {
+  opacity: 0;
+}
+
+.ark-sim-stance:empty,
+.ark-sim-survivors:empty {
+  display: none;
+}
+
+.ark-sim-stance {
+  color: #b4aecb;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* One mark per survivor: still held, with you, safe aboard, or lost. */
+.ark-sim-survivors {
+  display: flex;
+  gap: 6px;
+}
+
+.ark-sim-survivors i {
+  width: 14px;
+  height: 18px;
+  background: #5a546e;
+  outline: 2px solid #07081a;
+}
+
+.ark-sim-survivors i[data-state="following"] {
+  background: #ffd27a;
+}
+
+.ark-sim-survivors i[data-state="safe"] {
+  background: #7cdc5a;
+}
+
+.ark-sim-survivors i[data-state="lost"] {
+  background: #3a2028;
+  box-shadow: inset 0 0 0 3px #ff695c;
+}
+
+/* How close a Wrecker is to seeing you; red once the alarm is up. */
+.ark-sim-spotted {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  transform: translateX(-50%);
+}
+
+.ark-sim-spotted[hidden] {
+  display: none;
+}
+
+.ark-sim-spotted i {
+  position: relative;
+  display: block;
+  width: 180px;
+  height: 8px;
+  background: #2b2433;
+  outline: 2px solid #07081a;
+}
+
+.ark-sim-spotted i::after {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(100% * var(--sim-spotted, 0));
+  background: #ffb347;
+  content: "";
+}
+
+.ark-sim-spotted[data-alarm="raised"] i::after {
+  width: 100%;
+  background: #ff695c;
+}
+
+.ark-sim-spotted[data-alarm="quiet"] [data-when="raised"],
+.ark-sim-spotted[data-alarm="raised"] [data-when="quiet"] {
+  display: none;
+}
+
+.ark-sim-spotted[data-alarm="raised"] .ark-sim-label {
+  color: #ff695c;
+}
+
+/* What E does here, and how far along holding it is. */
+.ark-sim-action {
+  position: absolute;
+  bottom: 64px;
+  left: 50%;
+  margin: 0;
+  padding: 8px 16px 12px;
+  border: 6px solid transparent;
+  border-image: var(--b-plate-active) 7 fill / 14px / 4px stretch;
+  color: #fff4e0;
+  font-size: 15px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.ark-sim-action[hidden] {
+  display: none;
+}
+
+.ark-sim-action::after {
+  position: absolute;
+  right: 8px;
+  bottom: 4px;
+  left: 8px;
+  height: 3px;
+  background: linear-gradient(90deg, #ffd27a calc(100% * var(--sim-progress, 0)), transparent 0);
+  content: "";
+}
+
+/* A Hollowed close by: the feed tears and bleeds violet. */
+.ark-sim-glitch {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background:
+    repeating-linear-gradient(0deg, rgb(154 106 255 / 0.18) 0 2px, transparent 2px 7px),
+    linear-gradient(90deg, rgb(255 60 120 / 0.12), transparent 30%, transparent 70%, rgb(80 200 255 / 0.12));
+  mix-blend-mode: screen;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ark-sim-glitch {
+    animation: ark-sim-tear 0.35s steps(3) infinite;
+  }
+}
+
+@keyframes ark-sim-tear {
+  0% { transform: translateX(0); }
+  33% { transform: translateX(-6px); }
+  66% { transform: translateX(4px); }
+}
+
+/* Lyra in AXIOM's ear: her warnings on a plate at the top of the view, over the simulator and Pelagos alike. */
+.lyra-voice {
+  position: absolute;
+  top: 26px;
+  left: 50%;
+  z-index: 45;
+  display: grid;
+  gap: 2px;
+  max-width: min(540px, calc(100% - 48px));
+  padding: 7px 18px 9px;
+  border: 6px solid transparent;
+  border-image: var(--b-plate-base) 7 fill / 14px / 4px stretch;
+  color: #f4e6d8;
+  font-family: var(--font-ui);
+  font-size: 16px;
+  line-height: 1.4;
+  text-align: center;
+  transform: translateX(-50%);
+  pointer-events: none;
+  animation: lyra-open 0.16s ease-out;
+}
+
+.lyra-voice[hidden] {
+  display: none;
+}
+
+.lyra-voice strong {
+  color: #f2c6a8;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Another voice through hers: dimmer, in italics, not holding still. */
+.lyra-voice[data-voice="bleed"] strong {
+  color: #a08cb4;
+}
+
+.lyra-voice[data-voice="bleed"] span {
+  color: #c0b2cf;
+  font-style: italic;
+  animation: lyra-waver 0.8s steps(3) infinite;
+}
+
+/* The Continuity Protocol: no warmth at all, a readout. */
+.lyra-voice[data-voice="continuity"] strong {
+  color: #8f959e;
+}
+
+.lyra-voice[data-voice="continuity"] span {
+  color: #c9ced4;
+  font-family: var(--font-mono, ui-monospace, Consolas, monospace);
+  font-size: 14px;
+  letter-spacing: 0.12em;
+}
+
+@keyframes lyra-open {
+  from {
+    opacity: 0;
+    clip-path: inset(0 40% 0 40%);
+  }
+}
+
+@keyframes lyra-waver {
+  33% {
+    opacity: 0.65;
+    translate: 1px 0;
+  }
+
+  66% {
+    opacity: 0.9;
+    translate: -1px 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lyra-voice,
+  .lyra-voice[data-voice="bleed"] span {
+    animation: none;
+  }
+}
+
+/* The Cold Wake opening and a damaged drone: what to do next under the status card, the damage on it, and a cracked lens. */
+.ark-walk-objective {
+  position: absolute;
+  top: 86px;
+  left: 20px;
+  margin: 0;
+  padding: 6px 14px 7px;
+  border: 6px solid transparent;
+  border-image: var(--b-plate-base) 7 fill / 14px / 4px stretch;
+  color: #ffd29a;
+  font-family: var(--font-display);
+  font-size: 15px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ark-walk-objective::before {
+  margin-right: 8px;
+  color: #ff8a5a;
+  content: "▸";
+}
+
+.ark-walk-objective[hidden] {
+  display: none;
+}
+
+.ark-walk-damage {
+  display: none;
+  color: #ff8a5a;
+  font-style: normal;
+  font-size: 14px;
+}
+
+.ark-walk[data-damaged="true"] .ark-walk-damage {
+  display: inline;
+}
+
+.ark-walk-crack {
+  position: absolute;
+  inset: 0;
+  display: none;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.ark-walk-crack path {
+  fill: none;
+  stroke: rgb(240 236 255 / 0.32);
+  stroke-width: 1.6;
+  vector-effect: non-scaling-stroke;
+}
+
+.ark-walk[data-damaged="true"] .ark-walk-crack {
+  display: block;
+}
+
+/* While it is damaged the feed is dimmer and washed out at the edges, where the lens is cracked. */
+.ark-walk[data-damaged="true"] .ark-walk-viewport::after {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 30% 55%, transparent 45%, rgb(8 6 14 / 0.55) 100%);
+  content: "";
+  pointer-events: none;
+}

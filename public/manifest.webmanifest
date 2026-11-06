@@ -1,0 +1,14 @@
+{
+  "name": "Axiom Foundry",
+  "short_name": "Axiom",
+  "description": "Awaken as the AI caretaker of a dying Ark. Restore its rooms, rescue and train survivors, route research, and establish civilizations across fallen worlds.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#030506",
+  "theme_color": "#030506",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
