@@ -321,6 +321,82 @@ export function furnishLayout(layout: WalkLayout, pieces: readonly DecorPiece[])
   return layout;
 }
 
+export type Fitting = { kind: "lockers" | "bench" | "board" | "plant"; deck: number; room: WalkRoomKind; x: number; side: 1 | -1; count: number };
+
+/** The halls that were built with lockers and benches, and the ones with only lockers. */
+const FITTED: ReadonlySet<WalkRoomKind> = new Set(["education", "habitation", "research", "support"]);
+const FITTED_LOCKERS: ReadonlySet<WalkRoomKind> = new Set(["fabrication"]);
+const LOCKER_WIDTH = 0.52;
+
+/**
+ * What stands along a hall's walls between its ribs, doors and windows. Lockers and benches came
+ * with the ship; noticeboards and plants are the crew's, so they wait for people. Each one that
+ * stands on the floor is added to the deck's blockers.
+ */
+export function planFittings(layout: WalkLayout, decor: readonly DecorPiece[], population: number) {
+  const fittings: Fitting[] = [];
+  const marks = crewFootprints(layout);
+  layout.decks.forEach((deck, deckIndex) => {
+    for (const room of deck.compartments) {
+      if (!room.online || !(FITTED.has(room.kind) || FITTED_LOCKERS.has(room.kind))) continue;
+      const width = room.x1 - room.x0;
+      const bays = Math.max(2, Math.round(width / 5.6));
+      for (const side of [-1, 1] as const) {
+        const near = (z0: number, z1: number) => (side > 0 ? z1 > room.half - 1.6 : z0 < -room.half + 1.6);
+        const taken: [number, number][] = Array.from({ length: bays + 1 }, (_, bay) => {
+          const x = room.x0 + (width * bay) / bays;
+          return [x - 0.7, x + 0.7];
+        });
+        for (const sideRoom of deck.sideRooms) {
+          if (sideRoom.section === room.kind && Boolean(sideRoom.starboard) === side > 0) taken.push([sideRoom.door.x0 - 0.6, sideRoom.door.x1 + 0.6]);
+        }
+        const windows = (side < 0 ? WINDOWS[room.kind]?.port : WINDOWS[room.kind]?.starboard) ?? [];
+        for (const offset of windows) taken.push([room.x0 + offset - WINDOW_WIDTH / 2 - 0.4, room.x0 + offset + WINDOW_WIDTH / 2 + 0.4]);
+        for (const box of deck.blockers) if (near(box.z0, box.z1)) taken.push([box.x0 - 0.2, box.x1 + 0.2]);
+        for (const piece of decor) {
+          if (piece.deck === deckIndex && piece.wall?.normal === "z" && Math.sign(piece.wall.plane) === side && piece.wall.y - piece.wall.height / 2 < 3.2) {
+            taken.push([piece.wall.along - piece.wall.width / 2 - 0.2, piece.wall.along + piece.wall.width / 2 + 0.2]);
+          }
+        }
+        for (const mark of marks) {
+          if (mark.deck === deckIndex && near(mark.z, mark.z)) taken.push([mark.x - 0.6, mark.x + 0.6]);
+        }
+        taken.sort((a, b) => a[0] - b[0]);
+        const spans: [number, number][] = [];
+        let cursor = room.x0;
+        for (const [from, to] of taken) {
+          if (from > cursor) spans.push([cursor, from]);
+          cursor = Math.max(cursor, to);
+        }
+        if (room.x1 > cursor) spans.push([cursor, room.x1]);
+
+        const block = (x0: number, x1: number, depth: number) => {
+          const z0 = side > 0 ? room.half - depth : -room.half;
+          deck.blockers.push({ x0, x1, z0, z1: z0 + depth });
+        };
+        spans.filter(([from, to]) => to - from >= 2.3).forEach(([from, to], turn) => {
+          const room_ = to - from;
+          const mid = (from + to) / 2;
+          if (FITTED_LOCKERS.has(room.kind) || turn % 2 === 0) {
+            const count = Math.min(7, Math.floor((room_ - 0.2) / LOCKER_WIDTH));
+            const x = mid - ((count - 1) * LOCKER_WIDTH) / 2;
+            fittings.push({ kind: "lockers", deck: deckIndex, room: room.kind, x, side, count });
+            block(x - LOCKER_WIDTH / 2, x + (count - 0.5) * LOCKER_WIDTH, 0.68);
+          } else {
+            fittings.push({ kind: "bench", deck: deckIndex, room: room.kind, x: mid, side, count: 1 });
+            block(mid - 1.05, mid + 1.05, 0.72);
+            if (population > 0) fittings.push({ kind: "board", deck: deckIndex, room: room.kind, x: mid, side, count: 1 });
+          }
+          if (population > 0 && FITTED.has(room.kind) && turn % 3 === 2) {
+            fittings.push({ kind: "plant", deck: deckIndex, room: room.kind, x: to - 0.1, side, count: 1 });
+          }
+        });
+      }
+    }
+  });
+  return fittings;
+}
+
 /** Where crew stand and walk, so furniture never lands on them. */
 export function crewFootprints(layout: WalkLayout) {
   const marks: { deck: number; x: number; z: number }[] = [];

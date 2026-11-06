@@ -50,6 +50,96 @@ export function grainTexture() {
   return texture;
 }
 
+const pick = (ramp: readonly string[], value: number) => ramp[Math.max(0, Math.min(ramp.length - 1, Math.floor(value * ramp.length)))];
+
+function pixelTile(size: number, metres: number, shade: (x: number, y: number) => string) {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size;
+  const context = canvas.getContext("2d")!;
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      context.fillStyle = shade(x, y);
+      context.fillRect(x, y, 1, 1);
+    }
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.magFilter = THREE.NearestFilter;
+  texture.minFilter = THREE.NearestMipmapNearestFilter;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.repeat.set(1 / metres, 1 / metres);
+  return texture;
+}
+
+const blotch = (x: number, y: number, size: number, seed: number) => {
+  const cell = (cx: number, cy: number) => hash(((cx % size) + size) % size, ((cy % size) + size) % size, seed);
+  const fx = x / 16 - Math.floor(x / 16);
+  const fy = y / 16 - Math.floor(y / 16);
+  const cx = Math.floor(x / 16);
+  const cy = Math.floor(y / 16);
+  const top = cell(cx, cy) * (1 - fx) + cell(cx + 1, cy) * fx;
+  return top * (1 - fy) + (cell(cx, cy + 1) * (1 - fx) + cell(cx + 1, cy + 1) * fx) * fy;
+};
+
+/** Slabs of stone with a dark joint, a lit top edge and a scatter of flecks, in any colour of stone. */
+export function stoneFloor(ramp: readonly string[], joint: string, lit: string, fleck: string) {
+  return pixelTile(64, 2.4, (x, y) => {
+    const tx = x % 32;
+    const ty = y % 32;
+    if (tx === 31 || ty === 31) return joint;
+    if (tx === 0 || ty === 0) return lit;
+    const spot = hash(x, y, 1);
+    if (spot > 0.93) return fleck;
+    if (spot > 0.88) return lit;
+    return pick(ramp, 0.35 + blotch(x, y, 4, 3) * 0.6);
+  });
+}
+
+/** Long boards, staggered, with the grain running down them. */
+export function plankFloor() {
+  const oak = ["#7d5233", "#94633e", "#a97549", "#bc8656"];
+  return pixelTile(64, 2.4, (x, y) => {
+    const row = Math.floor(y / 8);
+    const offset = (row * 23) % 64;
+    if (y % 8 === 7) return "#4e3220";
+    if ((x + offset) % 40 === 0) return "#4e3220";
+    const board = hash(Math.floor((x + offset) / 40), row, 21) * 0.32;
+    return pick(oak, 0.12 + board + Math.sin(x * 0.5 + y) * 0.06 + hash(x, Math.floor(y / 2), 22) * 0.3);
+  });
+}
+
+/** The ship's own materials, each sized in metres. */
+export function shipSurfaces() {
+  const frame = ["#3f3f54", "#4d4e66", "#5f6079", "#74758e"];
+  const metal = ["#7e8399", "#979cb1", "#b2b7ca", "#d1d5e2"];
+  const dark = ["#33344a", "#3f4058", "#4c4d66", "#5c5d78"];
+  const brass = ["#94672c", "#b7863a", "#d6a84d", "#f0cc72"];
+  const walnut = ["#4b2a1c", "#62392a", "#7a4a31", "#93603f"];
+  const slat = ["#2b2838", "#37334a", "#433e58"];
+  const cork = ["#8c6239", "#a87a48", "#c0935d"];
+  return {
+    // Riveted plate: a seam every half tile, rivets at the corners, worn lighter at the edges.
+    frame: pixelTile(32, 1.6, (x, y) => {
+      const tx = x % 16;
+      const ty = y % 16;
+      if (ty === 15) return frame[0];
+      if (ty === 0) return frame[3];
+      if ((tx === 2 || tx === 13) && (ty === 2 || ty === 13)) return frame[3];
+      return pick(frame, 0.3 + hash(x, y, 7) * 0.4);
+    }),
+    steel: pixelTile(32, 1.2, (x, y) => pick(metal, 0.2 + hash(Math.floor(x / 8), y, 8) * 0.7)),
+    darkSteel: pixelTile(32, 1.2, (x, y) => pick(dark, 0.15 + hash(Math.floor(x / 8), y, 9) * 0.75)),
+    brass: pixelTile(16, 0.6, (x, y) => pick(brass, 0.25 + hash(Math.floor(x / 4), Math.floor(y / 2), 10) * 0.75)),
+    walnut: pixelTile(32, 1.6, (x, y) => {
+      if (x % 16 === 15) return walnut[0];
+      return pick(walnut, 0.4 + Math.sin((x + Math.sin(y / 9) * 0.7) * 1.2) * 0.13 + hash(x, Math.floor(y / 4), 3) * 0.2);
+    }),
+    slats: pixelTile(32, 1.2, (x, y) => (y % 8 === 7 ? slat[0] : pick(slat, 0.4 + hash(x, y, 11) * 0.5))),
+    cork: pixelTile(32, 1.2, (x, y) => pick(cork, hash(x, y, 12))),
+    locker: pixelTile(32, 1.2, (x, y) => (y % 16 === 15 ? "#3c4560" : pick(["#5b6a8c", "#667699", "#7283a7"], 0.2 + hash(x, y, 13) * 0.7))),
+  };
+}
+
 /** Gives a box texture coordinates in metres, so the grain is the same size on every piece. */
 export function tileBox(geometry: THREE.BufferGeometry, w: number, h: number, d: number, x: number, y: number, z: number) {
   const uv = geometry.attributes.uv;
@@ -119,7 +209,7 @@ export function paintWall(context: CanvasRenderingContext2D, kind: string, heigh
   } else {
     // Timber below the rail, plaster above with a moulded panel.
     const rail = height > 6 ? 3.2 : 1.1;
-    const timber = "#6e4730";
+    const timber = "#5e3626";
     for (const base of levels) {
       for (let board = 0; board < 4; board += 1) {
         const x0 = board * 16;

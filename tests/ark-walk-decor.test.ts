@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { LYING, ROOM_SPOTS, SEATED } from "../app/ark-walk-crew.ts";
-import { crewFootprints, decorBudget, decorSlots, furnishLayout, planDecor, type DecorPiece } from "../app/ark-walk-decor.ts";
+import { crewFootprints, decorBudget, decorSlots, furnishLayout, planDecor, planFittings, type DecorPiece } from "../app/ark-walk-decor.ts";
 import {
   DOOR_HALF_WIDTH,
   LOWER_DECK,
@@ -146,3 +146,42 @@ test("art hangs clear of windows, ribs, doorways, furniture tops, pipes and each
 function layout0() {
   return buildWalkLayout(everyRoom, everything);
 }
+
+const hallsAwake = () => buildWalkLayout(["fabrication", "habitation", "research", "bridge", "support", "education", "hangar"].map((kind) => ({ kind, label: kind, online: true })) as Parameters<typeof buildWalkLayout>[0], { residents: 12 });
+
+test("lockers and benches come with the ship, boards and plants wait for people", () => {
+  const empty = planFittings(hallsAwake(), [], 0);
+  assert.ok(empty.some((fitting) => fitting.kind === "lockers"));
+  assert.ok(empty.some((fitting) => fitting.kind === "bench"));
+  assert.equal(empty.filter((fitting) => fitting.kind === "board" || fitting.kind === "plant").length, 0);
+  const lived = planFittings(hallsAwake(), [], 12);
+  assert.ok(lived.some((fitting) => fitting.kind === "board"));
+  assert.ok(lived.some((fitting) => fitting.kind === "plant"));
+});
+
+test("fittings keep clear of side doors and windows, and the drone flies round them", () => {
+  const layout = hallsAwake();
+  const before = layout.decks.map((deck) => deck.blockers.length);
+  const fittings = planFittings(layout, [], 12);
+  layout.decks.forEach((deck, index) => assert.ok(deck.blockers.length > before[index] || !fittings.some((fitting) => fitting.deck === index)));
+  for (const fitting of fittings.filter((piece) => piece.kind === "lockers")) {
+    const deck = layout.decks[fitting.deck];
+    const room = deck.compartments.find((compartment) => compartment.kind === fitting.room)!;
+    const end = fitting.x + (fitting.count - 0.5) * 0.52;
+    const start = fitting.x - 0.26;
+    for (const sideRoom of deck.sideRooms) {
+      if (sideRoom.section !== fitting.room || Boolean(sideRoom.starboard) !== fitting.side > 0) continue;
+      assert.ok(end <= sideRoom.door.x0 || start >= sideRoom.door.x1, `${fitting.room} lockers block a door`);
+    }
+    const windows = (fitting.side < 0 ? WINDOWS[fitting.room]?.port : WINDOWS[fitting.room]?.starboard) ?? [];
+    for (const offset of windows) {
+      const middle = room.x0 + offset;
+      assert.ok(end <= middle - WINDOW_WIDTH / 2 || start >= middle + WINDOW_WIDTH / 2, `${fitting.room} lockers cover a window`);
+    }
+  }
+});
+
+test("nothing is fitted in a hall with no power", () => {
+  const layout = buildWalkLayout(["fabrication", "education"].map((kind) => ({ kind, label: kind, online: false })) as Parameters<typeof buildWalkLayout>[0], { residents: 0 });
+  assert.equal(planFittings(layout, [], 0).length, 0);
+});
