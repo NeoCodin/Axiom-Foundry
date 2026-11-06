@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { createPixelFinish } from "./pixel-finish";
 import { buildStar, STAR_RADII } from "./ark-walk-star";
+import { personBody } from "./ark-walk-people";
 import { grainTexture, paintWall, tileBox, tileColumn, WALL_PIXELS, WALL_SPAN } from "./ark-walk-skin";
 
 import type { ArkCutawayRoomKind } from "./ark-cutaway";
@@ -94,7 +95,7 @@ import { demoCrew, LYING, planCrew, SEATED, type Activity, type WalkCrewMember }
 import { furnishLayout, planDecor, type DecorPiece, type WallSpot } from "./ark-walk-decor";
 import { createNullFeed, misreadLabel, type NullClass, type NullFeed } from "./ark-walk-null";
 import { AxiomEye } from "./axiom-eye";
-import { CIVILIAN_COLOR, CREW_ROLE_COLORS, getCrewHead } from "./crew-portrait";
+import { getCrewHead } from "./crew-portrait";
 import { playBulkhead, playChannelSwitch, playDash, playMurmur, playNullStatic, playPulseStrike, playRecordFound, schedulePulseBeat, unlockPulseAudio } from "./law-heart-audio";
 import { cellParts, type CellPart } from "./ark-walk-cells";
 import { fragmentOf, placeState, RECORD_PLACES, recordLines, recordSpot, type RecordPlace } from "./ark-walk-records";
@@ -568,61 +569,13 @@ function voxelHead(id: string, role: string, ageGroup?: string | null) {
 
 type Person = { group: THREE.Group; limbs: THREE.Object3D[]; head: THREE.Object3D; hip: number };
 
-/** A person as a blocky figure in their job's uniform, with a head shaped like their portrait. */
+/** A person in their job's clothes (ark-walk-people.ts), with a head shaped like their portrait. */
 function blockyPerson(id: string, role: string, ageGroup?: string | null): Person {
   const { mesh: headMesh, head } = voxelHead(id, role, ageGroup);
-  const solid = (color: string) => new THREE.MeshLambertMaterial({ color, flatShading: true });
-  const skinMaterial = solid(head.skin);
-  const uniform = CREW_ROLE_COLORS[role] ?? CIVILIAN_COLOR;
-  const uniformMaterial = solid(uniform);
-  const trimMaterial = solid(new THREE.Color(uniform).multiplyScalar(0.7).getStyle());
-  const trouserMaterial = solid("#2b2433");
-  const bootMaterial = solid("#14121f");
-
-  const group = new THREE.Group();
-  const limb = (w: number, h: number, d: number, material: THREE.Material, x: number, y: number) => {
-    // Limbs hang from a pivot at the shoulder or hip so they can swing.
-    const pivot = new THREE.Group();
-    pivot.position.set(x, y, 0);
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
-    mesh.position.y = -h / 2;
-    pivot.add(mesh);
-    group.add(pivot);
-    return pivot;
-  };
-  const legs = [-0.12, 0.12].map((x) => {
-    const leg = limb(0.2, 0.8, 0.24, trouserMaterial, x, 0.82);
-    const boot = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.14, 0.32), bootMaterial);
-    boot.position.set(0, -0.75, 0.04);
-    leg.add(boot);
-    return leg;
-  });
-  const arms = [-0.36, 0.36].map((x) => {
-    const arm = limb(0.16, 0.6, 0.2, uniformMaterial, x, 1.42);
-    const cuff = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.06, 0.21), trimMaterial);
-    cuff.position.y = -0.56;
-    const hand = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.12, 0.18), skinMaterial);
-    hand.position.y = -0.66;
-    arm.add(cuff, hand);
-    return arm;
-  });
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.62, 0.3), uniformMaterial);
-  torso.position.y = 1.12;
-  const collar = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.06, 0.32), trimMaterial);
-  collar.position.y = 1.44;
-  const badge = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.06, 0.02), solid(PALETTE.light));
-  badge.position.set(0.14, 1.28, 0.16);
-  const belt = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.06, 0.32), trouserMaterial);
-  belt.position.y = 0.83;
-  const neck = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.08, 0.14), skinMaterial);
-  neck.position.y = 1.5;
-  // The head sits on a pivot at the neck so it can nod and turn.
-  const headPivot = new THREE.Group();
-  headPivot.position.y = 1.52;
+  const { group, arms, legs, torso, head: headPivot } = personBody(role, head.skin);
   headPivot.add(headMesh);
-  group.add(torso, collar, badge, belt, neck, headPivot);
   if (head.longHair) {
-    const tail = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.3, 0.06), solid(head.hair));
+    const tail = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.3, 0.06), new THREE.MeshLambertMaterial({ color: head.hair, flatShading: true }));
     tail.position.set(0, -0.02, -0.22);
     headPivot.add(tail);
   }
@@ -631,7 +584,7 @@ function blockyPerson(id: string, role: string, ageGroup?: string | null): Perso
   group.scale.setScalar(scale);
   if (ageGroup === "elder") {
     torso.rotation.x = 0.12;
-    headPivot.position.z = 0.06;
+    headPivot.position.z = 0.1;
   }
   return { group, limbs: [...arms, ...legs], head: headPivot, hip: 0.82 * scale };
 }
@@ -651,8 +604,11 @@ type GearPiece = { tier: number; mark: number };
 const MARK_TRIM: readonly (string | null)[] = [null, null, "#e9e4da", "#d9b65e", "#f0e6ff"];
 const ROMAN = ["", "I", "II", "III", "IV"];
 
+let gearGrain: THREE.Texture | null = null;
+
 function gearMaterial(color: string, glowing = false) {
-  return glowing ? new THREE.MeshBasicMaterial({ color }) : new THREE.MeshLambertMaterial({ color, flatShading: true });
+  gearGrain ??= grainTexture();
+  return glowing ? new THREE.MeshBasicMaterial({ color }) : new THREE.MeshLambertMaterial({ color, flatShading: true, map: gearGrain });
 }
 
 /** A weapon, standing upright: its long axis is y, its business end up. */
