@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { createPixelFinish } from "./pixel-finish";
+import { grainTexture, paintWall, tileBox, tileColumn, WALL_PIXELS, WALL_SPAN } from "./ark-walk-skin";
 
 import type { ArkCutawayRoomKind } from "./ark-cutaway";
 import { drawPixelWorldSurface, PIXEL_WORLD_DAY_SECONDS } from "./ark-pixel-world";
@@ -498,17 +499,21 @@ function stripeTexture() {
 
 /** A painted sign. */
 function signTexture(text: string, color: string) {
-  return canvasTexture(160, 16, (context) => {
-    context.fillStyle = PALETTE.dark;
-    context.fillRect(0, 0, 160, 16);
+  const texture = canvasTexture(320, 44, (context) => {
+    context.fillStyle = "#14121c";
+    context.fillRect(0, 0, 320, 44);
     context.fillStyle = color;
-    context.fillRect(0, 0, 160, 1);
-    context.fillRect(0, 15, 160, 1);
-    context.font = "bold 10px monospace";
+    context.fillRect(0, 0, 320, 3);
+    context.fillRect(0, 41, 320, 3);
+    context.font = "bold 26px monospace";
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.fillText(text, 80, 8.5);
+    context.fillText(text, 160, 23, 304);
   });
+  // Signs are small on a small frame: they blur a little rather than break into noise.
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.generateMipmaps = true;
+  return texture;
 }
 
 /** Decorations the drone's line of sight passes straight through. */
@@ -953,46 +958,21 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
   };
   const floorMaterial = (kind: string, w: number, d: number) => lambert("#ffffff", { map: repeated(floorFor(kind), w / 4, d / 4) });
   const wallTextures = new Map<string, THREE.CanvasTexture>();
-  /**
-   * A compartment's inner wall from the deck to its ceiling, two metres to a tile across:
-   * light panels over a dark skirting, a band of the room's own colour at waist height
-   * and a stripe of it up near the ceiling, so each room reads as its own place.
-   */
+  /** A compartment's inner wall from the deck to its ceiling, painted in ark-walk-skin.ts. */
   const wallFor = (kind: string, height: number) => {
     const cacheKey = `${kind}:${height}`;
     const cached = wallTextures.get(cacheKey);
     if (cached) return cached;
-    const rows = Math.round(height * 8);
-    const texture = canvasTexture(16, rows, (context) => {
+    const texture = canvasTexture(Math.round(WALL_SPAN * WALL_PIXELS), Math.round(height * WALL_PIXELS), (context) => {
       const paint = paintOf(kind);
-      const at = (y: number) => rows - Math.round(y * 8);
-      const band = (from: number, to: number, color: string) => {
-        context.fillStyle = color;
-        context.fillRect(0, at(to), 16, Math.max(1, at(from) - at(to)));
-      };
-      band(0, height, tinted(tinted(PALETTE.wall, paint, 0.16), accent, 0.06));
-      const seam = tinted(PALETTE.wallSeam, accent, 0.1);
-      const bevel = tinted(PALETTE.wallLight, accent, 0.12);
-      context.fillStyle = seam;
-      context.fillRect(0, 0, 1, rows);
-      // The two-storey chamber is painted the same on each of its levels.
-      const levels = kind === "chamber" ? [0, UPPER_FLOOR] : [0];
-      const top = kind === "chamber" ? UPPER_FLOOR - 0.4 : height;
-      for (const base of levels) {
-        for (let y = base + 1.5; y < base + top - 0.8; y += 1.5) {
-          band(y, y + 0.125, seam);
-          context.fillStyle = bevel;
-          context.fillRect(1, at(y), 15, 1);
-          context.fillRect(3, at(y + 0.5), 1, 1);
-          context.fillRect(12, at(y + 0.5), 1, 1);
-        }
-        band(base, base + 0.28, tinted(PALETTE.skirting, accent, 0.1));
-        band(base + 0.28, base + 0.32, tinted(paint, PALETTE.skirting, 0.3));
-        band(base + 0.55, base + 1.05, paint);
-        band(base + 1.05, base + 1.15, tinted(paint, "#ffffff", 0.45));
-      }
-      band(height - 1.15, height - 0.95, paint);
-      band(height - 0.35, height, tinted(PALETTE.metal, accent, 0.1));
+      paintWall(context, kind, height, kind === "chamber" ? [0, UPPER_FLOOR] : [0], kind === "chamber" ? UPPER_FLOOR - 0.4 : height, {
+        plaster: tinted(tinted(PALETTE.wall, paint, 0.16), accent, 0.06),
+        seam: tinted(PALETTE.wallSeam, accent, 0.1),
+        bevel: tinted(PALETTE.wallLight, accent, 0.12),
+        skirting: tinted(PALETTE.skirting, accent, 0.1),
+        paint,
+        metal: tinted(PALETTE.metal, accent, 0.1),
+      });
     });
     wallTextures.set(cacheKey, texture);
     return texture;
@@ -1000,20 +980,21 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
   /** One piece of a room's wall: w across, from y0 up h, cut from the room's painted wall. */
   const wallCut = (kind: string, height: number, w: number, y0: number, h: number, shift = 0) => {
     const texture = wallFor(kind, height).clone();
-    texture.repeat.set(w / 2, h / height);
+    texture.repeat.set(w / WALL_SPAN, h / height);
     texture.offset.set(shift, y0 / height);
     texture.needsUpdate = true;
     return lambert("#ffffff", { map: texture });
   };
   const ceilingTexture = canvasTexture(16, 16, (context) => {
-    context.fillStyle = tinted(PALETTE.ceiling, accent, 0.08);
+    const slat = tinted(PALETTE.ceiling, accent, 0.08);
+    context.fillStyle = slat;
     context.fillRect(0, 0, 16, 16);
-    context.fillStyle = tinted("#4c475c", accent, 0.06);
-    context.fillRect(0, 7, 16, 1);
+    context.fillStyle = tinted(slat, "#000000", 0.4);
+    for (const y of [3, 7, 11, 15]) context.fillRect(0, y, 16, 1);
+    context.fillStyle = tinted(slat, "#ffffff", 0.08);
+    for (const y of [0, 4, 8, 12]) context.fillRect(0, y, 16, 1);
+    context.fillStyle = tinted(slat, "#000000", 0.25);
     context.fillRect(7, 0, 1, 16);
-    context.fillStyle = tinted("#6e6982", accent, 0.06);
-    context.fillRect(0, 8, 16, 1);
-    context.fillRect(8, 0, 1, 16);
   });
   const grateTexture = canvasTexture(8, 8, (context) => {
     context.fillStyle = "#16141f";
@@ -1023,11 +1004,13 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
   });
   const stripes = stripeTexture();
 
+  const grain = grainTexture();
   const solidCache = new Map<string, THREE.MeshLambertMaterial>();
   const solid = (color: string) => {
     let material = solidCache.get(color);
     if (!material) {
-      material = new THREE.MeshLambertMaterial({ color, flatShading: true });
+      material = new THREE.MeshLambertMaterial({ color, flatShading: true, map: grain });
+      material.userData.tiled = true;
       solidCache.set(color, material);
     }
     return material;
@@ -1040,12 +1023,14 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     new THREE.MeshBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   const box = (w: number, h: number, d: number, material: THREE.Material | THREE.Material[], x: number, y: number, z: number) => {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
+    if (!Array.isArray(material) && material.userData.tiled) tileBox(mesh.geometry, w, h, d, x, y, z);
     mesh.position.set(x, y, z);
     scene.add(mesh);
     return mesh;
   };
   const cylinder = (top: number, bottom: number, h: number, material: THREE.Material, x: number, y: number, z: number, sides = 12, open = false) => {
     const mesh = new THREE.Mesh(new THREE.CylinderGeometry(top, bottom, h, sides, 1, open), material);
+    if (material.userData.tiled) tileColumn(mesh.geometry, Math.max(top, bottom), h);
     mesh.position.set(x, y, z);
     scene.add(mesh);
     return mesh;
@@ -1257,7 +1242,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     for (const piece of wallPieces(room.x0, room.x1, tall, openings)) {
       const w = piece.a1 - piece.a0;
       const h = piece.y1 - piece.y0;
-      const inner = wallCut(room.kind, room.height, w, piece.y0, h, side < 0 ? piece.a0 / 2 : -piece.a1 / 2);
+      const inner = wallCut(room.kind, room.height, w, piece.y0, h, side < 0 ? piece.a0 / WALL_SPAN : -piece.a1 / WALL_SPAN);
       const faces = side > 0
         ? [hullSkin, hullSkin, hullSkin, hullSkin, hullSkin, inner]
         : [hullSkin, hullSkin, hullSkin, hullSkin, inner, hullSkin];
@@ -1287,25 +1272,45 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     const width = room.x1 - room.x0;
     const cx = (room.x0 + room.x1) / 2;
     const dark = !room.online;
-    const bays = Math.max(2, Math.round(width / 3.5));
+    const bays = Math.max(2, Math.round(width / 5.6));
+    const frame = solid(tinted(metal, "#000000", 0.25));
     for (let bay = 1; bay < bays; bay += 1) {
-      still(box(0.3, 0.35, room.half * 2, solid(metal), room.x0 + (width * bay) / bays, y0 + room.height - 0.175, 0));
+      still(box(0.7, 0.8, room.half * 2, frame, room.x0 + (width * bay) / bays, y0 + room.height - 0.4, 0));
     }
+    const tall = room.height > 6;
     for (const side of sides) {
       const wallZ = side * room.half;
       const openings = openingsBySide.get(side) ?? [];
       for (let bay = 1; bay < bays; bay += 1) {
         const ribX = room.x0 + (width * bay) / bays;
-        if (openings.some((opening) => ribX > opening.a0 - 0.4 && ribX < opening.a1 + 0.4 && opening.y0 < room.height - 0.4)) continue;
-        still(box(0.32, room.height, 0.24, solid(metal), ribX, y0 + room.height / 2, wallZ - side * 0.12));
-        still(box(0.36, 0.1, 0.28, solid(metalLight), ribX, y0 + 0.9, wallZ - side * 0.14));
-        if (bay % 2 === 0) {
-          const status = box(0.1, 0.1, 0.04, glow(dark ? PALETTE.alert : PALETTE.ok), ribX, y0 + 1.7, wallZ - side * 0.26);
-          animated.push((time) => { status.visible = Math.floor(time / 900 + ribX) % 6 !== 0; });
+        // Over a door the rib stands on a bracket; across a tall opening there is none.
+        const under = openings.filter((opening) => ribX > opening.a0 - 0.5 && ribX < opening.a1 + 0.5);
+        const foot = under.length > 0 ? Math.max(...under.map((opening) => opening.y1)) + 0.5 : 0;
+        if (foot > room.height - 2) continue;
+        still(box(0.7, room.height - foot, 0.36, frame, ribX, y0 + (room.height + foot) / 2, wallZ - side * 0.18));
+        if (foot > 0) still(box(0.9, 0.24, 0.4, solid(metalLight), ribX, y0 + foot - 0.1, wallZ - side * 0.2));
+        // The arch where it meets the ceiling.
+        const brace = box(0.6, 0.7, 1.9, frame, ribX, y0 + room.height - 1.1, wallZ - side * 0.95);
+        brace.rotation.x = side * 0.62;
+        still(brace);
+        if (foot === 0) {
+          still(box(0.74, 0.1, 0.4, solid(metalLight), ribX, y0 + 0.9, wallZ - side * 0.19));
+          if (bay % 2 === 0) {
+            const status = box(0.1, 0.1, 0.04, glow(dark ? PALETTE.alert : PALETTE.ok), ribX, y0 + 1.7, wallZ - side * 0.38);
+            animated.push((time) => { status.visible = Math.floor(time / 900 + ribX) % 6 !== 0; });
+          }
+          const vent = box(0.9, 0.36, 0.06, solid(PALETTE.dark), ribX + width / bays / 2, y0 + 0.4, wallZ - side * 0.03);
+          if (openings.some((opening) => vent.position.x > opening.a0 - 0.6 && vent.position.x < opening.a1 + 0.6 && opening.y0 < 0.8)) vent.visible = false;
         }
-        const vent = box(0.9, 0.36, 0.06, solid(PALETTE.dark), ribX + width / bays / 2, y0 + 0.4, wallZ - side * 0.03);
-        if (openings.some((opening) => vent.position.x > opening.a0 - 0.6 && vent.position.x < opening.a1 + 0.6 && opening.y0 < 0.8)) vent.visible = false;
+        // A shaded lamp on the rib in the tall halls, washing up the wall.
+        if (tall && !dark) {
+          const lampY = Math.min(5.3, room.height - 2.6);
+          still(box(0.14, 0.3, 0.14, solid(PALETTE.copper), ribX, y0 + lampY - 0.18, wallZ - side * 0.42));
+          still(box(0.32, 0.34, 0.26, glow("#ffc98a"), ribX, y0 + lampY + 0.12, wallZ - side * 0.46));
+        }
       }
+      // A cable tray along the top of the wall, carried on the ribs.
+      still(box(width, 0.06, 0.34, frame, cx, y0 + room.height - 1.5, wallZ - side * 0.3));
       // Two pipe runs under the ceiling, with brackets at each rib.
       for (const [drop, radius, color] of [[0.5, 0.11, metalLight], [0.85, 0.07, PALETTE.copper]] as const) {
         const pipe = cylinder(radius, radius, width, solid(color), cx, y0 + room.height - drop, wallZ - side * 0.3, 6);
@@ -1388,7 +1393,11 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         for (let lampIndex = 0; lampIndex < lampCount; lampIndex += 1) {
           const lx = room.x0 + (width * (lampIndex + 0.5)) / lampCount;
           if (!dark) {
-            for (const row of [-0.55, 0, 0.55]) still(put(width / lampCount - 1.6, 0.06, 0.45, glow(PALETTE.light), lx, room.height - 0.05, row * half));
+            for (const row of [-0.55, 0.55]) {
+              const z = row * room.half;
+              still(put(width / lampCount - 1.3, 0.16, 1.05, solid(PALETTE.dark), lx, room.height - 0.1, z));
+              still(put(width / lampCount - 1.6, 0.04, 0.82, glow(PALETTE.light), lx, room.height - 0.2, z));
+            }
             const lamp = new THREE.PointLight(LAMP, 15, 34, 1);
             lamp.position.set(lx, y0 + room.height - 0.7, 0);
             scene.add(lamp);
@@ -3340,6 +3349,9 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
   const plan = placeCrew(props.crew, new Set(props.recon?.away ? props.recon.crewIds : []));
 
   // ---- The rooms behind the halls: the crew's cabins and their galley, the Armory. ----
+  const paneGeometry = new THREE.BoxGeometry(0.3, 0.8, 0.01);
+  const kickGeometry = new THREE.BoxGeometry(0.42, 0.3, 0.01);
+  const handleGeometry = new THREE.BoxGeometry(0.04, 0.5, 0.04);
   const sideLabels = new Map<string, string>();
   layout.decks.forEach((deck, deckIndex) => {
     for (const room of deck.sideRooms) (room.cell ? buildCell : buildSideRoom)(room, deck, deckIndex);
@@ -3353,13 +3365,14 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     const mesh = new THREE.Mesh(
       mergeGeometries(parts.map((part) => {
         const geometry = new THREE.BoxGeometry(part.w, part.h, part.d);
+        tileBox(geometry, part.w, part.h, part.d, part.x, part.y, part.z);
         geometry.translate(part.x, y0 + part.y, part.z);
         tint.set(part.color);
         const rgb = [tint.r, tint.g, tint.b];
         geometry.setAttribute("color", new THREE.Float32BufferAttribute(Array.from({ length: geometry.attributes.position.count * 3 }, (_, index) => rgb[index % 3]), 3));
         return geometry;
       })),
-      glowing ? new THREE.MeshBasicMaterial({ vertexColors: true }) : new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }),
+      glowing ? new THREE.MeshBasicMaterial({ vertexColors: true }) : new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, map: grain }),
     );
     scene.add(mesh);
     return mesh;
@@ -3379,16 +3392,29 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     const doorX = (room.door.x0 + room.door.x1) / 2;
     const doorWidth = room.door.x1 - room.door.x0;
     const doorZ = side * (hallWall + INNER_WALL / 2);
-    const frame = solid(paint);
-    const corridorFace = side * (hallWall - 0.04);
-    for (const edge of [room.door.x0 - 0.07, room.door.x1 + 0.07]) still(put(0.14, SIDE_DOOR_HEIGHT + 0.14, 0.08, frame, edge, (SIDE_DOOR_HEIGHT + 0.14) / 2, corridorFace));
-    still(put(doorWidth + 0.28, 0.14, 0.08, frame, doorX, SIDE_DOOR_HEIGHT + 0.07, corridorFace));
+    const frame = solid(tinted(PALETTE.dark, paint, 0.2));
+    const corridorFace = side * (hallWall - 0.08);
+    for (const edge of [room.door.x0 - 0.11, room.door.x1 + 0.11]) still(put(0.22, SIDE_DOOR_HEIGHT + 0.2, 0.2, frame, edge, (SIDE_DOOR_HEIGHT + 0.2) / 2, corridorFace));
+    still(put(doorWidth + 0.44, 0.22, 0.2, frame, doorX, SIDE_DOOR_HEIGHT + 0.11, corridorFace));
+    const doorGlass = glow("#7fb1e0");
+    const doorDark = solid(PALETTE.dark);
+    const doorPlate = solid(metalLight);
+    const doorBrass = solid(PALETTE.copper);
     still(put(0.12, 0.12, 0.04, glow(room.open ? PALETTE.ok : PALETTE.alert), room.door.x1 + 0.35, 1.5, side * (hallWall - 0.03)));
     const leafMaterial = solid(tinted(PALETTE.metal, paint, 0.2));
     const leaves = [-1, 1].map((sideSign) => {
       const leaf = new THREE.Mesh(new THREE.BoxGeometry(doorWidth / 2, SIDE_DOOR_HEIGHT, 0.08), leafMaterial);
       leaf.position.set(doorX + (sideSign * doorWidth) / 4, y0 + SIDE_DOOR_HEIGHT / 2, doorZ);
       scene.add(leaf);
+      for (const face of [-1, 1]) {
+        const pane = inert(new THREE.Mesh(paneGeometry, room.open ? doorGlass : doorDark));
+        pane.position.set(0, 0.42, face * 0.05);
+        const kick = inert(new THREE.Mesh(kickGeometry, doorPlate));
+        kick.position.set(0, -SIDE_DOOR_HEIGHT / 2 + 0.2, face * 0.05);
+        const handle = inert(new THREE.Mesh(handleGeometry, doorBrass));
+        handle.position.set(-sideSign * (doorWidth / 4 - 0.1), -0.25, face * 0.08);
+        leaf.add(pane, kick, handle);
+      }
       return { leaf, sideSign };
     });
     let opening = 0;
@@ -3398,10 +3424,10 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       for (const { leaf, sideSign } of leaves) leaf.position.x = doorX + sideSign * (doorWidth / 4 + (opening * doorWidth) / 2);
     });
     const sign = new THREE.Mesh(
-      new THREE.PlaneGeometry(2.8, 0.26),
-      new THREE.MeshBasicMaterial({ map: signTexture((room.open ? room.label : `${room.label} · offline`).toUpperCase(), tinted(paint, "#ffffff", 0.3)) }),
+      new THREE.PlaneGeometry(3.3, 0.46),
+      new THREE.MeshBasicMaterial({ map: signTexture((room.open ? room.label : `${room.label} · offline`).toUpperCase(), tinted(paint, "#ffffff", 0.5)) }),
     );
-    sign.position.set(doorX, y0 + SIDE_DOOR_HEIGHT + 0.36, side * (hallWall - 0.03));
+    sign.position.set(doorX, y0 + SIDE_DOOR_HEIGHT + 0.6, side * (hallWall - 0.03));
     if (side > 0) sign.rotation.y = Math.PI;
     scene.add(sign);
     if (!room.open) return;
@@ -3421,15 +3447,15 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     ceiling.position.set(cx, y0 + height, cz);
     scene.add(floor, ceiling);
     still(put(doorWidth, 0.06, INNER_WALL + 0.02, floorMaterial(room.section, doorWidth, INNER_WALL), doorX, -0.03, doorZ));
-    const wall = solid(tinted(paint, "#ffffff", 0.45));
     const farZ = room.starboard ? room.z1 : room.z0;
-    still(put(width + 0.4, height, 0.2, wall, cx, height / 2, farZ + side * 0.1));
-    still(put(0.2, height, depth, wall, room.x0 - 0.1, height / 2, cz));
-    still(put(0.2, height, depth, wall, room.x1 + 0.1, height / 2, cz));
+    const wallOf = (across: number, shift = 0) => wallCut(room.section, height, across, 0, height, shift);
+    still(put(width + 0.4, height, 0.2, wallOf(width + 0.4), cx, height / 2, farZ + side * 0.1));
+    still(put(0.2, height, depth, wallOf(depth), room.x0 - 0.1, height / 2, cz));
+    still(put(0.2, height, depth, wallOf(depth), room.x1 + 0.1, height / 2, cz));
     // The corridor wall from inside, round the door.
     const nearZ = room.starboard ? room.z0 + 0.03 : room.z1 - 0.03;
     for (const piece of wallPieces(room.x0, room.x1, height, [{ a0: room.door.x0, a1: room.door.x1, y0: 0, y1: SIDE_DOOR_HEIGHT }])) {
-      still(put(piece.a1 - piece.a0, piece.y1 - piece.y0, 0.04, wall, (piece.a0 + piece.a1) / 2, (piece.y0 + piece.y1) / 2, nearZ));
+      still(put(piece.a1 - piece.a0, piece.y1 - piece.y0, 0.04, wallCut(room.section, height, piece.a1 - piece.a0, piece.y0, piece.y1 - piece.y0, piece.a0 / WALL_SPAN), (piece.a0 + piece.a1) / 2, (piece.y0 + piece.y1) / 2, nearZ));
     }
     // Light panels across the ceiling.
     for (let panel = 2.5; panel < depth - 1; panel += 4) still(put(width - 1.6, 0.06, 0.5, glow(PALETTE.light), cx, height - 0.05, room.starboard ? room.z0 + panel : room.z1 - panel));
