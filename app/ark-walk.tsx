@@ -1034,7 +1034,8 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
   };
   const lambert = (color: string, extra: THREE.MeshLambertMaterialParameters) =>
     new THREE.MeshLambertMaterial({ color, flatShading: true, ...extra });
-  const glow = (color: string) => new THREE.MeshBasicMaterial({ color });
+  /** A lit surface, brighter than white so the pixel finish gives it its glow. */
+  const glow = (color: string) => new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(1.45) });
   const ghost = (color: string, opacity: number) =>
     new THREE.MeshBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   const box = (w: number, h: number, d: number, material: THREE.Material | THREE.Material[], x: number, y: number, z: number) => {
@@ -5092,7 +5093,7 @@ export default function ArkWalk(props: ArkWalkProps) {
       depthTest: false,
       depthWrite: false,
     });
-    const simFinish = createPixelFinish(renderer);
+    const finish = createPixelFinish(renderer);
     const feedScene = new THREE.Scene();
     feedScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), feedMaterial));
     const feedCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -5849,7 +5850,7 @@ export default function ArkWalk(props: ArkWalkProps) {
         freeze: (at: number | null) => { frozenAt = at; },
         /** A small copy of what the camera sees, for comparing the ship before and after a change. */
         shot: () => {
-          renderer.render(scene, camera);
+          finish.render(scene, camera);
           const small = document.createElement("canvas");
           small.width = 240;
           small.height = 150;
@@ -5960,7 +5961,7 @@ export default function ArkWalk(props: ArkWalkProps) {
           }, now);
         }
         soundscape?.update({ x: 1e6, y: 0, z: 1e6, yaw, deck: deckIndex, speed: 0 });
-        simFinish.render(sim.scene, sim.camera);
+        finish.render(sim.scene, sim.camera);
         drawSimHud();
         return;
       }
@@ -6169,14 +6170,10 @@ export default function ArkWalk(props: ArkWalkProps) {
       }
 
       if (signal.ambient === 0 && !signal.freeze && signal.drop === 0) {
-        renderer.render(scene, camera);
+        finish.render(scene, camera);
       } else {
         // A frozen feed keeps showing the last picture it got.
-        if (!signal.freeze) {
-          renderer.setRenderTarget(feedTarget);
-          renderer.render(scene, camera);
-          renderer.setRenderTarget(null);
-        }
+        if (!signal.freeze) finish.render(scene, camera, feedTarget);
         const uniforms = feedMaterial.uniforms;
         uniforms.time.value = now / 1000;
         uniforms.seed.value = signal.seed;
@@ -6226,7 +6223,7 @@ export default function ArkWalk(props: ArkWalkProps) {
       soundscape?.dispose();
       feedTarget.dispose();
       feedMaterial.dispose();
-      simFinish.dispose();
+      finish.dispose();
       renderer.dispose();
       renderer.domElement.remove();
     };

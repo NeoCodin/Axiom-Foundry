@@ -2,7 +2,8 @@
  * The richer pixel finish, the look the owner chose on the comparison page: the frame is drawn
  * small, then given dark outlines where things stand in front of each other, chunky glow, a
  * palette that leans violet in shadow and warm in light, and an ordered dither down to a limited
- * set of colours. It takes any scene and camera, and draws at the renderer's current size.
+ * set of colours. It takes any scene and camera, and draws at the renderer's current size,
+ * to the screen or into a target for something else to finish off.
  */
 import * as THREE from "three";
 
@@ -12,6 +13,7 @@ const FRAGMENT = /* glsl */ `
   uniform vec2 resolution;
   uniform float near;
   uniform float far;
+  uniform float toTarget;
   varying vec2 vUv;
   const float BAYER[16] = float[16](0., 8., 2., 10., 12., 4., 14., 6., 3., 11., 1., 9., 15., 7., 13., 5.);
   float distanceAt(vec2 uv) {
@@ -47,7 +49,9 @@ const FRAGMENT = /* glsl */ `
     ivec2 cell = ivec2(mod(gl_FragCoord.xy, 4.));
     float dither = BAYER[cell.y * 4 + cell.x] / 16. - 0.47;
     const float LEVELS = 11.;
-    gl_FragColor = vec4(floor(screen * LEVELS + dither * 0.9 + 0.5) / LEVELS, 1.);
+    screen = floor(screen * LEVELS + dither * 0.9 + 0.5) / LEVELS;
+    // A target takes linear light and encodes it itself; the screen is sent the colours as they are.
+    gl_FragColor = vec4(toTarget > 0.5 ? pow(max(screen, vec3(0.)), vec3(2.2)) : screen, 1.);
   }
 `;
 
@@ -67,6 +71,7 @@ export function createPixelFinish(renderer: THREE.WebGLRenderer) {
       resolution: { value: new THREE.Vector2(1, 1) },
       near: { value: 0.1 },
       far: { value: 100 },
+      toTarget: { value: 0 },
     },
     vertexShader: "varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }",
     fragmentShader: FRAGMENT,
@@ -78,7 +83,7 @@ export function createPixelFinish(renderer: THREE.WebGLRenderer) {
   const flat = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   const size = new THREE.Vector2();
   return {
-    render(scene: THREE.Scene, camera: THREE.PerspectiveCamera) {
+    render(scene: THREE.Scene, camera: THREE.PerspectiveCamera, output: THREE.WebGLRenderTarget | null = null) {
       renderer.getDrawingBufferSize(size);
       if (target.width !== size.x || target.height !== size.y) {
         target.setSize(size.x, size.y);
@@ -86,11 +91,13 @@ export function createPixelFinish(renderer: THREE.WebGLRenderer) {
       }
       material.uniforms.near.value = camera.near;
       material.uniforms.far.value = camera.far;
+      material.uniforms.toTarget.value = output ? 1 : 0;
       renderer.setRenderTarget(target);
       renderer.clear();
       renderer.render(scene, camera);
-      renderer.setRenderTarget(null);
+      renderer.setRenderTarget(output);
       renderer.render(quad, flat);
+      if (output) renderer.setRenderTarget(null);
     },
     dispose() {
       target.dispose();
