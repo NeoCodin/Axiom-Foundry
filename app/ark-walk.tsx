@@ -10,7 +10,7 @@ import { grainTexture, paintDoorLeaf, paintWall, plankFloor, shipSurfaces, stone
 import { foliageTexture } from "./world-view-textures";
 
 import type { ArkCutawayRoomKind } from "./ark-cutaway";
-import { drawPixelWorldSurface, PIXEL_WORLD_DAY_SECONDS } from "./ark-pixel-world";
+import { buildSpace, systemFor } from "./ark-walk-space";
 import {
   buildWalkLayout,
   sealedSideRooms,
@@ -459,26 +459,11 @@ function tinted(hex: string, accent: string, amount: number) {
   return `#${((channel(16) << 16) | (channel(8) << 8) | channel(0)).toString(16).padStart(6, "0")}`;
 }
 
-/** A stepped glow: rings of falling opacity rather than a smooth gradient, to stay pixel. */
-function haloTexture(color: string) {
-  return canvasTexture(32, 32, (context) => {
-    context.fillStyle = color;
-    for (const [radius, alpha] of [[16, 0.12], [12, 0.18], [9, 0.26]] as const) {
-      context.globalAlpha = alpha;
-      for (let y = 0; y < 32; y += 1) {
-        for (let x = 0; x < 32; x += 1) {
-          if (Math.hypot(x - 15.5, y - 15.5) < radius) context.fillRect(x, y, 1, 1);
-        }
-      }
-    }
-  });
-}
-
-/** Glass: nearly clear, with a couple of hard glints so it reads as a pane and not a hole. */
+/** Glass: a faint clear tint. */
 function glassTexture(tint: string) {
   return canvasTexture(4, 4, (context) => {
     context.fillStyle = tint;
-    context.globalAlpha = 0.07;
+    context.globalAlpha = 0.018;
     context.fillRect(0, 0, 4, 4);
   });
 }
@@ -1143,113 +1128,39 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     return inert(new THREE.Points(geometry, new THREE.PointsMaterial({ size, sizeAttenuation: false, vertexColors: true, fog: false })));
   };
   sky.add(starField(1800, 1, 3), starField(160, 2, 9));
-  const nebulaMaterial = new THREE.SpriteMaterial({ map: haloTexture(tinted(accent, "#6a5acd", 0.5)), transparent: true, opacity: 0.1, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
-  for (let cloud = 0; cloud < 4; cloud += 1) {
-    const nebula = inert(new THREE.Sprite(nebulaMaterial));
-    const angle = cloud * 1.9 + 0.4;
-    nebula.position.set(Math.cos(angle) * 360, 60 - cloud * 50, Math.sin(angle) * 360);
-    nebula.scale.setScalar(260);
-    sky.add(nebula);
-  }
-  // The world below: a real globe wrapped in the 2D globe's own surface, turning under a
-  // fixed sun, with clouds drifting over it and its air glowing at the rim.
-  const surfaceTexture = (paint: (context: CanvasRenderingContext2D) => void) => {
-    const texture = canvasTexture(128, 64, paint);
-    texture.wrapT = THREE.ClampToEdgeWrapping;
-    return texture;
-  };
-  let look = { shadow: PALETTE.dark, atmosphere: accent, distant: false };
-  let cloudContext: CanvasRenderingContext2D | null = null;
-  const cloudTexture = surfaceTexture((context) => { cloudContext = context; });
-  const groundTexture = surfaceTexture((context) => {
-    look = drawPixelWorldSurface(context, cloudContext!, props.worldName, 0.5);
-  });
-  cloudTexture.needsUpdate = true;
-  const sun = new THREE.Vector3(-0.35, 0.7, -0.62).normalize();
-  const globeShader = (map: THREE.Texture, clouds: boolean) => new THREE.ShaderMaterial({
-    uniforms: {
-      map: { value: map },
-      sun: { value: sun },
-      night: { value: new THREE.Color(look.shadow) },
-    },
-    vertexShader: `
-      varying vec2 vUv;
-      varying vec3 vNormal;
-      void main() {
-        vUv = uv;
-        vNormal = normalize(mat3(modelMatrix) * normal);
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `,
-    // Light falls in four steps with an ordered dither between them, like the 2D globe.
-    fragmentShader: `
-      uniform sampler2D map;
-      uniform vec3 sun;
-      uniform vec3 night;
-      varying vec2 vUv;
-      varying vec3 vNormal;
-      float bayer2(vec2 a) { a = floor(a); return fract(dot(a, vec2(0.5, a.y * 0.75))); }
-      float bayer4(vec2 a) { return bayer2(0.5 * a) * 0.25 + bayer2(a); }
-      void main() {
-        vec4 texel = texture2D(map, vUv);
-        ${clouds ? "if (texel.a < 0.5) discard;" : ""}
-        float light = clamp(dot(normalize(vNormal), sun) * 1.25 + 0.2, 0.0, 1.0);
-        float stepped = floor(light * 4.0 + bayer4(gl_FragCoord.xy)) / 4.0;
-        vec3 color = mix(night, texel.rgb, clamp(0.06 + stepped * 0.94, 0.0, 1.0));
-        gl_FragColor = vec4(color, 1.0);
-        #include <colorspace_fragment>
-      }
-    `,
-  });
-  const planetRadius = look.distant ? 6 : 100;
-  const planetOffset = look.distant ? new THREE.Vector3(260, -120, 260) : new THREE.Vector3(110, -95, 110);
-  const planet = new THREE.Group();
-  planet.position.copy(planetOffset);
-  planet.rotation.z = 0.32;
-  sky.add(planet);
-  const ground = inert(new THREE.Mesh(new THREE.SphereGeometry(planetRadius, 48, 32), globeShader(groundTexture, false)));
-  const cloudLayer = inert(new THREE.Mesh(new THREE.SphereGeometry(planetRadius * 1.012, 48, 32), globeShader(cloudTexture, true)));
-  const air = inert(new THREE.Mesh(
-    new THREE.SphereGeometry(planetRadius * 1.06, 48, 32),
-    new THREE.ShaderMaterial({
-      uniforms: { glow: { value: new THREE.Color(look.atmosphere) }, sun: { value: sun } },
-      vertexShader: `
-        varying vec3 vNormal;
-        varying vec3 vView;
-        varying vec3 vWorldNormal;
-        void main() {
-          vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
-          vNormal = normalize(normalMatrix * normal);
-          vView = normalize(-viewPosition.xyz);
-          vWorldNormal = normalize(mat3(modelMatrix) * normal);
-          gl_Position = projectionMatrix * viewPosition;
-        }
-      `,
-      fragmentShader: `
-        uniform vec3 glow;
-        uniform vec3 sun;
-        varying vec3 vNormal;
-        varying vec3 vView;
-        varying vec3 vWorldNormal;
-        void main() {
-          float rim = pow(1.0 - clamp(dot(vNormal, vView), 0.0, 1.0), 3.5);
-          float day = clamp(dot(vWorldNormal, sun) + 0.35, 0.0, 1.0);
-          gl_FragColor = vec4(glow * rim * day * 0.9, 1.0);
-          #include <colorspace_fragment>
-        }
-      `,
-      transparent: true,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    }),
-  ));
-  planet.add(ground, cloudLayer, air);
+  // The star, the world below it, its moons and neighbours (ark-walk-space).
+  const deepSpace = systemFor(props.worldName).deep;
+  const planetRadius = deepSpace ? 6 : 150;
+  const planetOffset = deepSpace ? new THREE.Vector3(260, -120, 260) : new THREE.Vector3(40, -120, 190);
+  const space = buildSpace(sky, props.worldName, planetOffset, planetRadius);
   const planetWorld = planetOffset.clone().add(sky.position);
-  animated.push((time) => {
-    const turn = (time / 1000 / PIXEL_WORLD_DAY_SECONDS) * Math.PI * 2;
-    ground.rotation.y = turn;
-    cloudLayer.rotation.y = turn * 1.35;
-  });
+  /** Sunlight through a hull window, falling across the floor. Only on the side the sun is on. */
+  const sunPatch = (y0: number, opening: Rect, side: number) => {
+    const { sunDir, system } = space;
+    if (space.deep || sunDir.y <= 0.05 || sunDir.z * side <= 0.05) return;
+    const wallZ = side * half;
+    const corner = (x: number, y: number) => {
+      const reach = y / sunDir.y;
+      return new THREE.Vector3(x - sunDir.x * reach, y0 + 0.02, wallZ - sunDir.z * reach);
+    };
+    // Whatever would land past the far side of the hall stops at the centre line.
+    const inHall = (point: THREE.Vector3) => {
+      const over = Math.abs(point.z - wallZ) - half * 0.9;
+      if (over > 0) {
+        const pull = (Math.abs(point.z - wallZ) - over) / Math.abs(point.z - wallZ);
+        point.set(opening.a0 + (point.x - opening.a0) * pull, point.y, wallZ + (point.z - wallZ) * pull);
+      }
+      return point;
+    };
+    const near0 = corner(opening.a0, opening.y0);
+    const near1 = corner(opening.a1, opening.y0);
+    const far0 = inHall(corner(opening.a0, opening.y1));
+    const far1 = inHall(corner(opening.a1, opening.y1));
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute([...near0.toArray(), ...near1.toArray(), ...far1.toArray(), ...near0.toArray(), ...far1.toArray(), ...far0.toArray()], 3));
+    const patch = inert(new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: system.sun.color, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })));
+    scene.add(patch);
+  };
 
   /** A hull side: thick panels round its openings, the room's wall inside and the ship's skin out. */
   const hullSide = (room: WalkCompartment, y0: number, side: number, openings: Rect[], thick = HULL, tall = room.height) => {
@@ -1395,7 +1306,10 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
           ];
           // Downstairs the hull runs on up to the deck above, leaving no gap over the ceiling.
           hullSide(room, y0, side, openings, sideDoors.length > 0 ? INNER_WALL : HULL, upper ? room.height : Math.max(room.height, UPPER_FLOOR));
-          for (const pane of windows) hullWindow(y0, pane, side);
+          for (const pane of windows) {
+            hullWindow(y0, pane, side);
+            sunPatch(y0, pane, side);
+          }
           openingsBySide.set(side, openings);
         }
         if (dock) {
@@ -4178,18 +4092,43 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
           const z = z0 + bedZ;
           still(put(width - 2, 0.6, 0.8, solid(PALETTE.wood), cx, 0.3, z));
           still(put(width - 2.1, 0.04, 0.7, solid("#4a3424"), cx, 0.61, z));
-          still(put(width - 2, 0.06, 0.06, solid(metalLight), cx, 0.7, z - 0.42));
+          // Irrigation along the bed, a brass valve at each end, and a trellis for what climbs.
+          still(put(width - 2, 0.06, 0.06, steel, cx, 0.7, z - 0.42));
+          for (const end of [x0 + 1.1, x1 - 1.1]) still(put(0.14, 0.14, 0.14, brass, end, 0.7, z - 0.42));
+          if (bedIndex === 1) {
+            for (let post = x0 + 1.2; post < x1 - 1; post += 2.4) still(put(0.04, 1.3, 0.04, walnut, post, 1.25, z));
+            still(put(width - 2.2, 0.03, 0.03, walnut, cx, 1.85, z));
+            still(put(width - 2.2, 0.03, 0.03, walnut, cx, 1.3, z));
+          }
           for (let plant = 0; plant < Math.floor((width - 2.2) / 0.3); plant += 1) {
             const px = x0 + 1.2 + plant * 0.3;
             for (const dz of [-0.17, 0.17]) {
-              const tall = (0.2 + hash(plant * 3.1 + bedIndex * 7 + dz) * 0.3) * (bedIndex === 2 ? 1.6 : 1);
-              crops.push({ w: 0.16, h: tall, d: 0.16, x: px, y: 0.63 + tall / 2, z: z + dz, color: bedIndex === 2 ? "#d8b84a" : bedIndex === 1 ? "#4a9440" : "#5fae4e" });
-              if (bedIndex === 1 && hash(plant + dz * 9) > 0.55) crops.push({ w: 0.08, h: 0.08, d: 0.08, x: px + 0.05, y: 0.63 + tall * 0.7, z: z + dz + 0.07, color: "#e8443a" });
+              const seed = hash(plant * 3.1 + bedIndex * 7 + dz);
+              const tall = (0.2 + seed * 0.3) * (bedIndex === 2 ? 1.9 : bedIndex === 1 ? 3 : 1);
+              const leaf = bedIndex === 2 ? (seed > 0.5 ? "#d8b84a" : "#c4a03a") : seed > 0.6 ? "#3f8a4c" : seed > 0.3 ? "#5fae4e" : "#2f6b3f";
+              crops.push({ w: bedIndex === 2 ? 0.08 : 0.2, h: tall, d: bedIndex === 2 ? 0.08 : 0.2, x: px, y: 0.63 + tall / 2, z: z + dz, color: leaf });
+              if (bedIndex === 0) crops.push({ w: 0.28, h: 0.08, d: 0.28, x: px, y: 0.63 + tall, z: z + dz, color: "#7cc35a" });
+              if (bedIndex === 2) crops.push({ w: 0.11, h: 0.2, d: 0.11, x: px, y: 0.73 + tall, z: z + dz, color: "#f0d870" });
+              if (bedIndex === 1) {
+                crops.push({ w: 0.26, h: 0.16, d: 0.26, x: px, y: 0.63 + tall * 0.6, z: z + dz, color: "#3f8a4c" });
+                if (hash(plant + dz * 9) > 0.5) crops.push({ w: 0.1, h: 0.1, d: 0.1, x: px + 0.08, y: 0.63 + tall * 0.75, z: z + dz + 0.1, color: "#e8443a" });
+              }
             }
           }
-          lights.push({ w: width - 2.2, h: 0.06, d: 0.3, x: cx, y: 2, z, color: "#ff9adf" });
-          for (const end of [x0 + 1.2, x1 - 1.2]) still(put(0.02, room.height - 2.03, 0.02, solid(PALETTE.dark), end, (room.height + 2.03) / 2, z));
+          lights.push({ w: width - 2.2, h: 0.04, d: 0.3, x: cx, y: 2.3, z, color: "#ff9adf" });
+          still(put(width - 2.1, 0.14, 0.46, darkSteel, cx, 2.4, z));
+          for (const end of [x0 + 1.2, cx, x1 - 1.2]) still(put(0.03, room.height - 2.45, 0.03, steel, end, (room.height + 2.45) / 2, z));
         });
+        // Seed trays on racks down the far wall, sprouting at every stage.
+        for (const rackY of [1.1, 1.8, 2.5]) {
+          still(put(width - 1.4, 0.05, 0.5, steel, cx, rackY, z1 - 0.32));
+          for (let tray = 0; tray < Math.floor((width - 1.8) / 0.62); tray += 1) {
+            const px = x0 + 1 + tray * 0.62;
+            still(put(0.54, 0.08, 0.4, solid("#3a2a20"), px, rackY + 0.06, z1 - 0.32));
+            crops.push({ w: 0.46, h: 0.05 + hash(px * rackY) * 0.14, d: 0.34, x: px, y: rackY + 0.16, z: z1 - 0.32, color: hash(px + rackY) > 0.5 ? "#7cc35a" : "#5fae4e" });
+          }
+        }
+        for (const end of [x0 + 0.72, x1 - 0.72]) still(put(0.06, 2.6, 0.06, steel, end, 1.3, z1 - 0.32));
         const field = merged(crops);
         if (field) label(field, "The hydroponic farm: greens, tomatoes and wheat for the galley");
         merged(lights, true);
@@ -4199,10 +4138,21 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       case "infirmary": {
         // Four beds, each with a monitor on a pole keeping time.
         [[x0 + 0.65, z0 + 1.25], [x1 - 0.65, z0 + 1.25], [x0 + 0.65, z0 + 4.45], [x1 - 0.65, z0 + 4.45]].forEach(([bx, bz], bedIndex) => {
-          still(put(1, 0.5, 2.1, solid(metalLight), bx, 0.25, bz));
-          still(put(0.9, 0.18, 2, solid(PALETTE.linen), bx, 0.6, bz));
-          still(put(0.92, 0.06, 1.1, solid(tinted(paint, "#ffffff", 0.3)), bx, 0.71, bz + 0.4));
-          still(put(0.6, 0.1, 0.3, solid("#ffffff"), bx, 0.74, bz - 0.8));
+          // A steel bed frame on legs, boards at each end, made up in clean linen.
+          still(put(1, 0.1, 2.1, steel, bx, 0.42, bz));
+          for (const lx of [-0.44, 0.44]) for (const lz of [-0.98, 0.98]) still(put(0.06, 0.4, 0.06, darkSteel, bx + lx, 0.2, bz + lz));
+          still(put(1.04, 0.7, 0.06, steel, bx, 0.72, bz - 1.04));
+          still(put(1.04, 0.42, 0.06, steel, bx, 0.6, bz + 1.04));
+          still(put(0.92, 0.16, 2, solid(PALETTE.linen), bx, 0.55, bz));
+          still(put(0.94, 0.05, 1.2, solid(tinted(paint, "#ffffff", 0.3)), bx, 0.66, bz + 0.36));
+          still(put(0.94, 0.05, 0.24, solid(PALETTE.linen), bx, 0.68, bz - 0.26));
+          still(put(0.62, 0.12, 0.34, solid("#ffffff"), bx, 0.69, bz - 0.74));
+          // A drip stand beside it.
+          const dripX = bx + (bx < cx ? -0.02 : 0.02);
+          still(put(0.3, 0.03, 0.3, darkSteel, dripX, 0.03, bz + 1.32));
+          still(put(0.03, 1.7, 0.03, steel, dripX, 0.85, bz + 1.32));
+          still(put(0.3, 0.03, 0.03, steel, dripX, 1.68, bz + 1.32));
+          still(put(0.14, 0.24, 0.06, solid("#bfe0ff"), dripX + 0.1, 1.54, bz + 1.32));
           const poleX = bx + (bx < cx ? 0.55 : -0.55);
           still(put(0.06, 1.6, 0.06, solid(metal), poleX, 0.8, bz - 0.9));
           const monitor = put(0.5, 0.36, 0.06, glow("#0f2a1c"), poleX, 1.55, bz - 0.9);
@@ -4832,7 +4782,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
   });
 
   return {
-    interactables, animated, notices, star, heartTarget, heartLight, obstacles, stage, soundPlaces, baySound, recrew, rerecord,
+    interactables, animated, notices, star, space, heartTarget, heartLight, obstacles, stage, soundPlaces, baySound, recrew, rerecord,
     /** Keep someone facing the drone until then (ms), while it talks with them. */
     attend: (id: string, until: number) => attention.set(id, until),
     talkers: () => talkers,
@@ -6198,6 +6148,7 @@ export default function ArkWalk(props: ArkWalkProps) {
 
       // The Law-Heart beats; close enough and AXIOM hears it, and the room breathes with it.
       strikeFlash = Math.max(0, strikeFlash - dt * 3);
+      ship.space.update(now, camera);
       const { swell, beat } = ship.star.update(now, dt, camera, strikeFlash, reducedMotion);
       if (beat && Math.hypot(x - heart.x, eyeY - heart.y, z - heart.z) < 22) schedulePulseBeat(now, 0.3);
       ship.heartLight.intensity = (ship.stage === 0 ? 3 : 26) * (1 + swell * 0.75);

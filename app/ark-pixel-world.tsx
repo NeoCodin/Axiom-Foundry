@@ -367,15 +367,32 @@ export function ArkPixelWorld({
 
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let frame = 0;
-    drawWorld(context, palette, worldSlug, progress, frame);
-    if (reducedMotion) return;
+    let closed = false;
+    // The worlds themselves are drawn in 3D once that code has loaded; until then, and for deep
+    // space and any machine that cannot, the flat globe stands in.
+    let globe: ((seconds: number) => boolean) | null = null;
+    const draw = () => {
+      if (!globe?.(frame * 0.24)) drawWorld(context, palette, worldSlug, progress, frame);
+    };
+    draw();
+    if (!transit) {
+      void import("./world-globe").then(({ drawWorldGlobe }) => {
+        if (closed) return;
+        globe = (seconds) => drawWorldGlobe(context, worldName, seconds);
+        draw();
+      });
+    }
+    if (reducedMotion) return () => { closed = true; };
 
     const interval = window.setInterval(() => {
       frame += transit ? 2 : 1;
-      drawWorld(context, palette, worldSlug, progress, frame);
+      draw();
     }, transit ? 120 : 240);
-    return () => window.clearInterval(interval);
-  }, [palette, progress, transit, worldSlug]);
+    return () => {
+      closed = true;
+      window.clearInterval(interval);
+    };
+  }, [palette, progress, transit, worldName, worldSlug]);
 
   return (
     <canvas
