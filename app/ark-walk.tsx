@@ -3554,7 +3554,11 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       still(put(piece.a1 - piece.a0, piece.y1 - piece.y0, 0.04, wallCut(room.section, height, piece.a1 - piece.a0, piece.y0, piece.y1 - piece.y0, piece.a0 / WALL_SPAN), (piece.a0 + piece.a1) / 2, (piece.y0 + piece.y1) / 2, nearZ));
     }
     // Light panels across the ceiling.
-    for (let panel = 2.5; panel < depth - 1; panel += 4) still(put(width - 1.6, 0.06, 0.5, lightPanel, cx, height - 0.05, room.starboard ? room.z0 + panel : room.z1 - panel));
+    for (let panel = 2.5; panel < depth - 1; panel += 4) {
+      const z = room.starboard ? room.z0 + panel : room.z1 - panel;
+      still(put(width * 0.6 + 0.16, 0.12, 0.6, darkSteel, cx, height - 0.05, z));
+      still(put(width * 0.6, 0.03, 0.44, lightPanel, cx, height - 0.12, z));
+    }
     // What is in it, on its own plan.
     const parts = cellParts(room.cell!, width, depth);
     const placed = (part: CellPart): Part => ({
