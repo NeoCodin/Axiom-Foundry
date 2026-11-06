@@ -1049,6 +1049,12 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     return mesh;
   };
   const label = (object: THREE.Object3D, text: string) => interactables.push({ kind: "label", object, label: text });
+  /** Nothing keeps hold of this piece, so it never changes and can share a draw call with its neighbours. */
+  const stillPieces: THREE.Mesh[] = [];
+  const still = (mesh: THREE.Mesh) => {
+    stillPieces.push(mesh);
+    return mesh;
+  };
 
   // ---- The Law-Heart's power, running out through the ship in channels in the floor. ----
   const flowTexture = canvasTexture(64, 8, (context) => {
@@ -1253,7 +1259,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       const faces = side > 0
         ? [hullSkin, hullSkin, hullSkin, hullSkin, hullSkin, inner]
         : [hullSkin, hullSkin, hullSkin, hullSkin, inner, hullSkin];
-      box(w, h, thick, faces, (piece.a0 + piece.a1) / 2, y0 + (piece.y0 + piece.y1) / 2, side * (room.half + thick / 2));
+      still(box(w, h, thick, faces, (piece.a0 + piece.a1) / 2, y0 + (piece.y0 + piece.y1) / 2, side * (room.half + thick / 2)));
     }
   };
   /** Glass and a frame in a hull window. */
@@ -1267,11 +1273,11 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     if (side === 1) pane.rotation.y = Math.PI;
     scene.add(pane);
     const z = side * (half - 0.05);
-    box(w + 0.32, 0.16, 0.16, trimMaterial, cx, y0 + opening.y0 - 0.04, z);
-    box(w + 0.32, 0.16, 0.16, trimMaterial, cx, y0 + opening.y1 + 0.04, z);
-    box(0.16, h, 0.16, trimMaterial, opening.a0 - 0.04, cy, z);
-    box(0.16, h, 0.16, trimMaterial, opening.a1 + 0.04, cy, z);
-    box(0.06, h, 0.06, trimMaterial, cx, cy, side * (half + 0.05));
+    still(box(w + 0.32, 0.16, 0.16, trimMaterial, cx, y0 + opening.y0 - 0.04, z));
+    still(box(w + 0.32, 0.16, 0.16, trimMaterial, cx, y0 + opening.y1 + 0.04, z));
+    still(box(0.16, h, 0.16, trimMaterial, opening.a0 - 0.04, cy, z));
+    still(box(0.16, h, 0.16, trimMaterial, opening.a1 + 0.04, cy, z));
+    still(box(0.06, h, 0.06, trimMaterial, cx, cy, side * (half + 0.05)));
   };
 
   /** The fittings every compartment gets: ceiling beams, wall ribs, pipe runs, vents, lit skirting. */
@@ -1281,7 +1287,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     const dark = !room.online;
     const bays = Math.max(2, Math.round(width / 3.5));
     for (let bay = 1; bay < bays; bay += 1) {
-      box(0.3, 0.35, room.half * 2, solid(metal), room.x0 + (width * bay) / bays, y0 + room.height - 0.175, 0);
+      still(box(0.3, 0.35, room.half * 2, solid(metal), room.x0 + (width * bay) / bays, y0 + room.height - 0.175, 0));
     }
     for (const side of sides) {
       const wallZ = side * room.half;
@@ -1289,8 +1295,8 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       for (let bay = 1; bay < bays; bay += 1) {
         const ribX = room.x0 + (width * bay) / bays;
         if (openings.some((opening) => ribX > opening.a0 - 0.4 && ribX < opening.a1 + 0.4 && opening.y0 < room.height - 0.4)) continue;
-        box(0.32, room.height, 0.24, solid(metal), ribX, y0 + room.height / 2, wallZ - side * 0.12);
-        box(0.36, 0.1, 0.28, solid(metalLight), ribX, y0 + 0.9, wallZ - side * 0.14);
+        still(box(0.32, room.height, 0.24, solid(metal), ribX, y0 + room.height / 2, wallZ - side * 0.12));
+        still(box(0.36, 0.1, 0.28, solid(metalLight), ribX, y0 + 0.9, wallZ - side * 0.14));
         if (bay % 2 === 0) {
           const status = box(0.1, 0.1, 0.04, glow(dark ? PALETTE.alert : PALETTE.ok), ribX, y0 + 1.7, wallZ - side * 0.26);
           animated.push((time) => { status.visible = Math.floor(time / 900 + ribX) % 6 !== 0; });
@@ -1304,12 +1310,12 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         pipe.rotation.z = Math.PI / 2;
       }
       // Lit skirting along the floor.
-      box(width, 0.06, 0.06, glow(dark ? PALETTE.dark : tinted(paintOf(room.kind), PALETTE.dark, 0.2)), cx, y0 + 0.06, wallZ - side * 0.04);
+      still(box(width, 0.06, 0.06, glow(dark ? PALETTE.dark : tinted(paintOf(room.kind), PALETTE.dark, 0.2)), cx, y0 + 0.06, wallZ - side * 0.04));
     }
     // Walkway lines down the open middle.
     if (room.kind !== "chamber" && room.kind !== "hangar") {
       for (const lane of [-DOOR_HALF_WIDTH, DOOR_HALF_WIDTH]) {
-        box(width - 1, 0.02, 0.1, glow(dark ? PALETTE.dark : tinted(PALETTE.amber, PALETTE.dark, 0.55)), cx, y0 + 0.012, lane);
+        still(box(width - 1, 0.02, 0.1, glow(dark ? PALETTE.dark : tinted(PALETTE.amber, PALETTE.dark, 0.55)), cx, y0 + 0.012, lane));
       }
     }
   };
@@ -1318,7 +1324,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     const upper = deck.floorY > 0;
     const y0 = deck.floorY;
     const put = (w: number, h: number, d: number, material: THREE.Material | THREE.Material[], x: number, y: number, z: number) =>
-      box(w, h, d, material, x, y0 + y, z);
+      still(box(w, h, d, material, x, y0 + y, z));
     /** How tall a bulkhead stands: downstairs it reaches the deck above. */
     const wallHeight = (...rooms: WalkCompartment[]) => (upper ? Math.max(...rooms.map((room) => room.height)) : UPPER_FLOOR);
 
@@ -1380,7 +1386,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         for (let lampIndex = 0; lampIndex < lampCount; lampIndex += 1) {
           const lx = room.x0 + (width * (lampIndex + 0.5)) / lampCount;
           if (!dark) {
-            for (const row of [-0.55, 0, 0.55]) put(width / lampCount - 1.6, 0.06, 0.45, glow(PALETTE.light), lx, room.height - 0.05, row * half);
+            for (const row of [-0.55, 0, 0.55]) still(put(width / lampCount - 1.6, 0.06, 0.45, glow(PALETTE.light), lx, room.height - 0.05, row * half));
             const lamp = new THREE.PointLight(LAMP, 15, 34, 1);
             lamp.position.set(lx, y0 + room.height - 0.7, 0);
             scene.add(lamp);
@@ -1397,32 +1403,32 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       const nextRoom = deck.compartments[index + 1];
       if (index === 0) {
         const height = wallHeight(room);
-        put(0.4, height, half * 2, bulkheadFaces(null, room, half * 2, 0, height), room.x0 - 0.2, height / 2, 0);
+        still(put(0.4, height, half * 2, bulkheadFaces(null, room, half * 2, 0, height), room.x0 - 0.2, height / 2, 0));
       }
       if (nextRoom) {
         const height = wallHeight(room, nextRoom);
         const wx = room.x1 + 0.2;
         const sideDepth = half - DOOR_HALF_WIDTH;
-        put(0.4, height, sideDepth, bulkheadFaces(room, nextRoom, sideDepth, 0, height), wx, height / 2, -(DOOR_HALF_WIDTH + sideDepth / 2));
-        put(0.4, height, sideDepth, bulkheadFaces(room, nextRoom, sideDepth, 0, height), wx, height / 2, DOOR_HALF_WIDTH + sideDepth / 2);
-        put(0.4, height - DOOR_HEIGHT, DOOR_HALF_WIDTH * 2, bulkheadFaces(room, nextRoom, DOOR_HALF_WIDTH * 2, DOOR_HEIGHT, height - DOOR_HEIGHT), wx, DOOR_HEIGHT + (height - DOOR_HEIGHT) / 2, 0);
-        put(0.6, 0.18, DOOR_HALF_WIDTH * 2 + 0.4, trimMaterial, wx, DOOR_HEIGHT + 0.09, 0);
+        still(put(0.4, height, sideDepth, bulkheadFaces(room, nextRoom, sideDepth, 0, height), wx, height / 2, -(DOOR_HALF_WIDTH + sideDepth / 2)));
+        still(put(0.4, height, sideDepth, bulkheadFaces(room, nextRoom, sideDepth, 0, height), wx, height / 2, DOOR_HALF_WIDTH + sideDepth / 2));
+        still(put(0.4, height - DOOR_HEIGHT, DOOR_HALF_WIDTH * 2, bulkheadFaces(room, nextRoom, DOOR_HALF_WIDTH * 2, DOOR_HEIGHT, height - DOOR_HEIGHT), wx, DOOR_HEIGHT + (height - DOOR_HEIGHT) / 2, 0));
+        still(put(0.6, 0.18, DOOR_HALF_WIDTH * 2 + 0.4, trimMaterial, wx, DOOR_HEIGHT + 0.09, 0));
         for (const side of [-1, 1]) {
-          put(0.6, DOOR_HEIGHT, 0.2, trimMaterial, wx, DOOR_HEIGHT / 2, side * (DOOR_HALF_WIDTH + 0.1));
-          put(0.62, 0.3, 0.22, lambert("#ffffff", { map: repeated(stripes, 1, 0.4) }), wx, 0.15, side * (DOOR_HALF_WIDTH + 0.1));
+          still(put(0.6, DOOR_HEIGHT, 0.2, trimMaterial, wx, DOOR_HEIGHT / 2, side * (DOOR_HALF_WIDTH + 0.1)));
+          still(put(0.62, 0.3, 0.22, lambert("#ffffff", { map: repeated(stripes, 1, 0.4) }), wx, 0.15, side * (DOOR_HALF_WIDTH + 0.1)));
         }
         // A door panel beside the frame shows whether the next room is awake.
         for (const facing of [-1, 1]) {
-          put(0.1, 0.5, 0.36, solid(PALETTE.dark), wx - facing * 0.32, 1.5, DOOR_HALF_WIDTH + 0.6);
-          put(0.04, 0.2, 0.2, glow(nextRoom.online ? PALETTE.ok : PALETTE.alert), wx - facing * 0.38, 1.6, DOOR_HALF_WIDTH + 0.6);
+          still(put(0.1, 0.5, 0.36, solid(PALETTE.dark), wx - facing * 0.32, 1.5, DOOR_HALF_WIDTH + 0.6));
+          still(put(0.04, 0.2, 0.2, glow(nextRoom.online ? PALETTE.ok : PALETTE.alert), wx - facing * 0.38, 1.6, DOOR_HALF_WIDTH + 0.6));
         }
         // Into a hall with no power the doorway stays shut: the Ark has not woken it yet. The drone's
         // own route from its cradle in Fabrication to the core is kept open on emergency power.
         const route = (room.kind === "fabrication" && nextRoom.kind === "chamber") || (room.kind === "chamber" && nextRoom.kind === "fabrication");
         if (!route && !(room.online && nextRoom.online)) {
-          for (const side of [-1, 1]) put(0.22, DOOR_HEIGHT, DOOR_HALF_WIDTH - 0.02, solid(PALETTE.metal), wx, DOOR_HEIGHT / 2, side * (DOOR_HALF_WIDTH / 2));
-          put(0.24, DOOR_HEIGHT - 0.4, 0.06, glow(tinted(PALETTE.alert, PALETTE.dark, 0.35)), wx, DOOR_HEIGHT / 2, 0);
-          for (const rung of [1.1, 2.3, 3.5]) put(0.24, 0.1, DOOR_HALF_WIDTH * 2 - 0.4, solid(PALETTE.metalLight), wx, rung, 0);
+          for (const side of [-1, 1]) still(put(0.22, DOOR_HEIGHT, DOOR_HALF_WIDTH - 0.02, solid(PALETTE.metal), wx, DOOR_HEIGHT / 2, side * (DOOR_HALF_WIDTH / 2)));
+          still(put(0.24, DOOR_HEIGHT - 0.4, 0.06, glow(tinted(PALETTE.alert, PALETTE.dark, 0.35)), wx, DOOR_HEIGHT / 2, 0));
+          for (const rung of [1.1, 2.3, 3.5]) still(put(0.24, 0.1, DOOR_HALF_WIDTH * 2 - 0.4, solid(PALETTE.metalLight), wx, rung, 0));
           for (const facing of [-1, 1]) {
             const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.26), new THREE.MeshBasicMaterial({ map: signTexture("OFFLINE", PALETTE.alert) }));
             sign.position.set(wx + facing * 0.13, y0 + 2.9, 0);
@@ -1432,8 +1438,8 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
           }
           dynamicObstacles.push(() => ({ deck: deckIndex, box: { x0: wx - 0.32, x1: wx + 0.32, z0: -DOOR_HALF_WIDTH, z1: DOOR_HALF_WIDTH } }));
         }
-        put(0.44, 0.14, DOOR_HALF_WIDTH * 2 + 0.4, floorMaterial("fabrication", 0.5, DOOR_HALF_WIDTH * 2), wx, -0.07, 0);
-        put(0.46, 0.02, DOOR_HALF_WIDTH * 2, lambert("#ffffff", { map: repeated(stripes, 0.4, DOOR_HALF_WIDTH * 4) }), wx, 0.005, 0);
+        still(put(0.44, 0.14, DOOR_HALF_WIDTH * 2 + 0.4, floorMaterial("fabrication", 0.5, DOOR_HALF_WIDTH * 2), wx, -0.07, 0));
+        still(put(0.46, 0.02, DOOR_HALF_WIDTH * 2, lambert("#ffffff", { map: repeated(stripes, 0.4, DOOR_HALF_WIDTH * 4) }), wx, 0.005, 0));
         // A painted name over each side of the doorway.
         for (const facing of [-1, 1]) {
           const target = facing > 0 ? nextRoom : room;
@@ -1457,9 +1463,9 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
 
       // The room's furniture and its console, set against the walls of the wide ship.
       const fit = (w: number, h: number, d: number, material: THREE.Material | THREE.Material[], x: number, y: number, z: number) =>
-        box(w, h, d, material, x, y0 + y, towardWalls(z, room.half));
+        still(box(w, h, d, material, x, y0 + y, towardWalls(z, room.half)));
       const fitCylinder = (top: number, bottom: number, h: number, material: THREE.Material, x: number, y: number, z: number, sides?: number, open?: boolean) =>
-        cylinder(top, bottom, h, material, x, y, towardWalls(z, room.half), sides, open);
+        still(cylinder(top, bottom, h, material, x, y, towardWalls(z, room.half), sides, open));
       const consoleRoom = roomsByKind.get(room.kind) ?? null;
       const addConsole = (object: THREE.Object3D, prompt?: () => string) =>
         interactables.push({ kind: "console", object, label: room.label, room: consoleRoom, online: room.online, deck: deckIndex, prompt });
@@ -1485,24 +1491,24 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         const belts: THREE.Texture[] = [];
         const belt = (from: number, to: number) => {
           const length = to - from;
-          box(length, 0.7, 1.3, solid(metal), from + length / 2, y0 + 0.5, lineZ);
+          still(box(length, 0.7, 1.3, solid(metal), from + length / 2, y0 + 0.5, lineZ));
           const texture = repeated(stripes, length / 1.2, 1);
           belts.push(texture);
-          box(length, 0.06, 1.1, lambert("#ffffff", { map: texture }), from + length / 2, y0 + beltTop - 0.03, lineZ);
-          for (let leg = from + 0.4; leg < to; leg += 1.6) for (const side of [-0.55, 0.55]) box(0.12, 0.2, 0.12, solid(metalLight), leg, y0 + 0.08, lineZ + side);
+          still(box(length, 0.06, 1.1, lambert("#ffffff", { map: texture }), from + length / 2, y0 + beltTop - 0.03, lineZ));
+          for (let leg = from + 0.4; leg < to; leg += 1.6) for (const side of [-0.55, 0.55]) still(box(0.12, 0.2, 0.12, solid(metalLight), leg, y0 + 0.08, lineZ + side));
         };
         // The intake: a hopper on legs, fed down a chute from the ceiling, its funnel over the first belt.
         const hopper = cylinder(1.25, 1.25, 3, solid(metal), hopperX, y0 + 4.4, lineZ, 12);
         label(hopper, "Salvage intake");
-        cylinder(1.25, 0.35, 1.3, solid(metal), hopperX, y0 + 2.25, lineZ, 12);
-        for (const [lx, lz] of [[-0.95, -0.95], [0.95, -0.95], [-0.95, 0.95], [0.95, 0.95]]) box(0.16, 4.2, 0.16, solid(metalLight), hopperX + lx, y0 + 2.1, lineZ + lz);
-        box(0.9, room.height - 5.9, 0.9, solid(metalLight), hopperX, y0 + 5.9 + (room.height - 5.9) / 2, lineZ);
+        still(cylinder(1.25, 0.35, 1.3, solid(metal), hopperX, y0 + 2.25, lineZ, 12));
+        for (const [lx, lz] of [[-0.95, -0.95], [0.95, -0.95], [-0.95, 0.95], [0.95, 0.95]]) still(box(0.16, 4.2, 0.16, solid(metalLight), hopperX + lx, y0 + 2.1, lineZ + lz));
+        still(box(0.9, room.height - 5.9, 0.9, solid(metalLight), hopperX, y0 + 5.9 + (room.height - 5.9) / 2, lineZ));
         belt(hopperX, pressX - 1.3);
         belt(pressX + 1.3, beltEnd);
         // The Law Press: two columns either side of the belt, a crown, and a ram that comes down on each piece.
         for (const side of [-1, 1]) {
-          box(2.6, 4.6, 0.6, solid(metal), pressX, y0 + 2.3, lineZ + side * 1.3);
-          box(1.6, 1.8, 0.04, glow(dark ? PALETTE.dark : props.heart.surface), pressX, y0 + 2.6, lineZ + side * 1.62);
+          still(box(2.6, 4.6, 0.6, solid(metal), pressX, y0 + 2.3, lineZ + side * 1.3));
+          still(box(1.6, 1.8, 0.04, glow(dark ? PALETTE.dark : props.heart.surface), pressX, y0 + 2.6, lineZ + side * 1.62));
         }
         const crown = box(2.8, 1.2, 3.2, solid(metal), pressX, y0 + 5.2, lineZ);
         label(crown, "The Law Press · stamps salvage into parts on Law-Heart power");
@@ -1515,7 +1521,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         const riser = cylinder(0.16, 0.16, 4.2, new THREE.MeshBasicMaterial({ color: dark ? powerOff : power }), pressX - 1.55, y0 + 2.1, lineZ - 1.55, 8);
         riser.raycast = () => {};
         // The arm: a post, a turning head, a boom out to its reach, and a gripper that lowers.
-        cylinder(0.4, 0.5, 1.6, solid(metal), armAt.x, y0 + 0.8, armAt.z, 12);
+        still(cylinder(0.4, 0.5, 1.6, solid(metal), armAt.x, y0 + 0.8, armAt.z, 12));
         const head = new THREE.Group();
         head.position.set(armAt.x, y0 + 1.7, armAt.z);
         scene.add(head);
@@ -1537,10 +1543,10 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         const atLift = angleTo(liftAt.x, liftAt.z);
         // The parts lift: a ring in the floor taking each part down to the stores.
         const liftRing = cylinder(0.62, 0.62, 0.06, glow(dark ? PALETTE.dark : props.heart.surface), liftAt.x, y0 + 0.03, liftAt.z, 20);
-        cylinder(0.5, 0.5, 0.08, solid(PALETTE.dark), liftAt.x, y0 + 0.05, liftAt.z, 20);
+        still(cylinder(0.5, 0.5, 0.08, solid(PALETTE.dark), liftAt.x, y0 + 0.05, liftAt.z, 20));
         label(liftRing, "Parts lift · to the stores");
         // To port: the control desk with the floor's console, and a rack for each Foundry machine tier.
-        box(2.4, 0.9, 1, solid(metal), fx + 9.5, y0 + 0.45, -9.2);
+        still(box(2.4, 0.9, 1, solid(metal), fx + 9.5, y0 + 0.45, -9.2));
         const desk = box(2, 0.7, 0.06, glow(screenColor), fx + 9.5, y0 + 1.25, -8.7);
         desk.rotation.x = -0.5;
         addConsole(desk);
@@ -1562,7 +1568,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         conduit(y0, fx + 6.2, -11.6, fx + 13.2, -11.6, !dark);
         // Overhead, a gantry crane on rails down the room, its hoist working along the bridge.
         const rail = room.height - 0.5;
-        for (const side of [-12.8, 12.8]) box(room.x1 - fx - 0.6, 0.3, 0.3, solid(metalLight), (fx + room.x1) / 2, y0 + rail, side);
+        for (const side of [-12.8, 12.8]) still(box(room.x1 - fx - 0.6, 0.3, 0.3, solid(metalLight), (fx + room.x1) / 2, y0 + rail, side));
         const bridge = box(0.5, 0.5, 25.6, solid(PALETTE.amber), fx + 6, y0 + rail - 0.35, 0);
         const trolley = box(1, 0.5, 1, solid(metal), fx + 6, y0 + rail - 0.8, 0);
         const cable = box(0.05, 2.4, 0.05, solid(PALETTE.dark), fx + 6, y0 + rail - 2.2, 0);
@@ -1645,12 +1651,12 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         // Lit lips and a low rail round the two lift wells.
         const rim = glow(liftGlow);
         const rail = solid(metalLight);
-        put(core.x0 - room.x0, 0.05, 0.12, rim, (room.x0 + core.x0) / 2, 0.01, core.z0);
-        put(0.12, 0.05, half + core.z0, rim, core.x0, 0.01, (core.z0 - half) / 2);
-        put(room.x1 - core.x1, 0.05, 0.12, rim, (core.x1 + room.x1) / 2, 0.01, core.z1);
-        put(0.12, 0.05, half - core.z1, rim, core.x1, 0.01, (core.z1 + half) / 2);
-        put(core.x0 - room.x0 - 1.8, 0.06, 0.06, rail, (room.x0 + core.x0) / 2 + 0.9, 1, core.z0);
-        put(room.x1 - core.x1 - 1.8, 0.06, 0.06, rail, (core.x1 + room.x1) / 2 - 0.9, 1, core.z1);
+        still(put(core.x0 - room.x0, 0.05, 0.12, rim, (room.x0 + core.x0) / 2, 0.01, core.z0));
+        still(put(0.12, 0.05, half + core.z0, rim, core.x0, 0.01, (core.z0 - half) / 2));
+        still(put(room.x1 - core.x1, 0.05, 0.12, rim, (core.x1 + room.x1) / 2, 0.01, core.z1));
+        still(put(0.12, 0.05, half - core.z1, rim, core.x1, 0.01, (core.z1 + half) / 2));
+        still(put(core.x0 - room.x0 - 1.8, 0.06, 0.06, rail, (room.x0 + core.x0) / 2 + 0.9, 1, core.z0));
+        still(put(room.x1 - core.x1 - 1.8, 0.06, 0.06, rail, (core.x1 + room.x1) / 2 - 0.9, 1, core.z1));
       } else if (room.kind === "habitation") {
         hear("mess", room.x1 - 3.6, 1, towardWalls(3.4, room.half));
         // The mess table and chairs; the table is the habitation console.
@@ -1803,22 +1809,22 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     const last = deck.compartments[deck.compartments.length - 1];
     const endX = last.x1 + 0.2;
     if (!upper) {
-      put(0.4, UPPER_FLOOR, half * 2, bulkheadFaces(last, null, half * 2, 0, UPPER_FLOOR), endX, UPPER_FLOOR / 2, 0);
+      still(put(0.4, UPPER_FLOOR, half * 2, bulkheadFaces(last, null, half * 2, 0, UPPER_FLOOR), endX, UPPER_FLOOR / 2, 0));
       return;
     }
     const windowWidth = 26;
     const windowLow = 1;
     const windowHigh = 9;
     const sideDepth = (half * 2 - windowWidth) / 2;
-    put(0.4, last.height, sideDepth, bulkheadFaces(last, null, sideDepth, 0, last.height), endX, last.height / 2, -(windowWidth / 2 + sideDepth / 2));
-    put(0.4, last.height, sideDepth, bulkheadFaces(last, null, sideDepth, 0, last.height), endX, last.height / 2, windowWidth / 2 + sideDepth / 2);
-    put(0.4, windowLow, windowWidth, bulkheadFaces(last, null, windowWidth, 0, windowLow), endX, windowLow / 2, 0);
-    put(0.4, last.height - windowHigh, windowWidth, bulkheadFaces(last, null, windowWidth, windowHigh, last.height - windowHigh), endX, windowHigh + (last.height - windowHigh) / 2, 0);
+    still(put(0.4, last.height, sideDepth, bulkheadFaces(last, null, sideDepth, 0, last.height), endX, last.height / 2, -(windowWidth / 2 + sideDepth / 2)));
+    still(put(0.4, last.height, sideDepth, bulkheadFaces(last, null, sideDepth, 0, last.height), endX, last.height / 2, windowWidth / 2 + sideDepth / 2));
+    still(put(0.4, windowLow, windowWidth, bulkheadFaces(last, null, windowWidth, 0, windowLow), endX, windowLow / 2, 0));
+    still(put(0.4, last.height - windowHigh, windowWidth, bulkheadFaces(last, null, windowWidth, windowHigh, last.height - windowHigh), endX, windowHigh + (last.height - windowHigh) / 2, 0));
     const bowGlass = inert(new THREE.Mesh(new THREE.PlaneGeometry(windowWidth, windowHigh - windowLow), glassMaterial));
     bowGlass.position.set(endX, y0 + (windowLow + windowHigh) / 2, 0);
     bowGlass.rotation.y = -Math.PI / 2;
     scene.add(bowGlass);
-    for (const mullion of [-9, -4.5, 0, 4.5, 9]) put(0.2, windowHigh - windowLow, 0.12, trimMaterial, endX - 0.15, (windowLow + windowHigh) / 2, mullion);
+    for (const mullion of [-9, -4.5, 0, 4.5, 9]) still(put(0.2, windowHigh - windowLow, 0.12, trimMaterial, endX - 0.15, (windowLow + windowHigh) / 2, mullion));
   });
 
   /**
@@ -1901,7 +1907,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         const lamp = new THREE.PointLight(PALETTE.light, 8, 16, 1.2);
         lamp.position.set(cx, lampY, walk);
         scene.add(lamp);
-        box(core.x1 - core.x0 - 1, 0.06, 0.4, glow(PALETTE.light), cx, lampY + 0.55, walk);
+        still(box(core.x1 - core.x0 - 1, 0.06, 0.4, glow(PALETTE.light), cx, lampY + 0.55, walk));
       }
     }
   }
@@ -1914,7 +1920,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
   function buildDock(room: WalkCompartment, y0: number) {
     const { pad, parked, lounge, exit, bay, blastDoor, opening } = layout.dock;
     const put = (w: number, h: number, d: number, material: THREE.Material | THREE.Material[], x: number, y: number, z: number) =>
-      box(w, h, d, material, x, y0 + y, z);
+      still(box(w, h, d, material, x, y0 + y, z));
     const dark = !room.online;
     const wallZ = (blastDoor.z0 + blastDoor.z1) / 2;
     const gapCx = (blastDoor.x0 + blastDoor.x1) / 2;
@@ -1929,7 +1935,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     const doorway: Rect = { a0: blastDoor.x0, a1: blastDoor.x1, y0: 0, y1: 4.2 };
     const pressureWall = solid(tinted(PALETTE.hull, accent, 0.12));
     for (const piece of wallPieces(room.x0, room.x1, room.height, [...windows, doorway])) {
-      put(piece.a1 - piece.a0, piece.y1 - piece.y0, 0.4, pressureWall, (piece.a0 + piece.a1) / 2, (piece.y0 + piece.y1) / 2, wallZ);
+      still(put(piece.a1 - piece.a0, piece.y1 - piece.y0, 0.4, pressureWall, (piece.a0 + piece.a1) / 2, (piece.y0 + piece.y1) / 2, wallZ));
     }
     for (const view of windows) {
       const w = view.a1 - view.a0;
@@ -1938,11 +1944,11 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       const pane = inert(new THREE.Mesh(new THREE.PlaneGeometry(w, h), glassMaterial));
       pane.position.set(wx, y0 + (view.y0 + view.y1) / 2, wallZ);
       scene.add(pane);
-      put(w + 0.3, 0.16, 0.6, trimMaterial, wx, view.y0, wallZ);
-      put(w + 0.3, 0.16, 0.6, trimMaterial, wx, view.y1, wallZ);
-      for (let mullion = view.a0 + 2.5; mullion < view.a1 - 1; mullion += 2.5) put(0.12, h, 0.2, trimMaterial, mullion, (view.y0 + view.y1) / 2, wallZ);
+      still(put(w + 0.3, 0.16, 0.6, trimMaterial, wx, view.y0, wallZ));
+      still(put(w + 0.3, 0.16, 0.6, trimMaterial, wx, view.y1, wallZ));
+      for (let mullion = view.a0 + 2.5; mullion < view.a1 - 1; mullion += 2.5) still(put(0.12, h, 0.2, trimMaterial, mullion, (view.y0 + view.y1) / 2, wallZ));
     }
-    put(gapWidth + 0.6, 0.3, 0.7, lambert("#ffffff", { map: repeated(stripes, gapWidth * 2, 0.5) }), gapCx, 4.35, wallZ);
+    still(put(gapWidth + 0.6, 0.3, 0.7, lambert("#ffffff", { map: repeated(stripes, gapWidth * 2, 0.5) }), gapCx, 4.35, wallZ));
     const doorSign = new THREE.Mesh(new THREE.PlaneGeometry(4, 0.4), new THREE.MeshBasicMaterial({ map: signTexture("LAUNCH BAY · PRESSURE DOOR", PALETTE.amber) }));
     doorSign.position.set(gapCx, y0 + 4.9, wallZ - 0.21);
     doorSign.rotation.y = Math.PI;
@@ -1982,7 +1988,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     seam.position.y = 4.65;
     hullDoor.add(seam);
     scene.add(hullDoor);
-    put(openWidth + 0.6, 0.4, 0.4, lambert("#ffffff", { map: repeated(stripes, openWidth * 2, 1) }), (opening.x0 + opening.x1) / 2, 0.2, half - 0.2);
+    still(put(openWidth + 0.6, 0.4, 0.4, lambert("#ffffff", { map: repeated(stripes, openWidth * 2, 1) }), (opening.x0 + opening.x1) / 2, 0.2, half - 0.2));
 
     // The bay: pads, overhead gantry, lamps that go red when it is sealed, warning beacons.
     for (const spot of [pad, parked]) {
@@ -1990,11 +1996,11 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       ring.rotation.x = -Math.PI / 2;
       ring.position.set(spot.x, y0 + 0.02, spot.z);
       scene.add(ring);
-      put(2.6, 0.02, 0.16, glow(tinted(PALETTE.amber, PALETTE.dark, 0.5)), spot.x, 0.02, spot.z);
-      put(0.16, 0.02, 2.6, glow(tinted(PALETTE.amber, PALETTE.dark, 0.5)), spot.x, 0.02, spot.z);
+      still(put(2.6, 0.02, 0.16, glow(tinted(PALETTE.amber, PALETTE.dark, 0.5)), spot.x, 0.02, spot.z));
+      still(put(0.16, 0.02, 2.6, glow(tinted(PALETTE.amber, PALETTE.dark, 0.5)), spot.x, 0.02, spot.z));
     }
-    for (const railZ of [bay.z0 + 0.6, half - 0.6]) put(room.x1 - room.x0, 0.3, 0.3, solid(metal), (room.x0 + room.x1) / 2, room.height - 0.3, railZ);
-    put(0.5, 0.4, half - bay.z0, solid(PALETTE.amber), parked.x, room.height - 0.6, (bay.z0 + half) / 2);
+    for (const railZ of [bay.z0 + 0.6, half - 0.6]) still(put(room.x1 - room.x0, 0.3, 0.3, solid(metal), (room.x0 + room.x1) / 2, room.height - 0.3, railZ));
+    still(put(0.5, 0.4, half - bay.z0, solid(PALETTE.amber), parked.x, room.height - 0.6, (bay.z0 + half) / 2));
     const hook = put(0.6, 0.5, 0.6, solid(metal), parked.x, room.height - 1.6, parked.z);
     const bayLamps = [pad.x, parked.x].map((lx) => {
       const lamp = new THREE.PointLight(PALETTE.light, 9, 18, 1.1);
@@ -2006,7 +2012,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       const lamp = new THREE.PointLight(PALETTE.light, dark ? 3 : 9, 18, 1.1);
       lamp.position.set(lx, y0 + room.height - 0.7, -2.5);
       scene.add(lamp);
-      put(8, 0.06, 0.4, glow(dark ? PALETTE.dark : PALETTE.light), lx, room.height - 0.05, -2.5);
+      still(put(8, 0.06, 0.4, glow(dark ? PALETTE.dark : PALETTE.light), lx, room.height - 0.05, -2.5));
     }
     const beacons = [room.x0 + 2, room.x1 - 2].flatMap((bx) => [bay.z0 + 0.3, half - 0.4].map((bz) => {
       const beacon = put(0.3, 0.3, 0.3, glow(PALETTE.alert), bx, room.height - 1, bz);
@@ -2027,14 +2033,14 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
 
     // The gallery: lounge benches, the launch desk at the window, cargo, and the recon board.
     for (const bx of [lounge.x - 1, lounge.x + 1]) {
-      put(1.8, 0.45, 0.6, solid(metalLight), bx, 0.225, -half + 0.7);
-      put(1.8, 0.6, 0.12, solid(metalLight), bx, 0.75, -half + 0.38);
+      still(put(1.8, 0.45, 0.6, solid(metalLight), bx, 0.225, -half + 0.7));
+      still(put(1.8, 0.6, 0.12, solid(metalLight), bx, 0.75, -half + 0.38));
     }
-    put(2, 1, 1, solid(metal), room.x0 + 6, 0.5, blastDoor.z0 - 0.9);
+    still(put(2, 1, 1, solid(metal), room.x0 + 6, 0.5, blastDoor.z0 - 0.9));
     const deskScreen = put(1.6, 0.6, 0.06, glow(dark ? PALETTE.dark : screenGlow), room.x0 + 6, 1.35, blastDoor.z0 - 1.42);
     deskScreen.rotation.x = -0.4;
     [[1.6, 0.45, 1.4], [2.6, 0.45, 1.4], [2.1, 0.45, 2.6], [2.1, 1.35, 2]].forEach(([dx, dy, back]) => {
-      put(0.9, 0.9, 0.9, solid(PALETTE.wood), room.x1 - dx, dy, -half + back);
+      still(put(0.9, 0.9, 0.9, solid(PALETTE.wood), room.x1 - dx, dy, -half + back));
     });
     const boardCanvas = document.createElement("canvas");
     boardCanvas.width = 160;
@@ -2048,7 +2054,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     const board = new THREE.Mesh(new THREE.PlaneGeometry(DOCK_BOARD.width, 1.5), new THREE.MeshBasicMaterial({ map: boardTexture }));
     board.position.set(room.x0 + DOCK_BOARD.at, y0 + 2.6, -half + 0.12);
     scene.add(board);
-    put(DOCK_BOARD.width + 0.3, 1.8, 0.1, trimMaterial, room.x0 + DOCK_BOARD.at, 2.6, -half + 0.03);
+    still(put(DOCK_BOARD.width + 0.3, 1.8, 0.1, trimMaterial, room.x0 + DOCK_BOARD.at, 2.6, -half + 0.03));
 
     // Two recon ships: one laid up for repairs with a drone at it, and the one that flies.
     const laidUp = reconShip(false);
@@ -2074,7 +2080,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     const crewById = new Map(props.crew.map((member) => [member.id, member]));
     let team: Person[] = [];
     const muster = (ids: readonly string[]) => {
-      for (const person of team) scene.remove(person.group);
+      for (const person of team) person.group.removeFromParent();
       const members = ids.map((id) => crewById.get(id)).filter((member) => member !== undefined).slice(0, 4);
       const roster = members.length > 0
         ? members.map((member) => ({ id: member.id, role: member.role }))
@@ -3373,9 +3379,9 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     const doorZ = side * (hallWall + INNER_WALL / 2);
     const frame = solid(paint);
     const corridorFace = side * (hallWall - 0.04);
-    for (const edge of [room.door.x0 - 0.07, room.door.x1 + 0.07]) put(0.14, SIDE_DOOR_HEIGHT + 0.14, 0.08, frame, edge, (SIDE_DOOR_HEIGHT + 0.14) / 2, corridorFace);
-    put(doorWidth + 0.28, 0.14, 0.08, frame, doorX, SIDE_DOOR_HEIGHT + 0.07, corridorFace);
-    put(0.12, 0.12, 0.04, glow(room.open ? PALETTE.ok : PALETTE.alert), room.door.x1 + 0.35, 1.5, side * (hallWall - 0.03));
+    for (const edge of [room.door.x0 - 0.07, room.door.x1 + 0.07]) still(put(0.14, SIDE_DOOR_HEIGHT + 0.14, 0.08, frame, edge, (SIDE_DOOR_HEIGHT + 0.14) / 2, corridorFace));
+    still(put(doorWidth + 0.28, 0.14, 0.08, frame, doorX, SIDE_DOOR_HEIGHT + 0.07, corridorFace));
+    still(put(0.12, 0.12, 0.04, glow(room.open ? PALETTE.ok : PALETTE.alert), room.door.x1 + 0.35, 1.5, side * (hallWall - 0.03)));
     const leafMaterial = solid(tinted(PALETTE.metal, paint, 0.2));
     const leaves = [-1, 1].map((sideSign) => {
       const leaf = new THREE.Mesh(new THREE.BoxGeometry(doorWidth / 2, SIDE_DOOR_HEIGHT, 0.08), leafMaterial);
@@ -3412,19 +3418,19 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     ceiling.rotation.x = Math.PI / 2;
     ceiling.position.set(cx, y0 + height, cz);
     scene.add(floor, ceiling);
-    put(doorWidth, 0.06, INNER_WALL + 0.02, floorMaterial(room.section, doorWidth, INNER_WALL), doorX, -0.03, doorZ);
+    still(put(doorWidth, 0.06, INNER_WALL + 0.02, floorMaterial(room.section, doorWidth, INNER_WALL), doorX, -0.03, doorZ));
     const wall = solid(tinted(paint, "#ffffff", 0.45));
     const farZ = room.starboard ? room.z1 : room.z0;
-    put(width + 0.4, height, 0.2, wall, cx, height / 2, farZ + side * 0.1);
-    put(0.2, height, depth, wall, room.x0 - 0.1, height / 2, cz);
-    put(0.2, height, depth, wall, room.x1 + 0.1, height / 2, cz);
+    still(put(width + 0.4, height, 0.2, wall, cx, height / 2, farZ + side * 0.1));
+    still(put(0.2, height, depth, wall, room.x0 - 0.1, height / 2, cz));
+    still(put(0.2, height, depth, wall, room.x1 + 0.1, height / 2, cz));
     // The corridor wall from inside, round the door.
     const nearZ = room.starboard ? room.z0 + 0.03 : room.z1 - 0.03;
     for (const piece of wallPieces(room.x0, room.x1, height, [{ a0: room.door.x0, a1: room.door.x1, y0: 0, y1: SIDE_DOOR_HEIGHT }])) {
-      put(piece.a1 - piece.a0, piece.y1 - piece.y0, 0.04, wall, (piece.a0 + piece.a1) / 2, (piece.y0 + piece.y1) / 2, nearZ);
+      still(put(piece.a1 - piece.a0, piece.y1 - piece.y0, 0.04, wall, (piece.a0 + piece.a1) / 2, (piece.y0 + piece.y1) / 2, nearZ));
     }
     // Light panels across the ceiling.
-    for (let panel = 2.5; panel < depth - 1; panel += 4) put(width - 1.6, 0.06, 0.5, glow(PALETTE.light), cx, height - 0.05, room.starboard ? room.z0 + panel : room.z1 - panel);
+    for (let panel = 2.5; panel < depth - 1; panel += 4) still(put(width - 1.6, 0.06, 0.5, glow(PALETTE.light), cx, height - 0.05, room.starboard ? room.z0 + panel : room.z1 - panel));
     // What is in it, on its own plan.
     const parts = cellParts(room.cell!, width, depth);
     const placed = (part: CellPart): Part => ({
@@ -3445,7 +3451,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
   function buildSideRoom(room: SideRoom, deck: WalkDeck, deckIndex: number) {
     const y0 = deck.floorY;
     const put = (w: number, h: number, d: number, material: THREE.Material | THREE.Material[], x: number, y: number, z: number) =>
-      box(w, h, d, material, x, y0 + y, z);
+      still(box(w, h, d, material, x, y0 + y, z));
     const key = room.kind === "cabin" ? room.id : room.kind;
     const paint = paintOf(key);
     const width = room.x1 - room.x0;
@@ -3477,13 +3483,13 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     ceiling.rotation.x = Math.PI / 2;
     ceiling.position.set(cx, y0 + room.height, cz);
     scene.add(floor, ceiling);
-    put(doorWidth, 0.06, INNER_WALL + 0.02, floorMaterial(SIDE_FLOOR[key] ?? key, doorWidth, INNER_WALL), doorX, -0.03, wallZ);
+    still(put(doorWidth, 0.06, INNER_WALL + 0.02, floorMaterial(SIDE_FLOOR[key] ?? key, doorWidth, INNER_WALL), doorX, -0.03, wallZ));
     // Hull plating under the floor and over the ceiling, so from outside, through another
     // room's window, the room is a solid block and not a doll's house seen from below.
     const shellDepth = depth + HULL + INNER_WALL - 0.05;
     const shellZ = room.z0 - HULL + shellDepth / 2;
-    put(width + 0.8, 0.3, shellDepth, hullSkin, cx, -0.16, shellZ);
-    put(width + 0.8, 0.3, shellDepth, hullSkin, cx, room.height + 0.16, shellZ);
+    still(put(width + 0.8, 0.3, shellDepth, hullSkin, cx, -0.16, shellZ));
+    still(put(width + 0.8, 0.3, shellDepth, hullSkin, cx, room.height + 0.16, shellZ));
 
     // Its walls: a partition shared with the room beside it, or a thick end wall.
     const before = deck.sideRooms.find((other) => Math.abs(other.x1 - (room.x0 - 0.2)) < 0.01);
@@ -3495,7 +3501,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       hullSkin, hullSkin, hullSkin, hullSkin,
     ], room.x0 - sternThick / 2, room.height / 2, cz);
     if (!after) {
-      put(0.4, room.height, depth, [hullSkin, wallCut(key, room.height, depth, 0, room.height), hullSkin, hullSkin, hullSkin, hullSkin], room.x1 + 0.2, room.height / 2, cz);
+      still(put(0.4, room.height, depth, [hullSkin, wallCut(key, room.height, depth, 0, room.height), hullSkin, hullSkin, hullSkin, hullSkin], room.x1 + 0.2, room.height / 2, cz));
     }
     // The far wall is the hull, with a window where people would want one; the farm's are high, over its beds.
     const windowsAt = room.kind === "cabin" || room.kind === "playroom" || room.kind === "infirmary" ? [cx] : room.kind === "farm" ? [room.x0 + 3.2, room.x0 + 9.4] : [];
@@ -3504,28 +3510,28 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     for (const piece of wallPieces(room.x0 - (before ? 0.1 : 0.4), room.x1 + (after ? 0.1 : 0.4), room.height, view)) {
       const w = piece.a1 - piece.a0;
       const h = piece.y1 - piece.y0;
-      put(w, h, HULL, [hullSkin, hullSkin, hullSkin, hullSkin, wallCut(key, room.height, w, piece.y0, h), hullSkin], (piece.a0 + piece.a1) / 2, (piece.y0 + piece.y1) / 2, room.z0 - HULL / 2);
+      still(put(w, h, HULL, [hullSkin, hullSkin, hullSkin, hullSkin, wallCut(key, room.height, w, piece.y0, h), hullSkin], (piece.a0 + piece.a1) / 2, (piece.y0 + piece.y1) / 2, room.z0 - HULL / 2));
     }
     for (const pane of view) {
       const at = (pane.a0 + pane.a1) / 2;
       const glassPane = inert(new THREE.Mesh(new THREE.PlaneGeometry(pane.a1 - pane.a0, pane.y1 - pane.y0), glassMaterial));
       glassPane.position.set(at, y0 + (pane.y0 + pane.y1) / 2, room.z0 - HULL / 2);
       scene.add(glassPane);
-      for (const y of [pane.y0, pane.y1]) put(pane.a1 - pane.a0 + 0.24, 0.12, 0.12, trimMaterial, at, y, room.z0 + 0.04);
-      for (const x of [pane.a0, pane.a1]) put(0.12, pane.y1 - pane.y0, 0.12, trimMaterial, x, (pane.y0 + pane.y1) / 2, room.z0 + 0.04);
+      for (const y of [pane.y0, pane.y1]) still(put(pane.a1 - pane.a0 + 0.24, 0.12, 0.12, trimMaterial, at, y, room.z0 + 0.04));
+      for (const x of [pane.a0, pane.a1]) still(put(0.12, pane.y1 - pane.y0, 0.12, trimMaterial, x, (pane.y0 + pane.y1) / 2, room.z0 + 0.04));
     }
     // The hall's wall, seen from inside, in this room's paint.
     for (const piece of wallPieces(room.x0, room.x1, room.height, [{ a0: room.door.x0, a1: room.door.x1, y0: 0, y1: SIDE_DOOR_HEIGHT }])) {
       const w = piece.a1 - piece.a0;
       const h = piece.y1 - piece.y0;
-      put(w, h, 0.02, wallCut(key, room.height, w, piece.y0, h), (piece.a0 + piece.a1) / 2, (piece.y0 + piece.y1) / 2, room.z1 - 0.011);
+      still(put(w, h, 0.02, wallCut(key, room.height, w, piece.y0, h), (piece.a0 + piece.a1) / 2, (piece.y0 + piece.y1) / 2, room.z1 - 0.011));
     }
 
     // The door: framed in the room's colour, sliding open as the drone comes, shut fast if sealed.
     const frame = solid(paint);
     for (const face of [-hallWall + 0.04, room.z1 - 0.04]) {
-      for (const edge of [room.door.x0 - 0.07, room.door.x1 + 0.07]) put(0.14, SIDE_DOOR_HEIGHT + 0.14, 0.08, frame, edge, (SIDE_DOOR_HEIGHT + 0.14) / 2, face);
-      put(doorWidth + 0.28, 0.14, 0.08, frame, doorX, SIDE_DOOR_HEIGHT + 0.07, face);
+      for (const edge of [room.door.x0 - 0.07, room.door.x1 + 0.07]) still(put(0.14, SIDE_DOOR_HEIGHT + 0.14, 0.08, frame, edge, (SIDE_DOOR_HEIGHT + 0.14) / 2, face));
+      still(put(doorWidth + 0.28, 0.14, 0.08, frame, doorX, SIDE_DOOR_HEIGHT + 0.07, face));
     }
     const leafMaterial = solid(tinted(PALETTE.metal, paint, 0.2));
     const leaves = [-1, 1].map((sideSign) => {
@@ -3538,7 +3544,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       scene.add(leaf);
       return { leaf, sideSign };
     });
-    put(0.12, 0.12, 0.04, glow(room.open ? PALETTE.ok : PALETTE.alert), room.door.x1 + 0.35, 1.5, -hallWall + 0.03);
+    still(put(0.12, 0.12, 0.04, glow(room.open ? PALETTE.ok : PALETTE.alert), room.door.x1 + 0.35, 1.5, -hallWall + 0.03));
     let opening = 0;
     animated.push((_time, drone) => {
       const near = room.open && drone.deck === deckIndex && Math.hypot(drone.x - doorX, drone.z - wallZ) < 2.6;
@@ -3582,48 +3588,48 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       const light = new THREE.PointLight(lampColor, room.kind === "armory" ? 9 : big ? 7 : 5, room.kind === "armory" ? 14 : big ? 12 : 8, 1);
       light.position.set(lx, y0 + room.height - 0.5, cz);
       scene.add(light);
-      put(big ? 3 : 1.2, 0.05, 0.6, glow(lampColor), lx, room.height - 0.03, cz);
+      still(put(big ? 3 : 1.2, 0.05, 0.6, glow(lampColor), lx, room.height - 0.03, cz));
     }
 
     if (room.kind === "cabin") {
       // A bunk for two along the stern wall, head to the window, blankets in the cabin's colour.
       const bunkX = room.x0 + 0.6;
       const bunkZ = room.z0 + 1.6;
-      for (const px of [room.x0 + 0.14, room.x0 + 1.06]) for (const pz of [room.z0 + 0.54, room.z0 + 2.66]) put(0.08, 2.3, 0.08, solid(metalLight), px, 1.15, pz);
+      for (const px of [room.x0 + 0.14, room.x0 + 1.06]) for (const pz of [room.z0 + 0.54, room.z0 + 2.66]) still(put(0.08, 2.3, 0.08, solid(metalLight), px, 1.15, pz));
       for (const level of [0.5, 1.7]) {
-        put(1, 0.12, 2.2, solid(metal), bunkX, level, bunkZ);
-        put(0.9, 0.16, 2, solid(PALETTE.linen), bunkX, level + 0.14, bunkZ);
-        put(0.92, 0.07, 1.2, solid(tinted(paint, "#000000", 0.15)), bunkX, level + 0.25, bunkZ + 0.4);
-        put(0.6, 0.1, 0.32, solid("#ffffff"), bunkX, level + 0.27, room.z0 + 0.8);
+        still(put(1, 0.12, 2.2, solid(metal), bunkX, level, bunkZ));
+        still(put(0.9, 0.16, 2, solid(PALETTE.linen), bunkX, level + 0.14, bunkZ));
+        still(put(0.92, 0.07, 1.2, solid(tinted(paint, "#000000", 0.15)), bunkX, level + 0.25, bunkZ + 0.4));
+        still(put(0.6, 0.1, 0.32, solid("#ffffff"), bunkX, level + 0.27, room.z0 + 0.8));
       }
-      for (let rung = 0; rung < 4; rung += 1) put(0.04, 0.04, 0.42, solid(metalLight), room.x0 + 1.12, 0.45 + rung * 0.4, room.z0 + 2.4);
+      for (let rung = 0; rung < 4; rung += 1) still(put(0.04, 0.04, 0.42, solid(metalLight), room.x0 + 1.12, 0.45 + rung * 0.4, room.z0 + 2.4));
       // A desk with a lamp, a chair, books on a shelf, a photo of the household over it.
       const deskX = room.x1 - 0.42;
       const deskZ = room.z0 + 1.1;
-      put(0.65, 0.06, 1.2, solid(PALETTE.wood), deskX, 0.76, deskZ);
-      for (const dz of [-0.5, 0.5]) put(0.6, 0.73, 0.06, solid(PALETTE.wood), deskX, 0.37, deskZ + dz);
-      put(0.12, 0.16, 0.12, glow("#ffe2a8"), deskX + 0.1, 0.88, deskZ - 0.4);
-      put(0.2, 0.05, 0.28, solid(nth(["#c8605a", "#4f6ad0", "#d8a03a"], cabinIndex)), deskX, 0.81, deskZ + 0.2);
-      put(0.45, 0.06, 0.45, solid(metalLight), room.x1 - 1.1, 0.45, deskZ);
-      put(0.06, 0.5, 0.45, solid(metalLight), room.x1 - 1.33, 0.7, deskZ);
-      put(0.3, 0.04, 1.1, solid(PALETTE.wood), room.x1 - 0.18, 1.7, deskZ);
-      for (let book = 0; book < 6; book += 1) put(0.2, 0.22, 0.08, solid(nth(["#c8605a", "#4f6ad0", "#d8a03a", "#5a8a4a", "#8a5a9a"], book + cabinIndex)), room.x1 - 0.2, 1.83, deskZ - 0.4 + book * 0.15);
+      still(put(0.65, 0.06, 1.2, solid(PALETTE.wood), deskX, 0.76, deskZ));
+      for (const dz of [-0.5, 0.5]) still(put(0.6, 0.73, 0.06, solid(PALETTE.wood), deskX, 0.37, deskZ + dz));
+      still(put(0.12, 0.16, 0.12, glow("#ffe2a8"), deskX + 0.1, 0.88, deskZ - 0.4));
+      still(put(0.2, 0.05, 0.28, solid(nth(["#c8605a", "#4f6ad0", "#d8a03a"], cabinIndex)), deskX, 0.81, deskZ + 0.2));
+      still(put(0.45, 0.06, 0.45, solid(metalLight), room.x1 - 1.1, 0.45, deskZ));
+      still(put(0.06, 0.5, 0.45, solid(metalLight), room.x1 - 1.33, 0.7, deskZ));
+      still(put(0.3, 0.04, 1.1, solid(PALETTE.wood), room.x1 - 0.18, 1.7, deskZ));
+      for (let book = 0; book < 6; book += 1) still(put(0.2, 0.22, 0.08, solid(nth(["#c8605a", "#4f6ad0", "#d8a03a", "#5a8a4a", "#8a5a9a"], book + cabinIndex)), room.x1 - 0.2, 1.83, deskZ - 0.4 + book * 0.15));
       if (household.length > 0) {
         const photo = picture(0.66, 0.45, artTexture(44, 30, (context) => paintPortraits(context, 44, 30, 7 + cabinIndex, household.map((member) => getCrewHead({ id: member.id, role: member.role, ageGroup: member.ageGroup })))));
         photo.position.set(room.x1 - 0.42, y0 + 2.3, room.z0 + 0.02);
         scene.add(photo);
       }
       // A wardrobe by the door, and a rug.
-      put(0.6, 2.2, 1, solid(tinted(PALETTE.wood, paint, 0.15)), room.x1 - 0.4, 1.1, room.z1 - 1.2);
-      put(0.02, 2, 0.02, solid(PALETTE.dark), room.x1 - 0.69, 1.1, room.z1 - 1.2);
+      still(put(0.6, 2.2, 1, solid(tinted(PALETTE.wood, paint, 0.15)), room.x1 - 0.4, 1.1, room.z1 - 1.2));
+      still(put(0.02, 2, 0.02, solid(PALETTE.dark), room.x1 - 0.69, 1.1, room.z1 - 1.2));
       const rug = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 2), lambert("#ffffff", { map: artTexture(13, 16, (context) => paintRug(context, 13, 16, 30 + cabinIndex)) }));
       rug.rotation.x = -Math.PI / 2;
       rug.position.set(room.x0 + 2.1, y0 + 0.015, room.z0 + 3.2);
       scene.add(inert(rug));
     } else if (room.kind === "galley") {
       // Stoves and a sink along the far wall, shelves of jars above.
-      put(width - 0.2, 0.88, 0.7, solid(metal), cx, 0.44, room.z0 + 0.4);
-      put(width - 0.2, 0.05, 0.72, solid("#d8d2c4"), cx, 0.9, room.z0 + 0.4);
+      still(put(width - 0.2, 0.88, 0.7, solid(metal), cx, 0.44, room.z0 + 0.4));
+      still(put(width - 0.2, 0.05, 0.72, solid("#d8d2c4"), cx, 0.9, room.z0 + 0.4));
       const burners: THREE.Mesh[] = [];
       for (const bx of [room.x0 + 1.15, room.x0 + 1.75]) {
         for (const bz of [room.z0 + 0.25, room.z0 + 0.55]) {
@@ -3632,34 +3638,34 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         }
       }
       const lids = [room.x0 + 1.15, room.x0 + 1.75].map((px, index) => {
-        cylinder(0.16, 0.15, 0.24, solid(metalLight), px, y0 + 1.05, room.z0 + 0.25 + index * 0.3, 10);
+        still(cylinder(0.16, 0.15, 0.24, solid(metalLight), px, y0 + 1.05, room.z0 + 0.25 + index * 0.3, 10));
         return cylinder(0.17, 0.17, 0.03, solid(metal), px, y0 + 1.19, room.z0 + 0.25 + index * 0.3, 10);
       });
       const steam = [0, 1, 2, 3, 4, 5].map(() => inert(put(0.08, 0.08, 0.08, ghost("#eef2ff", 0.35), room.x0 + 1.15, 1.3, room.z0 + 0.25)));
-      put(0.6, 0.04, 0.45, solid(PALETTE.dark), room.x1 - 1.45, 0.925, room.z0 + 0.4);
-      put(0.05, 0.3, 0.05, solid(metalLight), room.x1 - 1.45, 1.07, room.z0 + 0.15);
-      put(0.05, 0.05, 0.2, solid(metalLight), room.x1 - 1.45, 1.21, room.z0 + 0.24);
+      still(put(0.6, 0.04, 0.45, solid(PALETTE.dark), room.x1 - 1.45, 0.925, room.z0 + 0.4));
+      still(put(0.05, 0.3, 0.05, solid(metalLight), room.x1 - 1.45, 1.07, room.z0 + 0.15));
+      still(put(0.05, 0.05, 0.2, solid(metalLight), room.x1 - 1.45, 1.21, room.z0 + 0.24));
       for (const shelfY of [1.7, 2.2]) {
-        put(width - 0.4, 0.05, 0.3, solid(PALETTE.wood), cx, shelfY, room.z0 + 0.17);
+        still(put(width - 0.4, 0.05, 0.3, solid(PALETTE.wood), cx, shelfY, room.z0 + 0.17));
         for (let jar = 0; jar < Math.floor((width - 0.6) / 0.3); jar += 1) {
-          cylinder(0.07, 0.07, 0.2, solid(nth(["#d8a03a", "#c8605a", "#7cc35a", "#e9e4da", "#8a5a3a"], jar + (shelfY > 2 ? 2 : 0))), room.x0 + 0.45 + jar * 0.3, y0 + shelfY + 0.125, room.z0 + 0.17, 6);
+          still(cylinder(0.07, 0.07, 0.2, solid(nth(["#d8a03a", "#c8605a", "#7cc35a", "#e9e4da", "#8a5a3a"], jar + (shelfY > 2 ? 2 : 0))), room.x0 + 0.45 + jar * 0.3, y0 + shelfY + 0.125, room.z0 + 0.17, 6));
         }
       }
       // The island, with bread and vegetables on it, and pans hanging above.
-      put(width - 2.4, 0.88, 0.8, solid(PALETTE.wood), cx, 0.44, room.z0 + 2.7);
-      put(width - 2.3, 0.05, 0.85, solid("#e9e4da"), cx, 0.9, room.z0 + 2.7);
+      still(put(width - 2.4, 0.88, 0.8, solid(PALETTE.wood), cx, 0.44, room.z0 + 2.7));
+      still(put(width - 2.3, 0.05, 0.85, solid("#e9e4da"), cx, 0.9, room.z0 + 2.7));
       for (const [dx, color, w, h] of [[-0.6, "#c8955a", 0.3, 0.12], [-0.2, "#c8955a", 0.26, 0.1], [0.25, "#7cc35a", 0.1, 0.1], [0.4, "#d8503e", 0.1, 0.1], [0.55, "#f08a2a", 0.1, 0.1]] as const) {
-        put(w, h, 0.14, solid(color), cx + dx, 0.92 + h / 2, room.z0 + 2.7);
+        still(put(w, h, 0.14, solid(color), cx + dx, 0.92 + h / 2, room.z0 + 2.7));
       }
-      put(width - 2.4, 0.04, 0.04, solid(metalLight), cx, 2.4, room.z0 + 2.7);
+      still(put(width - 2.4, 0.04, 0.04, solid(metalLight), cx, 2.4, room.z0 + 2.7));
       for (let pan = 0; pan < 4; pan += 1) {
         const px = cx - 0.6 + pan * 0.4;
-        put(0.02, 0.3, 0.02, solid(metalLight), px, 2.25, room.z0 + 2.7);
+        still(put(0.02, 0.3, 0.02, solid(metalLight), px, 2.25, room.z0 + 2.7));
         cylinder(0.12, 0.1, 0.06, solid(pan % 2 === 0 ? PALETTE.copper : metal), px, y0 + 2.07, room.z0 + 2.7, 8).rotation.x = Math.PI / 2;
       }
       // The cold store by the door.
-      put(0.8, 2, 1, solid("#c8d0e0"), room.x0 + 0.45, 1, room.z1 - 1.1);
-      put(0.04, 0.5, 0.04, solid(metal), room.x0 + 0.87, 1.2, room.z1 - 0.8);
+      still(put(0.8, 2, 1, solid("#c8d0e0"), room.x0 + 0.45, 1, room.z1 - 1.1));
+      still(put(0.04, 0.5, 0.04, solid(metal), room.x0 + 0.87, 1.2, room.z1 - 0.8));
       soundPlaces.push({ kind: "mess", x: cx, y: y0 + 1, z: cz, deck: deckIndex, online: true });
       animated.push((time) => {
         burners.forEach((burner, index) => { burner.visible = Math.floor(time / 200 + index) % 7 !== 0; });
@@ -3752,18 +3758,18 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       case "workshop": {
         // The lathe, its chuck spinning, and the drill press beside it.
         const toned = solid(tinted(PALETTE.metal, paint, 0.3));
-        put(2.6, 1, 1, solid(metal), x0 + 2.3, 0.5, z0 + 0.7);
-        put(1.8, 0.1, 0.3, solid(metalLight), x0 + 2.6, 1.05, z0 + 0.7);
-        put(0.5, 0.5, 0.6, toned, x0 + 1, 1.25, z0 + 0.7);
+        still(put(2.6, 1, 1, solid(metal), x0 + 2.3, 0.5, z0 + 0.7));
+        still(put(1.8, 0.1, 0.3, solid(metalLight), x0 + 2.6, 1.05, z0 + 0.7));
+        still(put(0.5, 0.5, 0.6, toned, x0 + 1, 1.25, z0 + 0.7));
         const chuckMount = new THREE.Group();
         chuckMount.position.set(x0 + 1.4, y0 + 1.3, z0 + 0.7);
         chuckMount.rotation.z = Math.PI / 2;
         const chuck = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.3, 8), solid(metalLight));
         chuckMount.add(chuck);
         scene.add(chuckMount);
-        put(0.7, 0.2, 0.7, solid(metal), x0 + 4.8, 0.1, z0 + 0.6);
-        put(0.14, 1.9, 0.14, solid(metalLight), x0 + 4.8, 1.05, z0 + 0.35);
-        put(0.4, 0.4, 0.5, toned, x0 + 4.8, 1.8, z0 + 0.6);
+        still(put(0.7, 0.2, 0.7, solid(metal), x0 + 4.8, 0.1, z0 + 0.6));
+        still(put(0.14, 1.9, 0.14, solid(metalLight), x0 + 4.8, 1.05, z0 + 0.35));
+        still(put(0.4, 0.4, 0.5, toned, x0 + 4.8, 1.8, z0 + 0.6));
         const bit = put(0.05, 0.3, 0.05, solid(metalLight), x0 + 4.8, 1.45, z0 + 0.7);
         // Parts bins on the stern wall.
         const bins: Part[] = [];
@@ -3774,9 +3780,9 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         // The workbench along the bow wall, tools laid out, a pegboard over it.
         const benchLength = z1 - 1.6 - (z0 + 1);
         const benchZ = (z1 - 1.6 + z0 + 1) / 2;
-        put(0.9, 0.9, benchLength, solid(PALETTE.wood), x1 - 0.55, 0.45, benchZ);
-        put(0.92, 0.05, benchLength + 0.02, solid(metalLight), x1 - 0.55, 0.92, benchZ);
-        put(0.04, 1, benchLength, solid(tinted("#8a5a3a", paint, 0.2)), x1 - 0.04, 1.7, benchZ);
+        still(put(0.9, 0.9, benchLength, solid(PALETTE.wood), x1 - 0.55, 0.45, benchZ));
+        still(put(0.92, 0.05, benchLength + 0.02, solid(metalLight), x1 - 0.55, 0.92, benchZ));
+        still(put(0.04, 1, benchLength, solid(tinted("#8a5a3a", paint, 0.2)), x1 - 0.04, 1.7, benchZ));
         merged([0, 1, 2, 3, 4].map((tool) => ({
           w: 0.08 + hash(tool + 0.5) * 0.1, h: 0.05, d: 0.3,
           x: x1 - 0.55 + (hash(tool * 3 + 0.2) - 0.5) * 0.4, y: 0.97, z: benchZ - benchLength / 2 + 0.5 + (tool * (benchLength - 1)) / 4,
@@ -3803,10 +3809,10 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         const glowCore = fit(0.5, 0.5, 0.5, glow(core), 0, 1, 0);
         label(turntable, "A Foundry machine, half built");
         // The gantry: a rail across the room and a hoist over the turntable.
-        put(width - 0.4, 0.2, 0.2, solid(metal), cx, room.height - 0.3, z0 + 4);
-        put(0.4, 0.3, 0.4, solid(PALETTE.amber), x0 + 5.6, room.height - 0.55, z0 + 4);
-        put(0.03, 1.2, 0.03, solid(PALETTE.dark), x0 + 5.6, room.height - 1.3, z0 + 4);
-        put(0.2, 0.12, 0.2, solid(metalLight), x0 + 5.6, room.height - 1.95, z0 + 4);
+        still(put(width - 0.4, 0.2, 0.2, solid(metal), cx, room.height - 0.3, z0 + 4));
+        still(put(0.4, 0.3, 0.4, solid(PALETTE.amber), x0 + 5.6, room.height - 0.55, z0 + 4));
+        still(put(0.03, 1.2, 0.03, solid(PALETTE.dark), x0 + 5.6, room.height - 1.3, z0 + 4));
+        still(put(0.2, 0.12, 0.2, solid(metalLight), x0 + 5.6, room.height - 1.95, z0 + 4));
         // Sparks while someone works on the machine.
         const working = plan.placed.some((placement) => placement.spot.area === room.id && placement.spot.activity === "fix");
         const sparks = [0, 1, 2, 3, 4, 5].map(() => inert(put(0.05, 0.05, 0.05, glow("#ffd27a"), x0 + 5.6, 1, z0 + 5)));
@@ -3828,28 +3834,28 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         // Two benches of experiments, each with glowing flasks and a microscope.
         const flasks: Part[] = [];
         for (const bx of [x0 + 3.75, x0 + 11.25]) {
-          put(3.5, 0.9, 1.2, solid(metalLight), bx, 0.45, z0 + 3.4);
-          put(3.56, 0.05, 1.26, solid("#e9e4da"), bx, 0.92, z0 + 3.4);
+          still(put(3.5, 0.9, 1.2, solid(metalLight), bx, 0.45, z0 + 3.4));
+          still(put(3.56, 0.05, 1.26, solid("#e9e4da"), bx, 0.92, z0 + 3.4));
           for (let flask = 0; flask < 6; flask += 1) {
             const tall = 0.2 + hash(bx + flask) * 0.12;
             flasks.push({ w: 0.12, h: tall, d: 0.12, x: bx - 1.4 + flask * 0.5, y: 0.95 + tall / 2, z: z0 + 3.4 + (flask % 2 ? 0.25 : -0.2), color: ["#9ac4ff", "#b48cff", "#7cc35a", "#f2c744", "#f08ab0", "#ff9a6a"][flask] });
           }
-          put(0.18, 0.12, 0.26, solid(PALETTE.dark), bx + 1.45, 0.98, z0 + 3.3);
-          put(0.08, 0.36, 0.08, solid(PALETTE.dark), bx + 1.45, 1.2, z0 + 3.22);
-          put(0.12, 0.08, 0.2, solid(metalLight), bx + 1.45, 1.38, z0 + 3.3);
+          still(put(0.18, 0.12, 0.26, solid(PALETTE.dark), bx + 1.45, 0.98, z0 + 3.3));
+          still(put(0.08, 0.36, 0.08, solid(PALETTE.dark), bx + 1.45, 1.2, z0 + 3.22));
+          still(put(0.12, 0.08, 0.2, solid(metalLight), bx + 1.45, 1.38, z0 + 3.3));
         }
         merged(flasks, true);
         // The fume hood on the far wall.
-        put(3.5, 0.9, 0.7, solid(metal), x0 + 3.75, 0.45, z0 + 0.55);
-        put(3.5, 0.06, 0.7, solid("#d8d2c4"), x0 + 3.75, 0.93, z0 + 0.55);
-        for (const post of [x0 + 2.03, x0 + 5.47]) put(0.06, 0.9, 0.7, solid(metal), post, 1.45, z0 + 0.55);
-        put(3.5, 0.6, 0.7, solid(metal), x0 + 3.75, 2.2, z0 + 0.55);
+        still(put(3.5, 0.9, 0.7, solid(metal), x0 + 3.75, 0.45, z0 + 0.55));
+        still(put(3.5, 0.06, 0.7, solid("#d8d2c4"), x0 + 3.75, 0.93, z0 + 0.55));
+        for (const post of [x0 + 2.03, x0 + 5.47]) still(put(0.06, 0.9, 0.7, solid(metal), post, 1.45, z0 + 0.55));
+        still(put(3.5, 0.6, 0.7, solid(metal), x0 + 3.75, 2.2, z0 + 0.55));
         hang(inert(new THREE.Mesh(new THREE.PlaneGeometry(3.4, 0.9), glassMaterial)), x0 + 3.75, 1.45, z0 + 0.9);
         // Server racks along the stern wall, lights blinking.
         const leds: THREE.Mesh[] = [];
         for (let rack = 0; rack < 4; rack += 1) {
           const rz = z0 + 0.8 + rack;
-          put(0.9, 2.4, 0.9, solid(PALETTE.dark), x0 + 0.55, 1.2, rz);
+          still(put(0.9, 2.4, 0.9, solid(PALETTE.dark), x0 + 0.55, 1.2, rz));
           for (let led = 0; led < 4; led += 1) leds.push(put(0.02, 0.07, 0.07, glow(led % 2 ? PALETTE.amber : screenGlow), x0 + 1.01, 0.6 + led * 0.45, rz - 0.2 + (led % 2) * 0.4));
         }
         // Cases of what the Ark has found, glowing under glass.
@@ -3938,28 +3944,28 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         const shelving = merged(shelves);
         if (shelving) label(shelving, filled < 0.15 ? "The library: mostly empty shelves, for now" : "The library: books carried aboard, and books written here");
         // The balcony along the upper shelves, with its rail.
-        put(width - 0.2, 0.12, 1.4, solid(shelfWood), cx, 5.2, z0 + 1.2);
-        put(1.4, 0.12, z1 - z0 - 2.6, solid(shelfWood), x0 + 1.1, 5.2, (z0 + 2 + z1 - 1) / 2);
-        put(width - 1.9, 0.06, 0.06, solid(metalLight), cx + 0.85, 6.2, z0 + 1.88);
-        put(0.06, 0.06, z1 - z0 - 3, solid(metalLight), x0 + 1.78, 6.2, (z0 + 2 + z1 - 1) / 2);
-        for (let post = 0; post < 6; post += 1) put(0.06, 1, 0.06, solid(metalLight), x0 + 2 + post * 3, 5.7, z0 + 1.88);
+        still(put(width - 0.2, 0.12, 1.4, solid(shelfWood), cx, 5.2, z0 + 1.2));
+        still(put(1.4, 0.12, z1 - z0 - 2.6, solid(shelfWood), x0 + 1.1, 5.2, (z0 + 2 + z1 - 1) / 2));
+        still(put(width - 1.9, 0.06, 0.06, solid(metalLight), cx + 0.85, 6.2, z0 + 1.88));
+        still(put(0.06, 0.06, z1 - z0 - 3, solid(metalLight), x0 + 1.78, 6.2, (z0 + 2 + z1 - 1) / 2));
+        for (let post = 0; post < 6; post += 1) still(put(0.06, 1, 0.06, solid(metalLight), x0 + 2 + post * 3, 5.7, z0 + 1.88));
         // The long reading tables: lamps down the middle, chairs either side.
         for (const row of LIBRARY_TABLES) {
           const tableZ = z0 + row;
           const tableX = x0 + 11.7;
-          put(4.4, 0.06, 1.2, solid(PALETTE.wood), tableX, 0.76, tableZ);
-          for (const dx of [-2, 2]) for (const dz of [-0.5, 0.5]) put(0.06, 0.73, 0.06, solid(PALETTE.wood), tableX + dx, 0.37, tableZ + dz);
+          still(put(4.4, 0.06, 1.2, solid(PALETTE.wood), tableX, 0.76, tableZ));
+          for (const dx of [-2, 2]) for (const dz of [-0.5, 0.5]) still(put(0.06, 0.73, 0.06, solid(PALETTE.wood), tableX + dx, 0.37, tableZ + dz));
           for (const seat of [-1.5, 0, 1.5]) {
-            put(0.03, 0.3, 0.03, solid(metalLight), tableX + seat, 0.94, tableZ);
-            put(0.18, 0.12, 0.18, glow("#ffe2a8"), tableX + seat, 1.12, tableZ);
+            still(put(0.03, 0.3, 0.03, solid(metalLight), tableX + seat, 0.94, tableZ));
+            still(put(0.18, 0.12, 0.18, glow("#ffe2a8"), tableX + seat, 1.12, tableZ));
             for (const side of [-1, 1]) {
-              put(0.45, 0.06, 0.45, solid(colorAt(2)), tableX + seat, 0.45, tableZ + side * 0.95);
-              put(0.45, 0.5, 0.06, solid(colorAt(2)), tableX + seat, 0.72, tableZ + side * 1.17);
+              still(put(0.45, 0.06, 0.45, solid(colorAt(2)), tableX + seat, 0.45, tableZ + side * 0.95));
+              still(put(0.45, 0.5, 0.06, solid(colorAt(2)), tableX + seat, 0.72, tableZ + side * 1.17));
             }
           }
         }
         // A globe of the world below on its stand, by the door.
-        put(0.06, 0.9, 0.06, solid(PALETTE.wood), x1 - 1.6, 0.45, z1 - 1.6);
+        still(put(0.06, 0.9, 0.06, solid(PALETTE.wood), x1 - 1.6, 0.45, z1 - 1.6));
         const globe = inert(new THREE.Mesh(new THREE.IcosahedronGeometry(0.3, 1), solid(tinted(accent, PALETTE.dark, 0.25))));
         globe.position.set(x1 - 1.6, y0 + 1.2, z1 - 1.6);
         scene.add(globe);
@@ -3978,19 +3984,19 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
           context.fillStyle = PALETTE.chalk;
           for (const [x, y, w] of [[4, 15, 10], [17, 15, 3], [23, 15, 6], [4, 20, 16], [26, 20, 2], [31, 20, 12]]) context.fillRect(x, y, w, 1);
         }));
-        put(2.8, 1.5, 0.06, solid(PALETTE.wood), cx, 1.8, z0 + 0.03);
+        still(put(2.8, 1.5, 0.06, solid(PALETTE.wood), cx, 1.8, z0 + 0.03));
         hang(lesson, cx, 1.8, z0 + 0.07);
         // Six desks, each with a slate, and a chair in every colour.
         [2.4, 4].forEach((row, rowIndex) => {
           [1.5, 3.3, 5.1].forEach((column, columnIndex) => {
             const dx = x0 + column;
             const dz = z0 + row;
-            put(1.2, 0.06, 0.6, solid(PALETTE.wood), dx, 0.62, dz);
-            for (const legX of [-0.5, 0.5]) put(0.05, 0.6, 0.5, solid(PALETTE.wood), dx + legX, 0.3, dz);
-            put(0.4, 0.02, 0.26, glow(screenGlow), dx, 0.66, dz);
+            still(put(1.2, 0.06, 0.6, solid(PALETTE.wood), dx, 0.62, dz));
+            for (const legX of [-0.5, 0.5]) still(put(0.05, 0.6, 0.5, solid(PALETTE.wood), dx + legX, 0.3, dz));
+            still(put(0.4, 0.02, 0.26, glow(screenGlow), dx, 0.66, dz));
             const color = colorAt(rowIndex * 3 + columnIndex);
-            put(0.4, 0.05, 0.4, solid(color), dx, 0.4, dz + 0.55);
-            put(0.4, 0.4, 0.05, solid(color), dx, 0.62, dz + 0.77);
+            still(put(0.4, 0.05, 0.4, solid(color), dx, 0.4, dz + 0.55));
+            still(put(0.4, 0.4, 0.05, solid(color), dx, 0.62, dz + 0.77));
           });
         });
         // The children's work pinned to the side walls.
@@ -4018,9 +4024,9 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         for (let crayon = 0; crayon < 5; crayon += 1) toys.push({ w: 0.12, h: 0.03, d: 0.03, x: x0 + 0.9 + crayon * 0.08, y: 0.54, z: z0 + 1.2 + (crayon % 2) * 0.1, color: colorAt(crayon) });
         merged(toys);
         // The slide: up the ladder, down the yellow ramp.
-        put(1, 0.1, 0.8, solid("#4f6ad0"), x1 - 0.8, 1, z0 + 0.7);
-        for (const legX of [x1 - 1.25, x1 - 0.35]) for (const legZ of [z0 + 0.35, z0 + 1.05]) put(0.06, 1, 0.06, solid(metalLight), legX, 0.5, legZ);
-        for (let rung = 0; rung < 3; rung += 1) put(1, 0.05, 0.05, solid(metalLight), x1 - 0.8, 0.25 + rung * 0.3, z0 + 0.32);
+        still(put(1, 0.1, 0.8, solid("#4f6ad0"), x1 - 0.8, 1, z0 + 0.7));
+        for (const legX of [x1 - 1.25, x1 - 0.35]) for (const legZ of [z0 + 0.35, z0 + 1.05]) still(put(0.06, 1, 0.06, solid(metalLight), legX, 0.5, legZ));
+        for (let rung = 0; rung < 3; rung += 1) still(put(1, 0.05, 0.05, solid(metalLight), x1 - 0.8, 0.25 + rung * 0.3, z0 + 0.32));
         const ramp = put(0.8, 0.06, 1.9, solid("#f2c744"), x1 - 0.8, 0.55, z0 + 1.75);
         ramp.rotation.x = 0.52;
         // A toy bear, well loved.
@@ -4046,9 +4052,9 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         const lights: Part[] = [];
         [1.2, 3, 4.8].forEach((bedZ, bedIndex) => {
           const z = z0 + bedZ;
-          put(width - 2, 0.6, 0.8, solid(PALETTE.wood), cx, 0.3, z);
-          put(width - 2.1, 0.04, 0.7, solid("#4a3424"), cx, 0.61, z);
-          put(width - 2, 0.06, 0.06, solid(metalLight), cx, 0.7, z - 0.42);
+          still(put(width - 2, 0.6, 0.8, solid(PALETTE.wood), cx, 0.3, z));
+          still(put(width - 2.1, 0.04, 0.7, solid("#4a3424"), cx, 0.61, z));
+          still(put(width - 2, 0.06, 0.06, solid(metalLight), cx, 0.7, z - 0.42));
           for (let plant = 0; plant < Math.floor((width - 2.2) / 0.3); plant += 1) {
             const px = x0 + 1.2 + plant * 0.3;
             for (const dz of [-0.17, 0.17]) {
@@ -4058,7 +4064,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
             }
           }
           lights.push({ w: width - 2.2, h: 0.06, d: 0.3, x: cx, y: 2, z, color: "#ff9adf" });
-          for (const end of [x0 + 1.2, x1 - 1.2]) put(0.02, room.height - 2.03, 0.02, solid(PALETTE.dark), end, (room.height + 2.03) / 2, z);
+          for (const end of [x0 + 1.2, x1 - 1.2]) still(put(0.02, room.height - 2.03, 0.02, solid(PALETTE.dark), end, (room.height + 2.03) / 2, z));
         });
         const field = merged(crops);
         if (field) label(field, "The hydroponic farm: greens, tomatoes and wheat for the galley");
@@ -4069,12 +4075,12 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       case "infirmary": {
         // Four beds, each with a monitor on a pole keeping time.
         [[x0 + 0.65, z0 + 1.25], [x1 - 0.65, z0 + 1.25], [x0 + 0.65, z0 + 4.45], [x1 - 0.65, z0 + 4.45]].forEach(([bx, bz], bedIndex) => {
-          put(1, 0.5, 2.1, solid(metalLight), bx, 0.25, bz);
-          put(0.9, 0.18, 2, solid(PALETTE.linen), bx, 0.6, bz);
-          put(0.92, 0.06, 1.1, solid(tinted(paint, "#ffffff", 0.3)), bx, 0.71, bz + 0.4);
-          put(0.6, 0.1, 0.3, solid("#ffffff"), bx, 0.74, bz - 0.8);
+          still(put(1, 0.5, 2.1, solid(metalLight), bx, 0.25, bz));
+          still(put(0.9, 0.18, 2, solid(PALETTE.linen), bx, 0.6, bz));
+          still(put(0.92, 0.06, 1.1, solid(tinted(paint, "#ffffff", 0.3)), bx, 0.71, bz + 0.4));
+          still(put(0.6, 0.1, 0.3, solid("#ffffff"), bx, 0.74, bz - 0.8));
           const poleX = bx + (bx < cx ? 0.55 : -0.55);
-          put(0.06, 1.6, 0.06, solid(metal), poleX, 0.8, bz - 0.9);
+          still(put(0.06, 1.6, 0.06, solid(metal), poleX, 0.8, bz - 0.9));
           const monitor = put(0.5, 0.36, 0.06, glow("#0f2a1c"), poleX, 1.55, bz - 0.9);
           const trace = put(0.4, 0.04, 0.07, glow(PALETTE.ok), poleX, 1.55, bz - 0.9);
           animated.push((time) => {
@@ -4083,8 +4089,8 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         });
         // A medicine cabinet between the beds on the bow wall, marked with a green cross.
         const cabinet = put(0.3, 1.2, 1, solid("#e9e4da"), x1 - 0.17, 1.6, z0 + 2.85);
-        put(0.02, 0.36, 0.1, glow("#5aba5a"), x1 - 0.33, 1.8, z0 + 2.85);
-        put(0.02, 0.1, 0.36, glow("#5aba5a"), x1 - 0.33, 1.8, z0 + 2.85);
+        still(put(0.02, 0.36, 0.1, glow("#5aba5a"), x1 - 0.33, 1.8, z0 + 2.85));
+        still(put(0.02, 0.1, 0.36, glow("#5aba5a"), x1 - 0.33, 1.8, z0 + 2.85));
         label(cabinet, "Medicine, and what the farm grows for it");
         break;
       }
@@ -4093,7 +4099,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         const tableX = x0 + 2.8;
         const tableZ = z0 + 4.8;
         const table = cylinder(1.2, 1.25, 0.9, solid(metal), tableX, y0 + 0.45, tableZ, 16);
-        cylinder(1.1, 1.1, 0.04, glow(tinted(accent, PALETTE.dark, 0.3)), tableX, y0 + 0.92, tableZ, 16);
+        still(cylinder(1.1, 1.1, 0.04, glow(tinted(accent, PALETTE.dark, 0.3)), tableX, y0 + 0.92, tableZ, 16));
         label(table, "The briefing table: the world below, and the way down to it");
         const world = new THREE.Group();
         world.position.set(tableX, y0 + 1.75, tableZ);
@@ -4110,8 +4116,8 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         for (const angle of [Math.PI / 3, (2 * Math.PI) / 3, (4 * Math.PI) / 3, (5 * Math.PI) / 3]) {
           const sx = tableX + Math.cos(angle) * 1.65;
           const sz = tableZ + Math.sin(angle) * 1.65;
-          put(0.45, 0.06, 0.45, solid(paint), sx, 0.45, sz);
-          put(0.45, 0.5, 0.06, solid(paint), sx, 0.72, sz + Math.sign(Math.sin(angle)) * 0.22);
+          still(put(0.45, 0.06, 0.45, solid(paint), sx, 0.45, sz));
+          still(put(0.45, 0.5, 0.06, solid(paint), sx, 0.72, sz + Math.sign(Math.sin(angle)) * 0.22));
         }
         // A chart of the space round the Ark on the stern wall.
         hang(picture(2, 1.3, artTexture(32, 21, (context) => paintChart(context, 32, 21, 91, accent))), x0 + 0.02, 2.4, tableZ, Math.PI / 2);
@@ -4125,7 +4131,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         screenTexture.minFilter = THREE.NearestFilter;
         screenTexture.generateMipmaps = false;
         screenTexture.colorSpace = THREE.SRGBColorSpace;
-        put(3.4, 1.4, 0.08, solid(PALETTE.dark), cx, 2.6, z0 + 0.04);
+        still(put(3.4, 1.4, 0.08, solid(PALETTE.dark), cx, 2.6, z0 + 0.04));
         const screen = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.2), new THREE.MeshBasicMaterial({ map: screenTexture }));
         hang(screen, cx, 2.6, z0 + 0.09);
         label(screen, "The briefing screen");
@@ -4157,8 +4163,8 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         // AXIOM into the simulation too.
         const podColor = solid(tinted(paint, PALETTE.dark, 0.35));
         for (const [px, pz, facing] of [[x0 + 0.65, z0 + 1.6, 1], [x0 + 0.65, z0 + 4.2, 1], [x1 - 0.65, z0 + 1.6, -1], [x1 - 0.65, z0 + 4.2, -1]] as const) {
-          put(1, 0.3, 2, solid(metal), px, 0.15, pz);
-          put(0.8, 0.12, 0.9, podColor, px + facing * 0.05, 0.5, pz);
+          still(put(1, 0.3, 2, solid(metal), px, 0.15, pz));
+          still(put(0.8, 0.12, 0.9, podColor, px + facing * 0.05, 0.5, pz));
           const back = put(0.8, 0.9, 0.12, podColor, px - facing * 0.38, 0.95, pz);
           back.rotation.z = facing * 0.35;
           back.rotation.y = Math.PI / 2;
@@ -4166,13 +4172,13 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
           canopy.position.set(px, y0 + 0.4, pz);
           canopy.rotation.y = Math.PI / 2;
           scene.add(canopy);
-          put(0.06, 0.06, 1.8, glow(paint), px + facing * 0.48, 0.32, pz);
+          still(put(0.06, 0.06, 1.8, glow(paint), px + facing * 0.48, 0.32, pz));
         }
         // A grid of light on the floor between them, the simulation's own.
-        for (let line = 0; line < 5; line += 1) put(width - 2.6, 0.012, 0.03, glow(tinted(paint, PALETTE.dark, 0.2)), cx, 0.008, z0 + 1 + line * 1.4);
-        for (const lx of [cx - 0.5, cx, cx + 0.5]) put(0.03, 0.012, 5.6, glow(tinted(paint, PALETTE.dark, 0.2)), lx, 0.008, z0 + 3.8);
+        for (let line = 0; line < 5; line += 1) still(put(width - 2.6, 0.012, 0.03, glow(tinted(paint, PALETTE.dark, 0.2)), cx, 0.008, z0 + 1 + line * 1.4));
+        for (const lx of [cx - 0.5, cx, cx + 0.5]) still(put(0.03, 0.012, 5.6, glow(tinted(paint, PALETTE.dark, 0.2)), lx, 0.008, z0 + 3.8));
         // The big screen: the jungle the crew are fighting in.
-        put(3.2, 1.9, 0.08, solid(PALETTE.dark), cx, 2.6, z0 + 0.04);
+        still(put(3.2, 1.9, 0.08, solid(PALETTE.dark), cx, 2.6, z0 + 0.04));
         const jungle = picture(3, 1.7, artTexture(60, 34, (context) => {
           for (let y = 0; y < 34; y += 1) {
             context.fillStyle = y < 14 ? (y < 7 ? "#2d4f6a" : "#4f7a6a") : "#3f6a4c";
@@ -4200,8 +4206,8 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         hang(jungle, cx, 2.6, z0 + 0.09);
         // The console under it, a headset waiting on it.
         const desk = put(width - 3.2, 0.9, 0.6, solid(metal), cx, 0.45, z0 + 0.4);
-        put(width - 3.1, 0.05, 0.62, solid(metalLight), cx, 0.92, z0 + 0.4);
-        put(0.4, 0.14, 0.2, glow(paint), cx, 1.02, z0 + 0.42);
+        still(put(width - 3.1, 0.05, 0.62, solid(metalLight), cx, 0.92, z0 + 0.4));
+        still(put(0.4, 0.14, 0.2, glow(paint), cx, 1.02, z0 + 0.42));
         const panel = put(0.9, 0.36, 0.05, glow(tinted(paint, "#ffffff", 0.2)), cx, 1.25, z0 + 0.69);
         panel.rotation.x = -0.4;
         interactables.push({ kind: "sim", object: desk, label: "Combat simulator" });
@@ -4239,14 +4245,14 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     laneFloor.rotation.x = -Math.PI / 2;
     laneFloor.position.set(laneMid, y0 + 0.012, room.z0 + 1.3);
     scene.add(laneFloor);
-    put(laneLength, 0.9, 0.12, solid(metal), laneMid, 0.45, glassZ);
+    still(put(laneLength, 0.9, 0.12, solid(metal), laneMid, 0.45, glassZ));
     const rangeGlass = inert(new THREE.Mesh(new THREE.PlaneGeometry(laneLength, 1.8), glassMaterial));
     rangeGlass.position.set(laneMid, y0 + 1.8, glassZ);
     scene.add(rangeGlass);
-    put(laneLength, 0.08, 0.14, trimMaterial, laneMid, 2.7, glassZ);
-    put(1.4, 1.1, 0.06, solid(metal), laneFrom + 0.7, 0.55, room.z0 + 1.4);
-    put(0.3, 1, 2.3, solid(metal), laneFrom - 0.15, 0.5, room.z0 + 1.3);
-    put(0.1, 0.01, 2.3, glow(PALETTE.alert), laneFrom - 0.45, 0.006, room.z0 + 1.3);
+    still(put(laneLength, 0.08, 0.14, trimMaterial, laneMid, 2.7, glassZ));
+    still(put(1.4, 1.1, 0.06, solid(metal), laneFrom + 0.7, 0.55, room.z0 + 1.4));
+    still(put(0.3, 1, 2.3, solid(metal), laneFrom - 0.15, 0.5, room.z0 + 1.3));
+    still(put(0.1, 0.01, 2.3, glow(PALETTE.alert), laneFrom - 0.45, 0.006, room.z0 + 1.3));
     const targetFace = lambert("#ffffff", {
       map: canvasTexture(16, 16, (context) => {
         [[0, "#e9e4da"], [2, "#d8503e"], [4, "#e9e4da"], [6, "#d8503e"]].forEach(([inset, color]) => {
@@ -4256,8 +4262,8 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       }),
     });
     for (const laneZ of [room.z0 + 0.9, room.z0 + 1.9]) {
-      put(0.06, 0.8, 0.7, [solid(metal), targetFace, solid(metal), solid(metal), solid(metal), solid(metal)], laneTo - 0.35, 1.35, laneZ);
-      put(0.04, 1.6, 0.04, solid(metalLight), laneTo - 0.3, 0.8, laneZ);
+      still(put(0.06, 0.8, 0.7, [solid(metal), targetFace, solid(metal), solid(metal), solid(metal), solid(metal)], laneTo - 0.35, 1.35, laneZ));
+      still(put(0.04, 1.6, 0.04, solid(metalLight), laneTo - 0.3, 0.8, laneZ));
       const flash = inert(put(0.02, 0.84, 0.74, glow("#ffe2a8"), laneTo - 0.39, 1.35, laneZ));
       const muzzle = room.x0 + 4.4;
       const bolt = inert(put(laneTo - 0.4 - muzzle, 0.05, 0.05, glow("#9ac4ff"), (muzzle + laneTo - 0.4) / 2, 1.38, laneZ));
@@ -4272,11 +4278,11 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       const item = find("weapon", tier);
       const rx = room.x0 + 4.4 + rack * 3.2;
       const panel = put(2.8, 2.2, 0.1, solid(tinted(PALETTE.metal, paint, 0.15)), rx, 1.3, room.z1 - 0.15);
-      put(2.8, 0.06, 0.4, solid(metalLight), rx, 0.25, room.z1 - 0.35);
+      still(put(2.8, 0.06, 0.4, solid(metalLight), rx, 0.25, room.z1 - 0.35));
       const shown = Math.min(6, item?.ready ?? 0);
       for (let slot = 0; slot < 6; slot += 1) {
         const sx = rx - 1.05 + slot * 0.42;
-        put(0.06, 0.06, 0.18, solid(metalLight), sx, 1.95, room.z1 - 0.25);
+        still(put(0.06, 0.06, 0.18, solid(metalLight), sx, 1.95, room.z1 - 0.25));
         if (slot >= shown || !item) continue;
         const model = weaponModel({ tier, mark: item.mark });
         model.position.set(sx, y0 + 1.15, room.z1 - 0.34);
@@ -4291,7 +4297,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       const item = find("armor", tier);
       const sz = room.z0 + [3.6, 5.4, 7.2][stand];
       const sx = room.x1 - 0.75;
-      put(0.9, 0.12, 0.9, solid(metal), sx, 0.06, sz);
+      still(put(0.9, 0.12, 0.9, solid(metal), sx, 0.06, sz));
       const dummy = mannequin();
       dummy.group.position.set(sx, y0 + 0.12, sz);
       face(dummy.group, -1, 0);
@@ -4304,7 +4310,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     const benchX = room.x0 + 0.6;
     const benchZ = room.z0 + 4.7;
     const bench = put(1, 0.9, 3, solid(PALETTE.wood), benchX, 0.45, benchZ);
-    put(1.04, 0.05, 3.04, solid(metalLight), benchX, 0.92, benchZ);
+    still(put(1.04, 0.05, 3.04, solid(metalLight), benchX, 0.92, benchZ));
     const broken = stock.filter((item) => item.damaged > 0);
     const waiting = broken.reduce((sum, item) => sum + item.damaged, 0);
     broken.slice(0, 3).forEach((item, index) => {
@@ -4315,10 +4321,10 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         model.position.set(benchX, y0 + 1, z);
         scene.add(model);
       } else {
-        put(0.5, 0.12, 0.4, solid(item.tier === 3 ? "#3b3552" : item.tier === 2 ? "#8d94a8" : "#56604f"), benchX, 1, z);
+        still(put(0.5, 0.12, 0.4, solid(item.tier === 3 ? "#3b3552" : item.tier === 2 ? "#8d94a8" : "#56604f"), benchX, 1, z));
       }
-      put(0.3, 0.02, 0.12, solid("#2a2430"), benchX + 0.1, 1.07, z + 0.1);
-      put(0.12, 0.02, 0.08, solid("#f2c744"), benchX - 0.3, 0.96, z - 0.15);
+      still(put(0.3, 0.02, 0.12, solid("#2a2430"), benchX + 0.1, 1.07, z + 0.1));
+      still(put(0.12, 0.02, 0.08, solid("#f2c744"), benchX - 0.3, 0.96, z - 0.15));
     });
     label(bench, waiting > 0 ? `Repair bench · ${waiting} piece${waiting === 1 ? "" : "s"} awaiting repair` : "Repair bench · nothing waiting");
     const fixer = plan.placed.some((placement) => placement.spot.area === room.id && placement.spot.activity === "fix");
@@ -4327,10 +4333,10 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     // The forge cradle: the Armory's current project turning in its beam, its progress on the console.
     const fx = room.x0 + 7.3;
     const fz = room.z0 + 5;
-    put(2.6, 0.3, 2, solid(metal), fx, 0.15, fz);
-    for (const [dx, dz] of [[-1.15, -0.85], [1.15, -0.85], [-1.15, 0.85], [1.15, 0.85]]) put(0.12, 2.6, 0.12, solid(metalLight), fx + dx, 1.3, fz + dz);
-    for (const dz of [-0.85, 0.85]) put(2.42, 0.1, 0.1, solid(metalLight), fx, 2.6, fz + dz);
-    for (const dx of [-1.15, 1.15]) put(0.1, 0.1, 1.8, solid(metalLight), fx + dx, 2.6, fz);
+    still(put(2.6, 0.3, 2, solid(metal), fx, 0.15, fz));
+    for (const [dx, dz] of [[-1.15, -0.85], [1.15, -0.85], [-1.15, 0.85], [1.15, 0.85]]) still(put(0.12, 2.6, 0.12, solid(metalLight), fx + dx, 1.3, fz + dz));
+    for (const dz of [-0.85, 0.85]) still(put(2.42, 0.1, 0.1, solid(metalLight), fx, 2.6, fz + dz));
+    for (const dx of [-1.15, 1.15]) still(put(0.1, 0.1, 1.8, solid(metalLight), fx + dx, 2.6, fz));
     const beam = inert(new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 2.2, 12, 1, true), ghost("#ffb347", 0.18)));
     beam.position.set(fx, y0 + 1.4, fz);
     scene.add(beam);
@@ -4347,7 +4353,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       const plate = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.62, 0.36), solid(projectItem.tier === 3 ? "#3b3552" : projectItem.tier === 2 ? "#8d94a8" : "#56604f"));
       cradled.add(plate);
     }
-    put(0.9, 1, 0.3, solid(metal), fx, 0.5, room.z0 + 6.25);
+    still(put(0.9, 1, 0.3, solid(metal), fx, 0.5, room.z0 + 6.25));
     const screenCanvas = document.createElement("canvas");
     screenCanvas.width = 64;
     screenCanvas.height = 24;
@@ -4383,7 +4389,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     nameplate.position.set(room.x0 + 0.02, y0 + 3.6, benchZ);
     nameplate.rotation.y = Math.PI / 2;
     scene.add(nameplate);
-    put(room.x1 - room.x0, 0.04, 0.04, glow(tinted(paint, PALETTE.dark, 0.2)), (room.x0 + room.x1) / 2, 0.04, room.z1 - 0.06);
+    still(put(room.x1 - room.x0, 0.04, 0.04, glow(tinted(paint, PALETTE.dark, 0.2)), (room.x0 + room.x1) / 2, 0.04, room.z1 - 0.06));
 
     let lastScreen = "";
     animated.push((time) => {
@@ -4631,6 +4637,75 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     const bay = layout.dock.bay;
     soundPlaces.push({ kind: "bay", x: (bay.x0 + bay.x1) / 2, y: 2.5, z: (bay.z0 + bay.z1) / 2, deck: 1, online: true });
   }
+
+  // ---- The ship is thousands of small pieces. Those that never change share their draw calls. ----
+  const chamberBand = layout.decks[0].compartments.find((compartment) => compartment.kind === "chamber");
+  const merging = new Map<string, { material: THREE.Material; geometries: THREE.BufferGeometry[] }>();
+  for (const mesh of stillPieces) {
+    const material = mesh.material;
+    if (mesh.parent !== scene || !mesh.visible || Array.isArray(material) || material.transparent) continue;
+    const source = mesh.geometry;
+    if (!source.attributes.normal || !source.attributes.uv) continue;
+    mesh.updateMatrixWorld(true);
+    const geometry = source.index ? source.toNonIndexed() : source.clone();
+    geometry.applyMatrix4(mesh.matrixWorld);
+    for (const name of Object.keys(geometry.attributes)) {
+      if (name !== "position" && name !== "normal" && name !== "uv") geometry.deleteAttribute(name);
+    }
+    // Grouped by stretch of ship, so what is out of view is still skipped whole.
+    const key = `${material.uuid}:${Math.floor(mesh.position.x / 18)}:${mesh.position.y < UPPER_FLOOR ? 0 : 1}`;
+    const bucket = merging.get(key) ?? { material, geometries: [] };
+    bucket.geometries.push(geometry);
+    merging.set(key, bucket);
+    scene.remove(mesh);
+    source.dispose();
+  }
+  for (const { material, geometries } of merging.values()) {
+    scene.add(new THREE.Mesh(mergeGeometries(geometries), material));
+    for (const geometry of geometries) geometry.dispose();
+  }
+
+  // A floor is always between the decks, and a shut door between the halls, except round the chamber.
+  // So only the hall the drone is in and the halls next to it are drawn, and the crew in them.
+  const halls = layout.decks.map((deck, deckNumber) => deck.compartments.map((hall) => {
+    const group = new THREE.Group();
+    group.userData.deck = deckNumber;
+    return { x0: hall.x0, x1: hall.x1, kind: hall.kind, group };
+  }));
+  const deckGroups = [new THREE.Group(), new THREE.Group()];
+  const footprint = new THREE.Box3();
+  for (const object of [...scene.children]) {
+    let holdsLight = object instanceof THREE.Light;
+    object.traverse((child) => { if (child instanceof THREE.Light) holdsLight = true; });
+    if (holdsLight || object === crewLayer) continue;
+    footprint.setFromObject(object);
+    if (footprint.isEmpty()) continue;
+    const overChamber = chamberBand !== undefined && footprint.max.x > chamberBand.x0 - 1 && footprint.min.x < chamberBand.x1 + 1;
+    if (overChamber) continue;
+    const deckNumber = footprint.min.y >= UPPER_FLOOR - 0.6 ? 0 : footprint.max.y <= UPPER_FLOOR + 0.1 ? 1 : -1;
+    if (deckNumber < 0) continue;
+    const hall = halls[deckNumber].find((candidate) => footprint.min.x >= candidate.x0 - 1 && footprint.max.x <= candidate.x1 + 1);
+    (hall?.group ?? deckGroups[deckNumber]).add(object);
+  }
+  scene.add(...deckGroups, ...halls.flat().map((hall) => hall.group));
+  const hallIndex = (deckNumber: number, x: number) => {
+    const list = halls[deckNumber];
+    const found = list.findIndex((hall) => x < hall.x1);
+    return found < 0 ? list.length - 1 : found;
+  };
+  animated.push((_time, drone) => {
+    const here = hallIndex(drone.deck, drone.x);
+    deckGroups[0].visible = drone.deck === 0;
+    deckGroups[1].visible = drone.deck === 1;
+    halls.forEach((list, deckNumber) => list.forEach((hall, index) => {
+      hall.group.visible = deckNumber === drone.deck && Math.abs(index - here) <= 1;
+    }));
+    for (const person of crewLayer.children) {
+      const deckNumber = person.position.y >= UPPER_FLOOR - 0.6 ? 0 : 1;
+      const chamberSide = chamberBand !== undefined && person.position.x > chamberBand.x0 - 1 && person.position.x < chamberBand.x1 + 1;
+      person.visible = chamberSide || (deckNumber === drone.deck && Math.abs(hallIndex(deckNumber, person.position.x) - here) <= 1);
+    }
+  });
 
   return {
     interactables, animated, notices, heartGroup, heartTarget, heartLight, gimbals, obstacles, stage, soundPlaces, baySound, recrew, rerecord,
@@ -5768,6 +5843,37 @@ export default function ArkWalk(props: ArkWalkProps) {
           renderer.render(scene, camera);
           return { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles };
         },
+        /** Stops the clock, so two looks at the same spot can be compared exactly. */
+        freeze: (at: number | null) => { frozenAt = at; },
+        /** A small copy of what the camera sees, for comparing the ship before and after a change. */
+        shot: () => {
+          renderer.render(scene, camera);
+          const small = document.createElement("canvas");
+          small.width = 240;
+          small.height = 150;
+          small.getContext("2d")!.drawImage(renderer.domElement, 0, 0, 240, 150);
+          return small.toDataURL("image/png");
+        },
+        /** What the ship is made of: how many pieces, and what kind. */
+        census: () => {
+          const kinds = new Map<string, number>();
+          const materials = new Map<string, number>();
+          let meshes = 0;
+          let inGroups = 0;
+          let shadowless = 0;
+          scene.traverse((object) => {
+            if (!(object instanceof THREE.Mesh) && !(object instanceof THREE.Sprite) && !(object instanceof THREE.Points) && !(object instanceof THREE.Line)) return;
+            meshes += 1;
+            if (object.parent !== scene) inGroups += 1;
+            if (object instanceof THREE.Mesh) {
+              kinds.set(object.geometry.type, (kinds.get(object.geometry.type) ?? 0) + 1);
+              const material = Array.isArray(object.material) ? "array" : `${object.material.type} ${"color" in object.material ? `#${(object.material.color as THREE.Color).getHexString()}` : ""} ${object.material.transparent ? "clear" : ""}`;
+              materials.set(material, (materials.get(material) ?? 0) + 1);
+            } else shadowless += 1;
+          });
+          const top = (map: Map<string, number>, count: number) => [...map].sort((a, b) => b[1] - a[1]).slice(0, count);
+          return { meshes, inGroups, notMeshes: shadowless, sceneChildren: scene.children.length, kinds: top(kinds, 10), materials: top(materials, 14), distinctMaterials: materials.size };
+        },
         sounding: () => soundscape !== null,
         signal: () => signal,
         sim: () => sim?.state ?? null,
@@ -5828,7 +5934,9 @@ export default function ArkWalk(props: ArkWalkProps) {
       return null;
     };
 
-    const tick = (now: number) => {
+    let frozenAt: number | null = null;
+    const tick = (realNow: number) => {
+      const now = frozenAt ?? realNow;
       frame = window.requestAnimationFrame(tick);
       const dt = Math.min(0.05, (now - previous) / 1000);
       previous = now;
