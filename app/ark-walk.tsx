@@ -6,7 +6,7 @@ import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js
 import { createPixelFinish } from "./pixel-finish";
 import { buildStar, STAR_RADII } from "./ark-walk-star";
 import { personBody } from "./ark-walk-people";
-import { grainTexture, paintWall, plankFloor, shipSurfaces, stoneFloor, tileBox, tileColumn, WALL_PIXELS, WALL_SPAN } from "./ark-walk-skin";
+import { grainTexture, paintDoorLeaf, paintWall, plankFloor, shipSurfaces, stoneFloor, tileBox, tileColumn, WALL_PIXELS, WALL_SPAN, WORKING } from "./ark-walk-skin";
 import { foliageTexture } from "./world-view-textures";
 
 import type { ArkCutawayRoomKind } from "./ark-cutaway";
@@ -376,8 +376,7 @@ const FEED_FRAGMENT = `
 
 /** The deck lamps: a warm white, not the amber of the trim lights. */
 const LAMP = "#ffeccc";
-const HALL_FLOORS: ReadonlySet<string> = new Set(["habitation", "research", "support", "education", "fabrication"]);
-const WORKING_HALLS: ReadonlySet<string> = new Set(["fabrication", "hangar", "chamber", "bridge"]);
+const HALL_FLOORS: ReadonlySet<string> = new Set(["habitation", "research", "support", "education", "fabrication", "chamber", "hangar"]);
 
 /** The rooms behind the halls: each cabin painted by the people who live in it, the galley warm, the Armory red. */
 const SIDE_COLOR: Record<string, string> = {
@@ -477,15 +476,10 @@ function haloTexture(color: string) {
 
 /** Glass: nearly clear, with a couple of hard glints so it reads as a pane and not a hole. */
 function glassTexture(tint: string) {
-  return canvasTexture(32, 32, (context) => {
+  return canvasTexture(4, 4, (context) => {
     context.fillStyle = tint;
     context.globalAlpha = 0.07;
-    context.fillRect(0, 0, 32, 32);
-    context.fillStyle = "#ffffff";
-    for (const [start, width, alpha] of [[4, 2, 0.07], [9, 1, 0.045], [22, 1, 0.04]] as const) {
-      context.globalAlpha = alpha;
-      for (let step = 0; step < 32; step += 1) context.fillRect(start + step, 31 - step, width, 1);
-    }
+    context.fillRect(0, 0, 4, 4);
   });
 }
 
@@ -494,7 +488,7 @@ function stripeTexture() {
   return canvasTexture(8, 8, (context) => {
     for (let x = 0; x < 8; x += 1) {
       for (let y = 0; y < 8; y += 1) {
-        context.fillStyle = (x + y) % 8 < 4 ? PALETTE.amber : PALETTE.dark;
+        context.fillStyle = (x + y) % 8 < 4 ? "#e0b13a" : "#1b1b20";
         context.fillRect(x, y, 1, 1);
       }
     }
@@ -515,6 +509,22 @@ function signTexture(text: string, color: string) {
     context.fillText(text, 160, 23, 304);
   });
   // Signs are small on a small frame: they blur a little rather than break into noise.
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.generateMipmaps = true;
+  return texture;
+}
+
+/** A long sign, navy with gold lettering, in the ship's own style. */
+function wideSign(text: string) {
+  const texture = canvasTexture(640, 58, (context) => {
+    context.fillStyle = "#1c1f3c";
+    context.fillRect(0, 0, 640, 58);
+    context.fillStyle = "#f2c744";
+    context.font = "bold 32px monospace";
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillText(text, 320, 30, 616);
+  });
   texture.minFilter = THREE.LinearMipmapLinearFilter;
   texture.generateMipmaps = true;
   return texture;
@@ -813,8 +823,10 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
   const glass = tinted(accent, "#ffffff", 0.5);
   const liftGlow = tinted(accent, "#ffffff", 0.35);
   const spec = props.heart;
+  // ?qa=1&machines=n fills the chamber with n of each machine, to look at them.
+  const qaMachines = Number(new URLSearchParams(window.location.search).get("machines")) || 0;
   const feeds = spec.machines.length > 0
-    ? spec.machines.slice(0, 6)
+    ? spec.machines.slice(0, 6).map((machine) => (qaMachines > 0 ? { ...machine, count: qaMachines } : machine))
     : Array.from({ length: 6 }, (_, tier) => ({ name: `Tier ${tier + 1} machine`, count: 0, color: PALETTE.dark }));
 
   const paintOf = (kind: string) => tinted(ROOM_COLOR[kind as WalkRoomKind] ?? SIDE_COLOR[kind] ?? PALETTE.metalLight, accent, 0.12);
@@ -911,6 +923,12 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         px(0, 0, "#62606c", 32, 1);
         px(0, 0, "#62606c", 1, 32);
       }
+      const painted = context.getImageData(0, 0, 32, 32);
+      for (let at = 0; at < painted.data.length; at += 4) {
+        const scuff = 0.9 + hash(at * 0.137) * 0.2;
+        for (let channel = 0; channel < 3; channel += 1) painted.data[at + channel] = Math.min(255, painted.data[at + channel] * scuff);
+      }
+      context.putImageData(painted, 0, 0);
     });
     floorTextures.set(kind, texture);
     return texture;
@@ -924,6 +942,8 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       else if (kind === "research") texture = stoneFloor(["#8f96ad", "#a0a7bd", "#b0b7cb", "#c0c6d8"], "#5f6580", "#d4d9e8", "#70768e");
       else if (kind === "support") texture = stoneFloor(["#9fb09a", "#aebfa8", "#bccdb6", "#cad9c4"], "#6a7c66", "#dde8d6", "#7f917a");
       else if (kind === "fabrication") texture = stoneFloor(["#6f6a66", "#7d7873", "#8b8681", "#9a9590"], "#403c3a", "#b0aba5", "#55514e");
+      else if (kind === "chamber") texture = stoneFloor(["#4a4760", "#56536e", "#625f7c", "#6e6b8a"], "#2a2838", "#8a87a4", "#3a384e");
+      else if (kind === "hangar") texture = stoneFloor(["#6e6a64", "#7a766f", "#86827a", "#928e86"], "#46433e", "#a8a49c", "#5a5650");
       else texture = stoneFloor(["#b7a98f", "#c9b99c", "#d6c7a9", "#e3d5b8"], "#7a6f60", "#efe3c8", "#8e8373");
       hallFloors.set(kind, texture);
     }
@@ -931,7 +951,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
   };
   const floorMaterial = (kind: string, w: number, d: number) => (HALL_FLOORS.has(kind)
     ? lambert(tinted("#ffffff", accent, 0.08), { map: repeated(hallFloor(kind), w / 2.4, d / 2.4) })
-    : lambert("#ffffff", { map: repeated(floorFor(kind), w / 4, d / 4) }));
+    : lambert("#ffffff", { map: repeated(floorFor(kind), w / 2.2, d / 2.2) }));
   const wallTextures = new Map<string, THREE.CanvasTexture>();
   /** A compartment's inner wall from the deck to its ceiling, painted in ark-walk-skin.ts. */
   const wallFor = (kind: string, height: number) => {
@@ -942,9 +962,9 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       const paint = paintOf(kind);
       paintWall(context, kind, height, kind === "chamber" ? [0, UPPER_FLOOR] : [0], kind === "chamber" ? UPPER_FLOOR - 0.4 : height, {
         // Cream plaster in the lived-in halls, plain warm plate where the work is done.
-        plaster: tinted(tinted(WORKING_HALLS.has(kind) ? "#9c968e" : "#d8ccb2", paint, 0.07), accent, 0.04),
-        seam: WORKING_HALLS.has(kind) ? tinted(PALETTE.wallSeam, accent, 0.1) : "#4a3226",
-        bevel: WORKING_HALLS.has(kind) ? tinted(PALETTE.wallLight, accent, 0.12) : "#efe3c8",
+        plaster: tinted(tinted(WORKING.has(kind) ? "#9c968e" : "#d8ccb2", paint, 0.07), accent, 0.04),
+        seam: WORKING.has(kind) ? tinted(PALETTE.wallSeam, accent, 0.1) : "#4a3226",
+        bevel: WORKING.has(kind) ? tinted(PALETTE.wallLight, accent, 0.12) : "#efe3c8",
         skirting: tinted(PALETTE.skirting, accent, 0.1),
         paint,
         metal: tinted(PALETTE.metal, accent, 0.1),
@@ -961,17 +981,6 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     texture.needsUpdate = true;
     return lambert("#ffffff", { map: texture });
   };
-  const ceilingTexture = canvasTexture(16, 16, (context) => {
-    const slat = tinted(PALETTE.ceiling, accent, 0.08);
-    context.fillStyle = slat;
-    context.fillRect(0, 0, 16, 16);
-    context.fillStyle = tinted(slat, "#000000", 0.4);
-    for (const y of [3, 7, 11, 15]) context.fillRect(0, y, 16, 1);
-    context.fillStyle = tinted(slat, "#ffffff", 0.08);
-    for (const y of [0, 4, 8, 12]) context.fillRect(0, y, 16, 1);
-    context.fillStyle = tinted(slat, "#000000", 0.25);
-    context.fillRect(7, 0, 1, 16);
-  });
   const grateTexture = canvasTexture(8, 8, (context) => {
     context.fillStyle = "#16141f";
     context.fillRect(0, 0, 8, 8);
@@ -998,10 +1007,23 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
   const lightPanel = new THREE.MeshBasicMaterial({ color: new THREE.Color("#fff0d0").multiplyScalar(2.2) });
   const sconceGlow = new THREE.MeshBasicMaterial({ color: new THREE.Color("#ffc47a").multiplyScalar(1.9) });
   const solidCache = new Map<string, THREE.MeshLambertMaterial>();
+  /** Plain colours that are really a material: a part in one of these gets the real surface. */
+  const realSurface = new Map<string, { map: THREE.Texture; color: string }>([
+    [PALETTE.wood, { map: surfaces.walnut, color: "#ffd2b4" }],
+    [PALETTE.metal, { map: surfaces.darkSteel, color: "#ffffff" }],
+    [metal, { map: surfaces.darkSteel, color: "#ffffff" }],
+    [PALETTE.metalLight, { map: surfaces.steel, color: "#ffffff" }],
+    [metalLight, { map: surfaces.steel, color: "#ffffff" }],
+    [PALETTE.dark, { map: surfaces.darkSteel, color: "#8a8a9a" }],
+    [PALETTE.copper, { map: surfaces.brass, color: "#ffffff" }],
+    [PALETTE.linen, { map: surfaces.cloth, color: PALETTE.linen }],
+    [PALETTE.bunk, { map: surfaces.cloth, color: PALETTE.bunk }],
+  ]);
   const solid = (color: string) => {
     let material = solidCache.get(color);
     if (!material) {
-      material = new THREE.MeshLambertMaterial({ color, flatShading: true, map: grain });
+      const real = realSurface.get(color);
+      material = new THREE.MeshLambertMaterial({ color: real?.color ?? color, flatShading: true, map: real?.map ?? grain });
       material.userData.tiled = true;
       solidCache.set(color, material);
     }
@@ -1297,6 +1319,10 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
           if (openings.some((opening) => vent.position.x > opening.a0 - 0.6 && vent.position.x < opening.a1 + 0.6 && opening.y0 < 0.8)) vent.visible = false;
         }
         // A shaded lamp on the rib in the tall halls, washing up the wall.
+        if (room.kind === "chamber" && !dark) {
+          still(cylinder(0.1, 0.1, 0.28, brass, ribX, UPPER_FLOOR + 5.26, wallZ - side * 0.68, 6));
+          still(cylinder(0.2, 0.15, 0.32, sconceGlow, ribX, UPPER_FLOOR + 5.54, wallZ - side * 0.68, 6));
+        }
         if (tall && !dark) {
           const lampY = Math.min(5.3, room.height - 2.6);
           still(cylinder(0.1, 0.1, 0.28, brass, ribX, y0 + lampY - 0.04, wallZ - side * 0.68, 6));
@@ -1421,9 +1447,17 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         still(put(0.4, height, sideDepth, bulkheadFaces(room, nextRoom, sideDepth, 0, height), wx, height / 2, -(DOOR_HALF_WIDTH + sideDepth / 2)));
         still(put(0.4, height, sideDepth, bulkheadFaces(room, nextRoom, sideDepth, 0, height), wx, height / 2, DOOR_HALF_WIDTH + sideDepth / 2));
         still(put(0.4, height - DOOR_HEIGHT, DOOR_HALF_WIDTH * 2, bulkheadFaces(room, nextRoom, DOOR_HALF_WIDTH * 2, DOOR_HEIGHT, height - DOOR_HEIGHT), wx, DOOR_HEIGHT + (height - DOOR_HEIGHT) / 2, 0));
-        still(put(0.6, 0.18, DOOR_HALF_WIDTH * 2 + 0.4, trimMaterial, wx, DOOR_HEIGHT + 0.09, 0));
+        still(put(0.7, 0.3, DOOR_HALF_WIDTH * 2 + 0.5, darkSteel, wx, DOOR_HEIGHT + 0.15, 0));
+        for (const [facing, toward] of [[-1, nextRoom], [1, room]] as const) {
+          still(put(0.04, 0.68, 5.2, darkSteel, wx + facing * 0.24, DOOR_HEIGHT + 0.86, 0));
+          const hallSign = new THREE.Mesh(new THREE.PlaneGeometry(5, 0.52), new THREE.MeshBasicMaterial({ map: wideSign((toward.online ? toward.label : `${toward.label}  ·  offline`).toUpperCase()) }));
+          hallSign.position.set(wx + facing * 0.27, y0 + DOOR_HEIGHT + 0.86, 0);
+          hallSign.rotation.y = facing < 0 ? -Math.PI / 2 : Math.PI / 2;
+          scene.add(hallSign);
+          still(hallSign);
+        }
         for (const side of [-1, 1]) {
-          still(put(0.6, DOOR_HEIGHT, 0.2, trimMaterial, wx, DOOR_HEIGHT / 2, side * (DOOR_HALF_WIDTH + 0.1)));
+          still(put(0.7, DOOR_HEIGHT, 0.3, darkSteel, wx, DOOR_HEIGHT / 2, side * (DOOR_HALF_WIDTH + 0.15)));
           still(put(0.62, 0.3, 0.22, lambert("#ffffff", { map: repeated(stripes, 1, 0.4) }), wx, 0.15, side * (DOOR_HALF_WIDTH + 0.1)));
         }
         // A door panel beside the frame shows whether the next room is awake.
@@ -1657,15 +1691,21 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         plate(core.x1, room.x1, -half, core.z1);
         plate(core.x0, core.x1, core.z1, half);
         plate(core.x0, core.x1, -half, core.z0);
-        // Lit lips and a low rail round the two lift wells.
+        // A steel lip with a lit edge and a brass rail round the two lift wells, with a gap to ride through.
         const rim = glow(liftGlow);
-        const rail = solid(metalLight);
-        still(put(core.x0 - room.x0, 0.05, 0.12, rim, (room.x0 + core.x0) / 2, 0.01, core.z0));
-        still(put(0.12, 0.05, half + core.z0, rim, core.x0, 0.01, (core.z0 - half) / 2));
-        still(put(room.x1 - core.x1, 0.05, 0.12, rim, (core.x1 + room.x1) / 2, 0.01, core.z1));
-        still(put(0.12, 0.05, half - core.z1, rim, core.x1, 0.01, (core.z1 + half) / 2));
-        still(put(core.x0 - room.x0 - 1.8, 0.06, 0.06, rail, (room.x0 + core.x0) / 2 + 0.9, 1, core.z0));
-        still(put(room.x1 - core.x1 - 1.8, 0.06, 0.06, rail, (core.x1 + room.x1) / 2 - 0.9, 1, core.z1));
+        const lip = (x: number, z: number, w: number, d: number) => {
+          still(put(w + (d > w ? 0.1 : 0), 0.14, d + (w > d ? 0.1 : 0), darkSteel, x, 0.05, z));
+          still(put(w > d ? w : 0.05, 0.03, d > w ? d : 0.05, rim, x, 0.135, z));
+        };
+        lip((room.x0 + core.x0) / 2, core.z0, core.x0 - room.x0, 0.24);
+        lip(core.x0, (core.z0 - half) / 2, 0.24, half + core.z0);
+        lip((core.x1 + room.x1) / 2, core.z1, room.x1 - core.x1, 0.24);
+        lip(core.x1, (core.z1 + half) / 2, 0.24, half - core.z1);
+        for (const [x, z, w] of [[(room.x0 + core.x0) / 2 + 0.9, core.z0, core.x0 - room.x0 - 1.8], [(core.x1 + room.x1) / 2 - 0.9, core.z1, room.x1 - core.x1 - 1.8]] as const) {
+          still(put(w, 0.08, 0.08, brass, x, 1.05, z));
+          still(put(w, 0.04, 0.04, steel, x, 0.6, z));
+          for (let post = -w / 2; post <= w / 2 + 0.01; post += w / Math.max(1, Math.round(w / 2.4))) still(put(0.06, 1.05, 0.06, steel, x + post, 0.52, z));
+        }
       } else if (room.kind === "habitation") {
         hear("mess", room.x1 - 3.6, 1, towardWalls(3.4, room.half));
         // The mess table and chairs; the table is the habitation console.
@@ -1850,14 +1890,15 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     const xWall = core.x1 - cx - wall / 2;
     const innerZ = core.z1 - wall;
     const innerX = core.x1 - cx - wall;
-    const coreMetal = solid(tinted("#2a2638", accent, 0.08));
+    const coreMetal = surface(surfaces.frame, tinted("#b6a8d0", accent, 0.1));
     const levels: [number, number][] = [[0.9, UPPER_FLOOR - 1], [UPPER_FLOOR + 0.34, height - 1.4]];
-    const coreGlass = new THREE.MeshBasicMaterial({ map: glassTexture(tinted(spec.limb, "#ffffff", 0.3)), transparent: true, depthWrite: false, side: THREE.DoubleSide });
+    const coreGlass = new THREE.MeshBasicMaterial({ color: tinted("#bfe0ff", spec.limb, 0.2), transparent: true, opacity: 0.06, depthWrite: false, side: THREE.DoubleSide });
 
     const coreWall = (alongX: boolean, fixed: number, a0: number, a1: number, open0: number, open1: number) => {
       const openings = levels.map(([low, high]) => ({ a0: open0, a1: open1, y0: low, y1: high }));
       const slab = (length: number, tall: number, depth: number, material: THREE.Material, along: number, y: number) => {
         const mesh = new THREE.Mesh(alongX ? new THREE.BoxGeometry(length, tall, depth) : new THREE.BoxGeometry(depth, tall, length), material);
+        if (material.userData.tiled) tileBox(mesh.geometry, alongX ? length : depth, tall, alongX ? depth : length, alongX ? along : fixed, y, alongX ? fixed : along);
         mesh.position.set(alongX ? along : fixed, y, alongX ? fixed : along);
         scene.add(mesh);
         return mesh;
@@ -1874,56 +1915,72 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         pane.position.set(alongX ? middle : fixed, y, alongX ? fixed : middle);
         if (!alongX) pane.rotation.y = Math.PI / 2;
         scene.add(pane);
-        slab(length + 0.32, 0.18, wall + 0.24, trimMaterial, middle, opening.y0);
-        slab(length + 0.32, 0.18, wall + 0.24, trimMaterial, middle, opening.y1);
-        slab(0.18, tall, wall + 0.24, trimMaterial, opening.a0, y);
-        slab(0.18, tall, wall + 0.24, trimMaterial, opening.a1, y);
+        slab(length + 0.32, 0.18, wall + 0.24, steel, middle, opening.y0);
+        slab(length + 0.32, 0.18, wall + 0.24, steel, middle, opening.y1);
+        // Steel mullions split the glass into bays.
+        const bays = Math.max(1, Math.round(length / 5.6));
+        for (let bay = 0; bay <= bays; bay += 1) slab(0.24, tall, wall + 0.1, steel, opening.a0 + (length * bay) / bays, y);
       }
     };
     for (const side of [-1, 1]) coreWall(true, side * zWall, core.x0, core.x1, cx - xWall + 1.4, cx + xWall - 1.4);
     for (const end of [-1, 1]) coreWall(false, cx + end * xWall, -innerZ, innerZ, -(innerZ - 1.2), innerZ - 1.2);
 
     // Hazard stripes round its foot on both levels, and its name over the end windows.
-    const stripeMaterial = (length: number) => new THREE.MeshBasicMaterial({ map: repeated(stripes, length * 2, 1) });
+    const hazard = surface(surfaces.hazard);
     for (const base of [0, UPPER_FLOOR]) {
-      for (const side of [-1, 1]) {
-        const band = new THREE.Mesh(new THREE.PlaneGeometry(core.x1 - core.x0, 0.32), stripeMaterial(core.x1 - core.x0));
-        band.position.set(cx, base + 0.17, side * (core.z1 + 0.01));
-        if (side < 0) band.rotation.y = Math.PI;
-        scene.add(band);
-      }
+      for (const side of [-1, 1]) still(box(core.x1 - core.x0, 0.24, 0.02, hazard, cx, base + 0.13, side * (core.z1 + 0.01)));
       for (const end of [-1, 1]) {
-        const band = new THREE.Mesh(new THREE.PlaneGeometry(core.z1 * 2, 0.32), stripeMaterial(core.z1 * 2));
-        band.position.set(cx + end * (core.x1 - cx + 0.01), base + 0.17, 0);
-        band.rotation.y = (end * Math.PI) / 2;
-        scene.add(band);
-        const sign = new THREE.Mesh(new THREE.PlaneGeometry(4, 0.4), new THREE.MeshBasicMaterial({ map: signTexture("LAW-HEART CORE · SEALED", PALETTE.amber) }));
-        sign.position.set(cx + end * (core.x1 - cx + 0.02), (base === 0 ? levels[0][1] : levels[1][1]) + 0.45, 0);
+        still(box(0.02, 0.24, core.z1 * 2, hazard, cx + end * (core.x1 - cx + 0.01), base + 0.13, 0));
+        still(box(0.03, 0.72, 7.2, darkSteel, cx + end * (core.x1 - cx + 0.03), (base === 0 ? levels[0][1] : levels[1][1]) + 0.5, 0));
+        const sign = new THREE.Mesh(new THREE.PlaneGeometry(6.9, 0.5), new THREE.MeshBasicMaterial({ map: wideSign("LAW-HEART CORE  ·  SEALED") }));
+        sign.position.set(cx + end * (core.x1 - cx + 0.05), (base === 0 ? levels[0][1] : levels[1][1]) + 0.5, 0);
         sign.rotation.y = (end * Math.PI) / 2;
         scene.add(sign);
       }
     }
-    // A rail to lean on, round the gallery glass.
+    // A brass rail to lean on, round the gallery glass, on steel posts.
+    const railAt = 0.5;
+    const railX = core.x1 - cx + railAt;
+    const railZ = core.z1 + railAt;
     for (const side of [-1, 1]) {
-      still(box((core.x1 - cx) * 2 + 1, 0.06, 0.06, solid(PALETTE.copper), cx, UPPER_FLOOR + 1.1, side * (core.z1 + 0.45)));
-      still(box(0.06, 0.06, core.z1 * 2 + 1, solid(PALETTE.copper), cx + side * (core.x1 - cx + 0.45), UPPER_FLOOR + 1.1, 0));
-      for (let along = -core.z1; along <= core.z1 + 0.01; along += 2.8) still(box(0.05, 1.1, 0.05, solid(metalLight), cx + side * (core.x1 - cx + 0.45), UPPER_FLOOR + 0.55, along));
-      for (let along = core.x0 - cx; along <= core.x1 - cx + 0.01; along += 2.8) still(box(0.05, 1.1, 0.05, solid(metalLight), cx + along, UPPER_FLOOR + 0.55, side * (core.z1 + 0.45)));
+      for (const y of [1.1, 0.62]) {
+        still(box(railX * 2 + 0.08, y > 1 ? 0.08 : 0.04, y > 1 ? 0.08 : 0.04, y > 1 ? brass : steel, cx, UPPER_FLOOR + y, side * railZ));
+        still(box(y > 1 ? 0.08 : 0.04, y > 1 ? 0.08 : 0.04, railZ * 2 + 0.08, y > 1 ? brass : steel, cx + side * railX, UPPER_FLOOR + y, 0));
+      }
+      for (let along = -railZ; along <= railZ + 0.01; along += (railZ * 2) / Math.round((railZ * 2) / 2.4)) still(box(0.06, 1.1, 0.06, steel, cx + side * railX, UPPER_FLOOR + 0.55, along));
+      for (let along = -railX; along <= railX + 0.01; along += (railX * 2) / Math.round((railX * 2) / 2.4)) still(box(0.06, 1.1, 0.06, steel, cx + along, UPPER_FLOOR + 0.55, side * railZ));
+      // Bearings in the end walls that carry the cradle.
+      still(box(1, 2.2, 2.2, coreMetal, cx + side * (innerX - 0.5), heart.y, 0));
+      const bearing = cylinder(0.7, 0.7, 0.3, darkSteel, cx + side * (innerX - 1.05), heart.y, 0, 12);
+      bearing.rotation.z = Math.PI / 2;
+      still(bearing);
     }
-    // Inside: a dark grated floor.
-    const grate = new THREE.Mesh(new THREE.PlaneGeometry(innerX * 2, innerZ * 2), lambert("#ffffff", { map: repeated(grateTexture, innerX * 2, innerZ * 2) }));
-    grate.rotation.x = -Math.PI / 2;
-    grate.position.set(cx, 0.012, 0);
-    scene.add(grate);
+    // The core's own floor, dark steel in rings round the star.
+    const coreFloor = new THREE.Mesh(new THREE.PlaneGeometry(innerX * 2, innerZ * 2), lambert("#ffffff", { map: repeated(surfaces.darkSteel, (innerX * 2) / 1.2, (innerZ * 2) / 1.2) }));
+    coreFloor.rotation.x = -Math.PI / 2;
+    coreFloor.position.set(cx, 0.012, 0);
+    scene.add(coreFloor);
+    for (const radius of [4, 7.4]) {
+      const ring = new THREE.Mesh(new THREE.RingGeometry(radius - 0.1, radius, 48), lambert("#ffffff", { map: surfaces.brass }));
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.set(cx, 0.02, 0);
+      still(ring);
+      scene.add(ring);
+    }
 
     // The gallery's own lights, down both sides at both levels.
     for (const side of [-1, 1]) {
       for (const lampY of [UPPER_FLOOR - 0.6, height - 0.7]) {
         const walk = side * (core.z1 + half) / 2;
-        const lamp = new THREE.PointLight(PALETTE.light, 8, 16, 1.2);
+        const lamp = new THREE.PointLight(LAMP, 8, 18, 1.2);
         lamp.position.set(cx, lampY, walk);
         scene.add(lamp);
-        still(box(core.x1 - core.x0 - 1, 0.06, 0.4, glow(PALETTE.light), cx, lampY + 0.55, walk));
+        const panels = Math.round((core.x1 - core.x0) / 5.6);
+        for (let panel = 0; panel < panels; panel += 1) {
+          const px = core.x0 + ((core.x1 - core.x0) * (panel + 0.5)) / panels;
+          still(box(3.4, 0.12, 0.7, darkSteel, px, lampY + 0.5, walk));
+          still(box(3.2, 0.03, 0.5, lightPanel, px, lampY + 0.43, walk));
+        }
       }
     }
   }
@@ -2019,13 +2076,13 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     still(put(0.5, 0.4, half - bay.z0, solid(PALETTE.amber), parked.x, room.height - 0.6, (bay.z0 + half) / 2));
     const hook = put(0.6, 0.5, 0.6, solid(metal), parked.x, room.height - 1.6, parked.z);
     const bayLamps = [pad.x, parked.x].map((lx) => {
-      const lamp = new THREE.PointLight(PALETTE.light, 9, 18, 1.1);
+      const lamp = new THREE.PointLight(LAMP, 9, 18, 1.1);
       lamp.position.set(lx, y0 + room.height - 0.8, (bay.z0 + half) / 2);
       scene.add(lamp);
       return lamp;
     });
     for (const lx of [room.x0 + 6, room.x1 - 6]) {
-      const lamp = new THREE.PointLight(PALETTE.light, dark ? 3 : 9, 18, 1.1);
+      const lamp = new THREE.PointLight(LAMP, dark ? 3 : 9, 18, 1.1);
       lamp.position.set(lx, y0 + room.height - 0.7, -2.5);
       scene.add(lamp);
       still(put(8, 0.06, 0.4, glow(dark ? PALETTE.dark : PALETTE.light), lx, room.height - 0.05, -2.5));
@@ -2381,24 +2438,77 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     return drone;
   }
 
-  // Grav-lifts: a column of light from the gallery floor up through each lift well.
+  // Grav-lifts: a pad set in a steel collar, four emitters round it, and rings of light riding a column up the well.
   const chamberHeight = layout.decks[1].compartments.find((room) => room.kind === "chamber")?.height ?? 12;
+  const liftPad = canvasTexture(64, 64, (context) => {
+    for (let y = 0; y < 64; y += 1) {
+      for (let x = 0; x < 64; x += 1) {
+        const dx = x - 31.5;
+        const dy = y - 31.5;
+        const out = Math.hypot(dx, dy) / 32;
+        const ring = Math.floor(out * 7);
+        const spoke = Math.floor(((Math.atan2(dy, dx) + Math.PI) / (Math.PI * 2)) * 12);
+        const bright = ring % 2 === 0 ? (spoke % 2 === 0 ? 0.75 : 0.5) : 0.22;
+        context.fillStyle = tinted(tinted("#14121f", liftGlow, bright), "#ffffff", out < 0.14 ? 0.5 : 0);
+        context.fillRect(x, y, 1, 1);
+      }
+    }
+  });
+  const liftColumn = canvasTexture(16, 32, (context) => {
+    context.clearRect(0, 0, 16, 32);
+    for (let y = 0; y < 32; y += 1) {
+      for (let x = 0; x < 16; x += 1) {
+        const on = (y + (x % 4 === 0 ? 3 : 0)) % 8 < 2 ? 0.9 : x % 4 === 0 ? 0.35 : 0;
+        context.fillStyle = `rgba(255,255,255,${on})`;
+        context.fillRect(x, y, 1, 1);
+      }
+    }
+  });
+  const liftOff = !layout.decks[1].compartments.some((room) => room.kind === "chamber" && room.online);
   for (const lift of layout.lifts) {
-    const shaft = inert(new THREE.Mesh(new THREE.CylinderGeometry(LIFT_RADIUS, LIFT_RADIUS, chamberHeight, 12, 1, true), ghost(liftGlow, 0.07)));
+    const texture = liftColumn.clone();
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(4, chamberHeight / 4);
+    texture.needsUpdate = true;
+    const shaft = inert(new THREE.Mesh(
+      new THREE.CylinderGeometry(LIFT_RADIUS, LIFT_RADIUS, chamberHeight, 16, 1, true),
+      new THREE.MeshBasicMaterial({ map: texture, color: liftGlow, transparent: true, opacity: liftOff ? 0 : 0.14, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
+    ));
     shaft.position.set(lift.x, chamberHeight / 2, lift.z);
-    const pad = new THREE.Mesh(new THREE.CylinderGeometry(LIFT_RADIUS + 0.05, LIFT_RADIUS + 0.05, 0.05, 16), glow(tinted(liftGlow, "#000000", 0.45)));
-    pad.position.set(lift.x, 0.025, lift.z);
-    scene.add(shaft, pad);
-    const rings = [0, 0.5].map(() => {
-      const ring = inert(new THREE.Mesh(new THREE.TorusGeometry(LIFT_RADIUS - 0.05, 0.03, 4, 16), ghost(liftGlow, 0.5)));
+    scene.add(shaft);
+    const collar = new THREE.Mesh(new THREE.CylinderGeometry(LIFT_RADIUS + 0.42, LIFT_RADIUS + 0.56, 0.16, 16), darkSteel);
+    collar.position.set(lift.x, 0.08, lift.z);
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(LIFT_RADIUS + 0.1, LIFT_RADIUS + 0.12, 0.2, 16), brass);
+    band.position.set(lift.x, 0.09, lift.z);
+    const pad = new THREE.Mesh(new THREE.CircleGeometry(LIFT_RADIUS, 24), new THREE.MeshBasicMaterial({ map: liftPad }));
+    pad.rotation.x = -Math.PI / 2;
+    pad.position.set(lift.x, 0.195, lift.z);
+    for (const mesh of [collar, band, pad]) {
+      mesh.raycast = () => {};
+      scene.add(mesh);
+    }
+    for (let post = 0; post < 4; post += 1) {
+      const angle = Math.PI / 4 + (post * Math.PI) / 2;
+      const px = lift.x + Math.cos(angle) * (LIFT_RADIUS + 0.26);
+      const pz = lift.z + Math.sin(angle) * (LIFT_RADIUS + 0.26);
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.12, 0.9, 6), steel);
+      stem.position.set(px, 0.5, pz);
+      const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.07, 0.12, 6), glow(liftGlow));
+      tip.position.set(px, 0.98, pz);
+      scene.add(inert(stem), inert(tip));
+    }
+    const rings = [0, 1, 2].map(() => {
+      const ring = inert(new THREE.Mesh(new THREE.TorusGeometry(LIFT_RADIUS - 0.05, 0.05, 4, 20), glow(liftGlow)));
       ring.rotation.x = Math.PI / 2;
       ring.position.set(lift.x, 0, lift.z);
+      ring.visible = !liftOff;
       scene.add(ring);
       return ring;
     });
     animated.push((time) => {
+      texture.offset.y = -((time * 0.0003) % 1);
       rings.forEach((ring, ringIndex) => {
-        ring.position.y = (((time * 0.00025) + ringIndex * 0.5) % 1) * chamberHeight;
+        ring.position.y = (((time * 0.00025) + ringIndex / 3) % 1) * chamberHeight;
       });
     });
   }
@@ -2452,21 +2562,28 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         // Vacuum Tap: a bell on a stem, drawing Flux out of the quiet into the star.
         const angle = ((unit + 0.5) / 8) * Math.PI * 2;
         const tap = machineGroup(heart.x + Math.cos(angle) * 4.6, 0, Math.sin(angle) * Math.min(5.4, innerZ - 0.9), text);
-        piece(tap, new THREE.CylinderGeometry(0.42, 0.5, 0.3, 10), solid(metal), 0, 0.15);
-        piece(tap, new THREE.CylinderGeometry(0.18, 0.22, 0.8, 8), solid(metalLight), 0, 0.7);
-        piece(tap, new THREE.CylinderGeometry(0.62, 0.2, 0.55, 12, 1, true), lambert(metal, { side: THREE.DoubleSide }), 0, 1.35);
-        const mouth = piece(tap, new THREE.CircleGeometry(0.52, 12), energy, 0, 1.58);
+        piece(tap, new THREE.CylinderGeometry(0.62, 0.72, 0.14, 8), darkSteel, 0, 0.07);
+        piece(tap, new THREE.CylinderGeometry(0.46, 0.54, 0.3, 8), solid(metal), 0, 0.29);
+        piece(tap, new THREE.CylinderGeometry(0.5, 0.5, 0.05, 8), brass, 0, 0.46);
+        piece(tap, new THREE.CylinderGeometry(0.16, 0.24, 0.8, 8), steel, 0, 0.84);
+        for (let fin = 0; fin < 4; fin += 1) piece(tap, new THREE.BoxGeometry(0.46, 0.5, 0.04), darkSteel, 0, 0.72, 0).rotation.y = (fin * Math.PI) / 4;
+        piece(tap, new THREE.CylinderGeometry(0.66, 0.2, 0.55, 12, 1, true), new THREE.MeshLambertMaterial({ map: surfaces.steel, side: THREE.DoubleSide, flatShading: true }), 0, 1.45);
+        piece(tap, new THREE.TorusGeometry(0.66, 0.05, 6, 16), brass, 0, 1.72).rotation.x = Math.PI / 2;
+        const mouth = piece(tap, new THREE.CircleGeometry(0.56, 12), energy, 0, 1.68);
         mouth.rotation.x = -Math.PI / 2;
         if (lit) {
-          feedBeam(new THREE.Vector3(tap.position.x, 1.6, tap.position.z), machine.color, seed);
+          feedBeam(new THREE.Vector3(tap.position.x, 1.7, tap.position.z), machine.color, seed);
           animated.push((time) => { mouth.scale.setScalar(0.75 + 0.25 * Math.sin(time * 0.004 + unit)); });
         }
       } else if (tier === 1) {
         // Phase Coil: rings stacked on a rod, bobbing in a standing wave.
         const corner = [[-1, -1], [1, 1], [-1, 1], [1, -1]][unit];
         const coil = machineGroup(heart.x + corner[0] * (innerX - 0.6), 0, corner[1] * (innerZ - 0.65), text);
-        piece(coil, new THREE.BoxGeometry(1, 0.3, 1), solid(metal), 0, 0.15);
-        piece(coil, new THREE.CylinderGeometry(0.07, 0.07, 4.8, 6), solid(metalLight), 0, 2.7);
+        piece(coil, new THREE.BoxGeometry(1.3, 0.16, 1.3), darkSteel, 0, 0.08);
+        piece(coil, new THREE.BoxGeometry(1, 0.3, 1), solid(metal), 0, 0.31);
+        piece(coil, new THREE.CylinderGeometry(0.2, 0.28, 0.3, 8), brass, 0, 0.6);
+        piece(coil, new THREE.CylinderGeometry(0.08, 0.08, 4.8, 6), steel, 0, 2.7);
+        piece(coil, new THREE.CylinderGeometry(0.16, 0.12, 0.16, 8), brass, 0, 5.02);
         const rings = Array.from({ length: 7 }, (_, ringIndex) => {
           const ring = piece(coil, new THREE.TorusGeometry(0.42, 0.07, 6, 16), energy, 0, 0.8 + ringIndex * 0.62);
           ring.rotation.x = Math.PI / 2;
@@ -2487,8 +2604,11 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         // Harmonic Loom: a frame on the end wall strung with threads that shiver.
         const slot = [[-1, -1.5], [1, 1.5], [-1, 1.5], [1, -1.5]][unit];
         const loom = machineGroup(heart.x + slot[0] * (innerX - 0.15), heart.y - 0.45, slot[1], text);
-        for (const post of [-1.25, 1.25]) piece(loom, new THREE.BoxGeometry(0.14, 2, 0.14), solid(metalLight), 0, 0, post);
-        for (const bar of [-1, 1]) piece(loom, new THREE.BoxGeometry(0.14, 0.14, 2.64), solid(metalLight), 0, bar, 0);
+        for (const post of [-1.25, 1.25]) piece(loom, new THREE.BoxGeometry(0.2, 2.2, 0.2), solid(metal), 0, 0, post);
+        for (const bar of [-1, 1]) {
+          piece(loom, new THREE.BoxGeometry(0.2, 0.2, 2.9), solid(metal), 0, bar * 1.04, 0);
+          for (const post of [-1.25, 1.25]) piece(loom, new THREE.BoxGeometry(0.26, 0.26, 0.26), brass, 0, bar * 1.04, post);
+        }
         const threads = Array.from({ length: 7 }, (_, thread) => piece(loom, new THREE.BoxGeometry(0.03, 1.86, 0.03), energy, 0, 0, -0.9 + thread * 0.3));
         if (lit) {
           feedBeam(new THREE.Vector3(loom.position.x - slot[0] * 0.2, heart.y - 0.45, slot[1]), machine.color, seed);
@@ -2499,7 +2619,11 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       } else if (tier === 3) {
         // Orbit Array: collectors riding a track round the star, under the ceiling.
         if (unit === 0) {
-          const track = new THREE.Mesh(new THREE.TorusGeometry(3.3, 0.06, 4, 48), solid(metalLight));
+          const track = new THREE.Mesh(new THREE.TorusGeometry(3.3, 0.08, 6, 48), steel);
+          for (let hanger = 0; hanger < 6; hanger += 1) {
+            const angle = (hanger * Math.PI) / 3;
+            still(box(0.08, 1.2, 0.08, darkSteel, heart.x + Math.cos(angle) * 3.3, chamberHeight - 0.6, Math.sin(angle) * 3.3));
+          }
           track.rotation.x = Math.PI / 2;
           track.position.set(heart.x, chamberHeight - 1.2, 0);
           scene.add(track);
@@ -2507,7 +2631,8 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         }
         if (!lit) continue;
         const collector = machineGroup(heart.x, chamberHeight - 1.2, 0, text);
-        piece(collector, new THREE.BoxGeometry(0.4, 0.22, 0.4), solid(metal));
+        piece(collector, new THREE.BoxGeometry(0.44, 0.26, 0.44), solid(metal));
+        piece(collector, new THREE.BoxGeometry(0.5, 0.05, 0.5), brass, 0, 0.14, 0);
         for (const wing of [-1, 1]) piece(collector, new THREE.BoxGeometry(0.9, 0.03, 0.34), energy, wing * 0.62, 0, 0);
         const phase = (unit / shown) * Math.PI * 2;
         const place = (time: number) => phase + time * 0.00035;
@@ -2521,12 +2646,16 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         // Constraint Engine: a housing on the side wall turning a flywheel without rest.
         const slot = [[-1, -2.2], [1, 2.2], [-1, 2.2], [1, -2.2]][unit];
         const engine = machineGroup(heart.x + slot[1], heart.y - 0.45, slot[0] * (innerZ - 0.25), text);
-        piece(engine, new THREE.BoxGeometry(1.4, 1.1, 0.5), solid(metal));
+        piece(engine, new THREE.BoxGeometry(1.7, 1.4, 0.5), solid(metal));
+        piece(engine, new THREE.BoxGeometry(1.8, 0.1, 0.56), brass, 0, 0.7, 0);
+        piece(engine, new THREE.BoxGeometry(1.8, 0.1, 0.56), brass, 0, -0.7, 0);
+        for (const edge of [-0.74, 0.74]) piece(engine, new THREE.BoxGeometry(0.12, 1.2, 0.58), darkSteel, edge, 0, 0);
         const wheel = new THREE.Group();
         wheel.position.z = -slot[0] * 0.35;
         engine.add(wheel);
-        piece(wheel, new THREE.TorusGeometry(0.42, 0.11, 6, 16), energy);
-        for (const spoke of [0, Math.PI / 2]) piece(wheel, new THREE.BoxGeometry(0.84, 0.06, 0.06), solid(metalLight)).rotation.z = spoke;
+        piece(wheel, new THREE.TorusGeometry(0.46, 0.1, 6, 20), energy);
+        piece(wheel, new THREE.CylinderGeometry(0.12, 0.12, 0.1, 8), brass).rotation.x = Math.PI / 2;
+        for (const spoke of [0, Math.PI / 4, Math.PI / 2, (Math.PI * 3) / 4]) piece(wheel, new THREE.BoxGeometry(0.9, 0.06, 0.06), steel).rotation.z = spoke;
         if (lit) {
           feedBeam(new THREE.Vector3(engine.position.x, heart.y - 0.45, engine.position.z - slot[0] * 0.4), machine.color, seed);
           animated.push((time) => { wheel.rotation.z = time * 0.008 * (unit % 2 === 0 ? 1 : -1); });
@@ -2535,7 +2664,13 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         // Horizon Forge: a dark portal in the floor under the star, drawing from beyond.
         const size = lit ? Math.min(2, 1 + 0.15 * Math.log2(machine.count + 1)) : 1;
         const forge = machineGroup(heart.x, 0, 0, text);
-        piece(forge, new THREE.CylinderGeometry(size + 0.35, size + 0.5, 0.36, 24), solid(metal), 0, 0.18);
+        piece(forge, new THREE.CylinderGeometry(size + 0.7, size + 0.86, 0.14, 24), darkSteel, 0, 0.07);
+        piece(forge, new THREE.CylinderGeometry(size + 0.35, size + 0.55, 0.36, 24), solid(metal), 0, 0.26);
+        piece(forge, new THREE.TorusGeometry(size + 0.36, 0.05, 6, 32), brass, 0, 0.44).rotation.x = Math.PI / 2;
+        for (let bolt = 0; bolt < 12; bolt += 1) {
+          const angle = (bolt * Math.PI) / 6;
+          piece(forge, new THREE.BoxGeometry(0.12, 0.08, 0.12), steel, Math.cos(angle) * (size + 0.62), 0.17, Math.sin(angle) * (size + 0.62));
+        }
         const hole = piece(forge, new THREE.CircleGeometry(size, 24), new THREE.MeshBasicMaterial({ color: "#020205" }), 0, 0.37);
         hole.rotation.x = -Math.PI / 2;
         const rim = piece(forge, new THREE.TorusGeometry(size, 0.09, 6, 32), energy, 0, 0.38);
@@ -2666,17 +2801,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       if (rooms.length < 2 || room.height <= 6.5) continue;
       const y0 = deck.floorY;
       const hangX = room.x0 + (room.x1 - room.x0) * 0.42;
-      const texture = canvasTexture(640, 58, (context) => {
-        context.fillStyle = "#1c1f3c";
-        context.fillRect(0, 0, 640, 58);
-        context.fillStyle = "#f2c744";
-        context.font = "bold 32px monospace";
-        context.textAlign = "center";
-        context.textBaseline = "middle";
-        context.fillText([...new Set(rooms)].slice(0, 3).join("  ·  "), 320, 30, 616);
-      });
-      texture.minFilter = THREE.LinearMipmapLinearFilter;
-      texture.generateMipmaps = true;
+      const texture = wideSign([...new Set(rooms)].slice(0, 3).join("  ·  "));
       still(box(0.12, 0.76, 6.4, darkSteel, hangX, y0 + 5.1, 0));
       for (const z of [-2.8, 2.8]) still(box(0.04, room.height - 5.4, 0.04, steel, hangX, y0 + (room.height + 5.4) / 2, z));
       for (const facing of [-1, 1]) {
@@ -3315,9 +3440,27 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
   const plan = placeCrew(props.crew, new Set(props.recon?.away ? props.recon.crewIds : []));
 
   // ---- The rooms behind the halls: the crew's cabins and their galley, the Armory. ----
-  const paneGeometry = new THREE.BoxGeometry(0.3, 0.8, 0.01);
-  const kickGeometry = new THREE.BoxGeometry(0.42, 0.3, 0.01);
-  const handleGeometry = new THREE.BoxGeometry(0.04, 0.5, 0.04);
+  const doorLeaves = new Map<string, THREE.MeshLambertMaterial[]>();
+  /** Sliding doors: navy leaves with a kick plate, a colour bar, a vision panel and a brass handle. */
+  const doorLeaf = (width: number, paint: string, open: boolean, sideSign: number) => {
+    const key = `${paint}:${open}:${sideSign}`;
+    let faces = doorLeaves.get(key);
+    if (!faces) {
+      const texture = canvasTexture(32, 64, (context) => paintDoorLeaf(context, 32, 64, paint, open));
+      const front = texture.clone();
+      front.wrapS = THREE.RepeatWrapping;
+      front.repeat.x = sideSign > 0 ? -1 : 1;
+      front.needsUpdate = true;
+      const back = texture.clone();
+      back.wrapS = THREE.RepeatWrapping;
+      back.repeat.x = sideSign > 0 ? 1 : -1;
+      back.needsUpdate = true;
+      const edge = lambert("#2e3350", {});
+      faces = [edge, edge, edge, edge, lambert("#ffffff", { map: front }), lambert("#ffffff", { map: back })];
+      doorLeaves.set(key, faces);
+    }
+    return new THREE.Mesh(new THREE.BoxGeometry(width, SIDE_DOOR_HEIGHT, 0.08), faces);
+  };
   const sideLabels = new Map<string, string>();
   layout.decks.forEach((deck, deckIndex) => {
     for (const room of deck.sideRooms) (room.cell ? buildCell : buildSideRoom)(room, deck, deckIndex);
@@ -3358,29 +3501,16 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     const doorX = (room.door.x0 + room.door.x1) / 2;
     const doorWidth = room.door.x1 - room.door.x0;
     const doorZ = side * (hallWall + INNER_WALL / 2);
-    const frame = solid(tinted(PALETTE.dark, paint, 0.2));
+    const frame = darkSteel;
     const corridorFace = side * (hallWall - 0.08);
     for (const edge of [room.door.x0 - 0.11, room.door.x1 + 0.11]) still(put(0.22, SIDE_DOOR_HEIGHT + 0.2, 0.2, frame, edge, (SIDE_DOOR_HEIGHT + 0.2) / 2, corridorFace));
     still(put(doorWidth + 0.44, 0.22, 0.2, frame, doorX, SIDE_DOOR_HEIGHT + 0.11, corridorFace));
-    const doorGlass = glow("#7fb1e0");
-    const doorDark = solid(PALETTE.dark);
-    const doorPlate = solid(metalLight);
-    const doorBrass = solid(PALETTE.copper);
+    still(put(0.2, 0.2, 0.02, darkSteel, room.door.x1 + 0.35, 1.5, side * (hallWall - 0.02)));
     still(put(0.12, 0.12, 0.04, glow(room.open ? PALETTE.ok : PALETTE.alert), room.door.x1 + 0.35, 1.5, side * (hallWall - 0.03)));
-    const leafMaterial = solid(tinted(PALETTE.metal, paint, 0.2));
     const leaves = [-1, 1].map((sideSign) => {
-      const leaf = new THREE.Mesh(new THREE.BoxGeometry(doorWidth / 2, SIDE_DOOR_HEIGHT, 0.08), leafMaterial);
+      const leaf = doorLeaf(doorWidth / 2, paint, room.open, sideSign);
       leaf.position.set(doorX + (sideSign * doorWidth) / 4, y0 + SIDE_DOOR_HEIGHT / 2, doorZ);
       scene.add(leaf);
-      for (const face of [-1, 1]) {
-        const pane = inert(new THREE.Mesh(paneGeometry, room.open ? doorGlass : doorDark));
-        pane.position.set(0, 0.42, face * 0.05);
-        const kick = inert(new THREE.Mesh(kickGeometry, doorPlate));
-        kick.position.set(0, -SIDE_DOOR_HEIGHT / 2 + 0.2, face * 0.05);
-        const handle = inert(new THREE.Mesh(handleGeometry, doorBrass));
-        handle.position.set(-sideSign * (doorWidth / 4 - 0.1), -0.25, face * 0.08);
-        leaf.add(pane, kick, handle);
-      }
       return { leaf, sideSign };
     });
     let opening = 0;
@@ -3408,7 +3538,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), floorMaterial(floorKind, width, depth));
     floor.rotation.x = -Math.PI / 2;
     floor.position.set(cx, y0, cz);
-    const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), lambert("#ffffff", { map: repeated(ceilingTexture, width / 2, depth / 2) }));
+    const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), lambert("#ffffff", { map: repeated(ceilingSlats, width / 1.2, depth / 1.2) }));
     ceiling.rotation.x = Math.PI / 2;
     ceiling.position.set(cx, y0 + height, cz);
     scene.add(floor, ceiling);
@@ -3424,7 +3554,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
       still(put(piece.a1 - piece.a0, piece.y1 - piece.y0, 0.04, wallCut(room.section, height, piece.a1 - piece.a0, piece.y0, piece.y1 - piece.y0, piece.a0 / WALL_SPAN), (piece.a0 + piece.a1) / 2, (piece.y0 + piece.y1) / 2, nearZ));
     }
     // Light panels across the ceiling.
-    for (let panel = 2.5; panel < depth - 1; panel += 4) still(put(width - 1.6, 0.06, 0.5, glow(PALETTE.light), cx, height - 0.05, room.starboard ? room.z0 + panel : room.z1 - panel));
+    for (let panel = 2.5; panel < depth - 1; panel += 4) still(put(width - 1.6, 0.06, 0.5, lightPanel, cx, height - 0.05, room.starboard ? room.z0 + panel : room.z1 - panel));
     // What is in it, on its own plan.
     const parts = cellParts(room.cell!, width, depth);
     const placed = (part: CellPart): Part => ({
@@ -3473,7 +3603,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), floorMaterial(SIDE_FLOOR[key] ?? key, width, depth));
     floor.rotation.x = -Math.PI / 2;
     floor.position.set(cx, y0, cz);
-    const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(width + 0.4, depth), lambert("#ffffff", { map: repeated(ceilingTexture, width / 2, depth / 2) }));
+    const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(width + 0.4, depth), lambert("#ffffff", { map: repeated(ceilingSlats, width / 1.2, depth / 1.2) }));
     ceiling.rotation.x = Math.PI / 2;
     ceiling.position.set(cx, y0 + room.height, cz);
     scene.add(floor, ceiling);
@@ -3522,22 +3652,18 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     }
 
     // The door: framed in the room's colour, sliding open as the drone comes, shut fast if sealed.
-    const frame = solid(paint);
+    const frame = darkSteel;
     for (const face of [-hallWall + 0.04, room.z1 - 0.04]) {
       for (const edge of [room.door.x0 - 0.07, room.door.x1 + 0.07]) still(put(0.14, SIDE_DOOR_HEIGHT + 0.14, 0.08, frame, edge, (SIDE_DOOR_HEIGHT + 0.14) / 2, face));
       still(put(doorWidth + 0.28, 0.14, 0.08, frame, doorX, SIDE_DOOR_HEIGHT + 0.07, face));
     }
-    const leafMaterial = solid(tinted(PALETTE.metal, paint, 0.2));
     const leaves = [-1, 1].map((sideSign) => {
-      const leaf = new THREE.Group();
-      leaf.add(new THREE.Mesh(new THREE.BoxGeometry(doorWidth / 2, SIDE_DOOR_HEIGHT, 0.08), leafMaterial));
-      const stripe = new THREE.Mesh(new THREE.BoxGeometry(doorWidth / 2, 0.12, 0.09), frame);
-      stripe.position.y = 0.3;
-      leaf.add(stripe);
+      const leaf = doorLeaf(doorWidth / 2, paint, room.open, sideSign);
       leaf.position.set(doorX + (sideSign * doorWidth) / 4, y0 + SIDE_DOOR_HEIGHT / 2, wallZ);
       scene.add(leaf);
       return { leaf, sideSign };
     });
+    still(put(0.2, 0.2, 0.02, darkSteel, room.door.x1 + 0.35, 1.5, -hallWall + 0.02));
     still(put(0.12, 0.12, 0.04, glow(room.open ? PALETTE.ok : PALETTE.alert), room.door.x1 + 0.35, 1.5, -hallWall + 0.03));
     let opening = 0;
     animated.push((_time, drone) => {

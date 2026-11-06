@@ -12,7 +12,7 @@ export const WALL_SPAN = 3.2;
 /** Metres across one repeat of the grain. */
 const GRAIN_SPAN = 1.6;
 
-const WORKING = new Set(["fabrication", "hangar", "chamber", "bridge", "stores", "workshop", "armory", "simulator", "lab", "briefing"]);
+export const WORKING = new Set(["fabrication", "hangar", "chamber", "bridge", "stores", "workshop", "armory", "simulator", "lab", "briefing"]);
 
 const hash = (x: number, y: number, seed: number) => {
   const value = Math.sin(x * 127.1 + y * 311.7 + seed * 74.7) * 43758.5453;
@@ -33,9 +33,11 @@ export function grainTexture() {
   const context = canvas.getContext("2d")!;
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {
-      const patch = hash(Math.floor(x / 6), Math.floor(y / 6), 3) * 0.06;
+      const patch = hash(Math.floor(x / 6), Math.floor(y / 6), 3);
+      const streak = hash(x, Math.floor(y / 9), 8);
       const fleck = hash(x, y, 5);
-      const light = 0.9 + patch + (fleck > 0.94 ? 0.05 : fleck < 0.05 ? -0.07 : 0);
+      const step = Math.floor((patch * 0.55 + streak * 0.45) * 4) / 3;
+      const light = 0.74 + step * 0.24 + (fleck > 0.94 ? 0.08 : fleck < 0.06 ? -0.14 : 0);
       const value = Math.round(Math.min(1, light) * 255);
       context.fillStyle = `rgb(${value},${value},${value})`;
       context.fillRect(x, y, 1, 1);
@@ -108,6 +110,48 @@ export function plankFloor() {
   });
 }
 
+/** A door leaf as you see it from the front, with its handle at the right. */
+export function paintDoorLeaf(context: CanvasRenderingContext2D, width: number, height: number, paint: string, open: boolean) {
+  const navy = ["#3b4266", "#454c74", "#505883"];
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      context.fillStyle = shade(new THREE.Color(pick(navy, 0.2 + hash(x, y, 14) * 0.7)).lerp(new THREE.Color(paint), 0.14).getStyle(), 0);
+      context.fillRect(x, y, 1, 1);
+    }
+  }
+  const rect = (x: number, y: number, w: number, h: number, color: string) => {
+    context.fillStyle = color;
+    context.fillRect(x, y, w, h);
+  };
+  rect(0, 0, width, 1, "#6a72a0");
+  rect(0, 0, 1, height, "#2e3350");
+  rect(width - 1, 0, 1, height, "#2e3350");
+  // The kick plate.
+  const kick = Math.round(height * 0.84);
+  for (let y = kick; y < height - 2; y += 1) {
+    for (let x = 2; x < width - 2; x += 1) {
+      rect(x, y, 1, 1, pick(["#7e8399", "#979cb1", "#b2b7ca"], 0.2 + hash(Math.floor(x / 4), y, 8) * 0.7));
+    }
+  }
+  rect(2, kick - 1, width - 4, 1, "#2e3350");
+  // The colour bar, and the vision panel over it.
+  const bar = Math.round(height * 0.6);
+  rect(2, bar, width - 4, 2, paint);
+  const paneW = Math.round(width * 0.46);
+  const paneX = Math.round((width - paneW) / 2);
+  const paneY = Math.round(height * 0.14);
+  const paneH = Math.round(height * 0.36);
+  rect(paneX - 2, paneY - 2, paneW + 4, paneH + 4, "#22243a");
+  rect(paneX, paneY, paneW, paneH, open ? "#7fb1e0" : "#14162a");
+  if (open) {
+    rect(paneX, paneY, paneW, 2, "#b8d8f4");
+    rect(paneX + 2, paneY + 3, 2, paneH - 6, "#a4cbec");
+  }
+  // The handle.
+  rect(width - 5, Math.round(height * 0.48), 2, Math.round(height * 0.2), "#f0cc72");
+  rect(width - 4, Math.round(height * 0.48), 1, Math.round(height * 0.2), "#94672c");
+}
+
 /** The ship's own materials, each sized in metres. */
 export function shipSurfaces() {
   const frame = ["#3f3f54", "#4d4e66", "#5f6079", "#74758e"];
@@ -137,6 +181,8 @@ export function shipSurfaces() {
     slats: pixelTile(32, 1.2, (x, y) => (y % 8 === 7 ? slat[0] : pick(slat, 0.4 + hash(x, y, 11) * 0.5))),
     cork: pixelTile(32, 1.2, (x, y) => pick(cork, hash(x, y, 12))),
     locker: pixelTile(32, 1.2, (x, y) => (y % 16 === 15 ? "#3c4560" : pick(["#5b6a8c", "#667699", "#7283a7"], 0.2 + hash(x, y, 13) * 0.7))),
+    hazard: pixelTile(32, 0.9, (x, y) => (((x + y) / 32) % 1 < 0.5 ? "#e0b13a" : "#1b1b20")),
+    cloth: pixelTile(32, 0.8, (x, y) => pick(["#c4c4c4", "#dcdcdc", "#f2f2f2"], ((x + y) % 2 === 0 ? 0.55 : 0.2) + hash(x, y, 16) * 0.35)),
   };
 }
 
@@ -186,6 +232,8 @@ export function paintWall(context: CanvasRenderingContext2D, kind: string, heigh
     // Riveted plate, each sheet a little different.
     for (const base of levels) {
       const tall = base + top;
+      // Darker plate to head height, as a working wall has, then a rail and paler plate above.
+      mottle(base, base + 3.4, shade(colors.plaster, -0.42), 0.1);
       for (let y = base; y < tall; y += 1.2) {
         band(y, y + 0.06, colors.seam);
         band(y + 0.06, y + 0.1, colors.bevel);
@@ -197,14 +245,15 @@ export function paintWall(context: CanvasRenderingContext2D, kind: string, heigh
           context.globalAlpha = 0.35;
           context.fillRect(x + 1, at(y + 1.14), 31, 21);
           context.globalAlpha = 1;
-          context.fillStyle = colors.bevel;
-          for (const rx of [3, 28]) for (const ry of [0.2, 1]) context.fillRect(x + rx, at(y + ry), 2, 2);
+          context.fillStyle = shade(colors.plaster, y < base + 3.4 ? -0.2 : 0.14);
+          for (const rx of [3, 28]) for (const ry of [0.2, 1]) context.fillRect(x + rx, at(y + ry), 1, 1);
         }
       }
       band(base, base + 0.3, colors.skirting);
       band(base + 0.3, base + 0.34, shade(colors.paint, -0.3));
-      band(base + 0.6, base + 1.1, colors.paint);
-      band(base + 1.1, base + 1.18, shade(colors.paint, 0.4));
+      band(base + 3.4, base + 3.5, "#3a3a4c");
+      band(base + 3.5, base + 3.58, colors.paint);
+      band(base + 3.58, base + 3.62, shade(colors.paint, 0.4));
     }
   } else {
     // Timber below the rail, plaster above with a moulded panel.
