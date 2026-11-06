@@ -570,6 +570,7 @@ function ArkDeck({
               drone={walkDrone}
               saveStarted={walkSaveStarted}
               atWorld={walkAtWorld}
+              transit={transitActive ? { originName: transit?.originName ?? "", destinationName: transit?.destinationName ?? "", progress: transitProgress } : null}
               beatPeriodMs={getPulseProfile(lifetimeAxioms).periodMs}
               onStrike={onStrikeLawHeart}
               onClose={() => onCloseWalk?.()}

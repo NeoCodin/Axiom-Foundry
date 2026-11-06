@@ -10,7 +10,7 @@ import { grainTexture, paintDoorLeaf, paintWall, plankFloor, shipSurfaces, stone
 import { foliageTexture } from "./world-view-textures";
 
 import type { ArkCutawayRoomKind } from "./ark-cutaway";
-import { buildSpace, systemFor } from "./ark-walk-space";
+import { buildSpace, systemFor, type Crossing } from "./ark-walk-space";
 import {
   buildWalkLayout,
   sealedSideRooms,
@@ -224,6 +224,8 @@ export type ArkWalkDrone = {
 
 export type ArkWalkProps = {
   worldName: string;
+  /** The Ark between worlds, if it is. */
+  transit?: Crossing | null;
   worldAccent: string;
   rooms: readonly ArkWalkRoom[];
   crew: readonly WalkCrewMember[];
@@ -1129,10 +1131,27 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
   };
   sky.add(starField(1800, 1, 3), starField(160, 2, 9));
   // The star, the world below it, its moons and neighbours (ark-walk-space).
-  const deepSpace = systemFor(props.worldName).deep;
+  const deepSpace = Boolean(props.transit) || systemFor(props.worldName).deep;
   const planetRadius = deepSpace ? 6 : 150;
   const planetOffset = deepSpace ? new THREE.Vector3(260, -120, 260) : new THREE.Vector3(40, -120, 190);
-  const space = buildSpace(sky, props.worldName, planetOffset, planetRadius);
+  const stillSky = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const fullRadius = 150;
+  const fullOffset = new THREE.Vector3(40, -120, 190);
+  const makeSpace = (now: ArkWalkProps) => {
+    const away = Boolean(now.transit) || systemFor(now.worldName).deep;
+    return buildSpace(sky, now.worldName, away ? new THREE.Vector3(260, -120, 260) : fullOffset, away ? 6 : fullRadius, now.transit ?? null, stillSky);
+  };
+  let space = makeSpace(props);
+  /** Keeps what is outside right if the Ark leaves or arrives while the drone is out. */
+  const updateSpace = (time: number, camera: THREE.Camera) => {
+    const now = live();
+    const key = now.transit ? `${now.transit.originName}>${now.transit.destinationName}` : now.worldName;
+    if (key !== space.key) {
+      space.dispose();
+      space = makeSpace(now);
+    }
+    space.update(time, camera, now.transit?.progress ?? 0);
+  };
   const planetWorld = planetOffset.clone().add(sky.position);
   /** Sunlight through a hull window, falling across the floor. Only on the side the sun is on. */
   const sunPatch = (y0: number, opening: Rect, side: number) => {
@@ -4782,7 +4801,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
   });
 
   return {
-    interactables, animated, notices, star, space, heartTarget, heartLight, obstacles, stage, soundPlaces, baySound, recrew, rerecord,
+    interactables, animated, notices, star, updateSpace, heartTarget, heartLight, obstacles, stage, soundPlaces, baySound, recrew, rerecord,
     /** Keep someone facing the drone until then (ms), while it talks with them. */
     attend: (id: string, until: number) => attention.set(id, until),
     talkers: () => talkers,
@@ -5745,7 +5764,7 @@ export default function ArkWalk(props: ArkWalkProps) {
 
     /** Board the second recon ship: the drone's feed changes channel to the world below. */
     const openPlanet = () => {
-      if (propsRef.current.worldName.startsWith("Transit")) return;
+      if (propsRef.current.transit) return;
       if (document.pointerLockElement === renderer.domElement) document.exitPointerLock();
       keys.clear();
       switchChannel(() => {
@@ -6148,7 +6167,7 @@ export default function ArkWalk(props: ArkWalkProps) {
 
       // The Law-Heart beats; close enough and AXIOM hears it, and the room breathes with it.
       strikeFlash = Math.max(0, strikeFlash - dt * 3);
-      ship.space.update(now, camera);
+      ship.updateSpace(now, camera);
       const { swell, beat } = ship.star.update(now, dt, camera, strikeFlash, reducedMotion);
       if (beat && Math.hypot(x - heart.x, eyeY - heart.y, z - heart.z) < 22) schedulePulseBeat(now, 0.3);
       ship.heartLight.intensity = (ship.stage === 0 ? 3 : 26) * (1 + swell * 0.75);
@@ -6201,7 +6220,7 @@ export default function ArkWalk(props: ArkWalkProps) {
       else if (target.kind === "person") setPrompt(conversation ? "" : target.mood === "talk" ? `${target.label} · E to talk` : target.mood === "busy" ? `${target.label} · busy` : target.label);
       else if (target.kind === "sim") setPrompt("E · step into the combat simulation");
       else if (target.kind === "record") setPrompt(conversation ? "" : recordPrompt(target.place));
-      else if (target.kind === "planet") setPrompt(propsRef.current.worldName.startsWith("Transit") ? "Recon ship two · held in its clamps until the Ark arrives" : `Recon ship two · E · fly the drone down to ${propsRef.current.worldName}`);
+      else if (target.kind === "planet") setPrompt(propsRef.current.transit ? "Recon ship two · held in its clamps until the Ark arrives" : `Recon ship two · E · fly the drone down to ${propsRef.current.worldName}`);
       else if (target.kind === "link") setPrompt("E · plug in to the chamber console");
       else if (target.kind === "cradle") {
         setPrompt(repairing

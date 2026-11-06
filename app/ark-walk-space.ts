@@ -4,8 +4,10 @@
  * Vesper under a pair. The sun is really what lights the planet, so its day side, terminator and
  * night follow it. Planets are drawn on the graphics card from noise, each by what the campaign
  * says it is, with moons, neighbouring planets and a nebula behind. Drawn for the richer pixel
- * finish: light and colour fall in flat steps. In deep space there is no world to see, only the
- * star ahead.
+ * finish: light and colour fall in flat steps. There is no air out here, so a sun is a hard white
+ * disc on black with only the drone camera's own small glow round it. The soft light belongs to a
+ * planet's atmosphere, the thin bright line at its edge. On a crossing the stars stream past, the
+ * star left behind shrinks and the one ahead grows.
  */
 import * as THREE from "three";
 
@@ -63,7 +65,7 @@ export const SYSTEMS: readonly StarSystem[] = [
   },
   {
     world: "Cinder",
-    sun: { color: "#ffc890", hot: "#ffffff", size: 130, dir: [0.3, 0.28, 0.91] },
+    sun: { color: "#ffc890", hot: "#ffffff", size: 90, dir: [0.9, 0.28, 0.33] },
     planet: { kind: "lava", seed: 47, deep: "#1a0a08", shallow: "#32140e", low: "#2a1410", high: "#4a2418", peak: "#6a3a26", ice: "#8a7a70", cloud: "#6a5a54", air: "#ff8a3a", sea: 0.5, cover: 0.22, glow: "#ff6a1e" },
     moons: [{ radius: 5, orbit: 170, speed: 0.03, tilt: 0.1, look: moon(33, "#4a3a34", "#8a6a58") }],
     neighbours: [],
@@ -199,11 +201,11 @@ export function planetMaterial(look: PlanetLook, sun: THREE.Vector3) {
           if (kind > 0.5 && above > 0. && above < 0.08 && hash31(floor(p * 240.)) > 0.9) emit = cGlow * 1.4;
         } else if (kind < 2.5) {
           // Basalt plates split by rivers of lava, brighter in the deep cracks.
-          float plates = abs(fbm(q * 3.4 + warp * 1.6) - 0.5);
+          float plates = abs(fbm(q * 7. + warp * 2.4) - 0.5);
           color = ramp(cLow, cPeak, rough * 1.1 - 0.1);
-          float crack = smoothstep(0.03, 0.006, plates);
-          float wide = smoothstep(0.075, 0.02, plates);
-          emit = cGlow * wide * 0.7 + vec3(1., 0.82, 0.46) * crack * 1.9;
+          float crack = step(plates, 0.012);
+          float wide = step(plates, 0.03);
+          emit = cGlow * wide * 0.42 + vec3(1., 0.82, 0.46) * crack * 0.46;
           color = mix(color, cDeep, wide * 0.7);
           float ash = fbm(vec3(p.x * 2. + wind, p.y * 3.5, p.z * 2.) + warp + seed);
           cloudAmount = smoothstep(cover + 0.34, cover + 0.42, ash) * 0.8;
@@ -241,12 +243,13 @@ export function planetMaterial(look: PlanetLook, sun: THREE.Vector3) {
         float light = clamp(sunlit * 1.3 + 0.12, 0., 1.);
         float stepped = floor(light * 6. + 0.5) / 6.;
         vec3 surface = mix(color, cCloud, cloudAmount);
-        vec3 lit = surface * (0.02 + stepped * 1.2);
+        vec3 lit = surface * (0.13 + stepped * 1.1) + cAir * 0.012;
         // A warm line where day turns to night.
         lit += cAir * smoothstep(0.12, 0., abs(sunlit)) * smoothstep(-0.12, 0.02, sunlit) * 0.14;
         // The air thickens at the rim of the lit side.
         float rim = pow(1. - clamp(dot(normalize(vNormal), vView), 0., 1.), 2.6);
         lit = mix(lit, cAir * (0.5 + stepped), rim * 0.8 * clamp(sunlit + 0.2, 0., 1.));
+        lit += cAir * rim * 0.09;
         // What glows shows best on the dark side; cloud dims it.
         lit += emit * (1. - cloudAmount * 0.7) * (0.5 + 0.5 * (1. - stepped));
         gl_FragColor = vec4(lit, 1.);
@@ -280,46 +283,72 @@ export function airMaterial(color: string, sun: THREE.Vector3) {
       varying vec3 vNormal;
       varying vec3 vView;
       void main() {
-        float edge = pow(clamp(dot(-normalize(vNormal), normalize(vView)), 0., 1.), 5.);
+        vec3 view = normalize(vView);
+        float edge = pow(clamp(dot(-normalize(vNormal), view), 0., 1.), 5.);
         float day = clamp(dot(normalize(vNormal), sun) + 0.3, 0., 1.);
-        gl_FragColor = vec4(glow * floor(edge * day * 5. + 0.5) / 5. * 1.1, 1.);
+        // Sunlight bends through the air at the rim, brightest where it is nearest the sun.
+        float through = pow(max(dot(-view, sun), 0.), 5.);
+        float amount = edge * (0.14 + day + through * 1.6);
+        gl_FragColor = vec4(glow * floor(amount * 6. + 0.5) / 6. * 1.1, 1.);
         #include <colorspace_fragment>
       }
     `,
   });
 }
 
-/** A sun: a white disc, a blazing limb, flickering tongues and a wide stepped glare. */
+/** A sun from space: a hard white disc on black, tinted at its edge, with only a tight camera glow. */
 function sunMaterial(color: string, hot: string) {
   return new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
     fog: false,
-    uniforms: { time: { value: 0 }, cColor: { value: new THREE.Color(color) }, cHot: { value: new THREE.Color(hot) } },
+    uniforms: { cColor: { value: new THREE.Color(color) }, cHot: { value: new THREE.Color(hot) } },
     vertexShader: "varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }",
     fragmentShader: /* glsl */ `
-      uniform float time;
       uniform vec3 cColor;
       uniform vec3 cHot;
       varying vec2 vUv;
-      ${NOISE}
       void main() {
-        vec2 p = vUv * 2. - 1.;
-        float r = length(p);
-        float angle = atan(p.y, p.x);
+        float r = length(vUv * 2. - 1.);
         const float DISC = 0.17;
-        float tongues = fbm(vec3(cos(angle) * 2.6, sin(angle) * 2.6, time * 0.16));
-        float corona = pow(clamp(1. - (r - DISC) / (0.42 * (0.45 + tongues)), 0., 1.), 2.2);
-        float glare = pow(clamp(1. - r, 0., 1.), 3.2) * 0.65;
-        float rays = pow(max(0., cos(angle * 3. + 0.4)), 40.) * pow(clamp(1. - r, 0., 1.), 1.4) * 0.4;
-        float total = floor((corona * 0.9 + glare + rays) * 7.) / 7.;
-        float grain = fbm(vec3(p * 9., time * 0.2));
-        vec3 color = cColor * total * 1.6;
-        if (r < DISC) color = mix(cColor * 2.2, cHot * 3.2, smoothstep(DISC, DISC * 0.7, r) * (0.75 + grain * 0.4));
-        gl_FragColor = vec4(color * smoothstep(1., 0.94, r), 1.);
+        if (r < DISC) {
+          gl_FragColor = vec4(mix(cColor * 2.4, cHot * 3.6, step(r, DISC * 0.94)), 1.);
+          return;
+        }
+        float glow = pow(clamp(1. - (r - DISC) / 0.11, 0., 1.), 2.4) * 0.72;
+        float haze = pow(clamp(1. - (r - DISC) / 0.36, 0., 1.), 4.) * 0.16;
+        gl_FragColor = vec4(cColor * floor((glow + haze) * 9.) / 9., 1.);
       }
     `,
+  });
+}
+
+/** Stars streaming past on a crossing: blue ahead, red behind, as the Ark runs at them. */
+function streakMaterial() {
+  return new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    fog: false,
+    uniforms: { time: { value: 0 } },
+    vertexShader: /* glsl */ `
+      attribute vec3 aSeed;
+      attribute float aTail;
+      uniform float time;
+      varying vec3 vColor;
+      void main() {
+        const float LENGTH = 900.;
+        float x = mod(aSeed.x * LENGTH - time * (150. + aSeed.y * 170.), LENGTH) - LENGTH / 2.;
+        float angle = aSeed.y * 6.2832 * 7.;
+        float out_ = 70. + sqrt(aSeed.z) * 340.;
+        float along = x / (LENGTH / 2.);
+        vec3 p = vec3(x + aTail * (22. + aSeed.z * 42.), sin(angle) * out_, cos(angle) * out_);
+        vColor = mix(vec3(1., 0.72, 0.5), vec3(0.62, 0.8, 1.), along * 0.5 + 0.5) * (1. - abs(along)) * (1. - aTail * 0.8) * 1.3;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.);
+      }
+    `,
+    fragmentShader: "varying vec3 vColor; void main() { gl_FragColor = vec4(vColor, 1.); }",
   });
 }
 
@@ -361,49 +390,88 @@ export function systemFor(worldName: string) {
   return { system: ahead ?? SYSTEMS[0], deep: true };
 }
 
+const STREAKS = 1100;
+/** Which way the Ark's bow points, a little off the centre line so the stars show in the side windows. */
+const AHEAD = new THREE.Vector3(0.9, 0.1, 0.42).normalize();
+const BEHIND = new THREE.Vector3(-0.9, 0.1, -0.42).normalize();
+
+export type Crossing = { originName: string; destinationName: string; progress: number };
+
 /**
  * Everything outside, put in `sky`. `below` is where the planet sits relative to the sky's centre
- * and `radius` its size. In deep space the world is a far point of light by a small far sun.
+ * and `radius` its size. With no world to be at, the planet is a far point of light by a small sun.
  */
-export function buildSpace(sky: THREE.Object3D, worldName: string, below: THREE.Vector3, radius: number) {
-  const { system, deep } = systemFor(worldName);
+export function buildSpace(sky: THREE.Object3D, worldName: string, below: THREE.Vector3, radius: number, crossing: Crossing | null, still: boolean) {
+  const { system, deep } = systemFor(crossing ? `Transit to ${crossing.destinationName}` : worldName);
   const sunDir = new THREE.Vector3(...system.sun.dir).normalize();
+  const group = new THREE.Group();
+  sky.add(group);
   const nebula = inert(new THREE.Mesh(new THREE.SphereGeometry(460, 32, 24), nebulaMaterial(system.nebula[0], system.nebula[1])));
   nebula.renderOrder = -2;
-  sky.add(nebula);
+  group.add(nebula);
 
-  const suns: { mesh: THREE.Mesh; material: THREE.ShaderMaterial }[] = [];
   const addSun = (dir: THREE.Vector3, color: string, hot: string, size: number) => {
-    const material = sunMaterial(color, hot);
-    const mesh = inert(new THREE.Mesh(new THREE.PlaneGeometry(size * 2 / 0.17, size * 2 / 0.17), material));
+    const mesh = inert(new THREE.Mesh(new THREE.PlaneGeometry(2 / 0.17, 2 / 0.17), sunMaterial(color, hot)));
     mesh.position.copy(dir).multiplyScalar(430);
+    mesh.scale.setScalar(size);
     mesh.renderOrder = -1;
-    sky.add(mesh);
-    suns.push({ mesh, material });
+    group.add(mesh);
+    return mesh;
   };
-  addSun(sunDir, system.sun.color, system.sun.hot, deep ? 4 : system.sun.size * 0.6);
-  if (system.companion && !deep) addSun(new THREE.Vector3(...system.companion.dir).normalize(), system.companion.color, system.companion.color, system.companion.size * 0.6);
+  const suns: THREE.Mesh[] = [];
+  if (crossing) {
+    // The star left behind and the star ahead, trading places as the crossing goes on.
+    const origin = SYSTEMS.find((entry) => entry.world === crossing.originName) ?? system;
+    suns.push(addSun(AHEAD, system.sun.color, system.sun.hot, 1), addSun(BEHIND, origin.sun.color, origin.sun.hot, 1));
+  } else {
+    suns.push(addSun(sunDir, system.sun.color, system.sun.hot, deep ? 4 : system.sun.size * 0.6));
+    if (system.companion && !deep) suns.push(addSun(new THREE.Vector3(...system.companion.dir).normalize(), system.companion.color, system.companion.color, system.companion.size * 0.6));
+  }
 
-  const planet = new THREE.Group();
-  planet.position.copy(below);
-  planet.rotation.z = 0.32;
-  sky.add(planet);
+  let streaks: THREE.ShaderMaterial | null = null;
+  if (crossing && !still) {
+    const seeds = new Float32Array(STREAKS * 2 * 3);
+    const tails = new Float32Array(STREAKS * 2);
+    const value = (index: number, lane: number) => {
+      const made = Math.sin(index * 12.9898 + lane * 78.233) * 43758.5453;
+      return made - Math.floor(made);
+    };
+    for (let index = 0; index < STREAKS; index += 1) {
+      const seed = [value(index, 1), value(index, 2), value(index, 3)];
+      seeds.set(seed, index * 2 * 3);
+      seeds.set(seed, (index * 2 + 1) * 3);
+      tails[index * 2 + 1] = 1;
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(STREAKS * 2 * 3), 3));
+    geometry.setAttribute("aSeed", new THREE.BufferAttribute(seeds, 3));
+    geometry.setAttribute("aTail", new THREE.BufferAttribute(tails, 1));
+    streaks = streakMaterial();
+    const lines = inert(new THREE.LineSegments(geometry, streaks));
+    lines.frustumCulled = false;
+    group.add(lines);
+  }
+
+  const showPlanet = !crossing;
   const surface = planetMaterial(system.planet, sunDir);
   const ground = inert(new THREE.Mesh(new THREE.SphereGeometry(radius, 64, 44), surface));
-  const air = inert(new THREE.Mesh(new THREE.SphereGeometry(radius * 1.05, 48, 32), airMaterial(system.planet.air, sunDir)));
-  planet.add(ground, air);
+  if (showPlanet) {
+    const planet = new THREE.Group();
+    planet.position.copy(below);
+    planet.rotation.z = 0.32;
+    group.add(planet);
+    planet.add(ground, inert(new THREE.Mesh(new THREE.SphereGeometry(radius * 1.05, 48, 32), airMaterial(system.planet.air, sunDir))));
+  }
 
   const moons = (deep ? [] : system.moons).map((entry) => {
-    const material = planetMaterial(entry.look, sunDir);
-    const mesh = inert(new THREE.Mesh(new THREE.SphereGeometry(entry.radius, 24, 16), material));
-    sky.add(mesh);
+    const mesh = inert(new THREE.Mesh(new THREE.SphereGeometry(entry.radius, 24, 16), planetMaterial(entry.look, sunDir)));
+    group.add(mesh);
     return { mesh, entry };
   });
-  const neighbours = deep ? [] : system.neighbours;
-  for (const body of neighbours) {
+  for (const body of deep ? [] : system.neighbours) {
     const mesh = inert(new THREE.Mesh(new THREE.SphereGeometry(body.radius, 32, 20), planetMaterial(body.look, sunDir)));
     mesh.position.set(...body.at);
-    sky.add(mesh);
+    group.add(mesh);
     if (body.ring) {
       const ring = inert(new THREE.Mesh(
         new THREE.RingGeometry(body.radius * 1.4, body.radius * 2.2, 48),
@@ -411,7 +479,7 @@ export function buildSpace(sky: THREE.Object3D, worldName: string, below: THREE.
       ));
       ring.position.copy(mesh.position);
       ring.rotation.set(1.2, 0.2, 0);
-      sky.add(ring);
+      group.add(ring);
     }
   }
 
@@ -419,14 +487,19 @@ export function buildSpace(sky: THREE.Object3D, worldName: string, below: THREE.
     system,
     deep,
     sunDir,
-    update(time: number, camera: THREE.Camera) {
+    /** What this scene was built for, so the ship can tell when it needs a new one. */
+    key: crossing ? `${crossing.originName}>${crossing.destinationName}` : worldName,
+    update(time: number, camera: THREE.Camera, progress = 0) {
       const seconds = time / 1000;
       ground.rotation.y = seconds * 0.006;
       surface.uniforms.time.value = seconds;
-      for (const { mesh, material } of suns) {
-        material.uniforms.time.value = seconds;
-        mesh.quaternion.copy(camera.quaternion);
+      for (const mesh of suns) mesh.quaternion.copy(camera.quaternion);
+      if (crossing) {
+        const leaving = (1 - progress) * (1 - progress);
+        suns[0].scale.setScalar(1 + progress * progress * 16);
+        suns[1].scale.setScalar(1 + leaving * 12);
       }
+      if (streaks) streaks.uniforms.time.value = seconds;
       for (const { mesh, entry } of moons) {
         const angle = seconds * entry.speed + entry.radius;
         mesh.position.set(
@@ -435,6 +508,14 @@ export function buildSpace(sky: THREE.Object3D, worldName: string, below: THREE.
           below.z + Math.sin(angle) * entry.orbit,
         );
       }
+    },
+    dispose() {
+      group.traverse((object) => {
+        const mesh = object as THREE.Mesh;
+        mesh.geometry?.dispose();
+        (mesh.material as THREE.Material | undefined)?.dispose?.();
+      });
+      group.removeFromParent();
     },
   };
 }
