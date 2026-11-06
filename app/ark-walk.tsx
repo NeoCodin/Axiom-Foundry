@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { createPixelFinish } from "./pixel-finish";
+import { buildStar, STAR_RADII } from "./ark-walk-star";
 import { grainTexture, paintWall, tileBox, tileColumn, WALL_PIXELS, WALL_SPAN } from "./ark-walk-skin";
 
 import type { ArkCutawayRoomKind } from "./ark-cutaway";
@@ -287,8 +288,6 @@ function writeSpot(spot: DroneSpot) {
     // Storage blocked: the walk starts at the stern next time.
   }
 }
-/** The Law-Heart's radius at each stage, from Dormant Seed to Transcendent Star. */
-const STAR_RADII = [2.6, 3.5, 4.2, 4.8, 5.3, 5.8, 6.3];
 const HULL = 0.3;
 /** A team returning or launching within this many game seconds is shown leaving. */
 const FRESH_LAUNCH_SECONDS = 120;
@@ -1853,7 +1852,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     const innerZ = core.z1 - wall;
     const innerX = core.x1 - cx - wall;
     const coreMetal = solid(tinted("#2a2638", accent, 0.08));
-    const levels: [number, number][] = [[0.9, UPPER_FLOOR - 1], [UPPER_FLOOR + 0.9, height - 1.4]];
+    const levels: [number, number][] = [[0.9, UPPER_FLOOR - 1], [UPPER_FLOOR + 0.34, height - 1.4]];
     const coreGlass = new THREE.MeshBasicMaterial({ map: glassTexture(tinted(spec.limb, "#ffffff", 0.3)), transparent: true, depthWrite: false, side: THREE.DoubleSide });
 
     const coreWall = (alongX: boolean, fixed: number, a0: number, a1: number, open0: number, open1: number) => {
@@ -1904,6 +1903,13 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
         sign.rotation.y = (end * Math.PI) / 2;
         scene.add(sign);
       }
+    }
+    // A rail to lean on, round the gallery glass.
+    for (const side of [-1, 1]) {
+      still(box((core.x1 - cx) * 2 + 1, 0.06, 0.06, solid(PALETTE.copper), cx, UPPER_FLOOR + 1.1, side * (core.z1 + 0.45)));
+      still(box(0.06, 0.06, core.z1 * 2 + 1, solid(PALETTE.copper), cx + side * (core.x1 - cx + 0.45), UPPER_FLOOR + 1.1, 0));
+      for (let along = -core.z1; along <= core.z1 + 0.01; along += 2.8) still(box(0.05, 1.1, 0.05, solid(metalLight), cx + side * (core.x1 - cx + 0.45), UPPER_FLOOR + 0.55, along));
+      for (let along = core.x0 - cx; along <= core.x1 - cx + 0.01; along += 2.8) still(box(0.05, 1.1, 0.05, solid(metalLight), cx + along, UPPER_FLOOR + 0.55, side * (core.z1 + 0.45)));
     }
     // Inside: a dark grated floor.
     const grate = new THREE.Mesh(new THREE.PlaneGeometry(innerX * 2, innerZ * 2), lambert("#ffffff", { map: repeated(grateTexture, innerX * 2, innerZ * 2) }));
@@ -2402,90 +2408,9 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
   const stage = Math.max(0, Math.min(STAR_RADII.length - 1, Math.round(spec.stage)));
   const radius = STAR_RADII[stage];
   const starAt = new THREE.Vector3(heart.x, heart.y, heart.z);
-  const heartGroup = new THREE.Group();
-  heartGroup.position.copy(starAt);
-  scene.add(heartGroup);
-  const shell = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(radius, stage >= 3 ? 2 : 1),
-    new THREE.MeshLambertMaterial({
-      color: spec.surface,
-      emissive: spec.surface,
-      emissiveIntensity: stage === 0 ? 0.08 : 0.5,
-      flatShading: true,
-      transparent: true,
-      opacity: 0.9,
-    }),
-  );
-  const heartTarget: Interactable = { kind: "heart", object: shell };
+  const star = buildStar(scene, starAt, { ...spec, stage }, solid(metalLight));
+  const heartTarget: Interactable = { kind: "heart", object: star.shell };
   interactables.push(heartTarget);
-  const core = inert(new THREE.Mesh(new THREE.IcosahedronGeometry(radius * 0.55, 1), new THREE.MeshBasicMaterial({ color: spec.core })));
-  const innerGlow = inert(new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTexture(spec.bright), blending: THREE.AdditiveBlending, depthWrite: false })));
-  innerGlow.scale.setScalar(radius * 3);
-  const halo = inert(new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTexture(spec.surface), blending: THREE.AdditiveBlending, depthWrite: false, opacity: stage === 0 ? 0.3 : 1 })));
-  halo.scale.setScalar(radius * 5);
-  const outerHalo = inert(new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTexture(spec.corona[0] ?? spec.surface), blending: THREE.AdditiveBlending, depthWrite: false, opacity: stage === 0 ? 0.1 : 0.3 })));
-  outerHalo.scale.setScalar(radius * 7);
-  heartGroup.add(outerHalo, halo, shell, core, innerGlow);
-  // Corona shells, one per corona colour: more of them, and brighter, as the heart grows.
-  const coronas = spec.corona.map((color, layer) => {
-    const mesh = inert(new THREE.Mesh(
-      new THREE.IcosahedronGeometry(radius * (1.22 + layer * 0.14), 1),
-      new THREE.MeshBasicMaterial({ color, wireframe: true, transparent: true, opacity: stage === 0 ? 0.15 : 0.5, blending: THREE.AdditiveBlending, depthWrite: false }),
-    ));
-    heartGroup.add(mesh);
-    return mesh;
-  });
-  // Prominences: arcs of the star's fire looping off its surface.
-  const flares = [0, 1, 2, 3].map((flare) => {
-    const arc = inert(new THREE.Mesh(
-      new THREE.TorusGeometry(radius * 0.45, 0.06 * radius, 4, 16, Math.PI),
-      ghost(spec.bright, stage === 0 ? 0.1 : 0.7),
-    ));
-    const pivot = new THREE.Group();
-    arc.position.y = radius * 0.8;
-    pivot.add(arc);
-    pivot.rotation.set(hash(flare * 3.3) * Math.PI * 2, hash(flare * 5.7) * Math.PI * 2, 0);
-    heartGroup.add(pivot);
-    return pivot;
-  });
-  // From the Axiomatic Star on, the heart grows spines.
-  if (stage >= 4) {
-    const spineCount = 8 + (stage - 4) * 6;
-    const up = new THREE.Vector3(0, 1, 0);
-    for (let spine = 0; spine < spineCount; spine += 1) {
-      const y = 1 - (2 * (spine + 0.5)) / spineCount;
-      const ring = Math.sqrt(1 - y * y);
-      const theta = spine * 2.39996;
-      const direction = new THREE.Vector3(Math.cos(theta) * ring, y, Math.sin(theta) * ring);
-      const cone = inert(new THREE.Mesh(new THREE.ConeGeometry(0.12 * radius, 0.7 * radius, 4), new THREE.MeshBasicMaterial({ color: spec.bright })));
-      cone.position.copy(direction).multiplyScalar(radius * 1.05);
-      cone.quaternion.setFromUnitVectors(up, direction);
-      heartGroup.add(cone);
-    }
-  }
-  // Containment: three gimbal rings turning on different axes, flaring on each beat.
-  const gimbals = [0, 1, 2].map((ringIndex) => {
-    const ringRadius = Math.min(radius + 0.6 + ringIndex * 0.25, 3 + ringIndex * 0.15);
-    const mesh = new THREE.Mesh(
-      new THREE.TorusGeometry(ringRadius, 0.11, 6, 48),
-      lambert(metalLight, { emissive: new THREE.Color(spec.bright), emissiveIntensity: 0.3 }),
-    );
-    mesh.position.copy(starAt);
-    scene.add(mesh);
-    return mesh;
-  });
-  // Axiom shards: one for each proven Axiom, orbiting the star.
-  const shardOrbit = new THREE.Group();
-  shardOrbit.position.copy(starAt);
-  scene.add(shardOrbit);
-  const shardMaterial = new THREE.MeshBasicMaterial({ color: spec.shard });
-  for (let shardIndex = 0; shardIndex < spec.shards; shardIndex += 1) {
-    const shard = inert(new THREE.Mesh(new THREE.OctahedronGeometry(shardIndex % 4 === 0 ? 0.24 : 0.16, 0), shardMaterial));
-    const angle = hash(shardIndex * 17.3) * Math.PI * 2;
-    const orbitRadius = radius + 0.7 + (shardIndex % 3) * 0.3;
-    shard.position.set(Math.cos(angle) * orbitRadius, (hash(shardIndex * 5.1) - 0.5) * 2.4, Math.sin(angle) * orbitRadius);
-    shardOrbit.add(shard);
-  }
 
   // ---- The machines you build, standing round the star in the core. ----
   const coreBox = layout.core;
@@ -2632,30 +2557,13 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     }
   });
 
-  // Particles: the star's own swirl, in the colours of the machines feeding it, and streams
-  // running up every feed into it.
-  const weights = feeds.map((machine) => (machine.count > 0 ? Math.sqrt(machine.count) * 2.4 + 1 : 0));
-  const weightTotal = weights.reduce((sum, weight) => sum + weight, 0);
-  const swirlCount = weightTotal > 0 ? Math.min(900, Math.round(120 + weightTotal * 12)) : 80;
+  // Streams running up every feed into the star. Its swarm is its own, in ark-walk-star.ts.
   const streamPer = 6;
-  const particleCount = swirlCount + emitters.length * streamPer;
+  const particleCount = emitters.length * streamPer;
   const particlePositions = new Float32Array(particleCount * 3);
   const particleColors = new Float32Array(particleCount * 3);
-  const orbits = Array.from({ length: swirlCount }, (_, particle) => {
-    let tier = 0;
-    let pick = hash(particle * 7.171 + 4.13) * weightTotal;
-    for (; tier < weights.length - 1 && pick > weights[tier]; tier += 1) pick -= weights[tier];
-    new THREE.Color(weightTotal > 0 ? feeds[tier].color : spec.shard).toArray(particleColors, particle * 3);
-    return {
-      radius: radius * 1.15 + hash(particle * 3.7) * (4.8 - radius * 1.15),
-      speed: (0.0003 + hash(particle * 9.1) * 0.0008) * (particle % 2 === 0 ? 1 : -1),
-      phase: hash(particle * 1.3) * Math.PI * 2,
-      height: (hash(particle * 5.9) - 0.5) * 8,
-      wobble: hash(particle * 2.2) * 6,
-    };
-  });
   emitters.forEach((emitter, index) => {
-    for (let speck = 0; speck < streamPer; speck += 1) emitter.color.toArray(particleColors, (swirlCount + index * streamPer + speck) * 3);
+    for (let speck = 0; speck < streamPer; speck += 1) emitter.color.toArray(particleColors, (index * streamPer + speck) * 3);
   });
   const particleGeometry = new THREE.BufferGeometry();
   particleGeometry.setAttribute("position", new THREE.BufferAttribute(particlePositions, 3));
@@ -2677,37 +2585,17 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
     label(drone, program.compromised ? "Automation drone · compromised by the Null" : "Automation drone · tending the Law-Heart");
     return { drone, program, droneIndex };
   });
-  const heartLight = new THREE.PointLight(spec.surface, stage === 0 ? 2 : 14, 26, 1.1);
+  const heartLight = new THREE.PointLight(spec.surface, stage === 0 ? 3 : 26, 44, 1.1);
   heartLight.position.copy(starAt);
   scene.add(heartLight);
   const scratch = new THREE.Vector3();
   animated.push((time) => {
-    core.rotation.set(time * 0.0007, -time * 0.0011, 0);
-    coronas.forEach((mesh, layer) => {
-      mesh.rotation.set(time * 0.0002 * (layer + 1), time * 0.0003 * (layer % 2 === 0 ? 1 : -1), 0);
-    });
-    flares.forEach((pivot, flare) => {
-      pivot.rotation.z = time * 0.0002 * (flare % 2 === 0 ? 1 : -1) + flare;
-      pivot.children[0].scale.setScalar(0.8 + 0.3 * Math.sin(time * 0.0013 + flare * 2));
-    });
-    gimbals[0].rotation.set(time * 0.0004, 0, 0);
-    gimbals[1].rotation.set(Math.PI / 2, time * 0.0003, 0);
-    gimbals[2].rotation.set(time * 0.00025, Math.PI / 3, time * 0.00035);
-    shardOrbit.rotation.y = -time * 0.0004;
-    orbits.forEach((orbit, particle) => {
-      const angle = orbit.phase + time * orbit.speed;
-      particlePositions.set([
-        starAt.x + Math.cos(angle) * orbit.radius,
-        starAt.y + orbit.height * (0.6 + 0.4 * Math.cos(angle * 0.5 + orbit.wobble)),
-        starAt.z + Math.sin(angle) * orbit.radius * 0.95,
-      ], particle * 3);
-    });
     emitters.forEach((emitter, index) => {
       const from = emitter.at();
       for (let speck = 0; speck < streamPer; speck += 1) {
         const t = ((time * 0.0005) + speck / streamPer + emitter.seed * 0.137) % 1;
         scratch.copy(from).lerp(starAt, t * (1 - (radius * 0.9) / Math.max(radius, from.distanceTo(starAt))));
-        scratch.toArray(particlePositions, (swirlCount + index * streamPer + speck) * 3);
+        scratch.toArray(particlePositions, (index * streamPer + speck) * 3);
       }
     });
     particleGeometry.attributes.position.needsUpdate = true;
@@ -4736,7 +4624,7 @@ function buildShip(scene: THREE.Scene, layout: WalkLayout, props: ArkWalkProps, 
   });
 
   return {
-    interactables, animated, notices, heartGroup, heartTarget, heartLight, gimbals, obstacles, stage, soundPlaces, baySound, recrew, rerecord,
+    interactables, animated, notices, star, heartTarget, heartLight, obstacles, stage, soundPlaces, baySound, recrew, rerecord,
     /** Keep someone facing the drone until then (ms), while it talks with them. */
     attend: (id: string, until: number) => attention.set(id, until),
     talkers: () => talkers,
@@ -5131,6 +5019,7 @@ export default function ArkWalk(props: ArkWalkProps) {
       const height = Math.max(1, Math.floor(mount.clientHeight / PIXEL_SCALE));
       renderer.setSize(width, height, false);
       feedTarget.setSize(width, height);
+      ship.star.setScreen(height);
       feedMaterial.uniforms.resolution.value.set(width, height);
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
@@ -5917,6 +5806,7 @@ export default function ArkWalk(props: ArkWalkProps) {
         }),
         /** Straight down to Pelagos, as boarding the second recon ship does. */
         planet: () => openPlanet(),
+        star: () => ship.star.info,
         /** Where the drone is, and how wide it sees (wider mid-dash). */
         where: () => ({ deck: deckIndex, x, z, yaw, fov: camera.fov }),
         /** Everyone aboard the drone can talk to: where they are, and whether they are free. */
@@ -5950,8 +5840,6 @@ export default function ArkWalk(props: ArkWalkProps) {
     raycaster.far = 14;
     const center = new THREE.Vector2(0, 0);
     const consolePosition = new THREE.Vector3();
-    const period = Math.max(600, initial.beatPeriodMs);
-    let lastBeat = -1;
     let previous = performance.now();
     let frame = 0;
     /** The interactable a hit belongs to: the object itself or the nearest ancestor that is one. */
@@ -6097,23 +5985,11 @@ export default function ArkWalk(props: ArkWalkProps) {
         objectiveRef.current.hidden = goal === "";
       }
 
-      // The Law-Heart beats; close enough and AXIOM hears it. Its gimbals flare on each beat.
-      const sincePeriod = now % period;
-      const beatIndex = Math.floor(now / period);
-      if (beatIndex !== lastBeat) {
-        lastBeat = beatIndex;
-        if (Math.hypot(x - heart.x, eyeY - heart.y, z - heart.z) < 14) schedulePulseBeat(now, 0.3);
-      }
-      const lub = Math.exp(-sincePeriod / 110);
-      const dub = sincePeriod > 170 ? 0.45 * Math.exp(-(sincePeriod - 170) / 90) : 0;
+      // The Law-Heart beats; close enough and AXIOM hears it, and the room breathes with it.
       strikeFlash = Math.max(0, strikeFlash - dt * 3);
-      const throb = reducedMotion ? 0 : lub + dub;
-      ship.heartGroup.scale.setScalar(1 + throb * 0.08 + strikeFlash * 0.15);
-      ship.heartGroup.rotation.y += dt * 0.2;
-      for (const ring of ship.gimbals) {
-        (ring.material as THREE.MeshLambertMaterial).emissiveIntensity = (ship.stage === 0 ? 0.1 : 0.25) + throb * 0.9 + strikeFlash;
-      }
-      ship.heartLight.intensity = (ship.stage === 0 ? 2 : 14) + throb * 6 + strikeFlash * 8;
+      const { swell, beat } = ship.star.update(now, dt, camera, strikeFlash, reducedMotion);
+      if (beat && Math.hypot(x - heart.x, eyeY - heart.y, z - heart.z) < 22) schedulePulseBeat(now, 0.3);
+      ship.heartLight.intensity = (ship.stage === 0 ? 3 : 26) * (1 + swell * 0.75);
       const drone = { x, z, deck: deckIndex, dt };
       // Sound starts with the first press (browsers insist), then follows the drone.
       soundscape ??= createSoundscape(ship.soundPlaces, () => ship.baySound);
