@@ -211,14 +211,14 @@ test("clearing a wave drills the Security trainees: more on harder settings, cap
 });
 
 const alien = (id: number, kind: "stalker" | "spitter" | "brute" | "harrier", x: number, z: number, health = 10) =>
-  ({ id, kind, x, z, health, maxHealth: health, cooldown: 0, screamIn: 99, circle: 1 as const, ...(kind === "harrier" ? { height: HARRIER_CRUISE, dive: false } : {}) });
+  ({ id, kind, x, z, health, maxHealth: health, cooldown: 0, screamIn: 99, circle: 1 as const, ...(kind === "harrier" ? { height: HARRIER_CRUISE, volley: 0 } : {}) });
 const quiet = (state: SimState) => {
   state.roster = [];
   state.nextArrival = Infinity;
   state.pickups = [];
 };
 
-test("harriers circle overhead out of reach, then dive at AXIOM and strike", () => {
+test("harriers hold the sky and shoot down at AXIOM, and never come down", () => {
   assert.ok(waveRoster("soldier", 2).includes("harrier"), "they join from the second wave");
   assert.ok(!waveRoster("soldier", 1).includes("harrier"));
   const state = createSim("soldier", seeded(1));
@@ -228,8 +228,43 @@ test("harriers circle overhead out of reach, then dive at AXIOM and strike", () 
   const harrier = state.aliens[0];
   assert.ok((harrier.height ?? 0) > 5, "it keeps high while it circles");
   assert.equal(state.player.health, state.player.maxHealth);
-  run(state, 6);
-  assert.ok(types(state).includes("strike") || state.player.health < state.player.maxHealth, "then it comes down and claws");
+  let lowest = Infinity;
+  let fired = 0;
+  let hurt = false;
+  for (let step = 0; step < 240; step += 1) {
+    run(state, 0.05);
+    lowest = Math.min(lowest, state.aliens[0].height ?? 0);
+    fired += state.events.filter((event) => event.type === "bolt").length;
+    hurt ||= state.player.health < state.player.maxHealth;
+    state.events.length = 0;
+  }
+  assert.ok(lowest > 5, "it never comes down");
+  assert.ok(fired >= 3, "it shoots in volleys");
+  assert.ok(hurt, "and standing still gets AXIOM hit");
+});
+
+test("a bolt from the sky can be dodged, and moving makes it miss", () => {
+  const still = createSim("soldier", seeded(3));
+  quiet(still);
+  still.bolts.push({ id: 90, x: 0, y: 3, z: 0, dx: 0, dy: -20, dz: 0, toX: 0, toZ: 0 });
+  run(still, 0.4);
+  assert.ok(still.player.health < still.player.maxHealth, "it lands on someone standing under it");
+  assert.equal(still.bolts.length, 0, "and it is spent");
+
+  const dashing = createSim("soldier", seeded(3));
+  quiet(dashing);
+  dashing.player.dodgeUntil = 99;
+  dashing.bolts.push({ id: 91, x: 0, y: 3, z: 0, dx: 0, dy: -20, dz: 0, toX: 0, toZ: 0 });
+  run(dashing, 0.4);
+  assert.equal(dashing.player.health, dashing.player.maxHealth, "a dash carries AXIOM through it");
+
+  const away = createSim("soldier", seeded(3));
+  quiet(away);
+  away.player.x = 6;
+  away.bolts.push({ id: 92, x: 0, y: 3, z: 0, dx: 0, dy: -20, dz: 0, toX: 0, toZ: 0 });
+  run(away, 0.4);
+  assert.equal(away.player.health, away.player.maxHealth, "out of the blast it does nothing");
+  assert.ok(types(away).includes("blast"), "but it bursts on the ground");
 });
 
 test("nothing on the ground reaches AXIOM up in the air", () => {

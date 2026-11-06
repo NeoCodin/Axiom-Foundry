@@ -9,6 +9,7 @@
  */
 
 import * as THREE from "three";
+import { beastBuilder } from "./ark-sim-beasts";
 
 import { carbineReadout, DEFAULT_LOADOUT, OPTICS, switchLaw, type CarbineForm, type CarbineLoadout } from "./arc-carbine";
 import { createArcs, dressCarbine, heatColour } from "./arc-carbine-model";
@@ -178,11 +179,12 @@ type AlienModel = {
   flash: number;
   lunge: number;
   step: number;
-  /** A head that twitches, a jaw that opens too far, a harrier's wings, and too many eyes. */
+  /** A head that twitches, a jaw that opens too far, a harrier's wings, too many eyes, and glands that swell. */
   head: THREE.Object3D | null;
   jaw: THREE.Object3D | null;
   wings: THREE.Object3D[];
   eyes: THREE.Object3D[];
+  glands: THREE.Object3D[];
   /** The Null losing track of it: where it hung for a moment, and the afterimage left there. */
   held: { x: number; y: number; z: number; until: number } | null;
   nextStutter: number;
@@ -410,123 +412,11 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
   const ghostMaterial = glow("#9a6aff", { transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending });
   const toothMaterial = glow("#e8e0d0");
   const mouthMaterial = glow("#ff2a4a");
-  /**
-   * The simulation's aliens, Null-touched: near-black hides with a sick light in their seams,
-   * too many eyes, mouths that open too far. The stalker runs low on six legs that bend up
-   * before they bend down; the spitter is a swollen sac with a mouth in it; the brute walks
-   * hunched on its knuckles with light through its ribs; the harrier hangs under two long
-   * wings with a whip of a tail.
-   */
+  /** The simulation's creatures (ark-sim-beasts.ts), each with an afterimage for when the Null loses track of it. */
+  const makeBeast = beastBuilder(keep);
   const buildAlien = (id: number, kind: AlienKind): AlienModel => {
-    const group = new THREE.Group();
-    group.rotation.order = "YXZ";
+    const { group, legs, arms, skin, head, jaw, wings, eyes, glands } = makeBeast(kind);
     group.userData.alienId = id;
-    const skin = lambert({ stalker: "#1d1226", spitter: "#24122a", brute: "#24100e", harrier: "#151020" }[kind], { emissive: new THREE.Color("#ffffff"), emissiveIntensity: 0 });
-    const plate = lambert({ stalker: "#3a2050", spitter: "#4a2448", brute: "#4a2a24", harrier: "#2c2040" }[kind]);
-    const seam = glow({ stalker: "#b46cff", spitter: "#c8f04a", brute: "#ff5a3a", harrier: "#8ad0ff" }[kind]);
-    const eyeMaterial = glow(kind === "brute" ? "#ff3a2a" : kind === "harrier" ? "#e8f4ff" : "#ffe34a");
-    const legs: THREE.Object3D[] = [];
-    const arms: THREE.Object3D[] = [];
-    const eyes: THREE.Object3D[] = [];
-    const wings: THREE.Object3D[] = [];
-    let head: THREE.Object3D | null = null;
-    let jaw: THREE.Object3D | null = null;
-    /** A cluster of eyes, set unevenly, as if more grew wherever there was room. */
-    const eyeCluster = (parent: THREE.Object3D, x: number, y: number, z: number, count: number, spread: number) => {
-      for (let index = 0; index < count; index += 1) {
-        const angle = (index / count) * Math.PI * 2 + index * 0.7;
-        const far = index % 2 === 0 ? 1 : 0.5;
-        const size = 0.05 + (index % 3) * 0.02;
-        eyes.push(part(parent, size, size, 0.04, eyeMaterial, x + Math.cos(angle) * spread * far, y + Math.sin(angle) * spread * 0.7 * far, z));
-      }
-    };
-    if (kind === "stalker") {
-      part(group, 0.7, 0.5, 1.9, skin, 0, 1.0, 0);
-      for (let spine = 0; spine < 6; spine += 1) part(group, 0.08, 0.32 + (spine % 2) * 0.14, 0.12, seam, 0, 1.4, -0.75 + spine * 0.3);
-      head = pivot(group, 0, 1.05, 1.0);
-      part(head, 0.5, 0.36, 0.7, skin, 0, 0.1, 0.28);
-      part(head, 0.4, 0.06, 0.5, mouthMaterial, 0, -0.06, 0.32);
-      jaw = pivot(head, 0, -0.1, 0.05);
-      part(jaw, 0.46, 0.12, 0.66, plate, 0, -0.06, 0.3);
-      for (let tooth = 0; tooth < 4; tooth += 1) part(jaw, 0.04, 0.14, 0.04, toothMaterial, -0.15 + tooth * 0.1, 0.05, 0.6);
-      eyeCluster(head, 0, 0.22, 0.64, 6, 0.16);
-      for (const side of [-1, 1]) {
-        for (const along of [-0.62, 0, 0.62]) {
-          const hip = pivot(group, side * 0.34, 1.05, along);
-          const thigh = part(hip, 0.1, 0.9, 0.1, skin, side * 0.32, 0.3, 0);
-          thigh.rotation.z = -side * 0.95;
-          const shin = part(hip, 0.08, 1.35, 0.08, plate, side * 0.74, -0.38, 0);
-          shin.rotation.z = side * 0.22;
-          legs.push(hip);
-        }
-      }
-      const tail = part(group, 0.14, 0.14, 1.3, skin, 0, 1.1, -1.5);
-      tail.rotation.x = -0.6;
-    } else if (kind === "spitter") {
-      const sac = new THREE.Mesh(keep(new THREE.IcosahedronGeometry(0.78, 1)), skin);
-      sac.position.y = 1.4;
-      group.add(sac);
-      const acid = glow("#c8f04a");
-      for (const [x, y, z] of [[0.45, 1.55, 0.3], [-0.4, 1.2, 0.42], [0.12, 1.9, -0.25], [-0.3, 1.7, -0.45], [0.5, 1.1, -0.2]]) part(group, 0.18, 0.18, 0.18, acid, x, y, z);
-      head = pivot(group, 0, 1.35, 0.66);
-      part(head, 0.34, 0.24, 0.08, mouthMaterial, 0, 0, 0.06);
-      jaw = pivot(head, 0, -0.1, 0);
-      part(jaw, 0.38, 0.1, 0.24, plate, 0, -0.05, 0.1);
-      for (let tooth = 0; tooth < 5; tooth += 1) part(jaw, 0.035, 0.1, 0.035, toothMaterial, -0.14 + tooth * 0.07, 0.04, 0.2);
-      eyeCluster(head, 0, 0.36, 0.1, 9, 0.26);
-      for (let index = 0; index < 4; index += 1) {
-        const angle = (index / 4) * Math.PI * 2 + 0.4;
-        const leg = pivot(group, Math.sin(angle) * 0.5, 0.9, Math.cos(angle) * 0.5);
-        leg.rotation.y = angle;
-        const tendril = part(leg, 0.1, 1.0, 0.1, plate, 0, -0.45, 0.16);
-        tendril.rotation.x = 0.35;
-        legs.push(leg);
-      }
-    } else if (kind === "brute") {
-      for (const side of [-1, 1]) {
-        const leg = pivot(group, side * 0.45, 1.25, -0.2);
-        part(leg, 0.5, 1.25, 0.55, skin, 0, -0.62, 0);
-        part(leg, 0.6, 0.15, 0.75, plate, 0, -1.2, 0.1);
-        legs.push(leg);
-        const arm = pivot(group, side * 1.0, 2.55, 0.45);
-        part(arm, 0.5, 2.2, 0.5, skin, 0, -1.1, 0);
-        for (const claw of [-0.16, 0, 0.16]) part(arm, 0.07, 0.5, 0.07, toothMaterial, claw, -2.35, 0.14);
-        arms.push(arm);
-        part(group, 0.62, 0.35, 0.82, plate, side * 0.8, 2.78, 0.2);
-      }
-      const torso = part(group, 1.6, 1.4, 1.0, skin, 0, 2.05, 0.15);
-      torso.rotation.x = 0.35;
-      for (const rib of [1.75, 2.0, 2.25]) part(group, 1.3, 0.06, 0.04, seam, 0, rib, 0.7);
-      head = pivot(group, 0, 2.6, 0.78);
-      part(head, 0.62, 0.5, 0.6, skin, 0, 0, 0.1);
-      part(head, 0.46, 0.08, 0.06, mouthMaterial, 0, -0.16, 0.4);
-      jaw = pivot(head, 0, -0.2, 0.05);
-      part(jaw, 0.56, 0.16, 0.58, plate, 0, -0.06, 0.12);
-      for (let tooth = 0; tooth < 5; tooth += 1) part(jaw, 0.05, 0.16, 0.05, toothMaterial, -0.2 + tooth * 0.1, 0.06, 0.38);
-      eyeCluster(head, 0, 0.16, 0.42, 7, 0.21);
-    } else {
-      part(group, 0.32, 0.3, 1.4, skin, 0, 0, 0);
-      head = pivot(group, 0, 0.05, 0.75);
-      part(head, 0.3, 0.26, 0.4, skin, 0, 0, 0.15);
-      part(head, 0.22, 0.06, 0.2, mouthMaterial, 0, -0.08, 0.26);
-      jaw = pivot(head, 0, -0.1, 0.05);
-      part(jaw, 0.26, 0.08, 0.36, plate, 0, -0.03, 0.17);
-      eyeCluster(head, 0, 0.07, 0.36, 5, 0.1);
-      for (const side of [-1, 1]) {
-        const wing = pivot(group, side * 0.16, 0.08, 0.1);
-        part(wing, 1.9, 0.03, 0.9, plate, side * 1.0, 0, -0.1);
-        part(wing, 1.9, 0.06, 0.06, seam, side * 1.0, 0.03, 0.34);
-        for (const rib of [0.6, 1.3]) part(wing, 0.04, 0.04, 0.6, skin, side * rib, -0.02, -0.45);
-        wings.push(wing);
-      }
-      const tail = part(group, 0.06, 0.06, 1.7, seam, 0, -0.02, -1.45);
-      tail.rotation.x = 0.15;
-      for (const side of [-1, 1]) {
-        const claw = pivot(group, side * 0.12, -0.16, 0.25);
-        part(claw, 0.05, 0.55, 0.05, toothMaterial, 0, -0.27, 0);
-        arms.push(claw);
-      }
-    }
     // Its afterimage: the same shape in the Null's violet, left behind where it stuttered.
     const ghost = group.clone(true);
     ghost.traverse((object) => {
@@ -538,8 +428,8 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
     scene.add(ghost);
     scene.add(group);
     return {
-      group, legs, arms, skin: [skin], kind, flash: 0, lunge: 0, step: random() * 10,
-      head, jaw, wings, eyes, held: null, nextStutter: performance.now() + 1000 + random() * 3000,
+      group, legs, arms, skin, kind, flash: 0, lunge: 0, step: random() * 10,
+      head, jaw, wings, eyes, glands, held: null, nextStutter: performance.now() + 1000 + random() * 3000,
       ghost, ghostUntil: 0, twitch: 0, twitchUntil: 0, blinkUntil: 0, screamUntil: 0,
     };
   };
@@ -548,6 +438,11 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
   const spitMeshes = new Map<number, THREE.Mesh>();
   const spitGeometry = keep(new THREE.IcosahedronGeometry(0.18, 0));
   const spitMaterial = glow("#c8f04a");
+  const boltMeshes = new Map<number, { head: THREE.Mesh; mark: THREE.Mesh; start: number }>();
+  const boltGeometry = keep(new THREE.BoxGeometry(0.16, 0.16, 1.5));
+  const boltMaterial = glow("#ff9ae8");
+  const boltMarkGeometry = keep(new THREE.RingGeometry(0.72, 1, 18));
+  const boltMarkMaterial = glow("#ff9ae8", { transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false });
   const pickupMeshes = new Map<number, THREE.Group>();
   const buildPickup = (kind: "cell" | "health") => {
     const group = inert(new THREE.Group());
@@ -988,6 +883,7 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
       } else if (event.type === "scream" || event.type === "spawn") {
         const at = heard(event.x, 1.5, event.z);
         audio?.scream(event.kind, at.pan, at.gain * (event.type === "spawn" ? 0.7 : 1));
+        if (event.type === "spawn" && event.kind === "brute") audio?.arrival(at.pan);
         // The one that screamed opens its mouth: the nearest of its kind to where the sound came from.
         let screamer: AlienModel | null = null;
         for (const candidate of models.values()) {
@@ -1011,6 +907,13 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
       } else if (event.type === "spit") {
         const at = heard(event.x, 1.2, event.z);
         audio?.spit(at.pan, at.gain);
+      } else if (event.type === "bolt") {
+        const at = heard(event.x, event.y, event.z);
+        audio?.bolt(at.pan, at.gain);
+      } else if (event.type === "blast") {
+        const at = heard(event.x, 0.5, event.z);
+        audio?.blast(at.pan, at.gain);
+        burst(event.x, levelAt(event.x, event.z) + 0.4, event.z, "#ffb0f0");
       } else if (event.type === "hurt") {
         hurt = 1;
         shake = reducedMotion ? 0 : 1;
@@ -1061,7 +964,7 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
       const toX = alien.x + Math.sin(facing) * lungeOffset;
       const toZ = alien.z + Math.cos(facing) * lungeOffset;
       let toY = levelAt(alien.x, alien.z) + (alien.height ?? 0);
-      if (flying && !alien.dive) toY += Math.sin(now * 0.004 + alien.id) * 0.25;
+      if (flying) toY += Math.sin(now * 0.004 + alien.id) * 0.25;
       if (alien.kind === "spitter") toY += Math.sin(now * 0.006 + alien.id) * 0.08;
       // The Null keeps losing track of them: now and then one hangs where it was for a moment,
       // then is suddenly where it is, leaving an afterimage behind.
@@ -1080,17 +983,24 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
       const moved = Math.hypot(toX - group.position.x, toZ - group.position.z);
       if (!model.held) group.position.set(toX, toY, toZ);
       group.rotation.y = facing;
-      group.rotation.x = flying && alien.dive ? 0.55 : 0;
+      group.rotation.x = 0;
       model.step += moved * 3.2;
       model.legs.forEach((leg, index) => { leg.rotation.x = Math.sin(model!.step + index * Math.PI * 0.5) * (moved > 0.0005 ? 0.6 : 0.1); });
-      model.arms.forEach((arm, index) => { arm.rotation.x = -model!.lunge * 2.2 + Math.sin(model!.step + index * Math.PI) * 0.3; });
-      // A harrier's wings beat while it circles and fold back for the dive.
+      if (flying) model.arms.forEach((tendril, index) => { tendril.rotation.x = Math.sin(now * 0.002 + index * 1.3 + alien.id) * 0.32; });
+      else model.arms.forEach((arm, index) => { arm.rotation.x = -model!.lunge * 2.2 + Math.sin(model!.step + index * Math.PI) * 0.3; });
+      // Glands fill and empty; a harrier's swells bright with each shot.
+      model.glands.forEach((gland, index) => {
+        const base = gland.userData.base ?? gland.scale.clone();
+        gland.userData.base = base;
+        gland.scale.copy(base).multiplyScalar(1 + Math.sin(now * 0.005 + index + alien.id) * 0.07 + (alien.cooldown < 0.5 && flying ? 0.32 : 0));
+      });
+      // A harrier's wings beat while it holds the air.
       model.wings.forEach((wing, index) => {
         const side = index === 0 ? -1 : 1;
-        wing.rotation.z = alien.dive ? side * -0.95 : side * Math.sin(now * 0.013 + alien.id) * 0.65;
+        wing.rotation.z = side * Math.sin(now * 0.013 + alien.id) * 0.65;
       });
-      // Mouths open to scream, to strike and to dive; heads twitch; the eyes go out and come back.
-      if (model.jaw) model.jaw.rotation.x = 0.1 + model.lunge * 0.9 + (now < model.screamUntil ? 0.75 : 0) + (alien.dive ? 0.5 : 0);
+      // Mouths open to scream and to strike; heads twitch; the eyes go out and come back.
+      if (model.jaw) model.jaw.rotation.x = 0.1 + model.lunge * 0.9 + (now < model.screamUntil ? 0.75 : 0);
       if (model.head && !reducedMotion) {
         if (now > model.twitchUntil && random() < dt * 0.9) {
           model.twitch = (random() - 0.5) * 1.1;
@@ -1116,6 +1026,25 @@ export function createSimWorld(difficulty: SimDifficulty, { reducedMotion = fals
         spitMeshes.set(blob.id, mesh);
       }
       mesh.position.set(blob.x, levelAt(blob.x, blob.z) + 1.2, blob.z);
+    }
+    // A harrier's bolts, each with a mark on the ground where it will land.
+    for (const [id, bolt] of boltMeshes) {
+      if (state.bolts.some((candidate) => candidate.id === id)) continue;
+      scene.remove(bolt.head, bolt.mark);
+      boltMeshes.delete(id);
+    }
+    for (const bolt of state.bolts) {
+      let drawn = boltMeshes.get(bolt.id);
+      if (!drawn) {
+        drawn = { head: inert(new THREE.Mesh(boltGeometry, boltMaterial)), mark: inert(new THREE.Mesh(boltMarkGeometry, boltMarkMaterial)), start: bolt.y };
+        drawn.mark.rotation.x = -Math.PI / 2;
+        drawn.mark.position.set(bolt.toX, levelAt(bolt.toX, bolt.toZ) + 0.06, bolt.toZ);
+        scene.add(drawn.head, drawn.mark);
+        boltMeshes.set(bolt.id, drawn);
+      }
+      drawn.head.position.set(bolt.x, levelAt(bolt.x, bolt.z) + bolt.y, bolt.z);
+      drawn.head.lookAt(bolt.x + bolt.dx, levelAt(bolt.x, bolt.z) + bolt.y + bolt.dy, bolt.z + bolt.dz);
+      drawn.mark.scale.setScalar(0.45 + (bolt.y / drawn.start) * 1.1);
     }
     for (const [id, group] of pickupMeshes) {
       if (state.pickups.some((pickup) => pickup.id === id)) continue;

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { createPixelFinish } from "./pixel-finish";
 
 import type { ArkCutawayRoomKind } from "./ark-cutaway";
 import { drawPixelWorldSurface, PIXEL_WORLD_DAY_SECONDS } from "./ark-pixel-world";
@@ -5091,6 +5092,7 @@ export default function ArkWalk(props: ArkWalkProps) {
       depthTest: false,
       depthWrite: false,
     });
+    const simFinish = createPixelFinish(renderer);
     const feedScene = new THREE.Scene();
     feedScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), feedMaterial));
     const feedCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -5958,7 +5960,7 @@ export default function ArkWalk(props: ArkWalkProps) {
           }, now);
         }
         soundscape?.update({ x: 1e6, y: 0, z: 1e6, yaw, deck: deckIndex, speed: 0 });
-        renderer.render(sim.scene, sim.camera);
+        simFinish.render(sim.scene, sim.camera);
         drawSimHud();
         return;
       }
@@ -6224,6 +6226,7 @@ export default function ArkWalk(props: ArkWalkProps) {
       soundscape?.dispose();
       feedTarget.dispose();
       feedMaterial.dispose();
+      simFinish.dispose();
       renderer.dispose();
       renderer.domElement.remove();
     };

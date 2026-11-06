@@ -1,13 +1,14 @@
 /*
  * The combat simulation's sound, synthesized like the rest of the game's: the
  * training carbine's crack and zap, its click when empty and the clack of a
- * reload; each kind of alien's own scream (a stalker's rising shriek, a
- * spitter's gurgle, a brute's roar), their strikes and their dying; a hit taken,
- * a pickup, a new wave, and the jungle itself breathing with insects and far
- * birds. Sounds are placed left or right and fade with distance by the caller.
+ * reload; each creature's cries (ark-sim-cries.ts), their strikes and their dying;
+ * a hit taken, a pickup, a new wave, and the jungle itself, breathing with insects
+ * until something big arrives and it goes quiet, with calls far off from things
+ * never seen. Sounds are placed left or right and fade with distance by the caller.
  */
 
 import { getPulseAudioOutput, getPulseNoise } from "./law-heart-audio";
+import { cry, distantCall, echoSpace, type CryOutput } from "./ark-sim-cries";
 import type { CarbineForm } from "./arc-carbine";
 import type { AlienKind } from "./ark-sim-rules";
 
@@ -43,7 +44,12 @@ export type SimAudio = {
   scream(kind: AlienKind, pan: number, gain: number): void;
   strike(kind: AlienKind, pan: number, gain: number): void;
   kill(kind: AlienKind, pan: number, gain: number): void;
+  /** Something very big has come: the jungle goes silent, and it calls. */
+  arrival(pan: number): void;
   spit(pan: number, gain: number): void;
+  /** A harrier's bolt leaving it, and bursting on the ground. */
+  bolt(pan: number, gain: number): void;
+  blast(pan: number, gain: number): void;
   dispose(): void;
 };
 
@@ -54,8 +60,22 @@ export function createSimAudio(): SimAudio | null {
   const { context } = output;
   const bus = context.createGain();
   bus.gain.value = 0.9;
-  bus.connect(output.master);
+  // Cries are loud and stack up; this keeps a crowd of them from clipping.
+  const limiter = context.createDynamicsCompressor();
+  limiter.threshold.value = -14;
+  limiter.ratio.value = 8;
+  limiter.attack.value = 0.004;
+  limiter.release.value = 0.2;
+  bus.connect(limiter).connect(output.master);
   const noise = getPulseNoise(output);
+  const echo = context.createConvolver();
+  echo.buffer = echoSpace(context);
+  const echoLevel = context.createGain();
+  echoLevel.gain.value = 0.45;
+  echo.connect(echoLevel).connect(bus);
+  const cries: CryOutput = { context, dry: bus, wet: echo, noise };
+  let lastCry = 0;
+  let hushUntil = 0;
   const timers = new Set<number>();
   let disposed = false;
 
@@ -124,42 +144,16 @@ export function createSimAudio(): SimAudio | null {
     source.stop(when + options.attack + options.decay + 0.05);
   };
 
+  /** One creature at a time gets to be heard clearly: a crowd would only be a wall of noise. */
   const scream = (kind: AlienKind, pan: number, gain: number, dying = false) => {
     if (gain < 0.02) return;
-    const scale = dying ? 0.8 : 1;
-    if (kind === "stalker") {
-      // A shriek that climbs and breaks.
-      voice({
-        type: "sawtooth", path: dying ? [[0, 1300], [0.4, 260]] : [[0, 520], [0.12, 1350], [0.55, 700]],
-        peak: 0.11 * gain, attack: 0.02, decay: dying ? 0.4 : 0.55, pan, warble: [28, 80], filter: ["bandpass", 1400, 3],
-      });
-      hiss({ filter: ["bandpass", 2200, 2], peak: 0.05 * gain * scale, attack: 0.01, decay: 0.3, pan });
-    } else if (kind === "spitter") {
-      // A wet, warbling gurgle.
-      voice({
-        type: "square", path: dying ? [[0, 500], [0.35, 120]] : [[0, 260], [0.15, 520], [0.45, 300]],
-        peak: 0.07 * gain, attack: 0.02, decay: 0.45, pan, warble: [14, 120], filter: ["bandpass", 900, 5],
-      });
-      hiss({ filter: ["bandpass", 700, 3], peak: 0.04 * gain, attack: 0.02, decay: 0.35, pan });
-    } else if (kind === "harrier") {
-      // A whistle that falls as it dives, with a rattle under it.
-      voice({
-        type: "sine", path: dying ? [[0, 1800], [0.5, 300]] : [[0, 2600], [0.5, 900], [0.8, 1400]],
-        peak: 0.07 * gain, attack: 0.03, decay: 0.8, pan, warble: [36, 60],
-      });
-      voice({ type: "sawtooth", path: [[0, 300], [0.6, 180]], peak: 0.03 * gain, attack: 0.05, decay: 0.6, pan, warble: [22, 40], filter: ["bandpass", 1100, 4] });
-    } else {
-      // A roar from deep in the chest.
-      voice({
-        type: "sawtooth", path: dying ? [[0, 140], [0.8, 40]] : [[0, 110], [0.3, 130], [0.8, 72]],
-        peak: 0.16 * gain, attack: 0.05, decay: 0.85, pan, warble: [9, 10], filter: ["lowpass", 700, 1],
-      });
-      voice({ type: "square", path: [[0, 55], [0.8, 40]], peak: 0.07 * gain, attack: 0.05, decay: 0.8, pan, filter: ["lowpass", 300, 1] });
-      hiss({ filter: ["lowpass", 450, 1], peak: 0.07 * gain, attack: 0.05, decay: 0.7, pan });
-    }
+    const now = context.currentTime;
+    if (!dying && now - lastCry < 0.28) return;
+    lastCry = now;
+    cry(cries, kind, dying ? "die" : "hunt", pan, Math.min(1, gain * 1.1));
   };
 
-  // The jungle: wind in the leaves, insects in bursts, now and then a far bird.
+  // The jungle: wind in the leaves, insects in bursts, now and then a far bird, until it stops.
   const wind = context.createBufferSource();
   wind.buffer = noise;
   wind.loop = true;
@@ -192,6 +186,10 @@ export function createSimAudio(): SimAudio | null {
   };
   const chirp = () => {
     const pan = Math.random() * 2 - 1;
+    if (context.currentTime < hushUntil) {
+      later(chirp, 800);
+      return;
+    }
     if (Math.random() < 0.7) {
       const pitch = 3200 + Math.random() * 2400;
       for (let pip = 0; pip < 3 + Math.floor(Math.random() * 4); pip += 1) {
@@ -204,6 +202,12 @@ export function createSimAudio(): SimAudio | null {
     later(chirp, 1_500 + Math.random() * 3_500);
   };
   later(chirp, 800);
+  // Far off, now and then, something is calling. Nothing ever comes of it.
+  const farCall = () => {
+    distantCall(cries, (Math.random() * 2 - 1) * 0.8, 0.7 + Math.random() * 0.5);
+    later(farCall, 24_000 + Math.random() * 30_000);
+  };
+  later(farCall, 9_000 + Math.random() * 8_000);
 
   return {
     gun(form = "conservation", suppressed = false) {
@@ -317,14 +321,28 @@ export function createSimAudio(): SimAudio | null {
     },
     kill(kind, pan, gain) {
       scream(kind, pan, gain, true);
-      // The simulation takes it apart: a falling arpeggio of squares.
+      // The simulation takes it apart, quietly, under the cry.
       [880, 587, 440, 294].forEach((pitch, step) => {
-        voice({ type: "square", at: step * 0.05, path: [[0, pitch]], peak: 0.03 * gain, attack: 0.003, decay: 0.06, pan });
+        voice({ type: "square", at: 0.25 + step * 0.05, path: [[0, pitch]], peak: 0.012 * gain, attack: 0.003, decay: 0.06, pan });
       });
+    },
+    arrival(pan) {
+      hushUntil = context.currentTime + 11;
+      windGain.gain.setTargetAtTime(0.012, context.currentTime, 0.4);
+      windGain.gain.setTargetAtTime(0.035, context.currentTime + 11, 2);
+      distantCall(cries, pan, 2.2);
     },
     spit(pan, gain) {
       voice({ type: "sine", path: [[0, 320], [0.15, 110]], peak: 0.12 * gain, attack: 0.005, decay: 0.16, pan });
       hiss({ filter: ["bandpass", 650, 3], peak: 0.06 * gain, attack: 0.005, decay: 0.15, pan });
+    },
+    bolt(pan, gain) {
+      voice({ type: "sawtooth", path: [[0, 2_400], [0.5, 340]], peak: 0.07 * gain, attack: 0.01, decay: 0.5, pan, filter: ["bandpass", 1_500, 3] });
+      hiss({ filter: ["highpass", 2_600, 0.8], peak: 0.05 * gain, attack: 0.005, decay: 0.3, pan });
+    },
+    blast(pan, gain) {
+      voice({ type: "sine", path: [[0, 120], [0.3, 38]], peak: 0.3 * gain, attack: 0.004, decay: 0.34, pan });
+      hiss({ filter: ["lowpass", 1_400, 0.8], peak: 0.15 * gain, attack: 0.004, decay: 0.3, pan });
     },
     dispose() {
       disposed = true;

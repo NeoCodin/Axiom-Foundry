@@ -4,7 +4,7 @@
  * alien things that scream and charge. Crew drill in it; AXIOM can step in too.
  *
  * Waves of aliens come out of the jungle: stalkers that run you down, spitters
- * that hang back and lob acid, harriers that circle overhead and dive, and brutes
+ * that hang back and lob acid, harriers that hold the sky and shoot down, and brutes
  * that take a cell to drop. AXIOM's sim-body is no person and moves like it: it
  * dashes through blows, punches acid back where it came from, slams down from the
  * air, and hauls itself about on a Containment tether (the drawing code moves it;
@@ -103,13 +103,20 @@ export const ALIENS: Record<AlienKind, {
   stalker: { health: 3, speed: 5, damage: 12, reach: 1.8, cooldown: 0.9, radius: 0.6, score: 100 },
   spitter: { health: 2, speed: 3, damage: 9, reach: 11, cooldown: 2.2, radius: 0.7, score: 150 },
   brute: { health: 10, speed: 2.6, damage: 26, reach: 2.3, cooldown: 1.6, radius: 1.1, score: 400 },
-  // Its reach is how close its dive has to come, in the air as on the ground.
-  harrier: { health: 2, speed: 6.5, damage: 10, reach: 1.7, cooldown: 2.8, radius: 0.7, score: 175 },
+  // It never comes down: its damage is a bolt's, and its cooldown the wait between volleys.
+  harrier: { health: 2, speed: 6.5, damage: 10, reach: 1.7, cooldown: 3.4, radius: 0.7, score: 175 },
 };
 
-/** How high a harrier circles, and how far out from AXIOM it keeps while it does. */
-export const HARRIER_CRUISE = 6.5;
-const HARRIER_RING = 9;
+/** How high a harrier holds, and how far out from AXIOM it keeps while it circles. */
+export const HARRIER_CRUISE = 8.5;
+const HARRIER_RING = 14;
+/** Bolts in a volley, the gap between them, and how fast they fall. */
+export const VOLLEY = 3;
+const VOLLEY_GAP = 0.32;
+const BOLT_SPEED = 21;
+/** A bolt hits anything this close to its path, and bursts this wide on the ground. */
+const BOLT_HIT = 0.9;
+export const BOLT_SPLASH = 1.7;
 /** Feet higher off the ground than this, and nothing on the ground can reach AXIOM. */
 export const STRIKE_HEIGHT = 2.4;
 /** The Conservation strike: its reach and arc, what it does, and how often. */
@@ -147,13 +154,15 @@ export type SimAlien = {
   screamIn: number;
   /** A spitter's or harrier's preferred side when circling. */
   circle: 1 | -1;
-  /** A harrier's height above the ground, and whether it is diving. */
+  /** A harrier's height above the ground, and the bolts left in its volley. */
   height?: number;
-  dive?: boolean;
+  volley?: number;
 };
 
 /** Acid in flight; reflected once a punch has sent it back. */
 export type SimSpit = { id: number; x: number; z: number; dx: number; dz: number; life: number; reflected?: boolean };
+/** A harrier's shot, falling from the sky toward where AXIOM was headed. */
+export type SimBolt = { id: number; x: number; y: number; z: number; dx: number; dy: number; dz: number; toX: number; toZ: number };
 export type SimPickup = { id: number; kind: "cell" | "health"; x: number; z: number };
 
 export type SimEvent =
@@ -162,6 +171,9 @@ export type SimEvent =
   | { type: "cleared"; wave: number; drill: number }
   | { type: "spawn" | "scream" | "strike" | "kill"; kind: AlienKind; x: number; z: number }
   | { type: "spit"; x: number; z: number }
+  /** A harrier fired; a bolt burst on the ground. */
+  | { type: "bolt"; x: number; y: number; z: number }
+  | { type: "blast"; x: number; z: number }
   | { type: "hit"; kind: AlienKind; x: number; z: number }
   | { type: "hurt"; amount: number }
   | { type: "shot" | "dry" | "reload" | "reloaded" | "vent" | "vented" | "charged" | "punch" | "parry" | "slam" | "dodged" | "flux" | "resonant" | "death" }
@@ -218,6 +230,9 @@ export type SimState = {
   };
   aliens: SimAlien[];
   spit: SimSpit[];
+  bolts: SimBolt[];
+  /** Where AXIOM was last step and how fast it is going, for leading a shot. */
+  track: { x: number; z: number; vx: number; vz: number };
   pickups: SimPickup[];
   nextId: number;
   /** What happened since the drawing code last read them: sounds, flashes, banners. */
@@ -259,6 +274,8 @@ export function createSim(difficulty: SimDifficulty, random: () => number = Math
     },
     aliens: [],
     spit: [],
+    bolts: [],
+    track: { x: 0, z: 0, vx: 0, vz: 0 },
     pickups: [],
     nextId: 1,
     events: [],
@@ -302,7 +319,7 @@ function spawn(state: SimState, kind: AlienKind, random: () => number) {
     cooldown: 1,
     screamIn: 2 + random() * 5,
     circle: random() < 0.5 ? 1 : -1,
-    ...(kind === "harrier" ? { height: HARRIER_CRUISE, dive: false } : {}),
+    ...(kind === "harrier" ? { height: HARRIER_CRUISE, volley: 0 } : {}),
   });
   state.events.push({ type: "spawn", kind, x: at.x, z: at.z });
 }
@@ -373,7 +390,6 @@ export function punch(state: SimState, facingX: number, facingZ: number, random:
     alien.x = at.x;
     alien.z = at.z;
     alien.cooldown = Math.max(alien.cooldown, PUNCH.stagger);
-    if (alien.kind === "harrier") alien.dive = false;
   }
   let parried = 0;
   for (const blob of state.spit) {
@@ -434,11 +450,32 @@ export function tetherAlien(state: SimState, id: number): "pulled" | "anchored" 
   alien.x = at.x;
   alien.z = at.z;
   alien.cooldown = Math.max(alien.cooldown, 1.1);
-  if (alien.kind === "harrier") {
-    alien.dive = false;
-    alien.height = player.lift + 1;
-  }
+  if (alien.kind === "harrier") alien.height = player.lift + 1;
   return "pulled";
+}
+
+/** One bolt from a harrier, led toward where AXIOM will be when it lands, a little wide each shot. */
+function fireBolt(state: SimState, alien: SimAlien, random: () => number) {
+  const { player, track } = state;
+  const height = alien.height ?? HARRIER_CRUISE;
+  const travel = Math.hypot(player.x - alien.x, player.z - alien.z, height) / BOLT_SPEED;
+  const scatter = 0.6 + (VOLLEY - (alien.volley ?? 0)) * 0.9;
+  const angle = random() * Math.PI * 2;
+  const toX = player.x + track.vx * travel * 0.8 + Math.cos(angle) * scatter;
+  const toZ = player.z + track.vz * travel * 0.8 + Math.sin(angle) * scatter;
+  const length = Math.max(0.001, Math.hypot(toX - alien.x, toZ - alien.z, height));
+  state.bolts.push({
+    id: state.nextId++,
+    x: alien.x,
+    y: height,
+    z: alien.z,
+    dx: ((toX - alien.x) / length) * BOLT_SPEED,
+    dy: (-height / length) * BOLT_SPEED,
+    dz: ((toZ - alien.z) / length) * BOLT_SPEED,
+    toX,
+    toZ,
+  });
+  state.events.push({ type: "bolt", x: alien.x, y: height, z: alien.z });
 }
 
 /** A dash: for a moment nothing can touch the sim-body. */
@@ -456,6 +493,12 @@ export function stepSim(state: SimState, dt: number, random: () => number = Math
   const rules = SIM_DIFFICULTIES[state.difficulty];
   const player = state.player;
   state.time += dt;
+  if (dt > 0) {
+    state.track.vx = (player.x - state.track.x) / dt;
+    state.track.vz = (player.z - state.track.z) / dt;
+  }
+  state.track.x = player.x;
+  state.track.z = player.z;
 
   // The carbine: a cell swap finishes, the coils cool or vent, and under the dome (or off a power pack) the cell fills.
   const pack = state.course?.pack;
@@ -510,29 +553,22 @@ export function stepSim(state: SimState, dt: number, random: () => number = Math
         state.events.push({ type: "spit", x: alien.x, z: alien.z });
       }
     } else if (alien.kind === "harrier") {
-      // Circling overhead; when ready it folds its wings and dives at AXIOM, strikes, and climbs away.
+      // It holds the sky, circling wide, and shoots down at where AXIOM is headed. It never comes down.
       const height = alien.height ?? HARRIER_CRUISE;
-      // Under a low ceiling it circles lower.
+      // Under a low ceiling it holds lower.
       const cruise = Math.min(HARRIER_CRUISE, (state.course?.ceilingAt(alien.x, alien.z) ?? Infinity) - 1.5);
-      if (!alien.dive) {
-        const want = distance > HARRIER_RING + 2 ? 1 : distance < HARRIER_RING - 2 ? -1 : 0;
-        moveX = (dx / distance) * want + (-dz / distance) * alien.circle;
-        moveZ = (dz / distance) * want + (dx / distance) * alien.circle;
-        alien.height = height + (cruise - height) * Math.min(1, dt * 1.5);
-        if (alien.cooldown <= 0) {
-          alien.dive = true;
+      const want = distance > HARRIER_RING + 2 ? 1 : distance < HARRIER_RING - 2 ? -1 : 0;
+      moveX = (dx / distance) * want + (-dz / distance) * alien.circle;
+      moveZ = (dz / distance) * want + (dx / distance) * alien.circle;
+      alien.height = height + (cruise - height) * Math.min(1, dt * 1.5);
+      if (alien.cooldown <= 0) {
+        if (!alien.volley) {
+          alien.volley = VOLLEY;
           state.events.push({ type: "scream", kind: alien.kind, x: alien.x, z: alien.z });
         }
-      } else {
-        moveX = (dx / distance) * 1.5;
-        moveZ = (dz / distance) * 1.5;
-        const aim = player.lift + 1;
-        alien.height = height + (aim - height) * Math.min(1, dt * 3.5);
-        if (Math.hypot(distance, alien.height - aim) <= kind.reach) {
-          alien.dive = false;
-          alien.cooldown = kind.cooldown * (0.8 + random() * 0.4);
-          strike(state, alien);
-        }
+        fireBolt(state, alien, random);
+        alien.volley -= 1;
+        alien.cooldown = alien.volley > 0 ? VOLLEY_GAP : kind.cooldown * (0.8 + random() * 0.4);
       }
     } else if (distance > kind.reach * 0.8) {
       moveX = dx / distance;
@@ -597,6 +633,32 @@ export function stepSim(state: SimState, dt: number, random: () => number = Math
     }
   }
   state.spit = state.spit.filter((blob) => blob.life > 0);
+
+  // Bolts from the sky: they hit what is in their way, and burst where they meet the ground.
+  const boltDamage = ALIENS.harrier.damage * rules.bite;
+  const boltHurts = (amount: number) => {
+    if (state.time < player.dodgeUntil) {
+      state.events.push({ type: "dodged" });
+      return;
+    }
+    player.health -= amount;
+    player.hurtAt = state.time;
+    state.events.push({ type: "hurt", amount });
+  };
+  for (const bolt of state.bolts) {
+    bolt.x += bolt.dx * dt;
+    bolt.y += bolt.dy * dt;
+    bolt.z += bolt.dz * dt;
+    if (Math.hypot(bolt.x - player.x, bolt.y - (player.lift + 1), bolt.z - player.z) < BOLT_HIT) {
+      bolt.y = -1;
+      boltHurts(boltDamage);
+    } else if (bolt.y <= 0.2) {
+      bolt.y = -1;
+      state.events.push({ type: "blast", x: bolt.x, z: bolt.z });
+      if (Math.hypot(bolt.x - player.x, bolt.z - player.z) < BOLT_SPLASH && player.lift < STRIKE_HEIGHT) boltHurts(boltDamage * 0.6);
+    }
+  }
+  state.bolts = state.bolts.filter((bolt) => bolt.y >= 0);
 
   // Walk over a pickup to take it.
   state.pickups = state.pickups.filter((pickup) => {

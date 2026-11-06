@@ -9,6 +9,7 @@
 
 import type { CarbineForm } from "./arc-carbine";
 import { getPulseAudioOutput, getPulseNoise } from "./law-heart-audio";
+import { cry, distantCall, echoSpace, hollowMoan, type CryOutput } from "./ark-sim-cries";
 
 export type OpsSound =
   | "boot" | "boot-run" | "creep" | "soft" | "yard" | "skitter" | "drag"
@@ -46,8 +47,22 @@ export function createOpsAudio(): OpsAudio | null {
   const { context } = output;
   const bus = context.createGain();
   bus.gain.value = 0.95;
-  bus.connect(output.master);
+  // Cries are loud and stack up; this keeps a crowd of them from clipping.
+  const limiter = context.createDynamicsCompressor();
+  limiter.threshold.value = -14;
+  limiter.ratio.value = 8;
+  limiter.attack.value = 0.004;
+  limiter.release.value = 0.2;
+  bus.connect(limiter).connect(output.master);
   const noise = getPulseNoise(output);
+  // The station's corridors: shorter than the jungle's dark, and harder.
+  const echo = context.createConvolver();
+  echo.buffer = echoSpace(context, 2.4);
+  const echoLevel = context.createGain();
+  echoLevel.gain.value = 0.42;
+  echo.connect(echoLevel).connect(bus);
+  /** A creature's voice placed in the building, heard through its walls. */
+  const voiceAt = (place: Place, length: number): CryOutput => ({ context, dry: destination(place, context.currentTime, length), wet: echo, noise });
   const timers = new Set<number>();
   let disposed = false;
 
@@ -196,10 +211,7 @@ export function createOpsAudio(): OpsAudio | null {
       // A wet breath under the clicking.
       hiss(place, { filter: ["bandpass", 380, 2], peak: 0.05, attack: 0.25, decay: 0.45 });
     },
-    scream: (place) => {
-      voice(place, { type: "sawtooth", path: [[0, 520], [0.12, 1_350], [0.55, 700]], peak: 0.12, attack: 0.02, decay: 0.55, warble: [28, 80], filter: ["bandpass", 1_400, 3] });
-      hiss(place, { filter: ["bandpass", 2_200, 2], peak: 0.05, attack: 0.01, decay: 0.3 });
-    },
+    scream: (place) => cry(voiceAt(place, 3), "stalker", "hunt", 0, 1),
     scratch: (place) => {
       for (let pass = 0; pass < 3; pass += 1) hiss(place, { at: pass * 0.09, filter: ["highpass", 2_600, 1], peak: 0.1, attack: 0.005, decay: 0.06 });
       voice(place, { type: "triangle", path: [[0, 1_900], [0.4, 1_850]], peak: 0.03, attack: 0.003, decay: 0.4 });
@@ -209,7 +221,8 @@ export function createOpsAudio(): OpsAudio | null {
       voice(place, { type: "sine", at: 0.04, path: [[0, 90], [0.1, 50]], peak: 0.16, attack: 0.003, decay: 0.1 });
     },
     whisper: (place) => {
-      // Breath through changing mouth shapes, swelling and then cut off: speech run backwards.
+      // A groan that was a voice once, under breath through changing mouth shapes run backwards.
+      hollowMoan(voiceAt(place, 3.4), 0);
       let at = 0;
       for (let syllable = 0; syllable < 4; syllable += 1) {
         const length = 0.18 + Math.random() * 0.2;
@@ -247,6 +260,12 @@ export function createOpsAudio(): OpsAudio | null {
     }, delay);
     timers.add(id);
   };
+  // Somewhere below, something that is not in this building at all.
+  const farCall = () => {
+    distantCall({ context, dry: bus, wet: echo, noise }, (Math.random() * 2 - 1) * 0.7, 0.45 + Math.random() * 0.3);
+    later(farCall, 34_000 + Math.random() * 40_000);
+  };
+  later(farCall, 14_000 + Math.random() * 12_000);
   const drip = () => {
     const pitch = 1_500 + Math.random() * 900;
     voice(null, { type: "sine", path: [[0, pitch], [0.06, pitch * 0.55]], peak: 0.012, attack: 0.002, decay: 0.08 });

@@ -11,6 +11,7 @@
  */
 
 import * as THREE from "three";
+import { beastBuilder } from "./ark-sim-beasts";
 
 import { createOpsAudio, type OpsAudio, type OpsSound } from "./ark-ops-audio";
 import { roomAt, tileAt, wallsBetween } from "./ark-ops-map";
@@ -289,33 +290,17 @@ export function createOpsWorld(difficulty: SimDifficulty, { reducedMotion = fals
     figures.set(ref.id, figure);
     return figure;
   };
+  // The aliens here are the same creatures as the simulator's, smaller, to fit the station's corridors.
+  const makeBeast = beastBuilder(keep);
   const alienFigure = (ref: Ref) => {
+    const beast = makeBeast("stalker");
     const group = new THREE.Group();
-    const skin = lambert("#4a3a5a");
-    const dark = lambert("#2e2438");
-    const materials = [skin, dark];
-    box(group, 0.55, 0.45, 1.05, skin, 0, 0.6, 0);
-    box(group, 0.42, 0.38, 0.42, skin, 0, 0.72, 0.66).userData.head = true;
-    for (const x of [-0.11, 0.11]) inert(box(group, 0.09, 0.07, 0.04, glow("#ffe34a"), x, 0.78, 0.88));
-    const legs: THREE.Group[] = [];
-    for (const [x, z] of [[-0.3, 0.3], [0.3, 0.3], [-0.3, -0.35], [0.3, -0.35]]) {
-      const leg = new THREE.Group();
-      leg.position.set(x, 0.55, z);
-      box(leg, 0.12, 0.6, 0.12, dark, x > 0 ? 0.08 : -0.08, -0.28, 0);
-      group.add(leg);
-      legs.push(leg);
-    }
-    const arms: THREE.Group[] = [];
-    for (const x of [-0.24, 0.24]) {
-      const claw = new THREE.Group();
-      claw.position.set(x, 0.62, 0.62);
-      box(claw, 0.08, 0.08, 0.5, dark, 0, -0.05, 0.25);
-      group.add(claw);
-      arms.push(claw);
-    }
+    beast.group.scale.setScalar(0.62);
+    group.add(beast.group);
+    beast.head?.traverse((object) => { object.userData.head = true; });
     tagged(group, ref);
     scene.add(group);
-    const figure: Figure = { ref, kind: "alien", group, arms, legs, gun: null, muzzle: null, materials, flash: 0, phase: random() * 10, fallen: 0 };
+    const figure: Figure = { ref, kind: "alien", group, arms: beast.legs.slice(0, 2) as THREE.Group[], legs: beast.legs.slice(2) as THREE.Group[], gun: null, muzzle: null, materials: beast.skin, flash: 0, phase: random() * 10, fallen: 0 };
     figures.set(ref.id, figure);
     return figure;
   };
@@ -330,12 +315,36 @@ export function createOpsWorld(difficulty: SimDifficulty, { reducedMotion = fals
   for (const survivor of state.survivors) {
     person({ kind: "survivor", id: survivor.id }, "survivor", { skin: SKIN[survivor.id % SKIN.length], top: CLOTHES[survivor.id % CLOTHES.length], legs: "#3a3f4e" });
   }
-  // The Hollowed carry the Null on them: patches that flicker violet.
+  // The Hollowed were people, and it shows, which is the worst of it: the same shape pulled too
+  // long, arms to the knees, the face gone smooth, and the Null showing through the cracks.
   for (const agent of state.agents) {
     if (agent.kind !== "hollowed") continue;
     const figure = figures.get(agent.id)!;
-    const patch = glow("#9a6aff");
-    for (const [x, y, z] of [[0.12, 1.3, 0.16], [-0.18, 1.05, 0.16], [0.05, 1.75, 0.17]]) inert(box(figure.group, 0.12, 0.12, 0.02, patch, x, y, z));
+    const crack = glow("#9a6aff");
+    const hollow = glow("#050308");
+    for (const [x, y, z, w, h] of [[0.12, 1.3, 0.16, 0.05, 0.3], [-0.18, 1.05, 0.16, 0.16, 0.04], [0.02, 1.16, 0.16, 0.04, 0.22], [-0.1, 1.42, 0.16, 0.2, 0.03], [0.15, 1.78, 0.17, 0.03, 0.2]]) inert(box(figure.group, w, h, 0.02, crack, x, y, z));
+    for (const x of [-0.08, 0.08]) inert(box(figure.group, 0.09, 0.11, 0.02, hollow, x, 1.72, 0.17));
+    inert(box(figure.group, 0.05, 0.14, 0.02, hollow, 0, 1.58, 0.17));
+    figure.group.scale.set(0.92, 1.1, 0.92);
+    figure.arms.forEach((arm, index) => {
+      arm.scale.y = 1.55;
+      arm.rotation.z = index === 0 ? -0.06 : 0.06;
+      for (const finger of [-0.05, 0, 0.05]) inert(box(arm, 0.025, 0.2, 0.025, crack, finger, -0.76, 0));
+    });
+  }
+  // Wreckers wear what they have stripped: scrap plates, a welded collar, goggles lit from behind.
+  for (const agent of state.agents) {
+    if (agent.kind !== "wrecker") continue;
+    const figure = figures.get(agent.id)!;
+    const scrap = lambert("#5c4a3a");
+    const rust = lambert("#7a3e22");
+    const lens = glow("#ff3a2a");
+    figure.materials.push(scrap, rust);
+    for (const x of [-0.36, 0.36]) inert(box(figure.group, 0.3, 0.14, 0.36, scrap, x, 1.54, 0));
+    inert(box(figure.group, 0.58, 0.3, 0.05, rust, 0, 1.24, 0.17));
+    inert(box(figure.group, 0.42, 0.1, 0.42, scrap, 0, 1.52, 0));
+    for (const x of [-0.08, 0.08]) inert(box(figure.group, 0.09, 0.06, 0.03, lens, x, 1.71, 0.17));
+    inert(box(figure.group, 0.05, 0.42, 0.05, scrap, -0.16, 1.5, -0.2));
   }
   const pickups = new Map<number, THREE.Group>();
   for (const pickup of state.pickups) {
